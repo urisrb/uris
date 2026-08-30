@@ -22,10 +22,11 @@ default: &default
 # Postgres comes from compose.yml, so host and credentials are the same in
 # every checkout. DATABASE_URL overrides all of it when set.
 #
-# The queue is a second database in development too, not just production: a
-# job backend configured in one environment is a job backend whose failures
-# are only discovered there. Test declares it so the schema is exercised, then
-# runs jobs through the test adapter.
+# The queue, the cache and the cable are separate databases in development too,
+# not just production: a backend configured in one environment is a backend
+# whose failures are only discovered there. Test declares all three so their
+# schemas are exercised, then runs jobs through the test adapter and cable
+# through the test adapter.
 development:
   primary: &primary_development
     <<: *default
@@ -34,10 +35,18 @@ development:
     port: <%= ENV.fetch("POSTGRES_PORT", 5432) %>
     username: <%= ENV.fetch("POSTGRES_USER", "things") %>
     password: <%= ENV.fetch("POSTGRES_PASSWORD", "things") %>
+  cache:
+    <<: *primary_development
+    database: things_development_cache
+    migrations_paths: db/cache_migrate
   queue:
     <<: *primary_development
     database: things_development_queue
     migrations_paths: db/queue_migrate
+  cable:
+    <<: *primary_development
+    database: things_development_cable
+    migrations_paths: db/cable_migrate
 
 # Warning: The database defined as "test" will be erased and
 # re-generated from your development database when you run "rake".
@@ -46,10 +55,18 @@ test:
   primary:
     <<: *primary_development
     database: things_test
+  cache:
+    <<: *primary_development
+    database: things_test_cache
+    migrations_paths: db/cache_migrate
   queue:
     <<: *primary_development
     database: things_test_queue
     migrations_paths: db/queue_migrate
+  cable:
+    <<: *primary_development
+    database: things_test_cable
+    migrations_paths: db/cable_migrate
 
 # As with config/credentials.yml, you never want to store sensitive information,
 # like your database password, in your source code. If your source code is

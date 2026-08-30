@@ -150,7 +150,9 @@ jobs:
         env:
           RAILS_ENV: test
           DATABASE_URL: postgres://things:things@localhost:5432
+          CACHE_DATABASE_URL: postgres://things:things@localhost:5432/things_test_cache
           QUEUE_DATABASE_URL: postgres://things:things@localhost:5432/things_test_queue
+          CABLE_DATABASE_URL: postgres://things:things@localhost:5432/things_test_cable
           OPENSEARCH_URL: http://localhost:9201
           S3_ENDPOINT: http://localhost:9000
           S3_REGION: us-east-1
