@@ -10,24 +10,28 @@ cd "$(dirname "$0")/.."
 
 PATTERNS='geiger\.to|home-server|\bdroplet\b|\bmbp\b|100\.[0-9]+\.[0-9]+\.[0-9]+'
 
-EXCLUDES=(
-  --exclude='*.md'
-  --exclude='check-boundary'   # holds the forbidden strings by definition
-  --exclude-dir=.git
-  --exclude-dir=node_modules
-  --exclude-dir=tmp
-  --exclude-dir=vendor
-  --exclude-dir=plans
-)
+# Only files git would carry: tracked, plus untracked ones that are not
+# ignored. Anything .gitignore already excludes — vendored suites, build
+# output — is not this repo's content and must not fail its boundary.
+checked() {
+  git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' file; do
+    case "$file" in
+      *.md|bin/check-boundary) continue ;;
+      plans/*|node_modules/*|*/node_modules/*|tmp/*|*/tmp/*|vendor/*|*/vendor/*) continue ;;
+    esac
+
+    printf '%s\0' "$file"
+  done
+}
 
 fail() { echo "$1"; echo; echo "$2"; exit 1; }
 
-hits=$(grep -rInE "$PATTERNS" . "${EXCLUDES[@]}" 2>/dev/null)
+hits=$(checked | xargs -0 grep -InE "$PATTERNS" /dev/null 2>/dev/null)
 [ -n "$hits" ] && fail \
 "Boundary violation — this repo must not name hosts, domains, or secrets.
 Move these facts to home/inventory.yaml or home/group_vars/:" "$hits"
 
-refs=$(grep -rIn '\bhome/' . "${EXCLUDES[@]}" 2>/dev/null)
+refs=$(checked | xargs -0 grep -In '\bhome/' /dev/null 2>/dev/null)
 [ -n "$refs" ] && fail \
 "Boundary violation — a shareable repo must not reference home/.
 The dependency is one-directional: home consumes this, never the reverse." "$refs"
