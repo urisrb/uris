@@ -36,9 +36,9 @@ module SearchIndex
     end
 
     def create!
-      return if client.indices.exists(index: index_name)
-
       client.indices.create(index: index_name, body: { settings: SETTINGS, mappings: MAPPING })
+    rescue OpenSearch::Transport::Transport::Errors::BadRequest => e
+      raise unless e.message.include?("resource_already_exists_exception")
     end
 
     # The tenant filter lives on the alias, so it is applied by the engine and
@@ -101,7 +101,7 @@ module SearchIndex
     end
 
     def reset!
-      client.indices.delete(index: index_name) if client.indices.exists(index: index_name)
+      client.indices.delete(index: index_name, ignore: 404)
       create!
     end
   end
