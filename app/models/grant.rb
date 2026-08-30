@@ -1,7 +1,14 @@
 class Grant
   class Denied < StandardError; end
 
-  SCOPES = %w[things:read things:write resources:read resources:command].freeze
+  DESCRIBED = {
+    "things:read" => "Search your catalog and read what is in it",
+    "things:write" => "Add to your catalog, and run analysis over it",
+    "resources:read" => "List the places your things live",
+    "resources:command" => "Act on those places — sync, fetch, and export"
+  }.freeze
+
+  SCOPES = DESCRIBED.keys.freeze
 
   attr_reader :tenant, :claims
 

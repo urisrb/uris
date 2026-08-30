@@ -45,6 +45,8 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     assert_equal "#{origin_for(@tenant)}/mcp", metadata["resource"]
     assert_equal [ issuer.url_for(@tenant.subdomain) ], metadata["authorization_servers"]
     assert_equal ALL, metadata["scopes_supported"]
+    assert_equal Grant::DESCRIBED, metadata["scope_descriptions"],
+                 "an auth server has no other way to render these as sentences"
   end
 
   test "a token minted for one tenant is refused by another" do
