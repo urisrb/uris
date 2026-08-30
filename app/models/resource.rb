@@ -54,4 +54,14 @@ class Resource < ApplicationRecord
   def check!
     raise NotImplementedError, "#{self.class} does not implement #check!"
   end
+
+  def syncable?
+    respond_to?(:each_page)
+  end
+
+  def sync!
+    raise ArgumentError, "#{self.class.sti_name} is not syncable" unless syncable?
+
+    SyncResourceJob.perform_later(tenant_id, id)
+  end
 end

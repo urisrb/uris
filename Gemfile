@@ -24,6 +24,10 @@ gem "opensearch-ruby"
 # "upload" means write there and reference it — no special case.
 gem "aws-sdk-s3", require: false
 
+# Every operation over an unbounded number of things — sync, export, reindex,
+# rule backfills — checkpoints through this.
+gem "job-iteration"
+
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"
 
