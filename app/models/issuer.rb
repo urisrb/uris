@@ -60,23 +60,39 @@ class Issuer
 
     def keys
       ->(options) do
-        Rails.cache.delete(cache_key) if options[:invalidate]
-        Rails.cache.fetch(cache_key, expires_in: JWKS_TTL) { fetch_keys }
+        Rails.cache.delete(cache_key("jwks")) if options[:invalidate]
+
+        Rails.cache.fetch(cache_key("jwks"), expires_in: JWKS_TTL) { fetch(jwks_uri) }
       end
     end
 
-    def cache_key
-      "issuer/jwks/#{url}"
+    def jwks_uri
+      document = Rails.cache.fetch(cache_key("discovery"), expires_in: JWKS_TTL) do
+        fetch(URI.join("#{url}/", ".well-known/openid-configuration"))
+      end
+
+      unless document["issuer"] == url
+        raise Unconfigured, "the discovery document names #{document['issuer'].inspect}, not #{url}"
+      end
+
+      document["jwks_uri"].presence ||
+        raise(Unconfigured, "the issuer publishes no jwks_uri")
     end
 
-    def fetch_keys
-      response = Net::HTTP.get_response(URI.join("#{url}/", ".well-known/jwks.json"))
+    def cache_key(part)
+      "issuer/#{part}/#{url}"
+    end
+
+    def fetch(uri)
+      response = Net::HTTP.get_response(URI(uri))
 
       unless response.is_a?(Net::HTTPSuccess)
-        raise Unconfigured, "the issuer published no keys (HTTP #{response.code})"
+        raise Unconfigured, "#{uri} answered HTTP #{response.code}"
       end
 
       JSON.parse(response.body)
+    rescue JSON::ParserError
+      raise Unconfigured, "#{uri} did not answer JSON"
     rescue SystemCallError, SocketError, Net::OpenTimeout => e
       raise Unconfigured, "the issuer is unreachable (#{e.class})"
     end

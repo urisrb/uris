@@ -21,6 +21,8 @@ class Grant
     @subject = claims["sub"]
     @scopes = claims["scope"].to_s.split & SCOPES
     @expires_at = Time.zone.at(claims["exp"]) if claims["exp"]
+
+    verify_tenant!(claims["tenant"])
   end
 
   def permits?(scope)
@@ -36,4 +38,13 @@ class Grant
   def tools
     Tool.all.select { |tool| permits?(tool.scope) }
   end
+
+  private
+
+    def verify_tenant!(claimed)
+      subdomain = claimed.is_a?(Hash) ? claimed["subdomain"] : nil
+      return if subdomain.blank? || subdomain == tenant.subdomain
+
+      raise Denied, "this token was issued for #{subdomain}, not #{tenant.subdomain}"
+    end
 end
