@@ -32,6 +32,14 @@ class TenantIsolationTest < ActiveSupport::TestCase
     assert_equal [], Thing.unscoped.pluck(:id)
   end
 
+  test "a nested switch restores the outer tenant rather than clearing it" do
+    Tenant.switch(@jons) do
+      Tenant.switch(@acme) { assert_equal [ @acme_thing.id ], Thing.unscoped.pluck(:id) }
+
+      assert_equal [ @jons_thing.id ], Thing.unscoped.pluck(:id)
+    end
+  end
+
   test "resources are isolated the same way" do
     Tenant.switch(@jons) { Resource::S3.create!(key: "jons-bucket", details: { "endpoint" => "http://x" }) }
     Tenant.switch(@acme) { Resource::S3.create!(key: "acme-bucket", details: { "endpoint" => "http://x" }) }

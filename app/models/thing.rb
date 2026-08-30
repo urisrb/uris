@@ -21,6 +21,16 @@ class Thing < ApplicationRecord
     resource.download(locator)
   end
 
+  def body_text
+    strings = []
+    collect_strings(analysis["steps"]) { |s| strings << s }
+    strings.uniq.join("\n").presence
+  end
+
+  def analyze!
+    AnalyzeThingJob.perform_later(tenant_id, id)
+  end
+
   def export_path
     [ resource&.key, locator_key ].compact.join("/")
   end
@@ -40,5 +50,13 @@ class Thing < ApplicationRecord
 
     def remove_from_search
       SearchIndex.delete(self)
+    end
+
+    def collect_strings(value, &block)
+      case value
+      when String then yield value if value.length > 1
+      when Array then value.each { |v| collect_strings(v, &block) }
+      when Hash then value.each_value { |v| collect_strings(v, &block) }
+      end
     end
 end

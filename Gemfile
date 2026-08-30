@@ -27,6 +27,9 @@ gem "aws-sdk-s3", require: false
 # rule backfills — checkpoints through this.
 gem "job-iteration"
 
+# Out of stdlib as of Ruby 3.4
+gem "csv"
+
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"
 

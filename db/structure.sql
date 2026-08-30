@@ -119,7 +119,9 @@ CREATE TABLE public.things (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     resource_id bigint,
-    locator_key character varying
+    locator_key character varying,
+    analysis jsonb DEFAULT '{}'::jsonb NOT NULL,
+    analyzed_at timestamp(6) without time zone
 );
 
 ALTER TABLE ONLY public.things FORCE ROW LEVEL SECURITY;
@@ -248,6 +250,13 @@ CREATE INDEX index_things_on_tenant_id ON public.things USING btree (tenant_id);
 
 
 --
+-- Name: index_things_on_tenant_id_and_analyzed_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_things_on_tenant_id_and_analyzed_at ON public.things USING btree (tenant_id, analyzed_at);
+
+
+--
 -- Name: index_things_on_tenant_id_and_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -318,6 +327,7 @@ ALTER TABLE public.things ENABLE ROW LEVEL SECURITY;
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260829000005'),
 ('20260829000004'),
 ('20260829000003'),
 ('20260829000002'),

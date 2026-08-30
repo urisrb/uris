@@ -1,0 +1,148 @@
+require "test_helper"
+
+class AnalyzerTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
+  setup do
+    SearchIndex.reset!
+
+    @tenant = Tenant.create!(subdomain: "ana-#{SecureRandom.hex(4)}", name: "Analysis")
+    @bucket = "ana-#{SecureRandom.hex(6)}"
+
+    Tenant.switch(@tenant) do
+      @resource = Resource::S3.create!(
+        key: @bucket,
+        details: {
+          "endpoint" => ENV.fetch("S3_ENDPOINT", "http://127.0.0.1:9000"),
+          "region" => ENV.fetch("S3_REGION", "us-east-1")
+        },
+        credentials: {
+          "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "things"),
+          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "thingsthings")
+        }
+      )
+    end
+
+    @resource.client.create_bucket(bucket: @bucket)
+    upload "invoice.pdf"
+    upload "photo.png"
+    @resource.client.put_object(bucket: @bucket, key: "notes.txt", body: "remember the milk")
+    @resource.client.put_object(bucket: @bucket, key: "rows.csv", body: "name,amount\nash,10\nbea,20\n")
+
+    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+  end
+
+  teardown do
+    @resource.client.list_objects_v2(bucket: @bucket).contents.each do |object|
+      @resource.client.delete_object(bucket: @bucket, key: object.key)
+    end
+    @resource.client.delete_bucket(bucket: @bucket)
+  rescue Aws::S3::Errors::NoSuchBucket
+    nil
+  end
+
+  test "dispatch picks an analyzer by kind, first match wins" do
+    Tenant.switch(@tenant) do
+      assert_instance_of Analyzer::Pdf, Analyzer.for(thing("invoice.pdf"))
+      assert_instance_of Analyzer::Image, Analyzer.for(thing("photo.png"))
+      assert_instance_of Analyzer::Text, Analyzer.for(thing("notes.txt"))
+      assert_instance_of Analyzer::Data, Analyzer.for(thing("rows.csv"))
+    end
+  end
+
+  test "a pdf yields its text and page count" do
+    analyze "invoice.pdf"
+
+    Tenant.switch(@tenant) do
+      analysis = thing("invoice.pdf").reload.analysis
+
+      assert_includes analysis.dig("steps", "text", "result"), "Invoice for March"
+      assert_equal "1", analysis.dig("steps", "info", "result", "pages")
+    end
+  end
+
+  test "an image yields its dimensions" do
+    analyze "photo.png"
+
+    Tenant.switch(@tenant) do
+      dimensions = thing("photo.png").reload.analysis.dig("steps", "dimensions", "result")
+
+      assert_equal 120, dimensions["width"]
+      assert_equal 80, dimensions["height"]
+    end
+  end
+
+  test "a csv yields its columns and row count" do
+    analyze "rows.csv"
+
+    Tenant.switch(@tenant) do
+      shape = thing("rows.csv").reload.analysis.dig("steps", "shape", "result")
+
+      assert_equal %w[name amount], shape["columns"]
+      assert_equal 2, shape["rows"]
+    end
+  end
+
+  test "a completed step is not recomputed" do
+    analyze "notes.txt"
+
+    Tenant.switch(@tenant) do
+      subject = thing("notes.txt").reload
+      first_finished = subject.analysis.dig("steps", "text", "finished_at")
+
+      Analyzer.for(subject).run
+
+      assert_equal first_finished, subject.reload.analysis.dig("steps", "text", "finished_at")
+    end
+  end
+
+  test "force recomputes a step" do
+    analyze "notes.txt"
+
+    Tenant.switch(@tenant) do
+      subject = thing("notes.txt").reload
+      analyzer = Analyzer.for(subject)
+      before = subject.analysis.dig("steps", "text", "finished_at")
+
+      analyzer.step(:text, force: true) { "different" }
+
+      assert_not_equal before, subject.reload.analysis.dig("steps", "text", "finished_at")
+      assert_equal "different", subject.analysis.dig("steps", "text", "result")
+    end
+  end
+
+  test "extracted text becomes searchable" do
+    analyze "invoice.pdf"
+    SearchIndex.refresh!
+
+    Tenant.switch(@tenant) do
+      assert_equal [ "invoice.pdf" ], Thing.search("totalling").pluck(:title)
+    end
+  end
+
+  test "syncing enqueues analysis for each new thing" do
+    Tenant.switch(@tenant) { Thing.delete_all }
+
+    assert_enqueued_jobs 4, only: AnalyzeThingJob do
+      SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    end
+  end
+
+  private
+
+    def upload(name)
+      @resource.client.put_object(
+        bucket: @bucket, key: name,
+        body: File.binread(Rails.root.join("test/fixtures/files", name))
+      )
+    end
+
+    def thing(key)
+      Thing.find_by!(locator_key: key)
+    end
+
+    def analyze(key)
+      id = Tenant.switch(@tenant) { thing(key).id }
+      AnalyzeThingJob.perform_now(@tenant.id, id)
+    end
+end

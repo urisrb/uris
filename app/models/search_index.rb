@@ -16,6 +16,7 @@ module SearchIndex
       kind: { type: "keyword" },
       title: { type: "text", analyzer: "path" },
       locator_key: { type: "text", analyzer: "path" },
+      body: { type: "text" },
       resource_id: { type: "long" },
       created_at: { type: "date" }
     }
@@ -61,6 +62,7 @@ module SearchIndex
           kind: thing.kind,
           title: thing.title,
           locator_key: thing.locator_key,
+          body: thing.body_text,
           resource_id: thing.resource_id,
           created_at: thing.created_at
         }
@@ -77,7 +79,7 @@ module SearchIndex
       raise ArgumentError, "no tenant" if tenant.nil?
 
       must = if query.present?
-        [ { multi_match: { query: query, fields: %w[title locator_key], operator: "and" } } ]
+        [ { multi_match: { query: query, fields: %w[title^2 locator_key body], operator: "and" } } ]
       else
         [ { match_all: {} } ]
       end

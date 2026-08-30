@@ -16,32 +16,31 @@ class Tenant < ApplicationRecord
     def switch(tenant)
       raise ArgumentError, "no tenant" if tenant.nil?
 
-      previous = Current.tenant
+      previous_tenant = Current.tenant
 
       ActiveRecord::Base.transaction(requires_new: true) do
+        previous_setting = tenant_setting
         assign_tenant_setting(tenant.id)
         Current.tenant = tenant
 
         begin
           yield tenant
         ensure
-          Current.tenant = previous
-          clear_tenant_setting
+          Current.tenant = previous_tenant
+          assign_tenant_setting(previous_setting)
         end
       end
     end
 
     private
 
+      def tenant_setting
+        connection.select_value("SELECT current_setting('things.tenant_id', true)")
+      end
+
       def assign_tenant_setting(id)
         connection.exec_query(
           "SELECT set_config('things.tenant_id', $1, true)", "tenant", [ id.to_s ]
-        )
-      end
-
-      def clear_tenant_setting
-        connection.exec_query(
-          "SELECT set_config('things.tenant_id', '', true)", "tenant", []
         )
       rescue ActiveRecord::StatementInvalid
         nil

@@ -18,7 +18,7 @@ class SyncResourceJob < ApplicationJob
   def each_iteration(object, tenant_id, resource_id)
     resource = resource_for(tenant_id, resource_id)
 
-    Tenant.switch(resource.tenant) do
+    thing = Tenant.switch(resource.tenant) do
       Thing.upsert_reference!(
         resource: resource,
         locator: resource.locator_for(object),
@@ -27,6 +27,8 @@ class SyncResourceJob < ApplicationJob
         title: File.basename(resource.locator_key_for(object))
       )
     end
+
+    thing.analyze! if thing.analyzed_at.nil?
   end
 
   private
