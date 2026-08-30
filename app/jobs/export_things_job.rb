@@ -19,11 +19,16 @@ class ExportThingsJob < ApplicationJob
 
     Tenant.switch(tenant) do
       destination = Resource.find(destination_id)
-      thing = Thing.find(thing_id)
+      thing = Thing.find_by(id: thing_id)
 
-      next if thing.reference.nil? || thing.referenced_by?(destination)
+      next if thing.nil? || thing.reference.nil? || thing.referenced_by?(destination)
 
-      destination.upload(thing.export_path, thing.download)
+      path = thing.export_path
+      locator = destination.upload(path, thing.download)
+
+      ThingReference.record!(
+        thing: thing, resource: destination, locator: locator, locator_key: path
+      )
     end
   end
 

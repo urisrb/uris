@@ -23,6 +23,19 @@ class ThingReference < ApplicationRecord
     reference
   end
 
+  def self.record!(thing:, resource:, locator:, locator_key:)
+    reference = find_or_initialize_by(resource: resource, locator_key: locator_key)
+
+    if reference.persisted? && reference.thing_id != thing.id
+      reference.move_to!(thing)
+    else
+      reference.thing = thing
+    end
+
+    reference.update!(locator: locator)
+    reference
+  end
+
   def move_to!(destination)
     return self if destination.id == thing_id
 

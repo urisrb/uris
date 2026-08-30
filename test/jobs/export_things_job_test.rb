@@ -101,9 +101,56 @@ class ExportThingsJobTest < ActiveSupport::TestCase
     ].sort, exported_keys
   end
 
-  test "exporting moves bytes without cataloguing them" do
+  test "the copy is catalogued as another reference to the same thing" do
     assert_no_difference -> { Tenant.switch(@tenant) { Thing.count } } do
-      ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+      assert_difference -> { Tenant.switch(@tenant) { ThingReference.count } }, 2 do
+        ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+      end
+    end
+
+    Tenant.switch(@tenant) do
+      thing = thing_at(@source, "invoices/march.pdf")
+      copy = thing.references.find_by(resource_id: @destination.id)
+
+      assert_equal "#{@source_bucket}/invoices/march.pdf", copy.locator_key
+      assert_equal "contents of invoices/march.pdf", copy.download.read
+    end
+  end
+
+  test "a thing already exported is not exported again" do
+    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    put @destination, "#{@source_bucket}/invoices/march.pdf", body: "written by someone else"
+    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+
+    body = @destination.client.get_object(
+      bucket: @destination_bucket, key: "#{@source_bucket}/invoices/march.pdf"
+    ).body.read
+
+    assert_equal "written by someone else", body
+  end
+
+  test "syncing the destination afterwards discovers nothing new" do
+    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+
+    assert_no_difference [ -> { Tenant.switch(@tenant) { Thing.count } },
+                           -> { Tenant.switch(@tenant) { ThingReference.count } } ] do
+      SyncResourceJob.perform_now(@tenant.id, @destination.id)
+    end
+  end
+
+  test "a copy landing where another thing already lives takes that reference over" do
+    put @destination, "#{@source_bucket}/invoices/march.pdf"
+    SyncResourceJob.perform_now(@tenant.id, @destination.id)
+
+    squatter = Tenant.switch(@tenant) { thing_at(@destination, "#{@source_bucket}/invoices/march.pdf") }
+
+    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+
+    Tenant.switch(@tenant) do
+      assert_nil Thing.find_by(id: squatter.id)
+      assert_equal thing_at(@source, "invoices/march.pdf").id,
+                   ThingReference.find_by(resource_id: @destination.id,
+                                          locator_key: "#{@source_bucket}/invoices/march.pdf").thing_id
     end
   end
 
@@ -124,8 +171,8 @@ class ExportThingsJobTest < ActiveSupport::TestCase
       )
     end
 
-    def put(resource, key)
-      resource.client.put_object(bucket: resource.bucket, key: key, body: "contents of #{key}")
+    def put(resource, key, body: nil)
+      resource.client.put_object(bucket: resource.bucket, key: key, body: body || "contents of #{key}")
     end
 
     def thing_at(resource, locator_key)
