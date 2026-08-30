@@ -512,6 +512,25 @@ written after that gem existed.
 - [ ] **Signing out of masks, not just of `things`** — `masks_forget` drops the local session and
       leaves the issuer's, so signing in again is silent. Correct for a shared browser only if the
       person expects it, and RP-initiated logout is unbuilt on both sides.
+- [ ] **The web app has no client registered with masks** — `MASKS_CLIENT_ID` is unset and nothing
+      creates one. The MCP connector registers itself through DCR; the web app cannot, and should
+      not: a first-party app self-registering anonymously is how a stranger's connector also
+      arrives. It wants a **configured** client, which masks does not yet have a way to create —
+      filed there, not here.
+      The happy consequence, once it does: `client_id` is unique per `tenant_id` in masks, so the
+      same `client_id` *string* resolves to a different client in every tenant. This app needs no
+      per-tenant client columns and no registration flow — two env vars, and the issuer template it
+      already resolves per request.
+- [ ] **A signed-in actor still has no `things:*` scopes** — masks narrows a token to the scopes the
+      actor holds, and a fresh actor holds only the four masks defines. So the first real sign-in
+      will **succeed** and then every field will refuse with `this token does not carry things:read`.
+      Nothing here is wrong; the grant has to be made on the masks side, and masks has no interface
+      for it yet. Worth knowing before anyone reads the refusal as a bug in this app.
+- [ ] **The session is a cookie, at 2476 bytes of 4096** — measured after the id token was dropped.
+      It fits, and it is 60% spent, and a cookie session cannot be revoked while it holds a refresh
+      token. `solid_cache` is already installed, so `config.session_store :cache_store` is one line
+      and removes both. Not done because nothing has been deployed yet and the ceiling is not
+      currently being hit.
 - [ ] **The resource identifier is `…/mcp` for both surfaces** — `/graphql` accepts tokens whose
       `aud` names the MCP endpoint, because that is the URL already registered and verified. One
       resource for one app is right; the name is now wrong for half of what it covers.
