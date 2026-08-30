@@ -51,8 +51,17 @@ class ScheduleSyncsJobTest < ActiveSupport::TestCase
   test "the scheduler enqueues a sync for every due resource" do
     Tenant.switch(@tenant) { @storage.update!(sync_interval: 5.minutes.to_i) }
 
-    assert_enqueued_with(job: SyncResourceJob, args: [ @tenant.id, @storage.id ]) do
+    assert_enqueued_with(job: SyncResourceJob,
+                         args: ->(args) { args.first(2) == [ @tenant.id, @storage.id ] }) do
       ScheduleSyncsJob.perform_now
+    end
+
+    Tenant.switch(@tenant) do
+      run = Run.newest_first.first
+
+      assert_equal "sync", run.kind
+      assert_equal "queued", run.status
+      assert_equal @storage, run.resource
     end
   end
 

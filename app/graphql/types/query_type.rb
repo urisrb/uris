@@ -50,5 +50,17 @@ module Types
     def resources
       Resource.active.order(:type, :key)
     end
+
+    field :runs, [ Types::RunType ], null: false do
+      argument :kind, String, required: false
+      argument :status, String, required: false
+    end
+
+    def runs(kind: nil, status: nil)
+      scope = Run.newest_first
+      scope = scope.where(kind: kind) if kind
+      scope = scope.where(status: status) if status
+      scope.limit(100)
+    end
   end
 end

@@ -85,7 +85,9 @@ class Thing < ApplicationRecord
   end
 
   def analyze!
-    AnalyzeThingsJob.perform_later(tenant_id, { "id" => id })
+    Run.start!(kind: "analyze", selector: { "id" => id }).tap do |run|
+      AnalyzeThingsJob.perform_later(tenant_id, { "id" => id }, run.id)
+    end
   end
 
   def announce_change!

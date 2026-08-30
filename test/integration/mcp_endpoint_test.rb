@@ -109,10 +109,31 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
   end
 
   test "sync queues a run against the named resource" do
-    assert_enqueued_with(job: SyncResourceJob, args: [ @tenant.id, @resource.id ]) do
+    result = nil
+
+    assert_enqueued_with(job: SyncResourceJob,
+                         args: ->(args) { args.first(2) == [ @tenant.id, @resource.id ] }) do
       result = tool(@tenant, ALL, "sync_resource", id: @resource.id.to_s)
 
       assert result["queued"]
+    end
+
+    Tenant.switch(@tenant) do
+      run = Run.find(result["run_id"])
+
+      assert_equal "sync", run.kind
+      assert_equal @resource, run.resource
+    end
+  end
+
+  test "a second sync of a resource already syncing is refused, with no second run" do
+    tool(@tenant, ALL, "sync_resource", id: @resource.id.to_s)
+
+    assert_no_difference -> { Tenant.switch(@tenant) { Run.count } } do
+      again = tool(@tenant, ALL, "sync_resource", id: @resource.id.to_s)
+
+      assert_not again["queued"]
+      assert_nil again["run_id"]
     end
   end
 
@@ -133,6 +154,43 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     assert_not_nil listed["check_error"]
   end
 
+  test "a run started through a tool is visible and cancellable through one" do
+    started = tool(@tenant, ALL, "sync_resource", id: @resource.id.to_s)
+
+    listed = tool(@tenant, ALL, "list_runs")["runs"]
+
+    assert_equal [ started["run_id"] ], listed.map { |run| run["id"] }
+    assert_equal "queued", listed.first["status"]
+
+    cancelled = tool(@tenant, ALL, "cancel_run", id: started["run_id"])
+
+    assert cancelled["cancelled"]
+    assert_equal "cancelled", cancelled["status"]
+    assert_equal "cancelled", tool(@tenant, ALL, "list_runs")["runs"].first["status"]
+  end
+
+  test "cancelling a run twice says so rather than pretending" do
+    started = tool(@tenant, ALL, "sync_resource", id: @resource.id.to_s)
+    tool(@tenant, ALL, "cancel_run", id: started["run_id"])
+
+    again = tool(@tenant, ALL, "cancel_run", id: started["run_id"])
+
+    assert_not again["cancelled"]
+    assert_equal "cancelled", again["status"]
+  end
+
+  test "one tenant cannot see or cancel another tenant's run" do
+    started = tool(@tenant, ALL, "sync_resource", id: @resource.id.to_s)
+
+    assert_empty tool(@other, ALL, "list_runs")["runs"]
+
+    reply = call(@other, ALL, "tools/call", name: "cancel_run",
+                 arguments: { id: started["run_id"] })
+
+    assert reply.dig("result", "isError")
+    assert_match(/no run with id/, reply.dig("result", "content", 0, "text"))
+  end
+
   test "export refuses a destination that is not storage" do
     reply = call(@tenant, ALL, "tools/call", name: "export_things",
                  arguments: { destination_id: "0" })
@@ -145,7 +203,8 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
       Resource::Database.create!(key: "database", name: "Storage").make_default_storage!
     end
 
-    assert_enqueued_with(job: ExportThingsJob, args: [ @tenant.id, storage.id, {} ]) do
+    assert_enqueued_with(job: ExportThingsJob,
+                         args: ->(args) { args.first(3) == [ @tenant.id, storage.id, {} ] }) do
       assert tool(@tenant, ALL, "export_things")["queued"]
     end
   end

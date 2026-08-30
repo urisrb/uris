@@ -1,11 +1,18 @@
 class ExportThingsJob < ApplicationJob
   include JobIteration::Iteration
+  include TrackedRun
 
   queue_as :export
 
-  retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5
+  retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5 do |job, error|
+    job.fail_run(error)
+  end
 
-  def build_enumerator(tenant_id, destination_id, selector, cursor:)
+  def run_id
+    arguments[3]
+  end
+
+  def build_enumerator(tenant_id, destination_id, selector, _run_id = nil, cursor:)
     ids = Tenant.switch(Tenant.find(tenant_id)) do
       Resource.find(destination_id).storage!
       select(selector).pluck(:id)
@@ -14,7 +21,7 @@ class ExportThingsJob < ApplicationJob
     enumerator_builder.build_array_enumerator(ids, cursor: cursor)
   end
 
-  def each_iteration(thing_id, tenant_id, destination_id, _selector)
+  def each_iteration(thing_id, tenant_id, destination_id, _selector, _run_id = nil)
     tenant = Tenant.find(tenant_id)
 
     Tenant.switch(tenant) do
@@ -30,6 +37,8 @@ class ExportThingsJob < ApplicationJob
         thing: thing, resource: destination, locator: locator, locator_key: path
       )
     end
+
+    track_iteration
   end
 
   private

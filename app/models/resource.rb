@@ -133,8 +133,9 @@ class Resource < ApplicationRecord
     raise ArgumentError, "#{self.class.sti_name} is not syncable" unless syncable?
     return false unless claim_sync!
 
-    SyncResourceJob.perform_later(tenant_id, id)
-    true
+    Run.start!(kind: "sync", resource: self).tap do |run|
+      SyncResourceJob.perform_later(tenant_id, id, run.id)
+    end
   end
 
   def claim_sync!

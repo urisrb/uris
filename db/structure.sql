@@ -110,6 +110,48 @@ ALTER SEQUENCE public.resources_id_seq OWNED BY public.resources.id;
 
 
 --
+-- Name: runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.runs (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    resource_id bigint,
+    kind character varying NOT NULL,
+    status character varying DEFAULT 'queued'::character varying NOT NULL,
+    selector jsonb DEFAULT '{}'::jsonb NOT NULL,
+    processed integer DEFAULT 0 NOT NULL,
+    started_at timestamp(6) without time zone,
+    finished_at timestamp(6) without time zone,
+    deadline timestamp(6) without time zone,
+    error character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.runs FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: runs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.runs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: runs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.runs_id_seq OWNED BY public.runs.id;
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -239,6 +281,13 @@ ALTER TABLE ONLY public.resources ALTER COLUMN id SET DEFAULT nextval('public.re
 
 
 --
+-- Name: runs id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runs ALTER COLUMN id SET DEFAULT nextval('public.runs_id_seq'::regclass);
+
+
+--
 -- Name: tenants id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -281,6 +330,14 @@ ALTER TABLE ONLY public.resource_blobs
 
 ALTER TABLE ONLY public.resources
     ADD CONSTRAINT resources_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: runs runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runs
+    ADD CONSTRAINT runs_pkey PRIMARY KEY (id);
 
 
 --
@@ -365,6 +422,34 @@ CREATE UNIQUE INDEX index_resources_on_tenant_id_and_type_and_key ON public.reso
 
 
 --
+-- Name: index_runs_on_resource_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_runs_on_resource_id ON public.runs USING btree (resource_id);
+
+
+--
+-- Name: index_runs_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_runs_on_tenant_id ON public.runs USING btree (tenant_id);
+
+
+--
+-- Name: index_runs_on_tenant_id_and_kind_and_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_runs_on_tenant_id_and_kind_and_id ON public.runs USING btree (tenant_id, kind, id);
+
+
+--
+-- Name: index_runs_on_tenant_id_and_status_and_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_runs_on_tenant_id_and_status_and_id ON public.runs USING btree (tenant_id, status, id);
+
+
+--
 -- Name: index_tenants_on_subdomain; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -436,6 +521,14 @@ ALTER TABLE ONLY public.resource_blobs
 
 
 --
+-- Name: runs fk_rails_0b416d37a1; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runs
+    ADD CONSTRAINT fk_rails_0b416d37a1 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: thing_references fk_rails_3ba42c6c80; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -468,6 +561,14 @@ ALTER TABLE ONLY public.resource_blobs
 
 
 --
+-- Name: runs fk_rails_d4068a5e91; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runs
+    ADD CONSTRAINT fk_rails_d4068a5e91 FOREIGN KEY (resource_id) REFERENCES public.resources(id);
+
+
+--
 -- Name: resources fk_rails_dc32a866bd; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -496,6 +597,12 @@ ALTER TABLE public.resource_blobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.resources ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: runs; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.runs ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: resource_blobs tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -507,6 +614,13 @@ CREATE POLICY tenant_isolation ON public.resource_blobs USING ((tenant_id = (NUL
 --
 
 CREATE POLICY tenant_isolation ON public.resources USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
+-- Name: runs tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.runs USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
@@ -542,6 +656,7 @@ ALTER TABLE public.things ENABLE ROW LEVEL SECURITY;
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260830000006'),
 ('20260830000005'),
 ('20260830000004'),
 ('20260830000003'),

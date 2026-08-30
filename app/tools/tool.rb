@@ -9,7 +9,9 @@ module Tool
       Tool::CheckResource,
       Tool::CommandResource,
       Tool::SyncResource,
-      Tool::ExportThings
+      Tool::ExportThings,
+      Tool::ListRuns,
+      Tool::CancelRun
     ]
   end
 end

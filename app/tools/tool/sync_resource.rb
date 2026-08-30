@@ -18,12 +18,13 @@ module Tool
     def self.call(id:, server_context:)
       respond(server_context) do
         resource = resource!(id)
-        queued = resource.sync!
+        run = resource.sync!
 
         {
           id: resource.id.to_s,
           key: resource.key,
-          queued: queued,
+          queued: run ? true : false,
+          run_id: run ? run.id.to_s : nil,
           syncing_since: resource.sync_started_at
         }
       end

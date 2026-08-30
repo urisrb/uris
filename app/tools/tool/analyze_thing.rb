@@ -17,9 +17,14 @@ module Tool
     def self.call(id:, server_context:)
       respond(server_context) do
         thing = thing!(id)
-        thing.analyze!
+        run = thing.analyze!
 
-        { id: thing.id.to_s, queued: thing.references.size, analyzed_at: thing.analyzed_at }
+        {
+          id: thing.id.to_s,
+          run_id: run.id.to_s,
+          queued: thing.references.size,
+          analyzed_at: thing.analyzed_at
+        }
       end
     end
   end

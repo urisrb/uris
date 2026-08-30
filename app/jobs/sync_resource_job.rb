@@ -1,13 +1,20 @@
 class SyncResourceJob < ApplicationJob
   include JobIteration::Iteration
+  include TrackedRun
 
   queue_as :sync
 
-  retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5
+  retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5 do |job, error|
+    job.fail_run(error)
+  end
 
   on_complete :release_sync
 
-  def build_enumerator(tenant_id, resource_id, cursor:)
+  def run_id
+    arguments[2]
+  end
+
+  def build_enumerator(tenant_id, resource_id, _run_id = nil, cursor:)
     resource = resource_for(tenant_id, resource_id)
 
     objects = Enumerator.new do |yielder|
@@ -19,7 +26,7 @@ class SyncResourceJob < ApplicationJob
     enumerator_builder.wrap(enumerator_builder, objects)
   end
 
-  def each_iteration(object, tenant_id, resource_id)
+  def each_iteration(object, tenant_id, resource_id, _run_id = nil)
     resource = resource_for(tenant_id, resource_id)
     locator_key = resource.locator_key_for(object)
 
@@ -34,6 +41,8 @@ class SyncResourceJob < ApplicationJob
     end
 
     AnalyzeThingJob.perform_later(tenant_id, reference.thing_id) if reference.analyzed_at.nil?
+
+    track_iteration
   end
 
   private

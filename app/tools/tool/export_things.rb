@@ -32,9 +32,10 @@ module Tool
         end
 
         selector = selector_from(query: query, kind: kind, resource_id: resource_id)
-        ExportThingsJob.perform_later(destination.tenant_id, destination.id, selector)
+        run = Run.start!(kind: "export", resource: destination, selector: selector)
+        ExportThingsJob.perform_later(destination.tenant_id, destination.id, selector, run.id)
 
-        { destination: destination.key, selector: selector, queued: true }
+        { run_id: run.id.to_s, destination: destination.key, selector: selector, queued: true }
       end
     end
   end

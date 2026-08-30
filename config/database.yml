@@ -98,6 +98,8 @@ production:
   primary: &primary_production
     <<: *default
     database: things_production
+    host: <%= ENV.fetch("POSTGRES_HOST", "localhost") %>
+    port: <%= ENV.fetch("POSTGRES_PORT", 5432) %>
     username: things
     password: <%= ENV["THINGS_DATABASE_PASSWORD"] %>
   cache:
