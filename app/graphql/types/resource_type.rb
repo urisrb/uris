@@ -8,6 +8,10 @@ module Types
     field :name, String
     field :capabilities, [ String ], null: false
     field :things_count, Integer, null: false
+    field :sync_interval, Integer
+    field :next_sync_at, GraphQL::Types::ISO8601DateTime
+    field :synced_at, GraphQL::Types::ISO8601DateTime
+    field :syncing, Boolean, null: false, method: :syncing?
 
     def capabilities
       object.capabilities.map(&:to_s)

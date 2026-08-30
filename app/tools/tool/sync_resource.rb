@@ -6,7 +6,8 @@ module Tool
     description <<~TEXT
       Pull a resource's contents into the catalog as references, and queue each new one
       for analysis. Resumable: a sync interrupted by a deploy carries on from its cursor
-      rather than starting over, so running it again is safe.
+      rather than starting over, so running it again is safe. A resource already syncing
+      is left alone rather than started twice.
     TEXT
 
     input_schema(
@@ -17,9 +18,14 @@ module Tool
     def self.call(id:, server_context:)
       respond(server_context) do
         resource = resource!(id)
-        resource.sync!
+        queued = resource.sync!
 
-        { id: resource.id.to_s, key: resource.key, queued: true }
+        {
+          id: resource.id.to_s,
+          key: resource.key,
+          queued: queued,
+          syncing_since: resource.sync_started_at
+        }
       end
     end
   end

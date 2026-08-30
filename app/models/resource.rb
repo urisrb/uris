@@ -8,10 +8,24 @@ class Resource < ApplicationRecord
 
   has_many :things, dependent: :nullify
 
+  MINIMUM_SYNC_INTERVAL = 1.minute
+  SYNC_ABANDONED_AFTER = 6.hours
+
   validates :key, presence: true,
                   uniqueness: { scope: [ :tenant_id, :type ], case_sensitive: true }
+  validates :sync_interval, numericality: {
+    greater_than_or_equal_to: MINIMUM_SYNC_INTERVAL.to_i
+  }, allow_nil: true
+  validate :only_a_syncable_resource_keeps_a_schedule
+
+  before_save :start_the_schedule, if: :sync_interval_changed?
 
   scope :active, -> { where(archived_at: nil) }
+  scope :scheduled, -> { active.where.not(sync_interval: nil) }
+  scope :not_syncing, -> {
+    where(sync_started_at: nil).or(where(sync_started_at: ...SYNC_ABANDONED_AFTER.ago))
+  }
+  scope :due_for_sync, -> { scheduled.not_syncing.where(next_sync_at: ..Time.current) }
 
   class << self
     def sti_name
@@ -78,9 +92,52 @@ class Resource < ApplicationRecord
     respond_to?(:each_page)
   end
 
+  def syncing?
+    sync_started_at.present? && sync_started_at > SYNC_ABANDONED_AFTER.ago
+  end
+
   def sync!
     raise ArgumentError, "#{self.class.sti_name} is not syncable" unless syncable?
+    return false unless claim_sync!
 
     SyncResourceJob.perform_later(tenant_id, id)
+    true
   end
+
+  def claim_sync!
+    claimed = Resource.where(id: id).not_syncing.update_all(sync_started_at: Time.current)
+    return false if claimed.zero?
+
+    reload
+    true
+  end
+
+  def release_sync!
+    finished = Time.current
+
+    update_columns(
+      sync_started_at: nil,
+      synced_at: finished,
+      next_sync_at: sync_interval.present? ? next_sync_after(finished) : nil
+    )
+  end
+
+  private
+
+    def next_sync_after(finished)
+      anchor = next_sync_at || finished
+      elapsed = ((finished - anchor) / sync_interval).floor + 1
+
+      anchor + (elapsed * sync_interval)
+    end
+
+    def start_the_schedule
+      self.next_sync_at = sync_interval.present? ? (next_sync_at || Time.current) : nil
+    end
+
+    def only_a_syncable_resource_keeps_a_schedule
+      return if sync_interval.nil? || syncable?
+
+      errors.add(:sync_interval, "cannot be set on #{self.class.sti_name}, which cannot sync")
+    end
 end

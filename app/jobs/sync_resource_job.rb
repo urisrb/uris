@@ -5,6 +5,8 @@ class SyncResourceJob < ApplicationJob
 
   retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5
 
+  on_complete :release_sync
+
   def build_enumerator(tenant_id, resource_id, cursor:)
     resource = resource_for(tenant_id, resource_id)
 
@@ -35,6 +37,12 @@ class SyncResourceJob < ApplicationJob
   end
 
   private
+
+    def release_sync
+      return if @resource.nil?
+
+      Tenant.switch(@resource.tenant) { @resource.release_sync! }
+    end
 
     def resource_for(tenant_id, resource_id)
       @resource ||= begin
