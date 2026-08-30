@@ -2,7 +2,8 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**103 items — 57 done · 6 partial · 34 to build · 6 deferred**, read at `c13c78a`.
+**105 items — 60 done · 6 partial · 33 to build · 6 deferred**, read at `950d2ea`, plus the
+scheduled sync and export cataloguing in the working tree.
 
 |         |              |                                                        |
 | ------- | ------------ | ------------------------------------------------------ |
@@ -77,8 +78,17 @@ announces itself.
 - [x] **The enumerator is a type concern** — `each_page` owns S3 continuation tokens; other types
       bring their own cursor.
 - [x] **Discovery is idempotent** — `ThingReference.discover!` keys on `(resource, locator_key)`.
-- [ ] **Scheduled sync** — interval, `next_sync_at`, `sync_started_at` as a lock. Today it runs only
-      when asked.
+- [x] **Scheduled sync** — `sync_interval` on the resource, `next_sync_at` as the due time,
+      `sync_started_at` as the lock. A recurring `ScheduleSyncsJob` walks every tenant once a minute
+      and claims each due resource with a conditional `UPDATE`, so two schedulers cannot start the
+      same sync twice. The lock is released `on_complete`, which an interruption does not reach — a
+      resumed sync is still holding its own lock — and a worker killed mid-sync leaves it held until
+      `SYNC_ABANDONED_AFTER`, six hours, because nothing reports progress to time it any tighter.
+      Exercised by running the Solid Queue supervisor: four consecutive minutes, one sync each, the
+      lock taken and released every time. The first run of it was wrong — `next_sync_at` advanced
+      from the _finish_, so each cycle drifted past the next tick and a one-minute interval ran every
+      two. It advances on the interval's grid now, and catches up rather than replaying every run it
+      missed.
 - [ ] **Backfill vs forward-only**, partitioned on a watermark captured when the rule is enabled.
 - [ ] **Dry-run count before enabling** — and not via `count(*)`.
 
@@ -114,14 +124,25 @@ announces itself.
 
 ## export — catalog → resource
 
-- [x] **A resumable job-iteration run**
+- [x] **A resumable job-iteration run** — the enumerator plucks ids up front, so a thing can be
+      merged away before the cursor reaches it. The iteration skips what is no longer there rather
+      than failing the whole run; cataloguing the copies made that happen on the first try.
 - [x] **Selector-driven** — every argument left off widens it.
 - [x] **The destination must hold the storage capability**, and a thing never exports into a
       resource it is already referenced on. Enforced in the job rather than only in the tool, so the
       invariant does not depend on which caller reached it, and both halves are exercised — each was
       confirmed to fail when its guard is removed.
-- [ ] **Export records the reference it creates** — export still moves bytes and catalogues nothing,
-      so a backup leaves the catalog not knowing about the copy. The model can express it now.
+- [x] **Export records the reference it creates** — the copy is a second reference to the same thing,
+      keyed on the destination's own locator, so syncing that destination afterwards discovers
+      nothing: the catalog does not fork a thing into a thing and a copy of it. Two consequences
+      worth naming. Export is now write-once — the guard that skipped a thing already referenced on
+      the destination now skips one exported last night, which is what makes a nightly backup cheap.
+      And a copy landing where a different thing already lives takes that reference over, because
+      after the write the bytes there are this thing's. Exercised against MinIO, the
+      sync-afterwards case included.
+- [ ] **Re-exporting a source that changed** — write-once has no way to know the bytes moved.
+      Nothing marks a reference stale when a sync sees a new etag, so a backup of an edited file
+      stays the old one. It needs a dirty signal, not a second export mode.
 - [ ] **Export format** — a directory tree keyed by resource and locator today; zip and
       manifest-plus-blobs are still open.
 - [ ] **"Upload" as write-to-default-storage-then-reference**
@@ -146,7 +167,10 @@ announces itself.
       one forced command. Never a stored key.
 - [ ] **Attach class `node`** — for CGNAT, roaming laptops, and other people's hardware.
 - [ ] **Enrollment returning a short-lived signed URL** — the browser captures the secret. Until it
-      exists, resources come from `db/seeds.rb`.
+      exists, resources come from `db/seeds.rb`. Three unbuilt things, not one: the signed URL, a
+      mutation to submit a credential to, and session auth to keep that form from being open to
+      anyone. And it cannot be routed around with a tool, because secrets never travelling through
+      a tool call is the constraint the signed URL exists to satisfy.
 - [ ] ◐ **`check!`** — implemented on both types and called by nothing but a test. A resource has no
       way to be asked whether it still works, which is the first thing enrollment needs.
 - [ ] **A default storage resource per tenant** — `database` is seeded for both, but nothing marks
@@ -170,6 +194,12 @@ announces itself.
       handshake for a client handed nothing but a URL.
 - [x] **Verified against a real auth server** — registration, sign-in, consent, PKCE, a `resource`
       indicator, then the token presented here.
+- [x] **All four movements driven as one loop through the endpoint** — `command_resource put`, then
+      `sync_resource`, then `search_things` returning it with `analyzed_at` set, then
+      `export_things` writing it back out. Analysis having run is the part worth noting: it means
+      the queue picked the job up, so resumability is executing rather than configured. The export
+      skipped the one thing already referenced on the destination — six of seven written — which is
+      that guard refusing a round trip on live data rather than on a fixture.
 - [x] **A development issuer so the endpoint runs without one** — refused outside development and
       test, because a signing secret in production would make this app the issuer of its own
       credentials.
@@ -246,8 +276,9 @@ Deliberately small: only what a chat transcript must not do.
 
 ## Deliberately deferred
 
-- [ ] ⊘ **Broader test coverage** — 78 tests cover tenancy, the model and merges, both bulk jobs,
-      analysis, search, resources, grants, the failure policy and the endpoint. Note the difference
+- [ ] ⊘ **Broader test coverage** — 93 tests cover tenancy, the model and merges, both bulk jobs,
+      the sync schedule, analysis, search, resources, grants, the failure policy and the endpoint.
+      Note the difference
       between this being deferred and CI being unable to run what exists, which is not deferred.
 - [ ] ⊘ **Table partitioning** — one table, indexed, cursor pagination, OpenSearch as the query path.
 - [ ] ⊘ **Resource types as extensible data** — a closed registry in code for v1.
