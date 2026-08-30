@@ -122,6 +122,35 @@ curl -sS -X POST http://jons.things.test:4242/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
+## Jobs, and what happens when one fails
+
+Solid Queue, in a second database, in development as well as production — a queue that only exists
+in one environment is a queue whose failures are only discovered there. `bin/jobs` runs it and
+`bin/dev` keeps it up; `/jobs` is Mission Control.
+
+Two worker pools, because the work is two different shapes:
+
+| Pool     | Queues                      | Why                                                 |
+| -------- | --------------------------- | --------------------------------------------------- |
+| bulk     | `sync`, `export`, `default` | iterators that enqueue rather than compute          |
+| analysis | `analysis`                  | expensive, and serial on one GPU once models arrive |
+
+Splitting them is what stops a hundred-thousand-object sync from occupying the workers analysis
+needs. Within analysis, `limits_concurrency` caps each tenant, so one tenant with a large catalog
+cannot starve another — the fairness problem a single shared pool cannot express.
+
+**A durable queue makes failure a persistent object, so failure needs a policy.** The two kinds are
+different and the error class is what distinguishes them:
+
+|                    |                                   |                                                                   |
+| ------------------ | --------------------------------- | ----------------------------------------------------------------- |
+| `Analyzer::Failed` | a file that cannot be read        | **discarded** — retrying a malformed PDF produces a malformed PDF |
+| `Resource::Failed` | a resource that cannot be reached | **retried** with backoff — the bytes are probably still there     |
+
+The analysis of a thing is recorded on that thing either way: the step machine stores the error
+under `analysis.steps`, so a failure is data you can search and re-run, not a row in a dead-letter
+queue. Adapters translate their own vendor errors, so nothing above `Resource` names an SDK.
+
 ## The boundary rule
 
 **Nothing in this repo may name a host, a domain, or a secret.** Those are facts about a deployment,

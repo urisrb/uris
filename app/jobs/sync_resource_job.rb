@@ -3,6 +3,8 @@ class SyncResourceJob < ApplicationJob
 
   queue_as :sync
 
+  retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5
+
   def build_enumerator(tenant_id, resource_id, cursor:)
     resource = resource_for(tenant_id, resource_id)
 

@@ -1,4 +1,6 @@
 module Analyzer
+  class Failed < StandardError; end
+
   def self.all
     [ Analyzer::Pdf, Analyzer::Image, Analyzer::Data, Analyzer::Text, Analyzer::Fallback ]
   end

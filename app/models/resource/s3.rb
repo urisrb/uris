@@ -20,19 +20,15 @@ class Resource
       key
     end
 
-    def command(name, arguments = {})
-      super
-    rescue Aws::Errors::ServiceError, Seahorse::Client::NetworkingError => e
-      raise Resource::Failed, "#{key}: #{e.message}"
-    end
-
     def command_list(prefix: nil, continuation_token: nil)
-      page = client.list_objects_v2(
-        bucket: bucket,
-        prefix: prefix.presence || details["prefix"],
-        continuation_token: continuation_token.presence,
-        max_keys: 1000
-      )
+      page = s3 do |client|
+        client.list_objects_v2(
+          bucket: bucket,
+          prefix: prefix.presence || details["prefix"],
+          continuation_token: continuation_token.presence,
+          max_keys: 1000
+        )
+      end
 
       {
         "objects" => page.contents.map do |object|
@@ -43,7 +39,7 @@ class Resource
     end
 
     def command_get(key:, version_id: nil)
-      bytes = client.get_object(bucket: bucket, key: key, version_id: version_id.presence).body.read
+      bytes = s3 { |client| client.get_object(bucket: bucket, key: key, version_id: version_id.presence) }.body.read
       text = bytes.dup.force_encoding(Encoding::UTF_8)
 
       if text.valid_encoding?
@@ -59,18 +55,20 @@ class Resource
     end
 
     def check!
-      client.head_bucket(bucket: bucket)
+      s3 { |client| client.head_bucket(bucket: bucket) }
       true
     end
 
     def each_page(cursor: nil, prefix: nil)
       loop do
-        page = client.list_objects_v2(
-          bucket: bucket,
-          prefix: prefix || details["prefix"],
-          continuation_token: cursor.presence,
-          max_keys: 1000
-        )
+        page = s3 do |client|
+          client.list_objects_v2(
+            bucket: bucket,
+            prefix: prefix || details["prefix"],
+            continuation_token: cursor.presence,
+            max_keys: 1000
+          )
+        end
 
         cursor = page.next_continuation_token
         yield page.contents, cursor
@@ -88,11 +86,11 @@ class Resource
     end
 
     def download(locator)
-      client.get_object(bucket: locator.fetch("bucket"), key: locator.fetch("key")).body
+      s3 { |client| client.get_object(bucket: locator.fetch("bucket"), key: locator.fetch("key")) }.body
     end
 
     def upload(key, body)
-      client.put_object(bucket: bucket, key: key, body: body)
+      s3 { |client| client.put_object(bucket: bucket, key: key, body: body) }
       { "bucket" => bucket, "key" => key }
     end
 
@@ -105,5 +103,13 @@ class Resource
         force_path_style: details.fetch("force_path_style", true)
       )
     end
+
+    private
+
+      def s3
+        yield client
+      rescue Aws::Errors::ServiceError, Seahorse::Client::NetworkingError => e
+        raise Resource::Failed, "#{key}: #{e.message}"
+      end
   end
 end

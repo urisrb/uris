@@ -3,6 +3,8 @@ class ExportThingsJob < ApplicationJob
 
   queue_as :export
 
+  retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5
+
   def build_enumerator(tenant_id, destination_id, selector, cursor:)
     ids = Tenant.switch(Tenant.find(tenant_id)) { select(selector).pluck(:id) }
 

@@ -11,6 +11,11 @@ module ActiveSupport
     # Run tests in parallel with specified workers
     parallelize(workers: :number_of_processors)
 
+    # Rails gives each worker its own databases but knows nothing about the
+    # search index, and the suite resets that index in setup. Without a name
+    # per worker they delete each other's.
+    parallelize_setup { |worker| ENV["TEST_ENV_NUMBER"] = worker.to_s }
+
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all
 
