@@ -2,7 +2,7 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**105 items — 62 done · 5 partial · 32 to build · 6 deferred**, read at `97d5d34`.
+**105 items — 64 done · 4 partial · 31 to build · 6 deferred**, read at `c44df2b`.
 
 |         |              |                                                        |
 | ------- | ------------ | ------------------------------------------------------ |
@@ -244,8 +244,12 @@ announces itself.
       key, because a duration shorter than the job over-admits.
 - [ ] **Runs as records** — tools that start work answer `queued` and nothing observes them after
       that. No status, deadline, cancel, or budget.
-- [ ] **`solid_cache` and `solid_cable`** — both in the Gemfile, neither installed. `cable.yml`
-      still points production at a redis nothing provides.
+- [x] **`solid_cache` and `solid_cable`** — installed the way the queue was, and for the same
+      reason: separate databases in development too, each described by a migration, so all four
+      dump to `structure.sql` files beside each other. Production would otherwise have booted with
+      an in-process cache lost on every deploy and a cable adapter dialing a redis nothing here
+      provides. Exercised: a value written and read back through `SolidCache::Store` with a row in
+      `solid_cache_entries`, and a broadcast landing in `solid_cable_messages`.
 
 ## The web app
 
@@ -255,10 +259,15 @@ Deliberately small: only what a chat transcript must not do.
       truth and the TypeScript is generated from it, so the SPA cannot drift without the types going
       red.
 - [x] **GraphQL — things, references, search, resources, tenant, node**
-- [ ] ◐ **`thingChanged`** — field, scope, channel and a `useSubscription` all exist, and **nothing
-      calls `trigger`**, so it has never delivered an event. Not a one-line fix: a thing commits
-      once per object during a sync, so the naive callback is a firehose. Wants a decision about
-      what is worth broadcasting.
+- [x] **`thingChanged`** — fires when an analysis finishes, which is the answer to the question that
+      kept it unwired: a thing commits once per object during a sync, so the naive `after_commit` is
+      a hundred thousand events, while analysis is both the moment a thing became worth looking at
+      and the only step already rate-bounded, running in its own pool behind a serial GPU. It takes
+      an optional `id`, so a client can watch one thing rather than the whole tenant, and both
+      topics fire. Tenancy is in the topic rather than the payload: two tenants on the same field
+      land on different streams, asserted. Exercised through the real channel in test, and against
+      real solid_cable in development. The hop from the event stream to one subscriber is
+      graphql-ruby's own listener and needs a live client to see.
 - [ ] **Any mutation at all** — `MutationType` still holds only the generator's `test_field`.
 - [ ] **Session auth for the browser** — the SPA has no login and `/graphql` trusts a session
       nothing sets.
@@ -286,7 +295,7 @@ Deliberately small: only what a chat transcript must not do.
 
 ## Deliberately deferred
 
-- [ ] ⊘ **Broader test coverage** — 112 tests cover tenancy, the model and merges, both bulk jobs,
+- [ ] ⊘ **Broader test coverage** — 117 tests cover tenancy, the model and merges, both bulk jobs,
       the sync schedule, analysis, search, resources, grants, the failure policy and the endpoint.
       Note the difference
       between this being deferred and CI being unable to run what exists, which is not deferred.
