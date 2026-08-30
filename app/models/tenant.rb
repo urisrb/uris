@@ -1,6 +1,9 @@
 class Tenant < ApplicationRecord
   class Unconfigured < StandardError; end
 
+  encrypts :client_secret
+  encrypts :registration_access_token
+
   has_many :things, dependent: :destroy
   has_many :resources, dependent: :destroy
 
@@ -9,6 +12,20 @@ class Tenant < ApplicationRecord
   validates :name, presence: true
 
   after_create_commit { SearchIndex.create_alias!(self) }
+
+  def paired?
+    client_id.present? && client_secret.present?
+  end
+
+  def pair!(registration)
+    update!(
+      client_id: registration.client_id,
+      client_secret: registration.client_secret,
+      registration_access_token: registration.access_token,
+      registration_client_uri: registration.uri,
+      paired_at: Time.current
+    )
+  end
 
   class << self
     def resolve(host)
@@ -28,6 +45,10 @@ class Tenant < ApplicationRecord
       raise Unconfigured, "MASKS_ISSUER_TEMPLATE is not set" if template.nil?
 
       format(template, subdomain: request.host.to_s.split(".").first)
+    end
+
+    def redirect_url(request)
+      "#{origin(request)}#{Masks::Rails::Engine.routes.url_helpers.callback_path}"
     end
 
     def switch(tenant)

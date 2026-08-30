@@ -3,6 +3,7 @@ require "test_helper"
 class SignInTest < ActionDispatch::IntegrationTest
   setup do
     @tenant = Tenant.create!(subdomain: "signin-#{SecureRandom.hex(4)}", name: "Sign in")
+    pair!(@tenant)
 
     Tenant.switch(@tenant) { @thing = create_thing(kind: "pdf", title: "An invoice") }
   end

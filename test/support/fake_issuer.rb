@@ -18,6 +18,7 @@ class FakeIssuer
   def initialize
     @keys = {}
     @codes = {}
+    @approvals = {}
     @lock = Mutex.new
     @server = TCPServer.new("127.0.0.1", 0)
     @port = @server.addr[1]
@@ -47,6 +48,13 @@ class FakeIssuer
     end
 
     { code: code, state: query["state"], query: query }
+  end
+
+  def approve!(subdomain)
+    secret = SecureRandom.urlsafe_base64(24)
+
+    @lock.synchronize { @approvals[secret] = subdomain }
+    secret
   end
 
   def key_for(subdomain)
@@ -85,15 +93,17 @@ class FakeIssuer
     def respond(socket)
       line = socket.gets.to_s
       length = 0
+      bearer = nil
 
       while (header = socket.gets) && header.strip != ""
         length = header.split(":", 2).last.to_i if header =~ /\AContent-Length:/i
+        bearer = header.split(" ").last.strip if header =~ /\AAuthorization:\s*Bearer /i
       end
 
       method, path = line.split(" ")
       payload = length.positive? ? socket.read(length).to_s : ""
 
-      found = method == "POST" ? post_for(path.to_s, payload) : body_for(path.to_s)
+      found = method == "POST" ? post_for(path.to_s, payload, bearer) : body_for(path.to_s)
       body = JSON.generate(found || { "error" => "not_found" })
 
       status = if found.nil?
@@ -124,7 +134,8 @@ class FakeIssuer
       end
     end
 
-    def post_for(path, payload)
+    def post_for(path, payload, token)
+      return registered($1, payload, token) if path =~ %r{\A/([^/]+)/register\z}
       return nil unless path =~ %r{\A/([^/]+)/token\z}
 
       subdomain = $1
@@ -159,6 +170,22 @@ class FakeIssuer
         "scope" => Array(pending[:scopes]).join(" "),
         "expires_in" => 3600
       }
+    end
+
+    def registered(subdomain, payload, token)
+      approved = @lock.synchronize { @approvals.delete(token) }
+
+      return { "error" => "invalid_token" } unless approved == subdomain
+
+      metadata = JSON.parse(payload) rescue {}
+      client_id = SecureRandom.uuid
+
+      metadata.merge(
+        "client_id" => client_id,
+        "client_secret" => SecureRandom.urlsafe_base64(24),
+        "registration_access_token" => SecureRandom.urlsafe_base64(24),
+        "registration_client_uri" => "#{url_for(subdomain)}/register/#{client_id}"
+      )
     end
 
     def discovery(subdomain)

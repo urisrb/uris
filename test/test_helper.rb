@@ -5,7 +5,6 @@ require "rails/test_help"
 require_relative "support/fake_issuer"
 
 ENV["THINGS_PUBLIC_ORIGIN"] = nil
-ENV["MASKS_CLIENT_ID"] = "things-test-client"
 
 module ActiveSupport
   class TestCase
@@ -28,6 +27,16 @@ module ActiveSupport
 
     def issuer
       FakeIssuer.current
+    end
+
+    def pair!(tenant, client_id: "things-test-client", client_secret: "things-test-secret")
+      tenant.update!(
+        client_id: client_id,
+        client_secret: client_secret,
+        registration_access_token: "things-test-registration-token",
+        registration_client_uri: "#{issuer.url_for(tenant.subdomain)}/register/#{client_id}",
+        paired_at: Time.current
+      )
     end
 
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.

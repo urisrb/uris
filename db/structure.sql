@@ -208,7 +208,12 @@ CREATE TABLE public.tenants (
     subdomain character varying NOT NULL,
     name character varying NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    client_id character varying,
+    client_secret text,
+    registration_access_token text,
+    registration_client_uri character varying,
+    paired_at timestamp(6) without time zone
 );
 
 
@@ -745,6 +750,7 @@ ALTER TABLE public.things ENABLE ROW LEVEL SECURITY;
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260830000008'),
 ('20260830000007'),
 ('20260830000006'),
 ('20260830000005'),

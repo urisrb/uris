@@ -5,6 +5,10 @@ Rails.application.routes.draw do
 
   mount Masks::Rails::Engine, at: "/auth"
 
+  get "/setup", to: "setup#show", as: :setup
+  post "/setup", to: "setup#create"
+  get "/setup/callback", to: "setup#callback", as: :setup_callback
+
   post "/graphql", to: "graphql#execute"
 
   get "/references/:id/content", to: "content#show", as: :reference_content
