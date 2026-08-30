@@ -506,27 +506,41 @@ written after that gem existed.
       and running it found two real defects: the session cookie overflowed at 4247 bytes because
       three JWTs were kept in it, and a token response with no `access_token` established a session
       holding `nil`. Both are fixed in masks, where every consumer gets the fix.
-- [ ] **The suite still fakes the issuer, not masks itself** — the flow is real and the server is
-      not. Registration and consent are not covered, and a change to masks' own token endpoint would
-      not fail anything here. The scripted run against a live masks is still the only thing that
-      would catch that.
+- [ ] ◐ **The suite still fakes the issuer, not masks itself** — the flow is real and the server is
+      not, so a change to masks' own token endpoint would not fail anything here. What used to be
+      wholly untested between the two is now partly driven: `home/bin/probe-pairing` runs first run,
+      the approval, the redemption and the sign-in after it against a live masks, twenty-one checks.
+      That covers registration and consent, and covers them where they actually happen. It is a
+      script somebody runs, not a suite, which is the half still missing.
 - [ ] **Signing out of masks, not just of `things`** — `masks_forget` drops the local session and
       leaves the issuer's, so signing in again is silent. Correct for a shared browser only if the
       person expects it, and RP-initiated logout is unbuilt on both sides.
-- [ ] **The web app has no client registered with masks** — `MASKS_CLIENT_ID` is unset and nothing
-      creates one. The MCP connector registers itself through DCR; the web app cannot, and should
-      not: a first-party app self-registering anonymously is how a stranger's connector also
-      arrives. It wants a **configured** client, which masks does not yet have a way to create —
-      filed there, not here.
-      The happy consequence, once it does: `client_id` is unique per `tenant_id` in masks, so the
-      same `client_id` *string* resolves to a different client in every tenant. This app needs no
-      per-tenant client columns and no registration flow — two env vars, and the issuer template it
-      already resolves per request.
-- [ ] **A signed-in actor still has no `things:*` scopes** — masks narrows a token to the scopes the
-      actor holds, and a fresh actor holds only the four masks defines. So the first real sign-in
-      will **succeed** and then every field will refuse with `this token does not carry things:read`.
-      Nothing here is wrong; the grant has to be made on the masks side, and masks has no interface
-      for it yet. Worth knowing before anyone reads the refusal as a bug in this app.
+- [x] **This app pairs itself, and holds its own credentials** — `plans/020`, and it was the item
+      above this one for as long as `MASKS_CLIENT_ID` was a blank line in `.env.example` that
+      nothing could fill. A first-party app must not self-register anonymously, because that is how
+      a stranger's connector also arrives; so an unpaired tenant offers a setup screen, one button
+      sends the browser to its own issuer's approval screen, and the one-time token that comes back
+      is redeemed at `/register` server-side. The secret never travels a browser and nobody types it
+      anywhere.
+      **The two-env-vars note is superseded, as it said it would be.** The credentials are a row —
+      `client_id`, `client_secret`, `registration_access_token`, `registration_client_uri`,
+      `paired_at` on `tenants`, the two secrets encrypted — because pairing is per tenant and each
+      one gets a different secret, so there is no single value an env var could hold. A test reads
+      the raw column rather than trusting `encrypts`.
+- [x] **The unpaired screen says only that it is unpaired** — it is public, so it does not name the
+      issuer or admit whether one exists; the issuer appears only in a redirect somebody asked for.
+      Once paired, setup is not offered again to a browser that is not signed in, so a stranger
+      cannot make a running install rotate its own credentials.
+- [x] **A signed-in actor now holds `things:*`, because approving granted them** — masks narrows a
+      token to the scopes the actor holds, and a fresh actor held only the four masks defines, so
+      the first real sign-in used to **succeed** and then refuse every field with `this token does
+      not carry things:read`. The grant had to be made on the masks side and now is: the approval
+      screen grants the approving actor what the client declares, and the descriptions on it come
+      from this app's own RFC 9728 document rather than from anything masks knows. Driven end to
+      end by `home/bin/probe-pairing`, which reads the scope out of the access token at the far end.
+- [x] **The redirect_uri is resolved from the same origin as the resource** — it was
+      `request.base_url` while the resource was `THINGS_PUBLIC_ORIGIN`, so tunnelling made the two
+      disagree. masks pins both at approval, which turns a latent mismatch into a refusal.
 - [ ] **The session is a cookie, at 2476 bytes of 4096** — measured after the id token was dropped.
       It fits, and it is 60% spent, and a cookie session cannot be revoked while it holds a refresh
       token. `solid_cache` is already installed, so `config.session_store :cache_store` is one line
