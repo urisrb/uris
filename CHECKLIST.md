@@ -2,8 +2,7 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**105 items — 60 done · 6 partial · 33 to build · 6 deferred**, read at `950d2ea`, plus the
-scheduled sync and export cataloguing in the working tree.
+**105 items — 62 done · 5 partial · 32 to build · 6 deferred**, read at `97d5d34`.
 
 |         |              |                                                        |
 | ------- | ------------ | ------------------------------------------------------ |
@@ -145,7 +144,10 @@ announces itself.
       stays the old one. It needs a dirty signal, not a second export mode.
 - [ ] **Export format** — a directory tree keyed by resource and locator today; zip and
       manifest-plus-blobs are still open.
-- [ ] **"Upload" as write-to-default-storage-then-reference**
+- [ ] **"Upload" as write-to-default-storage-then-reference** — both halves now exist,
+      `ThingReference.record!` and the default storage resource. What is missing is a caller, and
+      that waits on the first mutation and on session auth. Building the primitive before then would
+      be one more checked box whose only user is its test.
 
 ## Resources
 
@@ -171,17 +173,25 @@ announces itself.
       mutation to submit a credential to, and session auth to keep that form from being open to
       anyone. And it cannot be routed around with a tool, because secrets never travelling through
       a tool call is the constraint the signed URL exists to satisfy.
-- [ ] ◐ **`check!`** — implemented on both types and called by nothing but a test. A resource has no
-      way to be asked whether it still works, which is the first thing enrollment needs.
-- [ ] **A default storage resource per tenant** — `database` is seeded for both, but nothing marks
-      one as the default.
+- [x] **`check!`, and something that calls it** — `check!` raises, `check` runs it and records
+      `checked_at` and `check_error` on the resource, and `check_resource` is the tool that asks. It
+      rescues broadly, `NotImplementedError` included since that is not a `StandardError`, because a
+      health check that can itself explode is not a health check; the class goes into the message, so
+      a bug is stored rather than swallowed. A resource enrolled without its credentials records
+      `KeyError: key not found: "access_key_id"`, which is the enrollment error message written for
+      free.
+- [x] **A default storage resource per tenant** — a boolean with a partial unique index on
+      `(tenant_id) WHERE default_storage`, so the constraint is in the database and not only in
+      `make_default_storage!`; a test bypasses the model to prove it. Only a storage-capable
+      resource can hold it. `export_things` is the caller: with no destination it writes the whole
+      catalog into this resource.
 
 ## The endpoint
 
 `POST /mcp` — stateless Streamable HTTP, one bearer token per call.
 
-- [x] **Eight tools** — `search_things`, `get_thing`, `analyze_thing`, `list_resources`,
-      `describe_resource`, `command_resource`, `sync_resource`, `export_things`.
+- [x] **Nine tools** — `search_things`, `get_thing`, `analyze_thing`, `list_resources`,
+      `describe_resource`, `check_resource`, `command_resource`, `sync_resource`, `export_things`.
 - [x] **The grant is the tool list** — the server is built per request from the token's scopes, so
       an ungranted tool is not registered at all: absent from `tools/list`, and `Tool not found` if
       called anyway. Not an allowlist a prompt can argue with.
@@ -276,7 +286,7 @@ Deliberately small: only what a chat transcript must not do.
 
 ## Deliberately deferred
 
-- [ ] ⊘ **Broader test coverage** — 93 tests cover tenancy, the model and merges, both bulk jobs,
+- [ ] ⊘ **Broader test coverage** — 112 tests cover tenancy, the model and merges, both bulk jobs,
       the sync schedule, analysis, search, resources, grants, the failure policy and the endpoint.
       Note the difference
       between this being deferred and CI being unable to run what exists, which is not deferred.
