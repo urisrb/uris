@@ -9,7 +9,7 @@ TENANTS.each do |attrs|
   Tenant.switch(tenant) do
     Resource::Database.find_or_create_by!(key: "database") do |resource|
       resource.name = "Default storage"
-    end
+    end.make_default_storage!
 
     storage = Resource::S3.find_or_initialize_by(key: "things-#{tenant.subdomain}")
     storage.assign_attributes(

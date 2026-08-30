@@ -83,7 +83,8 @@ CREATE TABLE public.resources (
     sync_started_at timestamp(6) without time zone,
     synced_at timestamp(6) without time zone,
     checked_at timestamp(6) without time zone,
-    check_error character varying
+    check_error character varying,
+    default_storage boolean DEFAULT false NOT NULL
 );
 
 ALTER TABLE ONLY public.resources FORCE ROW LEVEL SECURITY;
@@ -336,6 +337,13 @@ CREATE UNIQUE INDEX index_resource_blobs_on_tenant_id_and_resource_id_and_key ON
 
 
 --
+-- Name: index_resources_on_one_default_storage_per_tenant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_resources_on_one_default_storage_per_tenant ON public.resources USING btree (tenant_id) WHERE default_storage;
+
+
+--
 -- Name: index_resources_on_sync_due; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -534,6 +542,7 @@ ALTER TABLE public.things ENABLE ROW LEVEL SECURITY;
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260830000005'),
 ('20260830000004'),
 ('20260830000003'),
 ('20260830000002'),

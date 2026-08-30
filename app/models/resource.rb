@@ -17,6 +17,7 @@ class Resource < ApplicationRecord
     greater_than_or_equal_to: MINIMUM_SYNC_INTERVAL.to_i
   }, allow_nil: true
   validate :only_a_syncable_resource_keeps_a_schedule
+  validate :only_storage_can_be_the_default
 
   before_save :start_the_schedule, if: :sync_interval_changed?
 
@@ -47,6 +48,14 @@ class Resource < ApplicationRecord
     def command_schema
       {}
     end
+
+    def default_storage
+      active.find_by(default_storage: true)
+    end
+
+    def default_storage!
+      default_storage || raise(ArgumentError, "this tenant has no default storage resource")
+    end
   end
 
   def capabilities
@@ -59,6 +68,17 @@ class Resource < ApplicationRecord
 
   def storage!
     raise ArgumentError, "#{key} is not storage — it cannot be an export destination" unless storage?
+
+    self
+  end
+
+  def make_default_storage!
+    storage!
+
+    transaction do
+      Resource.where(default_storage: true).where.not(id: id).update_all(default_storage: false)
+      update!(default_storage: true)
+    end
 
     self
   end
@@ -156,5 +176,11 @@ class Resource < ApplicationRecord
       return if sync_interval.nil? || syncable?
 
       errors.add(:sync_interval, "cannot be set on #{self.class.sti_name}, which cannot sync")
+    end
+
+    def only_storage_can_be_the_default
+      return if !default_storage? || storage?
+
+      errors.add(:default_storage, "cannot be set on #{self.class.sti_name}, which is not storage")
     end
 end

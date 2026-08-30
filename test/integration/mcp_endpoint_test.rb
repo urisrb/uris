@@ -140,6 +140,23 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     assert reply.dig("result", "isError")
   end
 
+  test "export with no destination writes to the tenant's default storage" do
+    storage = Tenant.switch(@tenant) do
+      Resource::Database.create!(key: "database", name: "Storage").make_default_storage!
+    end
+
+    assert_enqueued_with(job: ExportThingsJob, args: [ @tenant.id, storage.id, {} ]) do
+      assert tool(@tenant, ALL, "export_things")["queued"]
+    end
+  end
+
+  test "export says so when the tenant has named no default storage" do
+    reply = call(@tenant, ALL, "tools/call", name: "export_things", arguments: {})
+
+    assert reply.dig("result", "isError")
+    assert_match(/no default storage/, reply.dig("result", "content", 0, "text"))
+  end
+
   private
 
     def origin_for(tenant)

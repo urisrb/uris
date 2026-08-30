@@ -20,6 +20,7 @@ module Tool
             key: resource.key,
             name: resource.name,
             capabilities: resource.capabilities,
+            default_storage: resource.default_storage?,
             syncable: resource.syncable?,
             sync_interval: resource.sync_interval,
             next_sync_at: resource.next_sync_at,
