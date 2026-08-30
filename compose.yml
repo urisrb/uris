@@ -1,0 +1,82 @@
+# Backing services for development. Rails itself runs on the host — the
+# analyzers shell out to vips/poppler/tesseract/libreoffice, and inference runs
+# natively on the GPU, so containerising the app buys nothing and costs the
+# debugger. The Dockerfile is still what CI builds and what deploys.
+#
+#   docker compose up -d --wait
+#
+# No Redis: Solid Queue, Cache, and Cable all run on Postgres.
+
+name: things
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      # The superuser is for administration only. Rails connects as the
+      # non-superuser role created in the init script — see the comment there;
+      # it is what makes row-level security actually enforce.
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    # Deliberately off the default port. A machine that already runs Postgres
+    # for something else should not have to stop it to work on this.
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./db/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # The query path across every resource. Postgres holds the catalog; this is
+  # what makes one search span all of it.
+  opensearch:
+    image: opensearchproject/opensearch:2.11.0
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=admin
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9201:9200"
+    volumes:
+      - opensearch:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # A real s3 resource, locally. The first resource type gets written and
+  # tested against this — no AWS account, no OAuth app, no rate limits.
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: things
+      MINIO_ROOT_PASSWORD: thingsthings
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio:/data
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  postgres:
+  opensearch:
+  minio:

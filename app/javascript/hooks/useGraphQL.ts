@@ -1,0 +1,114 @@
+import type { TypedDocumentNode } from '@graphql-typed-document-node/core'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { client } from '../graphql/client'
+
+interface QueryOptions {
+  skip?: boolean
+}
+
+export function useQuery<TData, TVariables extends Record<string, unknown>>(
+  query: TypedDocumentNode<TData, TVariables>,
+  variables?: TVariables,
+  options?: QueryOptions,
+) {
+  const skip = options?.skip ?? false
+  const [data, setData] = useState<TData | null>(null)
+  const [loading, setLoading] = useState(!skip)
+  const [error, setError] = useState<Error | null>(null)
+  const variablesRef = useRef(variables)
+  variablesRef.current = variables
+
+  const variablesKey = JSON.stringify(variables)
+
+  const refetch = useCallback(
+    (_key?: string) => {
+      setLoading(true)
+      client
+        .query(query, variablesRef.current ?? ({} as TVariables), {
+          preferGetMethod: false,
+          requestPolicy: 'network-only',
+        })
+        .toPromise()
+        .then((result) => {
+          if (result.error) {
+            setError(new Error(result.error.message))
+          } else {
+            setData(result.data ?? null)
+          }
+          setLoading(false)
+        })
+    },
+    [query],
+  )
+
+  useEffect(() => {
+    if (!skip) {
+      refetch(variablesKey)
+    }
+  }, [refetch, variablesKey, skip])
+
+  return { data, loading, error, refetch }
+}
+
+interface SubscriptionOptions {
+  skip?: boolean
+}
+
+export function useSubscription<
+  TData,
+  TVariables extends Record<string, unknown>,
+>(
+  subscription: TypedDocumentNode<TData, TVariables>,
+  variables?: TVariables,
+  options?: SubscriptionOptions,
+) {
+  const skip = options?.skip ?? false
+  const [data, setData] = useState<TData | null>(null)
+  const [error, setError] = useState<Error | null>(null)
+  const variablesKey = JSON.stringify(variables)
+
+  useEffect(() => {
+    if (skip) return
+
+    const { unsubscribe } = client
+      .subscription(subscription, (variables ?? {}) as TVariables)
+      .subscribe((result) => {
+        if (result.error) {
+          setError(new Error(result.error.message))
+        } else if (result.data) {
+          setData(result.data)
+        }
+      })
+
+    return () => unsubscribe()
+  }, [subscription, variablesKey, skip])
+
+  return { data, error }
+}
+
+export function useMutation<TData, TVariables extends Record<string, unknown>>(
+  mutation: TypedDocumentNode<TData, TVariables>,
+) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  const execute = useCallback(
+    async (variables: TVariables) => {
+      setLoading(true)
+      setError(null)
+      try {
+        const result = await client.mutation(mutation, variables).toPromise()
+        if (result.error) {
+          setError(new Error(result.error.message))
+          return null
+        }
+        return result.data ?? null
+      } finally {
+        setLoading(false)
+      }
+    },
+    [mutation],
+  )
+
+  return { execute, loading, error }
+}

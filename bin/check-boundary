@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Enforces the boundary rule (PLAN.md §3): nothing in a shareable repo may name
+# a host, a domain, or a secret. Those facts live in geiger-to/home.
+#
+# Design docs have to name the thing they forbid, so *.md and plans/ are
+# excluded. Everything that gets executed, templated, or deployed is checked.
+
+set -uo pipefail
+cd "$(dirname "$0")/.."
+
+PATTERNS='geiger\.to|home-server|\bdroplet\b|\bmbp\b|100\.[0-9]+\.[0-9]+\.[0-9]+'
+
+EXCLUDES=(
+  --exclude='*.md'
+  --exclude='check-boundary'   # holds the forbidden strings by definition
+  --exclude-dir=.git
+  --exclude-dir=node_modules
+  --exclude-dir=tmp
+  --exclude-dir=vendor
+  --exclude-dir=plans
+)
+
+fail() { echo "$1"; echo; echo "$2"; exit 1; }
+
+hits=$(grep -rInE "$PATTERNS" . "${EXCLUDES[@]}" 2>/dev/null)
+[ -n "$hits" ] && fail \
+"Boundary violation — this repo must not name hosts, domains, or secrets.
+Move these facts to home/inventory.yaml or home/group_vars/:" "$hits"
+
+refs=$(grep -rIn '\bhome/' . "${EXCLUDES[@]}" 2>/dev/null)
+[ -n "$refs" ] && fail \
+"Boundary violation — a shareable repo must not reference home/.
+The dependency is one-directional: home consumes this, never the reverse." "$refs"
+
+echo "boundary ok"
