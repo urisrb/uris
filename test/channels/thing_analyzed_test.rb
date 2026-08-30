@@ -80,10 +80,21 @@ class ThingAnalyzedTest < ActionCable::Channel::TestCase
                                locator_key: key, kind: "text", title: key).thing
     end
 
-    def subscribe_as(tenant, query, **variables)
-      stub_connection(tenant: tenant)
+    def subscribe_as(tenant, query, scopes: Grant::SCOPES, **variables)
+      stub_connection(tenant: tenant, grant: grant_for(tenant, scopes))
       subscribe
       perform :execute, "query" => query, "variables" => variables.stringify_keys
+    end
+
+    def grant_for(tenant, scopes)
+      Grant.new(
+        tenant: tenant,
+        claims: Masks::Client::Claims.new(
+          "sub" => "test", "scope" => Array(scopes).join(" "),
+          "tenant" => { "subdomain" => tenant.subdomain },
+          "exp" => 1.hour.from_now.to_i
+        )
+      )
     end
 
     def event_stream

@@ -78,6 +78,25 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
     assert_nil body["errors"]
   end
 
+  test "a read scope cannot walk from a thing to a resource" do
+    query = "{ things { nodes { references { resource { key } } } } }"
+
+    body = execute(query, scopes: %w[things:read])
+
+    assert_nil body.dig("data", "things"),
+               "nesting must not reach past the scope the entry point checked"
+    assert body["errors"].present?
+  end
+
+  test "holding both scopes walks the whole way" do
+    query = "{ things { nodes { references { resource { key } } } } }"
+
+    body = execute(query, scopes: %w[things:read resources:read])
+
+    assert_nil body["errors"]
+    assert body.dig("data", "things", "nodes", 0, "references", 0, "resource", "key").present?
+  end
+
   test "streaming a reference out needs a grant too" do
     reference = @thing.references.first
 

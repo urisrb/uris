@@ -2,6 +2,8 @@
 
 module Types
   class RunType < Types::BaseObject
+    grants "things:read"
+
     field :id, ID, null: false
     field :kind, String, null: false
     field :status, String, null: false

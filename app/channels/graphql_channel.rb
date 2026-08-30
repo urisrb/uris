@@ -7,7 +7,7 @@ class GraphqlChannel < ApplicationCable::Channel
     result = Tenant.switch(tenant) do
       ThingsSchema.execute(
         data["query"],
-        context: { channel: self, tenant: tenant, tenant_id: tenant.id },
+        context: { channel: self, tenant: tenant, tenant_id: tenant.id, grant: grant },
         variables: ensure_hash(data["variables"]),
         operation_name: data["operationName"]
       )

@@ -59,7 +59,13 @@ announces itself.
 - [x] **Cable — `subscription_scope` on the base subscription** — set once rather than
       per-subscription, or graphql-ruby derives the topic from the field alone and two tenants share
       a stream.
-- [x] **API — tenant-checked `object_from_id`**
+- [ ] ◐ **API — `object_from_id` is tenant-checked and unreachable** — it compares `tenant_id`
+      correctly, and nothing can call it. `Query.node` and `Query.nodes` are declared, but **no type
+      implements the `Node` interface**, so graphql-ruby prunes the interface and both fields out of
+      the built schema: `{ node(id: …) }` answers *"Field 'node' doesn't exist on type 'Query'"*.
+      A checked box for code with no caller. Either wire `implements Types::NodeType` into the types
+      that should be fetchable by global id, or drop the field and the resolver together — the one
+      thing not to leave is a tenancy layer that reads as present and is not in the schema.
 - [x] **Nested `Tenant.switch` restores the outer tenant**
 - [x] **RLS is lifted deliberately for data migrations** — a migration runs as the table owner with
       no tenant set, so `FORCE` makes every row invisible and a backfill quietly moves nothing and
@@ -352,8 +358,10 @@ Deliberately small: only what a chat transcript must not do.
       `setSyncInterval`, export, `cancelRun`. Each goes through the same model method its tool does,
       so there is one set of rules behind two front doors rather than a second implementation that
       drifts.
-- [ ] **Session auth for the browser** — the SPA has no login and `/graphql` trusts a session
-      nothing sets.
+- [x] **Session auth for the browser** — the SPA had no login and `/graphql` trusted a session
+      nothing set. `GraphqlController` built its context as `{tenant, tenant_id}`: no subject, no
+      scopes, nothing, so every mutation above was reachable by anyone who could resolve the
+      subdomain. See **Auth** below.
 - [ ] **Resource enrollment** — the main reason the web app exists.
 - [x] **Visual browsing** — `/references/:id/content` streams a reference out of whatever resource
       holds it, chunked rather than read whole into memory, and `/references/:id/thumbnail` renders
@@ -365,6 +373,81 @@ Deliberately small: only what a chat transcript must not do.
       worked on a laptop that has them from the Brewfile and failed everywhere else. Installed.
       LibreOffice stays out on purpose: half a gigabyte is a trade to make deliberately, and the
       `doc` analyzer is the only thing that wants it.
+
+## Auth
+
+`plans/019`. The endpoint had a real bearer check from the beginning; the web app had nothing. The
+fix was not a second auth system beside `Grant` but to **stop writing auth here at all** —
+`app/models/issuer.rb` and `ProtectedResource` were masks-client re-implemented, and both were
+written after that gem existed.
+
+- [x] **Adopted `masks-client`, and the local copies are deleted** — `app/models/issuer.rb` was
+      `Masks::Client::Verifier` with a `Rails.cache` in front and `ProtectedResource` a hand-written
+      `WWW-Authenticate` header; both are gone. The gem grew the resource-server half it was missing,
+      which is what made writing them here feel necessary. The one property they had that the gem did
+      not — checking that a discovery document names the issuer it was fetched from, so a redirect
+      cannot point verification elsewhere — moved into the gem rather than being dropped.
+- [x] **`Grant` is built from `Masks::Client::Claims`, and stays** — a grant is a `things` concept:
+      `things:read`, `resources:command`, and the tool list they select. masks neither knows those
+      scopes nor should. What left `Grant` is `JWT.decode`; what remains is the tenant check and the
+      mapping from scopes to tools.
+- [x] **`masks-rails` is mounted at `/auth`** — the BFF: tokens live in the encrypted Rails session
+      and never reach JavaScript, so XSS cannot lift one and there is no refresh loop in the page.
+- [x] **`/graphql` accepts a session or a bearer token, by one path** — the session's own access
+      token is verified exactly as a presented one is, rather than trusted because it came from a
+      cookie. So a cookie and a bearer arrive at the same `Grant` through the same code, and a
+      resolver cannot tell them apart. `Granted`
+- [x] **A refusal fits the caller** — a request that presented a token gets the RFC 6750 challenge;
+      one that did not gets `401 {login_url}`, because a browser needs somewhere to go and a
+      connector needs `resource_metadata`. `/mcp` always answers the challenge: a connector is handed
+      a URL and nothing else, so sending it to a login page would strand it.
+- [x] **Scope is checked at the type as well as the field** — a field grant only covers the entry
+      point, and `things { nodes { references { resource { key } } } }` walks from a thing to a
+      resource without passing `Query.resources` again. So a `things:read` token read every
+      resource's details through nesting, which is the same shape of hole as a passthrough tool.
+      `ThingType` and `RunType` now want `things:read`, `ResourceType` wants `resources:read`, and
+      graphql-ruby checks each on the way down. Two tests: the walk is refused on a read scope and
+      completes when both are held.
+- [x] **Every field and mutation declares the scope it needs** — `grants:` on the field, checked in
+      `authorized?`. Reads want `things:read`, the resource list `resources:read`, mutations
+      `things:write` or `resources:command` — the same scopes the tools use, since both front doors
+      already go through the same model methods. **Named `grants:` and not `scope:` because
+      graphql-ruby's `Field` already defines `scope:`** for `scope_items`, and the collision silently
+      disabled it: the first version of this looked right, typechecked, and enforced nothing.
+- [x] **The cable connection authenticates, and did not** — `ApplicationCable::Connection` was
+      `identified_by :tenant` alone, resolved from the host, so anyone who could reach a tenant's
+      subdomain could open a websocket and subscribe to its analysis events. Securing `/graphql` did
+      not touch it: subscriptions arrive over cable, not HTTP. The connection now reads the same
+      encrypted session the BFF writes, verifies the access token in it exactly as the HTTP path
+      does, and carries the resulting `Grant` into the channel's GraphQL context, where
+      `thingAnalyzed`'s own `grants:` then applies. Seven tests, including a session holding another
+      tenant's token and one holding nonsense.
+- [x] **The SPA gates on `/auth/session`** — identity before the first query, a sign-in screen when
+      there is none, who is signed in and a way out in the header, and a `401` from `/graphql`
+      sending the browser to masks. UI that hides a button is not a permission check; the token
+      still enforces.
+- [x] **`/references/:id/content` and `/thumbnail` want `things:read`** — they stream bytes out of a
+      resource, and had the same nothing `/graphql` had. A thumbnail URL in an `<img>` tag cannot
+      carry a bearer header, which is the second reason the browser path is a cookie.
+- [x] **`MASKS_DEV_SECRET` and the HS256 branch are deleted, not left dormant** — `plans/018` filed
+      this and it survived until now. A dormant branch minting credentials is a branch someone
+      enables.
+- [x] **The suite verifies real RS256 against a real JWKS** — a signing issuer per test worker,
+      serving discovery and JWKS over a socket, **with a separate key per tenant**, so a token minted
+      for one is unintelligible to another rather than merely unauthorized. That is strictly stronger
+      than the shared HS256 secret it replaces, which could not fail that way. Nine tests cover the
+      refusals: no credentials, a bad token, another tenant's token, a read scope against a mutation,
+      a read scope against the resource list, and content without a grant.
+- [ ] ◐ **The browser half has not been driven against a real masks** — the bearer path is fully
+      exercised, and `/auth/callback` is not. `state` and `nonce` are checked in the engine and no
+      test executes them. This is the same gap masks' own checklist carries, and it stays open until
+      registration → authorize → callback → session → a query runs end to end.
+- [ ] **Signing out of masks, not just of `things`** — `masks_forget` drops the local session and
+      leaves the issuer's, so signing in again is silent. Correct for a shared browser only if the
+      person expects it, and RP-initiated logout is unbuilt on both sides.
+- [ ] **The resource identifier is `…/mcp` for both surfaces** — `/graphql` accepts tokens whose
+      `aud` names the MCP endpoint, because that is the URL already registered and verified. One
+      resource for one app is right; the name is now wrong for half of what it covers.
 
 ## Packaging
 

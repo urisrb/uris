@@ -2,6 +2,8 @@
 
 module Types
   class ThingReferenceType < Types::BaseObject
+    grants "things:read"
+
     field :id, ID, null: false
     field :resource, Types::ResourceType, null: false
     field :locator, GraphQL::Types::JSON, null: false

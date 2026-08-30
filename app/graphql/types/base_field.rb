@@ -5,7 +5,7 @@ module Types
     argument_class Types::BaseArgument
 
     def initialize(*args, grants: nil, **kwargs, &block)
-      @grants = grants
+      @grants = Array(grants).map(&:to_s).presence
 
       super(*args, **kwargs, &block)
     end
@@ -24,9 +24,9 @@ module Types
         grant = context[:grant]
 
         raise GraphQL::ExecutionError, "this token carries no grant" if grant.nil?
-        return true if grant.permits?(@grants)
+        return true if @grants.any? { |scope| grant.permits?(scope) }
 
-        raise GraphQL::ExecutionError, "this token does not carry #{@grants}"
+        raise GraphQL::ExecutionError, "this token does not carry #{@grants.join(' or ')}"
       end
   end
 end

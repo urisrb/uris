@@ -2,6 +2,8 @@
 
 module Types
   class ResourceType < Types::BaseObject
+    grants "resources:read"
+
     field :id, ID, null: false
     field :type, String, null: false, method: :type
     field :key, String, null: false

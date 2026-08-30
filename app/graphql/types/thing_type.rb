@@ -2,6 +2,8 @@
 
 module Types
   class ThingType < Types::BaseObject
+    grants "things:read"
+
     SUMMARY = 400
 
     field :id, ID, null: false
