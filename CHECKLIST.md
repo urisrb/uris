@@ -2,8 +2,8 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**140 items — 97 done · 6 partial · 31 to build · 6 deferred**, read at `f98ade3` plus the working
-tree.
+**143 items — 97 done · 6 partial · 34 to build · 6 deferred**, read at `9b3fc56`, against a clean
+working tree. The suite was run rather than cited: **235 runs, 604 assertions, 0 failures**.
 
 |         |              |                                                        |
 | ------- | ------------ | ------------------------------------------------------ |
@@ -403,7 +403,8 @@ Deliberately small: only what a chat transcript must not do.
       health, sync schedules and a default-storage star; a runs table that polls while anything is
       open and can cancel it. Built on the Mantine, react-router and Tabler dependencies that were
       already in `package.json` and entirely unused.
-- [x] **GraphQL — things, references, search, resources, tenant, node**
+- [x] **GraphQL — things, references, search, resources, tenant** — `node` is declared and is not in
+      the built schema, so it does not belong on this line; see the `object_from_id` item above.
 - [x] **`thingAnalyzed`** — fires when an analysis finishes, which is the answer to the question that
       kept it unwired: a thing commits once per object during a sync, so the naive `after_commit` is
       a hundred thousand events, while analysis is both the moment a thing became worth looking at
@@ -564,7 +565,7 @@ written after that gem existed.
 ## Deliberately deferred
 
 - [ ] ⊘ **Broader test coverage** — 235 tests cover tenancy, the model and merges, runs, gates, both
-      bulk jobs, the sync schedule, analysis, search, all seven resource types, grants, the failure
+      bulk jobs, the sync schedule, analysis, search, all eight resource types, grants, the failure
       policy and the endpoint. Note the difference between this being deferred and CI being unable
       to run what exists, which is not deferred.
 - [ ] ⊘ **Table partitioning** — one table, indexed, cursor pagination, OpenSearch as the query path.
