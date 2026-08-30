@@ -4,6 +4,8 @@ class ExportThingsJob < ApplicationJob
 
   queue_as :export
 
+  gated_as "export"
+
   retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5 do |job, error|
     job.fail_run(error)
   end

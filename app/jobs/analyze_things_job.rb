@@ -4,6 +4,8 @@ class AnalyzeThingsJob < ApplicationJob
 
   queue_as :default
 
+  gated_as "analyze"
+
   def run_id
     arguments[2]
   end

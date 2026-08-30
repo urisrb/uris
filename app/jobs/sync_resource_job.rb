@@ -4,6 +4,8 @@ class SyncResourceJob < ApplicationJob
 
   queue_as :sync
 
+  gated_as "sync"
+
   retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5 do |job, error|
     job.fail_run(error)
   end
@@ -26,9 +28,21 @@ class SyncResourceJob < ApplicationJob
     enumerator_builder.wrap(enumerator_builder, objects)
   end
 
+  # Resolved rather than memoized-if-lucky: the gate is read before the
+  # enumerator runs, so nothing else has loaded the resource yet, and a
+  # reference-scoped gate that cannot see its resource silently reads as open.
+  # Loading it here is also what lets release_sync hand the lock back.
+  def gate_reference
+    resource_for(arguments[0], arguments[1])
+  rescue ActiveRecord::RecordNotFound
+    nil
+  end
+
   def each_iteration(object, tenant_id, resource_id, _run_id = nil)
     resource = resource_for(tenant_id, resource_id)
     locator_key = resource.locator_key_for(object)
+
+    return track_iteration if dry_run?
 
     reference = Tenant.switch(resource.tenant) do
       ThingReference.discover!(

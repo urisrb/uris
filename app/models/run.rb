@@ -4,7 +4,7 @@ class Run < ApplicationRecord
   include TenantScoped
 
   KINDS = %w[sync export analyze].freeze
-  STATUSES = %w[queued running done failed cancelled].freeze
+  STATUSES = %w[queued running done failed cancelled gated].freeze
   OPEN = %w[queued running].freeze
 
   belongs_to :resource, optional: true
@@ -37,13 +37,22 @@ class Run < ApplicationRecord
   end
 
   def finished!(error: nil)
-    return if current_status == "cancelled"
+    return if %w[cancelled gated].include?(current_status)
 
     update_columns(
       status: error ? "failed" : "done",
       error: error&.truncate(500),
       finished_at: Time.current
     )
+  end
+
+  # A gate closing is not a failure and not a cancellation — nobody asked for
+  # it to stop, and it should read differently in a list of runs.
+  def gated!
+    return false unless open?
+
+    update_columns(status: "gated", finished_at: Time.current)
+    true
   end
 
   def cancel!

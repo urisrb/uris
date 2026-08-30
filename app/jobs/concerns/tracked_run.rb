@@ -4,6 +4,8 @@ module TrackedRun
   CHECK_EVERY = 50
 
   included do
+    include Gated
+
     on_start :run_started
     on_shutdown :flush_run_progress
     on_complete :run_finished
@@ -30,6 +32,7 @@ module TrackedRun
 
     flush_run_progress
     throw(:abort) if halted?
+    halt_for_gate! if refresh_gate.closed?
   end
 
   def halted?

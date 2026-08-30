@@ -350,6 +350,28 @@ announces itself.
       revoke; `throw(:abort)` stops the loop and still runs the complete callbacks, so a cancelled
       sync releases its resource lock rather than holding it for six hours. Progress and the halt
       check ride the same beat — once, then every fifty. Exercised through the real queue.
+- [x] **Gates — every iteration is switchable while it runs** — a row keyed by `(tenant, key,
+      reference)` carrying `enabled` and `live`, most specific winning: a gate on one resource beats
+      the key-wide gate, and absence means the iterator's own declared default rather than "off", so
+      nothing silently stops working the day the table appears. `sync`, `export` and `analyze`
+      declare theirs. Read on the beat `TrackedRun` already flushes progress on — once, then every
+      fifty — because a gate read per record is a query per record, which is the thing that beat
+      exists to avoid. Two traps, both asserted and both failing when the fix is removed. A closed
+      gate returns an *empty* enumerator rather than `nil`: job-iteration skips a nil-enumerator job
+      without running its completion callbacks, so `release_sync` never fires and a gated-off sync
+      strands its resource for six hours — the exact lock this design was careful about everywhere
+      else. And a reference-scoped gate has to load its own resource, since the gate is read before
+      the enumerator has loaded anything, and a gate that cannot see its subject reads as open.
+- [x] **`live` separately from `enabled`** — enabled but not live is a dry run: it walks, counts and
+      reports, and writes nothing. That is how a destructive sweep gets turned on — you watch it
+      describe its work first. `gated` is its own run status, because a gate closing is neither a
+      failure nor something anybody cancelled.
+- [x] **An operator switch that is not a row** — `THINGS_ITERATORS_DISABLED` stops everything for
+      everyone. It is environment rather than data on purpose: a global row would need
+      `tenant_id NULL`, which RLS makes invisible to the app that has to read it.
+- [ ] **The iterator registry, the live stream, and the page** — the gate is the half that had to be
+      right. What is left is enumerating iterators as data, broadcasting run events over the cable
+      `thingAnalyzed` already proved, and the admin page that turns them on and off.
 - [ ] **Run budgets, and a run tree** — `plans/007` puts `max_steps`, `max_spend` and `max_children`
       on the root and has children debit it, so recursion cannot multiply an allowance. None of it
       applies until a run can start another one, which needs agent workflows. A prebuilt run has a

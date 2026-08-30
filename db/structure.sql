@@ -27,6 +27,45 @@ CREATE TABLE public.ar_internal_metadata (
 
 
 --
+-- Name: gates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.gates (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    key character varying NOT NULL,
+    reference_type character varying,
+    reference_id bigint,
+    enabled boolean DEFAULT true NOT NULL,
+    live boolean DEFAULT true NOT NULL,
+    note character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.gates FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: gates_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.gates_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: gates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.gates_id_seq OWNED BY public.gates.id;
+
+
+--
 -- Name: resource_blobs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -267,6 +306,13 @@ ALTER SEQUENCE public.things_id_seq OWNED BY public.things.id;
 
 
 --
+-- Name: gates id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gates ALTER COLUMN id SET DEFAULT nextval('public.gates_id_seq'::regclass);
+
+
+--
 -- Name: resource_blobs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -314,6 +360,14 @@ ALTER TABLE ONLY public.things ALTER COLUMN id SET DEFAULT nextval('public.thing
 
 ALTER TABLE ONLY public.ar_internal_metadata
     ADD CONSTRAINT ar_internal_metadata_pkey PRIMARY KEY (key);
+
+
+--
+-- Name: gates gates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gates
+    ADD CONSTRAINT gates_pkey PRIMARY KEY (id);
 
 
 --
@@ -370,6 +424,20 @@ ALTER TABLE ONLY public.thing_references
 
 ALTER TABLE ONLY public.things
     ADD CONSTRAINT things_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: index_gates_on_scope; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_gates_on_scope ON public.gates USING btree (tenant_id, key, reference_type, reference_id) NULLS NOT DISTINCT;
+
+
+--
+-- Name: index_gates_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_gates_on_tenant_id ON public.gates USING btree (tenant_id);
 
 
 --
@@ -529,6 +597,14 @@ ALTER TABLE ONLY public.runs
 
 
 --
+-- Name: gates fk_rails_1402937732; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gates
+    ADD CONSTRAINT fk_rails_1402937732 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: thing_references fk_rails_3ba42c6c80; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -585,6 +661,12 @@ ALTER TABLE ONLY public.things
 
 
 --
+-- Name: gates; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.gates ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: resource_blobs; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -601,6 +683,13 @@ ALTER TABLE public.resources ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.runs ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: gates tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.gates USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
+
 
 --
 -- Name: resource_blobs tenant_isolation; Type: POLICY; Schema: public; Owner: -
@@ -656,6 +745,7 @@ ALTER TABLE public.things ENABLE ROW LEVEL SECURITY;
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260830000007'),
 ('20260830000006'),
 ('20260830000005'),
 ('20260830000004'),

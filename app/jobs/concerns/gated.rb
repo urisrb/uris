@@ -1,0 +1,86 @@
+module Gated
+  extend ActiveSupport::Concern
+
+  # job-iteration skips a job whose build_enumerator returns nil, and skipping
+  # it means the completion callbacks never fire. A sync claimed its resource
+  # before it was enqueued, so that path strands the lock for
+  # SYNC_ABANDONED_AFTER. An empty enumerator iterates nothing and still
+  # completes, which is what gives the lock back.
+  module Enumeration
+    def build_enumerator(*args, cursor:, **rest)
+      return refuse_gated_run if gate.closed?
+
+      super
+    end
+  end
+
+  included do
+    prepend Enumeration
+  end
+
+  class_methods do
+    def gated_as(key, enabled: true, live: true)
+      @gate_key = key
+      @gate_defaults = { enabled: enabled, live: live }
+    end
+
+    def gate_key
+      @gate_key || name
+    end
+
+    def gate_defaults
+      @gate_defaults || { enabled: true, live: true }
+    end
+  end
+
+  def gate
+    @gate ||= read_gate
+  end
+
+  def refresh_gate
+    @gate = read_gate
+  end
+
+  def dry_run?
+    gate.dry_run?
+  end
+
+  def gate_reference
+    nil
+  end
+
+  private
+
+    def refuse_gated_run
+      mark_run_gated
+      enumerator_builder.build_array_enumerator([], cursor: nil)
+    end
+
+    def read_gate
+      tenant = gate_tenant
+      return Gate::Decision.new(**self.class.gate_defaults) if tenant.nil?
+
+      Tenant.switch(tenant) do
+        Gate.decide(key: self.class.gate_key, reference: gate_reference, **self.class.gate_defaults)
+      end
+    end
+
+    def gate_tenant
+      Tenant.find_by(id: arguments.first)
+    end
+
+    def mark_run_gated
+      return if run.nil?
+
+      Tenant.switch(run.tenant) { run.gated! }
+    end
+
+    # Stopping mid-flight goes through throw(:abort) with the complete
+    # callbacks left to fire, for the same reason cancellation does: work
+    # holding a lock has to give it back.
+    def halt_for_gate!
+      mark_run_gated
+
+      throw(:abort)
+    end
+end
