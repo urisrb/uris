@@ -2,7 +2,7 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**106 items — 65 done · 4 partial · 31 to build · 6 deferred**, read at `25f030b`.
+**108 items — 69 done · 4 partial · 29 to build · 6 deferred**, read at `712f6ac`.
 
 |         |              |                                                        |
 | ------- | ------------ | ------------------------------------------------------ |
@@ -118,7 +118,11 @@ announces itself.
 - [x] **Analysis text folded into the body**, unioned across a thing's references.
 - [ ] ◐ **One selector grammar** — `Thing.matching` is now shared by analysis and export. It covers
       id, kind, resource and query; folder, label and date are named in the plan and absent.
-- [ ] **Cursor pagination built for millions per tenant** — both paths are limit-only.
+- [x] **Cursor pagination built for millions per tenant** — `Page` is keyset on the primary key,
+      newest first: no offset, and no count. The cursor is the last id of the previous page and one
+      extra row answers "is there more", so nothing ever asks the database to count a million
+      things. `things` and `runs` both take it. Search stays limit-only, because OpenSearch orders
+      by score and its cursor is `search_after`, which is a different thing.
 - [ ] **Reindex as a resumable bulk operation**
 
 ## export — catalog → resource
@@ -269,7 +273,13 @@ Deliberately small: only what a chat transcript must not do.
 
 - [x] **React SPA with urql, codegen and cable subscriptions** — the Ruby schema is the source of
       truth and the TypeScript is generated from it, so the SPA cannot drift without the types going
-      red.
+      red. Codegen had no mapping for `ISO8601DateTime` or `JSON`, so every timestamp arrived as
+      `unknown`; fixed in `codegen.ts` rather than cast at each use.
+- [x] **A catalog worth opening** — search, kind filters, thumbnails and a cursor on the list; a
+      thing page with every reference, its analysis, open, download and split; resources with
+      health, sync schedules and a default-storage star; a runs table that polls while anything is
+      open and can cancel it. Built on the Mantine, react-router and Tabler dependencies that were
+      already in `package.json` and entirely unused.
 - [x] **GraphQL — things, references, search, resources, tenant, node**
 - [x] **`thingAnalyzed`** — fires when an analysis finishes, which is the answer to the question that
       kept it unwired: a thing commits once per object during a sync, so the naive `after_commit` is
@@ -280,11 +290,22 @@ Deliberately small: only what a chat transcript must not do.
       land on different streams, asserted. Exercised through the real channel in test, and against
       real solid_cable in development. The hop from the event stream to one subscriber is
       graphql-ruby's own listener and needs a live client to see.
-- [ ] **Any mutation at all** — `MutationType` still holds only the generator's `test_field`.
+- [x] **Mutations** — nine: analyze, merge, split, sync, check, `setDefaultStorage`,
+      `setSyncInterval`, export, `cancelRun`. Each goes through the same model method its tool does,
+      so there is one set of rules behind two front doors rather than a second implementation that
+      drifts.
 - [ ] **Session auth for the browser** — the SPA has no login and `/graphql` trusts a session
       nothing sets.
 - [ ] **Resource enrollment** — the main reason the web app exists.
-- [ ] **Visual browsing** — images and PDFs are better looked at than described.
+- [x] **Visual browsing** — `/references/:id/content` streams a reference out of whatever resource
+      holds it, chunked rather than read whole into memory, and `/references/:id/thumbnail` renders
+      images through `vipsthumbnail` and a PDF's first page through `pdftoppm` at three sizes. A
+      thumbnail is a derivative, not data — regenerable from the reference — so it lives in the
+      cache and never in a table anyone has to migrate. A kind with nothing to render answers 404.
+- [ ] **The Dockerfile cannot render any of it** — the runtime image installs `libvips` and neither
+      `poppler-utils` nor `tesseract-ocr`, so `pdftotext`, `pdftoppm` and OCR are missing wherever
+      the image runs. Every PDF and image analyzer, and every PDF thumbnail, fails outside a
+      laptop. Nothing has been deployed, which is the only reason this has not bitten.
 
 ## Packaging
 
