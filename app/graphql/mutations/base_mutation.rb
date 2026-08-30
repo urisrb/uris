@@ -6,5 +6,24 @@ module Mutations
     field_class Types::BaseField
     input_object_class Types::BaseInputObject
     object_class Types::BaseObject
+
+    private
+
+      def thing!(id)
+        Thing.find_by(id: id) || raise(GraphQL::ExecutionError, "no thing with id #{id}")
+      end
+
+      def resource!(id)
+        Resource.active.find_by(id: id) ||
+          raise(GraphQL::ExecutionError, "no resource with id #{id}")
+      end
+
+      def run!(id)
+        Run.find_by(id: id) || raise(GraphQL::ExecutionError, "no run with id #{id}")
+      end
+
+      def refused(message)
+        raise GraphQL::ExecutionError, message
+      end
   end
 end

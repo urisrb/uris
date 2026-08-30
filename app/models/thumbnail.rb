@@ -1,0 +1,87 @@
+require "open3"
+
+class Thumbnail
+  class Unavailable < StandardError; end
+
+  SIZES = { "small" => 96, "medium" => 320, "large" => 1024 }.freeze
+  DEFAULT_SIZE = "medium"
+  KINDS = %w[image pdf].freeze
+  CONTENT_TYPE = "image/jpeg"
+  RETAIN = 30.days
+
+  # A derivative, not data: regenerable from the reference at any time, so it
+  # lives in the cache and never in a table anyone would have to migrate.
+  def self.for(reference, size: DEFAULT_SIZE)
+    new(reference, size).bytes
+  end
+
+  def self.available_for?(kind)
+    KINDS.include?(kind)
+  end
+
+  def initialize(reference, size)
+    @reference = reference
+    @size = size
+    @width = SIZES[size] || raise(Unavailable, "no thumbnail size called #{size}")
+
+    raise Unavailable, "nothing to render for a #{reference.kind}" unless
+      self.class.available_for?(reference.kind)
+  end
+
+  def bytes
+    Rails.cache.fetch(cache_key, expires_in: RETAIN) { render }
+  end
+
+  private
+
+    attr_reader :reference, :size, :width
+
+    def cache_key
+      [ "thumbnail", reference.tenant_id, reference.id, size,
+        reference.updated_at.to_i ].join("/")
+    end
+
+    def render
+      source do |path|
+        Dir.mktmpdir do |dir|
+          case reference.kind
+          when "image" then from_image(path, dir)
+          when "pdf" then from_pdf(path, dir)
+          end
+        end
+      end
+    end
+
+    def from_image(path, dir)
+      out = File.join(dir, "out.jpg")
+      run("vipsthumbnail", path, "--size", "#{width}x", "-o", "#{out}[Q=80]")
+      File.binread(out)
+    end
+
+    # pdftoppm appends its own -1 for the page, so the prefix is not the file.
+    def from_pdf(path, dir)
+      prefix = File.join(dir, "page")
+      run("pdftoppm", "-jpeg", "-r", "72", "-f", "1", "-l", "1",
+          "-scale-to-x", width.to_s, "-scale-to-y", "-1", path, prefix)
+
+      rendered = Dir["#{prefix}*.jpg"].first
+      raise Unavailable, "pdftoppm rendered no page" if rendered.nil?
+
+      File.binread(rendered)
+    end
+
+    def source
+      Tempfile.create([ "thumb", File.extname(reference.locator_key.to_s) ], binmode: true) do |file|
+        IO.copy_stream(reference.download, file)
+        file.flush
+        yield file.path
+      end
+    end
+
+    def run(*args)
+      _out, err, status = Open3.capture3(*args)
+      raise Unavailable, "#{args.first}: #{err.truncate(200)}" unless status.success?
+
+      true
+    end
+end

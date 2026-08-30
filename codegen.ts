@@ -15,6 +15,8 @@ const config: CodegenConfig = {
         useTypeImports: true,
         scalars: {
           Upload: 'File',
+          ISO8601DateTime: 'string',
+          JSON: 'Record<string, unknown>',
         },
       },
     },

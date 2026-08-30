@@ -5,6 +5,9 @@ Rails.application.routes.draw do
 
   post "/graphql", to: "graphql#execute"
 
+  get "/references/:id/content", to: "content#show", as: :reference_content
+  get "/references/:id/thumbnail", to: "content#thumbnail", as: :reference_thumbnail
+
   post "/mcp", to: "mcp#handle"
   match "/mcp", to: "mcp#unsupported", via: [ :get, :delete ]
 

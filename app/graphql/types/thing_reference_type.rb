@@ -6,6 +6,19 @@ module Types
     field :resource, Types::ResourceType, null: false
     field :locator, GraphQL::Types::JSON, null: false
     field :locator_key, String
+    field :filename, String, null: false
+    field :content_type, String, null: false
     field :analyzed_at, GraphQL::Types::ISO8601DateTime
+    field :analysis, GraphQL::Types::JSON, null: false
+    field :content_url, String, null: false
+    field :thumbnail_url, String
+
+    def content_url
+      "/references/#{object.id}/content"
+    end
+
+    def thumbnail_url
+      "/references/#{object.id}/thumbnail" if object.thumbnail?
+    end
   end
 end

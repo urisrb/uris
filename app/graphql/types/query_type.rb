@@ -24,25 +24,45 @@ module Types
       context[:tenant]
     end
 
-    field :things, [ Types::ThingType ], null: false do
-      argument :kind, String, required: false
-      argument :resource_id, ID, required: false
+    field :thing, Types::ThingType, null: true do
+      argument :id, ID, required: true
     end
 
-    def things(kind: nil, resource_id: nil)
-      scope = Thing.order(created_at: :desc)
-      scope = scope.where(kind: kind) if kind
-      scope = scope.referencing(resource_id) if resource_id
-      scope.limit(100)
+    def thing(id:)
+      Thing.find_by(id: id)
+    end
+
+    field :things, Types::ThingPageType, null: false do
+      argument :kind, String, required: false
+      argument :resource_id, ID, required: false
+      argument :after, ID, required: false
+      argument :limit, Integer, required: false
+    end
+
+    def things(kind: nil, resource_id: nil, after: nil, limit: nil)
+      scope = Thing.all
+      scope = scope.where(kind: kind) if kind.present?
+      scope = scope.referencing(resource_id) if resource_id.present?
+
+      Page.of(scope, after: after, limit: limit)
     end
 
     field :search, [ Types::ThingType ], null: false do
       argument :query, String, required: false
       argument :kind, String, required: false
+      argument :limit, Integer, required: false
     end
 
-    def search(query: nil, kind: nil)
-      Thing.search(query, kind: kind)
+    def search(query: nil, kind: nil, limit: nil)
+      Thing.search(query, kind: kind, limit: (limit || 50).to_i.clamp(1, 200))
+    end
+
+    field :kinds, [ Types::KindCountType ], null: false
+
+    def kinds
+      Thing.group(:kind).order(count_all: :desc).count.map do |kind, count|
+        { kind: kind, count: count }
+      end
     end
 
     field :resources, [ Types::ResourceType ], null: false
@@ -51,16 +71,19 @@ module Types
       Resource.active.order(:type, :key)
     end
 
-    field :runs, [ Types::RunType ], null: false do
+    field :runs, Types::RunPageType, null: false do
       argument :kind, String, required: false
       argument :status, String, required: false
+      argument :after, ID, required: false
+      argument :limit, Integer, required: false
     end
 
-    def runs(kind: nil, status: nil)
-      scope = Run.newest_first
-      scope = scope.where(kind: kind) if kind
-      scope = scope.where(status: status) if status
-      scope.limit(100)
+    def runs(kind: nil, status: nil, after: nil, limit: nil)
+      scope = Run.all
+      scope = scope.where(kind: kind) if kind.present?
+      scope = scope.where(status: status) if status.present?
+
+      Page.of(scope, after: after, limit: limit)
     end
   end
 end

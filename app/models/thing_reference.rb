@@ -66,6 +66,18 @@ class ThingReference < ApplicationRecord
     [ resource.key, locator_key ].compact.join("/")
   end
 
+  def filename
+    File.basename(locator_key.to_s).presence || "thing-#{thing_id}"
+  end
+
+  def content_type
+    Rack::Mime.mime_type(File.extname(filename), "application/octet-stream")
+  end
+
+  def thumbnail?
+    Thumbnail.available_for?(kind)
+  end
+
   def extracted
     analysis.fetch("steps", {}).values.filter_map { |step| step["result"] }
   end
