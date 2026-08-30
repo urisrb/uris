@@ -105,22 +105,21 @@ rejected against another on its audience, before any tenant scoping runs.
 Credentials never travel through a tool call: they would land in the transcript. Connecting a
 resource is a browser flow, and that is most of what the web UI is for.
 
-### Driving it before the auth server exists
+### Driving it
 
 An unauthenticated call answers `401` with a `WWW-Authenticate` header naming the issuer to go
-authenticate against — the whole handshake, for a client handed nothing but a URL. Until that issuer
-exists, `MASKS_DEV_SECRET` accepts locally signed tokens instead. It is refused outside development
-and test, because a signing secret in production would make this app the issuer of its own
-credentials.
+authenticate against — the whole handshake, for a client handed nothing but a URL.
+
+There is no local minting path any more. A bearer token comes from masks or it does not exist: this
+app verifies, and never signs. Point `MASKS_ISSUER_TEMPLATE` at a running issuer, sign in through
+the web app, and the browser's session is a real token; for a raw `curl`, take one from that issuer's
+token endpoint.
 
 ```sh
-bin/mcp-token jons                      # every scope
-bin/mcp-token jons things:read          # or fewer
-
 curl -sS http://jons.things.test:4242/.well-known/oauth-protected-resource
 
 curl -sS -X POST http://jons.things.test:4242/mcp \
-  -H "authorization: Bearer $(bin/mcp-token jons)" \
+  -H "authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
