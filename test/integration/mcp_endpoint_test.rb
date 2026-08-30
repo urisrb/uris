@@ -43,7 +43,7 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     metadata = response.parsed_body
 
     assert_equal "#{origin_for(@tenant)}/mcp", metadata["resource"]
-    assert_equal [ Issuer.for(@tenant).url ], metadata["authorization_servers"]
+    assert_equal [ issuer.url_for(@tenant.subdomain) ], metadata["authorization_servers"]
     assert_equal ALL, metadata["scopes_supported"]
   end
 
@@ -227,8 +227,9 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     end
 
     def bearer(tenant, scopes)
-      token = Issuer.for(tenant).mint(
-        subject: "test", scopes: scopes, audience: "#{origin_for(tenant)}/mcp"
+      token = issuer.mint(
+        subdomain: tenant.subdomain, scopes: scopes,
+        audience: "#{origin_for(tenant)}/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

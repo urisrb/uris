@@ -1,4 +1,6 @@
 class Tenant < ApplicationRecord
+  class Unconfigured < StandardError; end
+
   has_many :things, dependent: :destroy
   has_many :resources, dependent: :destroy
 
@@ -11,6 +13,21 @@ class Tenant < ApplicationRecord
   class << self
     def resolve(host)
       find_by(subdomain: host.to_s.split(".").first)
+    end
+
+    def origin(request)
+      ENV["THINGS_PUBLIC_ORIGIN"].presence || request.base_url
+    end
+
+    def resource_url(request)
+      "#{origin(request)}/mcp"
+    end
+
+    def issuer_url(request)
+      template = ENV["MASKS_ISSUER_TEMPLATE"].presence
+      raise Unconfigured, "MASKS_ISSUER_TEMPLATE is not set" if template.nil?
+
+      format(template, subdomain: request.host.to_s.split(".").first)
     end
 
     def switch(tenant)

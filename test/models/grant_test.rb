@@ -42,6 +42,6 @@ class GrantTest < ActiveSupport::TestCase
       claims = { "sub" => "someone", "scope" => scope, "exp" => 1.hour.from_now.to_i }
       claims["tenant"] = tenant if tenant
 
-      Grant.new(tenant: @tenant, claims: claims)
+      Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new(claims))
     end
 end

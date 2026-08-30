@@ -36,9 +36,18 @@ class GraphqlTenancyTest < ActionDispatch::IntegrationTest
 
     def query_as(subdomain)
       host! "#{subdomain}.things.test"
-      post "/graphql", params: { query: CATALOG }
+      post "/graphql", params: { query: CATALOG }, headers: bearer(subdomain)
 
       assert_response :success
       JSON.parse(response.body).fetch("data")
+    end
+
+    def bearer(subdomain, scopes: Grant::SCOPES)
+      token = issuer.mint(
+        subdomain: subdomain, scopes: scopes,
+        audience: "http://#{subdomain}.things.test/mcp"
+      )
+
+      { "Authorization" => "Bearer #{token}" }
     end
 end

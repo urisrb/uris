@@ -1,4 +1,6 @@
 class ContentController < ApplicationController
+  include Granted
+
   CHUNK = 64.kilobytes
 
   def show
@@ -26,6 +28,12 @@ class ContentController < ApplicationController
   end
 
   private
+
+    def authorize
+      super && grant.permit!("things:read")
+    rescue Grant::Denied => e
+      refuse(Masks::Client::Unauthorized.new(e.message))
+    end
 
     def find_reference
       ThingReference.find_by(id: params[:id])

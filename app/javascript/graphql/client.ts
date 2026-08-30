@@ -3,8 +3,10 @@ import {
   Client,
   cacheExchange,
   fetchExchange,
+  mapExchange,
   subscriptionExchange,
 } from '@urql/core'
+import { session } from '../hooks/useSession'
 
 const cable = createConsumer()
 
@@ -22,6 +24,11 @@ export const client = new Client({
   url: '/graphql',
   exchanges: [
     cacheExchange,
+    mapExchange({
+      onError(error) {
+        if (error.response?.status === 401) session.login()
+      },
+    }),
     fetchExchange,
     subscriptionExchange({
       forwardSubscription(request) {

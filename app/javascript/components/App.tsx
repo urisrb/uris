@@ -1,4 +1,16 @@
-import { AppShell, Burger, Group, NavLink, Text, Title } from '@mantine/core'
+import {
+  AppShell,
+  Burger,
+  Button,
+  Center,
+  Group,
+  Loader,
+  Menu,
+  NavLink,
+  Stack,
+  Text,
+  Title,
+} from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import {
   IconDatabase,
@@ -6,6 +18,7 @@ import {
   IconProgressCheck,
 } from '@tabler/icons-react'
 import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { useSession } from '../hooks/useSession'
 import { Catalog } from './Catalog'
 import { Resources } from './Resources'
 import { Runs } from './Runs'
@@ -21,6 +34,31 @@ export function App() {
   const [opened, { toggle, close }] = useDisclosure()
   const location = useLocation()
   const navigate = useNavigate()
+  const { account, loading, login, logout } = useSession()
+
+  if (loading) {
+    return (
+      <Center h="100vh">
+        <Loader />
+      </Center>
+    )
+  }
+
+  if (!account) {
+    return (
+      <Center h="100vh">
+        <Stack align="center" gap="sm">
+          <Title order={3}>things</Title>
+          <Text c="dimmed" size="sm">
+            one index across everything you own
+          </Text>
+          <Button mt="md" onClick={login}>
+            Sign in
+          </Button>
+        </Stack>
+      </Center>
+    )
+  }
 
   return (
     <AppShell
@@ -41,6 +79,17 @@ export function App() {
           <Text c="dimmed" size="sm" visibleFrom="sm">
             one index across everything you own
           </Text>
+          <Menu position="bottom-end">
+            <Menu.Target>
+              <Button variant="subtle" size="compact-sm" ml="auto">
+                {account.nickname ?? account.name ?? account.email}
+              </Button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Label>{account.tenant?.name}</Menu.Label>
+              <Menu.Item onClick={logout}>Sign out</Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
         </Group>
       </AppShell.Header>
 

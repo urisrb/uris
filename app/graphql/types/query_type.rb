@@ -18,13 +18,13 @@ module Types
       ids.map { |id| context.schema.object_from_id(id, context) }
     end
 
-    field :tenant, Types::TenantType, null: true
+    field :tenant, Types::TenantType, null: true, grants: "things:read"
 
     def tenant
       context[:tenant]
     end
 
-    field :thing, Types::ThingType, null: true do
+    field :thing, Types::ThingType, null: true, grants: "things:read" do
       argument :id, ID, required: true
     end
 
@@ -32,7 +32,7 @@ module Types
       Thing.find_by(id: id)
     end
 
-    field :things, Types::ThingPageType, null: false do
+    field :things, Types::ThingPageType, null: false, grants: "things:read" do
       argument :kind, String, required: false
       argument :resource_id, ID, required: false
       argument :after, ID, required: false
@@ -47,7 +47,7 @@ module Types
       Page.of(scope, after: after, limit: limit)
     end
 
-    field :search, [ Types::ThingType ], null: false do
+    field :search, [ Types::ThingType ], null: false, grants: "things:read" do
       argument :query, String, required: false
       argument :kind, String, required: false
       argument :limit, Integer, required: false
@@ -57,7 +57,7 @@ module Types
       Thing.search(query, kind: kind, limit: (limit || 50).to_i.clamp(1, 200))
     end
 
-    field :kinds, [ Types::KindCountType ], null: false
+    field :kinds, [ Types::KindCountType ], null: false, grants: "things:read"
 
     def kinds
       Thing.group(:kind).order(count_all: :desc).count.map do |kind, count|
@@ -65,13 +65,13 @@ module Types
       end
     end
 
-    field :resources, [ Types::ResourceType ], null: false
+    field :resources, [ Types::ResourceType ], null: false, grants: "resources:read"
 
     def resources
       Resource.active.order(:type, :key)
     end
 
-    field :runs, Types::RunPageType, null: false do
+    field :runs, Types::RunPageType, null: false, grants: "things:read" do
       argument :kind, String, required: false
       argument :status, String, required: false
       argument :after, ID, required: false

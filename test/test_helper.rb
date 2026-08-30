@@ -2,8 +2,8 @@ ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
 
-ENV["MASKS_ISSUER_TEMPLATE"] = "http://%{subdomain}.auth.test:5555"
-ENV["MASKS_DEV_SECRET"] = "test_only_secret_masks_will_replace"
+require_relative "support/fake_issuer"
+
 ENV["THINGS_PUBLIC_ORIGIN"] = nil
 
 module ActiveSupport
@@ -15,6 +15,19 @@ module ActiveSupport
     # search index, and the suite resets that index in setup. Without a name
     # per worker they delete each other's.
     parallelize_setup { |worker| ENV["TEST_ENV_NUMBER"] = worker.to_s }
+
+    # A signing issuer per worker, because workers fork and a socket opened
+    # before the fork would be shared. Each tenant gets its own key from it, so
+    # a token minted for one is unintelligible to another rather than merely
+    # unauthorized — the property per-tenant keys exist for.
+    setup do
+      Masks::Client.registry.clear!
+      ENV["MASKS_ISSUER_TEMPLATE"] = FakeIssuer.template
+    end
+
+    def issuer
+      FakeIssuer.current
+    end
 
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     fixtures :all

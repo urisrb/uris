@@ -3,6 +3,8 @@ Rails.application.routes.draw do
     mount GraphiQL::Rails::Engine, at: "/graphiql", graphql_path: "/graphql"
   end
 
+  mount Masks::Rails::Engine, at: "/auth"
+
   post "/graphql", to: "graphql#execute"
 
   get "/references/:id/content", to: "content#show", as: :reference_content

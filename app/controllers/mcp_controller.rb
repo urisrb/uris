@@ -1,5 +1,5 @@
 class McpController < ApplicationController
-  include ProtectedResource
+  include Granted
 
   INSTRUCTIONS = <<~TEXT.freeze
     things is one searchable index across everything its owner keeps, wherever it lives.
@@ -17,8 +17,6 @@ class McpController < ApplicationController
 
   skip_forgery_protection
 
-  before_action :authorize
-
   def handle
     reply = server.handle_json(request.raw_post)
 
@@ -35,16 +33,10 @@ class McpController < ApplicationController
 
   private
 
-    def authorize
-      grant
-    rescue Grant::Denied, Issuer::Unconfigured => e
-      challenge(e.message)
-    end
-
-    def grant
-      @grant ||= Grant.from_authorization(
-        request.authorization, tenant: current_tenant, audience: resource_url
-      )
+    # A connector is handed a URL and nothing else, so an unauthenticated call
+    # has to be answered with the challenge rather than sent to a login page.
+    def presented?
+      true
     end
 
     def server
