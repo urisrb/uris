@@ -2,7 +2,7 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**105 items — 64 done · 4 partial · 31 to build · 6 deferred**, read at `c44df2b`.
+**106 items — 65 done · 4 partial · 31 to build · 6 deferred**, read at `25f030b`.
 
 |         |              |                                                        |
 | ------- | ------------ | ------------------------------------------------------ |
@@ -190,8 +190,9 @@ announces itself.
 
 `POST /mcp` — stateless Streamable HTTP, one bearer token per call.
 
-- [x] **Nine tools** — `search_things`, `get_thing`, `analyze_thing`, `list_resources`,
-      `describe_resource`, `check_resource`, `command_resource`, `sync_resource`, `export_things`.
+- [x] **Eleven tools** — `search_things`, `get_thing`, `analyze_thing`, `list_resources`,
+      `describe_resource`, `check_resource`, `command_resource`, `sync_resource`, `export_things`,
+      `list_runs`, `cancel_run`.
 - [x] **The grant is the tool list** — the server is built per request from the token's scopes, so
       an ungranted tool is not registered at all: absent from `tools/list`, and `Tool not found` if
       called anyway. Not an allowlist a prompt can argue with.
@@ -215,8 +216,8 @@ announces itself.
       credentials.
 - [x] **Secrets never travel through a tool call** — no tool accepts a credential.
 - [x] **GraphQL is not exposed as a tool** — a single passthrough tool cannot be partially granted.
-- [ ] **SSE and resumability** — `GET /mcp` is 405. Nothing streams yet, because nothing reports
-      progress yet.
+- [ ] **SSE and resumability** — `GET /mcp` is 405. Runs report progress now, so the reason this
+      was blocked is gone; what is left is the transport.
 - [ ] **Session semantics** — no `Mcp-Session-Id`; every request stands alone.
 - [ ] **An audit log** — every call is a grant being exercised and none of it is recorded.
 - [ ] **Rate limiting per token**
@@ -242,8 +243,19 @@ announces itself.
 - [ ] ◐ **Per-tenant fairness on the iterators** — analysis is capped; a tenant that starts fifty
       syncs still holds the bulk pool. Long-running work needs admission control, not a concurrency
       key, because a duration shorter than the job over-admits.
-- [ ] **Runs as records** — tools that start work answer `queued` and nothing observes them after
-      that. No status, deadline, cancel, or budget.
+- [x] **Runs as records** — kind, status, what it processed, when it started and stopped, and what
+      broke it. Every tool that starts work hands back a `run_id`, and `list_runs` and `cancel_run`
+      are how you see and stop it. The Run is created before the job is enqueued, which answers the
+      plan's open question as _wraps, not is_: it makes `queued` a real state and makes a run
+      cancellable in the window before a worker picks it up, while job-iteration keeps owning the
+      cursor. Cancellation is a flag the iteration reads, because a bulk job holds no token to
+      revoke; `throw(:abort)` stops the loop and still runs the complete callbacks, so a cancelled
+      sync releases its resource lock rather than holding it for six hours. Progress and the halt
+      check ride the same beat — once, then every fifty. Exercised through the real queue.
+- [ ] **Run budgets, and a run tree** — `plans/007` puts `max_steps`, `max_spend` and `max_children`
+      on the root and has children debit it, so recursion cannot multiply an allowance. None of it
+      applies until a run can start another one, which needs agent workflows. A prebuilt run has a
+      deadline and a cancel flag and nothing to spend.
 - [x] **`solid_cache` and `solid_cable`** — installed the way the queue was, and for the same
       reason: separate databases in development too, each described by a migration, so all four
       dump to `structure.sql` files beside each other. Production would otherwise have booted with
@@ -295,7 +307,7 @@ Deliberately small: only what a chat transcript must not do.
 
 ## Deliberately deferred
 
-- [ ] ⊘ **Broader test coverage** — 117 tests cover tenancy, the model and merges, both bulk jobs,
+- [ ] ⊘ **Broader test coverage** — 130 tests cover tenancy, the model and merges, runs, both bulk jobs,
       the sync schedule, analysis, search, resources, grants, the failure policy and the endpoint.
       Note the difference
       between this being deferred and CI being unable to run what exists, which is not deferred.
