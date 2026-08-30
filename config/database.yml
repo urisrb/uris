@@ -19,7 +19,6 @@ default: &default
   # https://guides.rubyonrails.org/configuring.html#database-pooling
   max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
 
-
 # Postgres comes from compose.yml, so host and credentials are the same in
 # every checkout. DATABASE_URL overrides all of it when set.
 development: &development

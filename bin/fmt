@@ -5,6 +5,15 @@ cd "$(dirname "$0")/.."
 status=0
 
 bin/rubocop -a || status=$?
+
 npx biome check --write || status=$?
+
+npx --yes prettier --write --no-error-on-unmatched-pattern \
+  "*.{yml,yaml,md}" ".github/**/*.{yml,yaml}" "config/**/*.{yml,yaml}" || status=$?
+
+if command -v shfmt >/dev/null; then
+  scripts=$(shfmt -f bin 2>/dev/null)
+  [ -n "$scripts" ] && { shfmt -w -i 2 -ci $scripts || status=$?; }
+fi
 
 exit $status

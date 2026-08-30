@@ -4,6 +4,7 @@ brew "tesseract"
 brew "tesseract-lang"
 brew "libyaml"
 brew "postgresql@17"
+brew "shfmt"
 
 cask "libreoffice"
 cask "font-urw-base35"
