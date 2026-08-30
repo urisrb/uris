@@ -27,52 +27,109 @@ module SearchIndex
       @client ||= OpenSearch::Client.new(url: ENV.fetch("OPENSEARCH_URL", "http://127.0.0.1:9201"))
     end
 
-    def index_name
+    # Every name here is an alias. The concrete index is versioned and nothing
+    # outside this file knows what it is called, which is what makes a rebuild
+    # something other than downtime.
+    def alias_name
       [ "things", Rails.env, ENV["TEST_ENV_NUMBER"].presence ].compact.join("_")
     end
 
     def alias_for(tenant)
-      "#{index_name}_t#{tenant.id}"
+      "#{alias_name}_t#{tenant.id}"
+    end
+
+    def versioned
+      "#{alias_name}_v#{Time.current.utc.strftime('%Y%m%d%H%M%S%L')}"
+    end
+
+    def live_indices
+      client.indices.get_alias(name: alias_name).keys
+    rescue OpenSearch::Transport::Transport::Errors::NotFound
+      []
+    end
+
+    def live_index
+      live_indices.first || (alias_name if legacy_index?)
+    end
+
+    # Before this file versioned them, the alias's name was a concrete index,
+    # and one exists on every machine that ran that shape. It is left serving
+    # until a rebuild replaces it, because an alias cannot be created while an
+    # index holds its name.
+    def legacy_index?
+      live_indices.empty? && client.indices.exists(index: alias_name)
+    end
+
+    def build!(name = versioned)
+      client.indices.create(index: name, body: { settings: SETTINGS, mappings: MAPPING })
+      name
+    rescue OpenSearch::Transport::Transport::Errors::BadRequest => e
+      raise unless e.message.include?("resource_already_exists_exception")
+
+      name
     end
 
     def create!
-      client.indices.create(index: index_name, body: { settings: SETTINGS, mappings: MAPPING })
-    rescue OpenSearch::Transport::Transport::Errors::BadRequest => e
-      raise unless e.message.include?("resource_already_exists_exception")
+      live_index || build!.tap do |name|
+        client.indices.update_aliases(
+          body: { actions: [ { add: { index: name, alias: alias_name } } ] }
+        )
+      end
     end
 
     # The tenant filter lives on the alias, so it is applied by the engine and
     # cannot be omitted by a caller. This is the search-side equivalent of RLS.
-    def create_alias!(tenant)
-      create!
-
-      client.indices.put_alias(
-        index: index_name,
-        name: alias_for(tenant),
-        body: { filter: { term: { tenant_id: tenant.id } } }
+    def create_alias!(tenant, index: nil)
+      client.indices.update_aliases(
+        body: { actions: [ tenant_alias(tenant, index || create!) ] }
       )
     end
 
-    def index(thing)
-      client.index(
-        index: index_name,
-        id: thing.id,
-        body: {
-          tenant_id: thing.tenant_id,
-          kind: thing.kind,
-          title: thing.title,
-          locator_key: thing.references.map(&:locator_key).compact.join(" "),
-          body: thing.body_text,
-          resource_ids: thing.references.map(&:resource_id),
-          created_at: thing.created_at
-        }
-      )
+    # Promotion is one call, so no query ever sees a moment with no index
+    # behind it or two. It refuses an index holding less than it was told to
+    # expect, because a half-built index that answers is worse than one that
+    # does not exist.
+    def promote!(target, at_least:)
+      refresh!(index: target)
+      held = client.count(index: target)["count"]
+
+      if held < at_least
+        raise ArgumentError, "#{target} holds #{held} documents, fewer than the #{at_least} expected"
+      end
+
+      retired = live_indices - [ target ]
+      client.indices.delete(index: alias_name, ignore: 404) if legacy_index?
+
+      actions = [ { add: { index: target, alias: alias_name } } ]
+      Tenant.find_each { |tenant| actions << tenant_alias(tenant, target) }
+      retired.each { |name| actions << { remove: { index: name, alias: "#{alias_name}*" } } }
+
+      client.indices.update_aliases(body: { actions: actions })
+      retired.each { |name| client.indices.delete(index: name, ignore: 404) }
+
+      target
     end
 
-    def delete(thing)
-      client.delete(index: index_name, id: thing.id)
+    def index(thing, into: alias_name)
+      client.index(index: into, id: thing.id, body: document(thing))
+    end
+
+    def delete(thing, from: alias_name)
+      client.delete(index: from, id: thing.id)
     rescue OpenSearch::Transport::Transport::Errors::NotFound
       nil
+    end
+
+    def document(thing)
+      {
+        tenant_id: thing.tenant_id,
+        kind: thing.kind,
+        title: thing.title,
+        locator_key: thing.references.map(&:locator_key).compact.join(" "),
+        body: thing.body_text,
+        resource_ids: thing.references.map(&:resource_id),
+        created_at: thing.created_at
+      }
     end
 
     def search(query, tenant: Current.tenant, kind: nil, limit: 50)
@@ -94,15 +151,32 @@ module SearchIndex
       response.dig("hits", "hits").map { |hit| hit["_id"].to_i }
     end
 
-    def refresh!
-      client.indices.refresh(index: index_name)
+    def refresh!(index: alias_name)
+      client.indices.refresh(index: index)
     rescue OpenSearch::Transport::Transport::Errors::NotFound
       nil
     end
 
+    # Deletes by concrete name rather than by wildcard: `things_test*` also
+    # matches `things_test1`, which is another parallel worker's index.
     def reset!
-      client.indices.delete(index: index_name, ignore: 404)
+      indices = live_indices
+      indices.each { |name| client.indices.delete(index: name, ignore: 404) }
+      client.indices.delete(index: alias_name, ignore: 404) if indices.empty?
+
       create!
     end
+
+    private
+
+      def tenant_alias(tenant, index)
+        {
+          add: {
+            index: index,
+            alias: alias_for(tenant),
+            filter: { term: { tenant_id: tenant.id } }
+          }
+        }
+      end
   end
 end

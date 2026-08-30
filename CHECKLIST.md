@@ -2,9 +2,13 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**146 items — 103 done · 7 partial · 30 to build · 6 deferred**, read at `1ae67d4`, against a clean
-working tree. The suite was run rather than cited: **257 runs, 671 assertions, 0 failures** — run
-serially, because the parallel hang Packaging records turned up again.
+**147 items — 105 done · 7 partial · 29 to build · 6 deferred**, read at `41f24cc` plus the reindex
+work in the tree. The suite was run rather than cited: **272 runs, 718 assertions, 0 failures** —
+run serially, because the parallel hang Packaging records turned up again.
+
+**Not read against a clean tree.** The connect flow is being renamed as this is written — handshake
+for the request, connected for the state — so §Auth still says *pair* where the code has moved on.
+Read it for what it claims rather than for the names it uses.
 
 |         |              |                                                        |
 | ------- | ------------ | ------------------------------------------------------ |
@@ -151,7 +155,29 @@ announces itself.
       and passed again after deleting `things_test` by hand, which reads as broken code rather than
       a broken fixture. Neither operation needs to ask: the delete ignores 404, the create rescues
       already-exists.
-- [ ] **Reindex as a resumable bulk operation**
+- [x] **Reindex as a resumable bulk operation** — `ReindexThingsJob` walks a tenant's catalog by
+      keyset in pages of two hundred, so nothing holds a million ids in memory and an interrupted
+      run carries on from the thing it was on. It is a run like any other: gated, dry-runnable,
+      cancellable, and counted. `search:reindex` is the routine form — repair drift, or catch up
+      what a rebuild missed.
+- [x] **Every name in the index is an alias, so a mapping change is not downtime** — the concrete
+      index is versioned and nothing outside `SearchIndex` knows what it is called. `search:rebuild`
+      builds a new one with today's mapping, fills it, and promotes it in **one** `update_aliases`
+      call, so no query ever sees a moment with no index behind it or two. The per-tenant filtered
+      aliases move in that same call with their filters, which is what keeps the search-side
+      isolation true across a swap — a tenant alias is never briefly absent, and never briefly
+      unfiltered.
+      **Promotion refuses an index holding less than it was told to expect**, because a half-built
+      index that answers is worse than one that does not exist, and a rebuild that fails leaves its
+      index for `search:indices` to show and `search:drop` to remove — which refuses the one being
+      queried. Driven against a real cluster rather than asserted: the dev index was rebuilt,
+      promoted, listed and dropped, and all six tenant aliases arrived on the new index with their
+      filters.
+      **Writes during a rebuild land in the old index and are not in the new one.** The catch-up is
+      `search:reindex` after the swap, and the task says so when it finishes rather than pretending
+      the window is not there.
+      Bulk indexing is the obvious next step: this puts one document per request, which is fine for
+      an operator command and would not be for a nightly one.
 
 ## export — catalog → resource
 
