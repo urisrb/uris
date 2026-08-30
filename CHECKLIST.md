@@ -179,6 +179,23 @@ announces itself.
 - [x] **`database`** — the tenant's own database as storage, so a reference can point at content
       this app produced. The only type whose storage sits behind the same RLS as the catalog, so it
       carries the tenant into its own queries.
+- [x] **`rss`** — the first type whose references point at something the catalog does not hold. A
+      feed entry is a link and a summary; the bytes live at someone else's URL, which is the
+      "a link in Drive" half of the model that nothing had exercised. RSS and Atom parse to the same
+      entry through `local-name()`, so neither namespace is special-cased. `Analyzer::Feed` strips
+      the entry body to text so it lands in the index. Two things this type taught. A feed serves a
+      window, not a history: an entry that scrolls off raises `Rss::Gone` rather than resolving to
+      nothing, which is the first live example of the unbuilt staleness item — the catalog outlives
+      the resource's ability to answer for it. And the URL is tenant-supplied, so fetching it is
+      SSRF: the scheme must be http or https, the resolved address must not be loopback, private or
+      link-local unless `THINGS_ALLOW_PRIVATE_FETCH` is set, the check runs again on every redirect
+      hop rather than only the first, and redirects are capped. All three were confirmed to fail
+      when removed — the redirect-hop one matters most, since redirecting to `127.0.0.1` is the
+      standard way around a check that only reads the URL it was handed.
+- [ ] **DNS rebinding on feed fetches** — the address is checked and then connected to by name, so
+      a host that resolves differently between the two wins. Closing it means connecting to the
+      address that was checked and carrying the `Host` header, which is a bigger change than the
+      guard it strengthens.
 - [x] **`filesystem`** — a directory tree as a resource, storage and syncable, needing no credential
       and no service to test against. The enumeration is the easy half; the whole risk of this type
       is that a tenant who names its own root reads the server. So the root must sit under one of
