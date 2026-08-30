@@ -23,9 +23,6 @@ export const client = new Client({
   exchanges: [
     cacheExchange,
     fetchExchange,
-    // Subscriptions ride ActionCable rather than a websocket of their own.
-    // The server scopes every topic by tenant, so what arrives here is already
-    // narrowed — the client never asks for a stream by name.
     subscriptionExchange({
       forwardSubscription(request) {
         return {

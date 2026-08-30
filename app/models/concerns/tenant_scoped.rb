@@ -1,5 +1,3 @@
-# Included by every model that holds tenant data. The default scope is the
-# primary enforcement — RLS exists to catch the day someone forgets this.
 module TenantScoped
   extend ActiveSupport::Concern
 

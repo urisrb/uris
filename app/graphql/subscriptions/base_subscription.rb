@@ -6,14 +6,9 @@ module Subscriptions
     field_class Types::BaseField
     argument_class Types::BaseArgument
 
-    # Every subscription in this schema is scoped to a tenant, and it is scoped
-    # here rather than per-subscription so it cannot be forgotten.
-    #
-    # Without this, graphql-ruby derives the topic from the field name and its
-    # arguments alone — so two tenants subscribing to the same field share one
-    # stream, and a broadcast reaches both. Cable stream names are a third path
-    # that Postgres row-level security cannot protect, alongside the search
-    # index.
+    # Scoped here so it cannot be forgotten per-subscription: without it
+    # graphql-ruby derives the topic from the field and its arguments alone,
+    # and two tenants share one cable stream.
     subscription_scope :tenant_id
   end
 end

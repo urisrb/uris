@@ -15,7 +15,7 @@ module Things
       # GraphQL-Ruby query log tags:
       current_graphql_operation: -> { GraphQL::Current.operation_name },
       current_graphql_field: -> { GraphQL::Current.field&.path },
-      current_dataloader_source: -> { GraphQL::Current.dataloader_source_class },
+      current_dataloader_source: -> { GraphQL::Current.dataloader_source_class }
     ]
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 8.1
@@ -25,14 +25,13 @@ module Things
     # Common ones are `templates`, `generators`, or `middleware`, for example.
     config.autoload_lib(ignore: %w[assets tasks])
 
-    # Row-level security policies have no representation in schema.rb, so a
-    # ruby schema would silently drop the tenant isolation backstop every time
-    # it was regenerated.
+    # RLS policies have no representation in schema.rb.
     config.active_record.schema_format = :sql
 
-    # Writing structure.sql shells out to pg_dump, which refuses to dump a
-    # server newer than itself. When several Postgres versions are installed,
-    # this points at the one matching compose.yml.
+    config.active_record.encryption.primary_key = ENV["ENCRYPTION_PRIMARY_KEY"]
+    config.active_record.encryption.deterministic_key = ENV["ENCRYPTION_DETERMINISTIC_KEY"]
+    config.active_record.encryption.key_derivation_salt = ENV["ENCRYPTION_KEY_DERIVATION_SALT"]
+
     if ENV["PG_BIN_PATH"].present?
       ENV["PATH"] = "#{ENV['PG_BIN_PATH']}:#{ENV['PATH']}"
     end

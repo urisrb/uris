@@ -1,5 +1,3 @@
-# Carries GraphQL subscriptions to the browser. The urql client opens one of
-# these and forwards subscription operations over it.
 class GraphqlChannel < ApplicationCable::Channel
   def subscribed
     @subscription_ids = []
@@ -9,13 +7,7 @@ class GraphqlChannel < ApplicationCable::Channel
     result = Tenant.switch(tenant) do
       ThingsSchema.execute(
         data["query"],
-        context: {
-          channel: self,
-          tenant: tenant,
-          # BaseSubscription reads this to scope every topic. Without it, two
-          # tenants would share a stream name.
-          tenant_id: tenant.id
-        },
+        context: { channel: self, tenant: tenant, tenant_id: tenant.id },
         variables: ensure_hash(data["variables"]),
         operation_name: data["operationName"]
       )
@@ -27,9 +19,7 @@ class GraphqlChannel < ApplicationCable::Channel
   end
 
   def unsubscribed
-    @subscription_ids.each do |sid|
-      ThingsSchema.subscriptions.delete_subscription(sid)
-    end
+    @subscription_ids.each { |sid| ThingsSchema.subscriptions.delete_subscription(sid) }
   end
 
   private

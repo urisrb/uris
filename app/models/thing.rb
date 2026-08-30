@@ -1,12 +1,14 @@
-# A reference to something you own, wherever it lives. The bytes stay in the
-# resource; this row holds the locator, the extracted metadata, and the
-# analysis.
-#
-# `kind` is what a thing IS — pdf, email, image — and decides how it is
-# understood. Not to be confused with a resource's `type`, which is the dialect
-# its resource speaks.
 class Thing < ApplicationRecord
   include TenantScoped
 
+  belongs_to :resource, optional: true
+
   validates :kind, presence: true
+
+  def self.upsert_reference!(resource:, locator:, locator_key:, kind:, title: nil)
+    thing = find_or_initialize_by(resource: resource, locator_key: locator_key)
+    thing.assign_attributes(locator: locator, kind: kind, title: title)
+    thing.save!
+    thing
+  end
 end

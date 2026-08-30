@@ -1,14 +1,5 @@
 web: bin/rails server -p ${PORT:-4242}
 vite: bin/vite dev
 worker: bin/jobs
-
-# The API layer: the Ruby schema is the source of truth, the TypeScript hooks
-# are generated from it. Keep both watchers running and the SPA can never drift
-# from the schema without the types going red first.
 schema: npx chokidar 'app/graphql/**/*.rb' -c 'bin/rails graphql:dump_schema && npm run codegen' --initial
 codegen: npx chokidar 'app/javascript/**/*.ts' 'app/javascript/**/*.tsx' --ignore 'app/javascript/graphql/generated/**' -c 'npm run codegen'
-
-# Inference runs natively — it is a resource things reaches over the network,
-# not something this app supervises. Uncomment if you run the models locally.
-# mlx: mlx_lm.server --port 8080 --log-level INFO
-# mlx_vlm: mlx_vlm.server --port 8081 --log-level INFO --enable-thinking

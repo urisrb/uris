@@ -1,25 +1,34 @@
-# Two tenants, always. A single-tenant seed is how single-tenant assumptions
-# get in: a singleton key, a global config, a scope someone forgot. With two
-# here from the first run, the isolation test has something to assert against
-# before there is anything worth isolating.
-
 TENANTS = [
   { subdomain: "jons",  name: "Jon's things" },
   { subdomain: "acme",  name: "Acme" }
 ]
 
 TENANTS.each do |attrs|
-  tenant = Tenant.find_or_create_by!(subdomain: attrs[:subdomain]) do |t|
-    t.name = attrs[:name]
-  end
+  tenant = Tenant.find_or_create_by!(subdomain: attrs[:subdomain]) { |t| t.name = attrs[:name] }
 
   Tenant.switch(tenant) do
-    next if Thing.exists?
+    storage = Resource::S3.find_or_initialize_by(key: "things-#{tenant.subdomain}")
+    storage.assign_attributes(
+      name: "Default storage",
+      details: {
+        "endpoint" => ENV.fetch("S3_ENDPOINT", "http://127.0.0.1:9000"),
+        "region" => ENV.fetch("S3_REGION", "us-east-1")
+      },
+      credentials: {
+        "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "things"),
+        "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "thingsthings")
+      }
+    )
+    storage.save!
 
-    Thing.create!(kind: "text",  title: "#{tenant.name} — a note")
-    Thing.create!(kind: "pdf",   title: "#{tenant.name} — a document")
-    Thing.create!(kind: "image", title: "#{tenant.name} — a photo")
+    begin
+      storage.client.create_bucket(bucket: storage.bucket)
+    rescue Aws::S3::Errors::BucketAlreadyOwnedByYou
+      nil
+    rescue Seahorse::Client::NetworkingError => e
+      warn "  storage unreachable (#{e.class}) — is docker compose running?"
+    end
+
+    puts "seeded #{tenant.subdomain}: #{Resource.active.count} resource(s)"
   end
-
-  puts "seeded #{tenant.subdomain}.#{ENV.fetch('THINGS_HOST_SUFFIX', 'things.test')}"
 end

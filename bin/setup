@@ -1,9 +1,6 @@
 #!/usr/bin/env ruby
 require "fileutils"
 
-# Everything a clean clone needs, in one idempotent command. If this stops
-# working, that is the bug — a project you cannot run is not a project.
-
 APP_ROOT = File.expand_path("..", __dir__)
 
 def system!(*args)
@@ -21,7 +18,6 @@ FileUtils.chdir APP_ROOT do
   end
 
   puts "\n== Starting backing services =="
-  # Rails runs on the host; Postgres, OpenSearch, and MinIO do not.
   system!("docker compose up -d --wait")
 
   puts "\n== Preparing database =="
@@ -29,7 +25,6 @@ FileUtils.chdir APP_ROOT do
   system! "bin/rails db:seed"
 
   puts "\n== Generating the API layer =="
-  # The Ruby schema is the source of truth; the TypeScript is derived from it.
   system! "bin/rails graphql:dump_schema"
   system! "npm run codegen"
 
@@ -41,9 +36,6 @@ FileUtils.chdir APP_ROOT do
     Add these to /etc/hosts, then run bin/dev:
 
       127.0.0.1 things.test jons.things.test acme.things.test
-
-    Two tenants are seeded, and every scenario in the suite should be
-    exercised against both:
 
       http://jons.things.test:4242
       http://acme.things.test:4242

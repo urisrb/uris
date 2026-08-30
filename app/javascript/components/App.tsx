@@ -9,9 +9,6 @@ export function App() {
   const { data, loading, error, refetch } = useQuery(CatalogQuery)
   const { data: changed } = useSubscription(ThingChangedSubscription)
 
-  // Everything this product does is long-running, so the catalog is pushed at
-  // the browser rather than polled for. This is the same channel that will
-  // carry analysis-step and run progress.
   useEffect(() => {
     if (changed) refetch()
   }, [changed, refetch])
@@ -23,8 +20,18 @@ export function App() {
   return (
     <main>
       <h1>{data.tenant.name}</h1>
-      <p>{data.tenant.subdomain}</p>
 
+      <h2>Resources</h2>
+      <ul>
+        {data.resources.map((resource) => (
+          <li key={resource.id}>
+            <strong>{resource.type}</strong> {resource.key} —{' '}
+            {resource.thingsCount} things
+          </li>
+        ))}
+      </ul>
+
+      <h2>Things</h2>
       <ul>
         {data.things.map((thing) => (
           <li key={thing.id}>

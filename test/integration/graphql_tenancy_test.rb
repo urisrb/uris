@@ -1,8 +1,5 @@
 require "test_helper"
 
-# The browser's half of the API, exercised through the full stack — host
-# resolution, the around_action, RLS, and the schema. Every scenario runs
-# against both tenants, which is the point.
 class GraphqlTenancyTest < ActionDispatch::IntegrationTest
   CATALOG = "{ tenant { name subdomain } things { kind title } }".freeze
 
