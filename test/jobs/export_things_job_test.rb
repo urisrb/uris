@@ -138,6 +138,89 @@ class ExportThingsJobTest < ActiveSupport::TestCase
     end
   end
 
+  test "the copy records the version of the bytes it was made from" do
+    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+
+    Tenant.switch(@tenant) do
+      thing = thing_at(@source, "invoices/march.pdf")
+      source = thing.source_for(@destination)
+      copy = thing.copy_at(@destination)
+
+      assert copy.source_version.present?
+      assert_equal source.version, copy.source_version
+      assert_not copy.stale_against?(source)
+    end
+  end
+
+  test "a source that changed is exported again, over the copy that is now wrong" do
+    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+
+    put @source, "invoices/march.pdf", body: "a corrected invoice"
+    SyncResourceJob.perform_now(@tenant.id, @source.id)
+
+    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+
+    body = @destination.client.get_object(
+      bucket: @destination_bucket, key: "#{@source_bucket}/invoices/march.pdf"
+    ).body.read
+
+    assert_equal "a corrected invoice", body
+  end
+
+  test "re-exporting overwrites the copy rather than leaving two" do
+    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+
+    put @source, "invoices/march.pdf", body: "a corrected invoice"
+    SyncResourceJob.perform_now(@tenant.id, @source.id)
+
+    assert_no_difference -> { Tenant.switch(@tenant) { ThingReference.count } } do
+      ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    end
+
+    assert_equal [
+      "#{@source_bucket}/invoices/march.pdf",
+      "#{@source_bucket}/photos/beach.jpg"
+    ].sort, exported_keys
+  end
+
+  test "a re-export leaves the copy matching its source again, so a third does nothing" do
+    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+
+    put @source, "invoices/march.pdf", body: "a corrected invoice"
+    SyncResourceJob.perform_now(@tenant.id, @source.id)
+    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+
+    put @destination, "#{@source_bucket}/invoices/march.pdf", body: "written by someone else"
+    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+
+    body = @destination.client.get_object(
+      bucket: @destination_bucket, key: "#{@source_bucket}/invoices/march.pdf"
+    ).body.read
+
+    assert_equal "written by someone else", body,
+                 "a copy is rewritten because its source moved, not because it differs"
+  end
+
+  test "a copy nobody exported is left alone, because nothing knows what it holds" do
+    put @destination, "invoices/march.pdf"
+    SyncResourceJob.perform_now(@tenant.id, @destination.id)
+
+    Tenant.switch(@tenant) do
+      thing_at(@source, "invoices/march.pdf").merge!(thing_at(@destination, "invoices/march.pdf"))
+    end
+
+    put @source, "invoices/march.pdf", body: "a corrected invoice"
+    SyncResourceJob.perform_now(@tenant.id, @source.id)
+
+    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+
+    body = @destination.client.get_object(
+      bucket: @destination_bucket, key: "invoices/march.pdf"
+    ).body.read
+
+    assert_equal "contents of invoices/march.pdf", body
+  end
+
   test "a copy landing where another thing already lives takes that reference over" do
     put @destination, "#{@source_bucket}/invoices/march.pdf"
     SyncResourceJob.perform_now(@tenant.id, @destination.id)

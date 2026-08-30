@@ -48,6 +48,10 @@ class Resource
       entry.id
     end
 
+    def version_for(locator)
+      locator.to_h["published_at"].presence
+    end
+
     def kind_for(_entry)
       "feed"
     end

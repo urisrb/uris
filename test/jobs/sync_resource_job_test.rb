@@ -74,9 +74,68 @@ class SyncResourceJobTest < ActiveSupport::TestCase
     end
   end
 
+  test "a first sync records the version the resource reports, and calls nothing changed" do
+    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+
+    Tenant.switch(@tenant) do
+      pdf = reference_at("invoices/march.pdf")
+
+      assert pdf.version.present?
+      assert_nil pdf.changed_at
+    end
+  end
+
+  test "an object whose bytes moved is marked changed and queued for analysis again" do
+    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+
+    was = Tenant.switch(@tenant) do
+      reference_at("invoices/march.pdf").tap { |r| r.update!(analyzed_at: Time.current) }.version
+    end
+
+    put "invoices/march.pdf", body: "a corrected invoice"
+    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+
+    Tenant.switch(@tenant) do
+      pdf = reference_at("invoices/march.pdf")
+
+      assert_not_equal was, pdf.version
+      assert pdf.changed_at.present?
+      assert_nil pdf.analyzed_at, "a changed file has not been analyzed since it changed"
+    end
+  end
+
+  test "an object that did not move is not marked changed, however often it is synced" do
+    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+
+    Tenant.switch(@tenant) { reference_at("notes.txt").update!(analyzed_at: Time.current) }
+
+    2.times { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+
+    Tenant.switch(@tenant) do
+      notes = reference_at("notes.txt")
+
+      assert_nil notes.changed_at
+      assert notes.analyzed_at.present?, "an unchanged file is not analyzed again"
+    end
+  end
+
+  test "a resource that cannot report a version never claims anything changed" do
+    versionless = Tenant.switch(@tenant) do
+      Resource::Imap.new(key: "mail", details: {}, credentials: {})
+    end
+
+    assert_nil versionless.version_for(versionless.locator_for(
+      Struct.new(:mailbox, :uidvalidity, :uid).new("INBOX", 1, 2)
+    ))
+  end
+
   private
 
-    def put(key)
-      @resource.client.put_object(bucket: @bucket, key: key, body: "contents of #{key}")
+    def put(key, body: nil)
+      @resource.client.put_object(bucket: @bucket, key: key, body: body || "contents of #{key}")
+    end
+
+    def reference_at(locator_key)
+      ThingReference.find_by!(resource_id: @resource.id, locator_key: locator_key)
     end
 end

@@ -114,6 +114,50 @@ class AnalyzerTest < ActiveSupport::TestCase
     end
   end
 
+  test "a step computed before the bytes moved is computed again" do
+    analyze "notes.txt"
+
+    before = Tenant.switch(@tenant) { reference("notes.txt").analysis.dig("steps", "text") }
+
+    @resource.client.put_object(bucket: @bucket, key: "notes.txt", body: "buy more milk")
+    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    analyze "notes.txt"
+
+    Tenant.switch(@tenant) do
+      after = reference("notes.txt").analysis.dig("steps", "text")
+
+      assert_equal "remember the milk", before["result"]
+      assert_equal "buy more milk", after["result"]
+      assert_not_equal before["finished_at"], after["finished_at"]
+    end
+  end
+
+  test "a step computed after the bytes moved is left alone" do
+    @resource.client.put_object(bucket: @bucket, key: "notes.txt", body: "buy more milk")
+    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    analyze "notes.txt"
+
+    finished = Tenant.switch(@tenant) do
+      reference("notes.txt").analysis.dig("steps", "text", "finished_at")
+    end
+
+    analyze "notes.txt"
+
+    Tenant.switch(@tenant) do
+      assert_equal finished, reference("notes.txt").analysis.dig("steps", "text", "finished_at")
+    end
+  end
+
+  test "syncing enqueues analysis again for the thing whose bytes moved, and only that one" do
+    %w[invoice.pdf photo.png notes.txt rows.csv].each { |key| analyze key }
+
+    @resource.client.put_object(bucket: @bucket, key: "notes.txt", body: "buy more milk")
+
+    assert_enqueued_jobs 1, only: AnalyzeThingJob do
+      SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    end
+  end
+
   test "extracted text becomes searchable" do
     analyze "invoice.pdf"
     SearchIndex.refresh!

@@ -47,11 +47,15 @@ class Resource
     end
 
     def locator_for(blob)
-      { "key" => blob.key }
+      { "key" => blob.key, "updated_at" => blob.updated_at&.utc&.iso8601 }
     end
 
     def locator_key_for(blob)
       blob.key
+    end
+
+    def version_for(locator)
+      locator.to_h["updated_at"].presence
     end
 
     def download(locator)

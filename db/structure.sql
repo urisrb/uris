@@ -250,7 +250,10 @@ CREATE TABLE public.thing_references (
     analysis jsonb DEFAULT '{}'::jsonb NOT NULL,
     analyzed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    version character varying,
+    source_version character varying,
+    changed_at timestamp(6) without time zone
 );
 
 ALTER TABLE ONLY public.thing_references FORCE ROW LEVEL SECURITY;
@@ -750,6 +753,7 @@ ALTER TABLE public.things ENABLE ROW LEVEL SECURITY;
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260830000009'),
 ('20260830000008'),
 ('20260830000007'),
 ('20260830000006'),

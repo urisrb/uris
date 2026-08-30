@@ -42,7 +42,7 @@ module Analyzer
       name = name.to_s
       stored = reference.analysis.dig("steps", name) || {}
 
-      if stored.key?("result") && !force && fresh?(stored, after)
+      if stored.key?("result") && !force && fresh?(stored, after) && !superseded?(stored)
         return stored["result"]
       end
 
@@ -91,6 +91,14 @@ module Analyzer
         Time.iso8601(stored["finished_at"]) >= cutoff
       rescue ArgumentError, TypeError
         false
+      end
+
+      def superseded?(stored)
+        return false if reference.changed_at.nil?
+
+        Time.iso8601(stored["finished_at"]) < reference.changed_at
+      rescue ArgumentError, TypeError
+        true
       end
 
       def with_tempfile

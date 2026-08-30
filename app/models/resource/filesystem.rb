@@ -53,6 +53,13 @@ class Resource
       entry.path
     end
 
+    def version_for(locator)
+      modified_at = locator.to_h["modified_at"]
+      return nil if modified_at.blank?
+
+      [ modified_at, locator.to_h["size"] ].compact.join(":")
+    end
+
     def download(locator)
       File.open(confine(locator.fetch("path")), "rb")
     rescue Errno::ENOENT

@@ -70,6 +70,14 @@ class Thing < ApplicationRecord
     references.any? { |reference| reference.resource_id == resource.id }
   end
 
+  def source_for(destination)
+    references.find { |reference| reference.resource_id != destination.id }
+  end
+
+  def copy_at(destination)
+    references.find { |reference| reference.resource_id == destination.id }
+  end
+
   def download
     raise ArgumentError, "no reference" if reference.nil?
 

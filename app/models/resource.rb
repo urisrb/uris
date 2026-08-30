@@ -125,6 +125,10 @@ class Resource < ApplicationRecord
     respond_to?(:each_page)
   end
 
+  def version_for(locator)
+    locator.to_h["etag"].presence
+  end
+
   def kind_for(object)
     Kind.for_filename(locator_key_for(object))
   end

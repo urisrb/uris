@@ -19,11 +19,13 @@ class ThingReference < ApplicationRecord
       reference.thing = Thing.create!(kind: kind, title: title)
     end
 
-    reference.update!(locator: locator)
+    reference.locator = locator
+    reference.note_version!(resource.version_for(locator))
+    reference.save!
     reference
   end
 
-  def self.record!(thing:, resource:, locator:, locator_key:)
+  def self.record!(thing:, resource:, locator:, locator_key:, source_version: nil)
     reference = find_or_initialize_by(resource: resource, locator_key: locator_key)
 
     if reference.persisted? && reference.thing_id != thing.id
@@ -32,8 +34,27 @@ class ThingReference < ApplicationRecord
       reference.thing = thing
     end
 
-    reference.update!(locator: locator)
+    reference.locator = locator
+    reference.version = resource.version_for(locator)
+    reference.source_version = source_version
+    reference.save!
     reference
+  end
+
+  def note_version!(reported)
+    return self if reported.blank?
+
+    if version.present? && version != reported
+      self.changed_at = Time.current
+      self.analyzed_at = nil
+    end
+
+    self.version = reported
+    self
+  end
+
+  def stale_against?(source)
+    source_version.present? && source.version.present? && source_version != source.version
   end
 
   def move_to!(destination)

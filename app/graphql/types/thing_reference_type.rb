@@ -10,6 +10,8 @@ module Types
     field :locator_key, String
     field :filename, String, null: false
     field :content_type, String, null: false
+    field :version, String
+    field :changed_at, GraphQL::Types::ISO8601DateTime
     field :analyzed_at, GraphQL::Types::ISO8601DateTime
     field :analysis, GraphQL::Types::JSON, null: false
     field :content_url, String, null: false

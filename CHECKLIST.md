@@ -2,8 +2,9 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**143 items — 97 done · 6 partial · 34 to build · 6 deferred**, read at `9b3fc56`, against a clean
-working tree. The suite was run rather than cited: **235 runs, 604 assertions, 0 failures**.
+**146 items — 103 done · 7 partial · 30 to build · 6 deferred**, read at `1ae67d4`, against a clean
+working tree. The suite was run rather than cited: **257 runs, 671 assertions, 0 failures** — run
+serially, because the parallel hang Packaging records turned up again.
 
 |         |              |                                                        |
 | ------- | ------------ | ------------------------------------------------------ |
@@ -170,9 +171,24 @@ announces itself.
       And a copy landing where a different thing already lives takes that reference over, because
       after the write the bytes there are this thing's. Exercised against MinIO, the
       sync-afterwards case included.
-- [ ] **Re-exporting a source that changed** — write-once has no way to know the bytes moved.
-      Nothing marks a reference stale when a sync sees a new etag, so a backup of an edited file
-      stays the old one. It needs a dirty signal, not a second export mode.
+- [x] **Re-exporting a source that changed** — it is a dirty signal rather than a second export
+      mode, as this item asked for. A reference records the `version` its resource reports for
+      those bytes, a sync that sees a different one stamps `changed_at`, and a copy records the
+      `source_version` it was made from. Export rewrites in place exactly when the two disagree —
+      so a backup of an edited file is the edited file, and a copy somebody else overwrote at the
+      destination is still left alone, because that is not the source moving.
+      **The version is the type's business, like the locator it comes out of**: an etag for `s3`
+      and the WebDAV family, `modified_at:size` for `filesystem`, the entry's `published_at` for
+      `rss`, the blob's `updated_at` for `database`, and **nothing for `imap`**, where a message
+      inside a `uidvalidity` cannot change. Where a type reports no version, nothing claims to know
+      the bytes moved and write-once behaviour stands.
+- [x] **A changed reference is analyzed again, and only that one** — the same signal, consumed by
+      machinery that already existed. `analyzed_at` is cleared, which is what the sync job already
+      reads to decide whether to enqueue analysis, and the step machine treats any step that
+      finished before `changed_at` as superseded. So re-analysis after an edit recomputes rather
+      than returning the cached reading of bytes that are gone, and a reference that did not move
+      is not re-read however often it is synced. `changed_at` rides along on `get_thing`, so a
+      caller can see that what it is reading predates the file.
 - [ ] **Export format** — a directory tree keyed by resource and locator today; zip and
       manifest-plus-blobs are still open.
 - [ ] **"Upload" as write-to-default-storage-then-reference** — both halves now exist,

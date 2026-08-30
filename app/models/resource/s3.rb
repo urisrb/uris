@@ -90,8 +90,9 @@ class Resource
     end
 
     def upload(key, body)
-      s3 { |client| client.put_object(bucket: bucket, key: key, body: body) }
-      { "bucket" => bucket, "key" => key }
+      written = s3 { |client| client.put_object(bucket: bucket, key: key, body: body) }
+
+      { "bucket" => bucket, "key" => key, "etag" => written.etag&.delete('"') }
     end
 
     def client

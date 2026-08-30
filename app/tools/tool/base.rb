@@ -49,7 +49,8 @@ module Tool
           resource_id: reference.resource_id.to_s,
           resource: reference.resource.key,
           locator_key: reference.locator_key,
-          analyzed_at: reference.analyzed_at
+          analyzed_at: reference.analyzed_at,
+          changed_at: reference.changed_at
         }
       end
 
