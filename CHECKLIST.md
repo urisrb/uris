@@ -2,7 +2,7 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**134 items — 93 done · 6 partial · 29 to build · 6 deferred**, read at `ffeb8f2` plus the working
+**140 items — 97 done · 6 partial · 31 to build · 6 deferred**, read at `f98ade3` plus the working
 tree.
 
 |         |              |                                                        |
@@ -143,6 +143,13 @@ announces itself.
       extra row answers "is there more", so nothing ever asks the database to count a million
       things. `things` and `runs` both take it. Search stays limit-only, because OpenSearch orders
       by score and its cursor is `search_after`, which is a different thing.
+- [x] **The search index is idempotent to create** — both halves of index setup were check-then-act,
+      and OpenSearch answers "does this exist" from cluster state that has not necessarily caught up
+      with the delete that just happened. The suite failed differently every run — a 404 from
+      `reset!`, or a 400 `resource_already_exists` from `create!` reached through `Tenant.switch` —
+      and passed again after deleting `things_test` by hand, which reads as broken code rather than
+      a broken fixture. Neither operation needs to ask: the delete ignores 404, the create rescues
+      already-exists.
 - [ ] **Reindex as a resumable bulk operation**
 
 ## export — catalog → resource
@@ -516,6 +523,13 @@ written after that gem existed.
       manifest, and booting it far enough to enumerate every tool.
 - [x] **`bin/check-boundary`** — no host, domain or secret in this repo.
 - [x] **CI: brakeman, bundler-audit, rubocop, biome, typecheck, boundary**
+- [ ] **The suite hangs about one run in ten, in parallel only** — 235 tests pass serially every
+      time and in parallel most times; occasionally the run never finishes and has to be killed. Not
+      reproduced under any subset: the socket-backed resource tests, the jobs and the integration
+      tests each ran clean repeatedly at four workers, and three full runs caught in the act showed
+      no blocked query and no lock wait in `pg_stat_activity`. So it is recorded rather than
+      diagnosed. It matters more than a flaky failure would, because a hang has no output to read
+      and CI will sit on it until the job times out.
 - [x] **CI runs the whole suite** — against real OpenSearch and MinIO, with the analyzers' binaries
       installed, and **as a non-superuser**, because a superuser bypasses RLS unconditionally and
       would make every isolation test pass without proving anything. It had never run before the
@@ -530,10 +544,10 @@ written after that gem existed.
 
 ## Deliberately deferred
 
-- [ ] ⊘ **Broader test coverage** — 130 tests cover tenancy, the model and merges, runs, both bulk jobs,
-      the sync schedule, analysis, search, resources, grants, the failure policy and the endpoint.
-      Note the difference
-      between this being deferred and CI being unable to run what exists, which is not deferred.
+- [ ] ⊘ **Broader test coverage** — 235 tests cover tenancy, the model and merges, runs, gates, both
+      bulk jobs, the sync schedule, analysis, search, all seven resource types, grants, the failure
+      policy and the endpoint. Note the difference between this being deferred and CI being unable
+      to run what exists, which is not deferred.
 - [ ] ⊘ **Table partitioning** — one table, indexed, cursor pagination, OpenSearch as the query path.
 - [ ] ⊘ **Resource types as extensible data** — a closed registry in code for v1.
 - [ ] ⊘ **A Go node binary** — everything reachable takes `ssh`; `node` is for the rest, and later.
