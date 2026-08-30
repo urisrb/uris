@@ -12,6 +12,9 @@ module Types
     field :next_sync_at, GraphQL::Types::ISO8601DateTime
     field :synced_at, GraphQL::Types::ISO8601DateTime
     field :syncing, Boolean, null: false, method: :syncing?
+    field :checked_at, GraphQL::Types::ISO8601DateTime
+    field :check_error, String
+    field :healthy, Boolean, null: false, method: :healthy?
 
     def capabilities
       object.capabilities.map(&:to_s)

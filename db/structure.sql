@@ -81,7 +81,9 @@ CREATE TABLE public.resources (
     sync_interval integer,
     next_sync_at timestamp(6) without time zone,
     sync_started_at timestamp(6) without time zone,
-    synced_at timestamp(6) without time zone
+    synced_at timestamp(6) without time zone,
+    checked_at timestamp(6) without time zone,
+    check_error character varying
 );
 
 ALTER TABLE ONLY public.resources FORCE ROW LEVEL SECURITY;
@@ -532,6 +534,7 @@ ALTER TABLE public.things ENABLE ROW LEVEL SECURITY;
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260830000004'),
 ('20260830000003'),
 ('20260830000002'),
 ('20260830000001'),

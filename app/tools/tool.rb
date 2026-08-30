@@ -6,6 +6,7 @@ module Tool
       Tool::AnalyzeThing,
       Tool::ListResources,
       Tool::DescribeResource,
+      Tool::CheckResource,
       Tool::CommandResource,
       Tool::SyncResource,
       Tool::ExportThings

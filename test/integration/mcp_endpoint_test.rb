@@ -116,6 +116,23 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "check_resource answers with the failure instead of becoming one" do
+    checked = tool(@tenant, ALL, "check_resource", id: @resource.id.to_s)
+
+    assert_not checked["ok"]
+    assert_not_nil checked["checked_at"]
+    assert_not_nil checked["error"]
+  end
+
+  test "a resource carries what its last check found" do
+    tool(@tenant, ALL, "check_resource", id: @resource.id.to_s)
+
+    listed = tool(@tenant, ALL, "list_resources")["resources"].first
+
+    assert_not_nil listed["checked_at"]
+    assert_not_nil listed["check_error"]
+  end
+
   test "export refuses a destination that is not storage" do
     reply = call(@tenant, ALL, "tools/call", name: "export_things",
                  arguments: { destination_id: "0" })

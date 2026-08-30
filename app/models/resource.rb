@@ -77,6 +77,19 @@ class Resource < ApplicationRecord
     raise NotImplementedError, "#{self.class} does not implement #check!"
   end
 
+  def check
+    check!
+    record_check(nil)
+    true
+  rescue NotImplementedError, StandardError => e
+    record_check("#{e.class}: #{e.message}")
+    false
+  end
+
+  def healthy?
+    checked_at.present? && check_error.nil?
+  end
+
   def command(name, arguments = {})
     schema = self.class.command_schema[name.to_s.to_sym]
     raise ArgumentError, "#{self.class.sti_name} has no command '#{name}'" if schema.nil?
@@ -123,6 +136,10 @@ class Resource < ApplicationRecord
   end
 
   private
+
+    def record_check(error)
+      update_columns(checked_at: Time.current, check_error: error)
+    end
 
     def next_sync_after(finished)
       anchor = next_sync_at || finished
