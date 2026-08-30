@@ -35,6 +35,8 @@ gem "opensearch-ruby"
 # Object storage. The tenant's default storage resource is an S3 bucket, so
 # "upload" means write there and reference it — no special case.
 gem "aws-sdk-s3", require: false
+gem "net-imap", require: false
+gem "nokogiri"
 
 # Every operation over an unbounded number of things — sync, export, reindex,
 # rule backfills — checkpoints through this.

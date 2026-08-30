@@ -483,6 +483,7 @@ DEPENDENCIES
   mcp
   mission_control-jobs
   net-imap
+  nokogiri
   opensearch-ruby
   pg (~> 1.1)
   propshaft
