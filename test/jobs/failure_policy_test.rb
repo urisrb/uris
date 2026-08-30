@@ -18,10 +18,10 @@ class FailurePolicyTest < ActiveSupport::TestCase
     @reachable.client.put_object(bucket: @bucket, key: "broken.pdf", body: "not a pdf")
 
     Tenant.switch(@tenant) do
-      @broken = Thing.upsert_reference!(resource: @reachable, locator: { "bucket" => @bucket, "key" => "broken.pdf" },
-                                        locator_key: "broken.pdf", kind: "pdf", title: "broken.pdf")
-      @stranded = Thing.create!(kind: "text", title: "stranded.txt", locator_key: "stranded.txt",
-                                resource: @unreachable, locator: { "bucket" => "gone", "key" => "stranded.txt" })
+      @broken = ThingReference.discover!(resource: @reachable, locator: { "bucket" => @bucket, "key" => "broken.pdf" },
+                                         locator_key: "broken.pdf", kind: "pdf", title: "broken.pdf").thing
+      @stranded = create_thing(kind: "text", title: "stranded.txt", locator_key: "stranded.txt",
+                               resource: @unreachable, locator: { "bucket" => "gone", "key" => "stranded.txt" })
     end
   end
 
@@ -38,10 +38,10 @@ class FailurePolicyTest < ActiveSupport::TestCase
     end
 
     Tenant.switch(@tenant) do
-      @broken.reload
+      reference = @broken.references.first.reload
 
-      assert_equal "Analyzer::Failed", @broken.analysis.dig("steps", "info", "error", "class")
-      assert_not_nil @broken.analyzed_at
+      assert_equal "Analyzer::Failed", reference.analysis.dig("steps", "info", "error", "class")
+      assert_not_nil reference.analyzed_at
     end
   end
 

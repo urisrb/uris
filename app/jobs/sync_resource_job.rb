@@ -19,18 +19,19 @@ class SyncResourceJob < ApplicationJob
 
   def each_iteration(object, tenant_id, resource_id)
     resource = resource_for(tenant_id, resource_id)
+    locator_key = resource.locator_key_for(object)
 
-    thing = Tenant.switch(resource.tenant) do
-      Thing.upsert_reference!(
+    reference = Tenant.switch(resource.tenant) do
+      ThingReference.discover!(
         resource: resource,
         locator: resource.locator_for(object),
-        locator_key: resource.locator_key_for(object),
-        kind: Kind.for_filename(resource.locator_key_for(object)),
-        title: File.basename(resource.locator_key_for(object))
+        locator_key: locator_key,
+        kind: Kind.for_filename(locator_key),
+        title: File.basename(locator_key)
       )
     end
 
-    thing.analyze! if thing.analyzed_at.nil?
+    AnalyzeThingJob.perform_later(tenant_id, reference.thing_id) if reference.analyzed_at.nil?
   end
 
   private

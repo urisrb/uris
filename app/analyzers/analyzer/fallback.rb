@@ -5,7 +5,7 @@ module Analyzer
     end
 
     def analyze
-      step(:size) { { "bytes" => thing.download.size } }
+      step(:size) { { "bytes" => reference.download.size } }
     end
   end
 end

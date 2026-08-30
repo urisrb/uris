@@ -38,9 +38,18 @@ module Tool
           id: thing.id.to_s,
           kind: thing.kind,
           title: thing.title,
-          locator_key: thing.locator_key,
-          resource_id: thing.resource_id&.to_s,
-          analyzed_at: thing.analyzed_at
+          analyzed_at: thing.analyzed_at,
+          references: thing.references.map { |reference| describe_reference(reference) }
+        }
+      end
+
+      def describe_reference(reference)
+        {
+          id: reference.id.to_s,
+          resource_id: reference.resource_id.to_s,
+          resource: reference.resource.key,
+          locator_key: reference.locator_key,
+          analyzed_at: reference.analyzed_at
         }
       end
 

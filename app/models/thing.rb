@@ -1,7 +1,9 @@
 class Thing < ApplicationRecord
   include TenantScoped
 
-  belongs_to :resource, optional: true
+  has_many :references, -> { oldest_first }, class_name: "ThingReference", dependent: :destroy,
+                                             inverse_of: :thing
+  has_many :resources, through: :references
 
   validates :kind, presence: true
 
@@ -15,38 +17,87 @@ class Thing < ApplicationRecord
     where(id: ids).in_order_of(:id, ids)
   end
 
-  def download
-    raise ArgumentError, "no resource" if resource.nil?
+  def self.referencing(resource_id)
+    where(id: ThingReference.where(resource_id: resource_id).select(:thing_id))
+  end
 
-    resource.download(locator)
+  def self.referenced
+    where(id: ThingReference.select(:thing_id))
+  end
+
+  def self.matching(selector)
+    selector = selector.to_h.with_indifferent_access
+    scope = all
+    scope = scope.where(id: selector[:id]) if selector[:id].present?
+    scope = scope.where(kind: selector[:kind]) if selector[:kind].present?
+    scope = scope.referencing(selector[:resource_id]) if selector[:resource_id].present?
+    scope = scope.where(id: search(selector[:query]).ids) if selector[:query].present?
+    scope
+  end
+
+  def merge!(other)
+    raise ArgumentError, "a thing cannot merge into itself" if other.id == id
+
+    transaction do
+      other.references.to_a.each { |reference| reference.move_to!(self) }
+      references.reset
+    end
+
+    self
+  end
+
+  def destroy_if_empty!
+    destroy! if references.empty?
+  end
+
+  def reference
+    references.first
+  end
+
+  def resource
+    reference&.resource
+  end
+
+  def locator
+    reference&.locator || {}
+  end
+
+  def locator_key
+    reference&.locator_key
+  end
+
+  def referenced_by?(resource)
+    references.any? { |reference| reference.resource_id == resource.id }
+  end
+
+  def download
+    raise ArgumentError, "no reference" if reference.nil?
+
+    reference.download
+  end
+
+  def export_path
+    reference&.path || id.to_s
+  end
+
+  def analyzed_at
+    references.filter_map(&:analyzed_at).max
+  end
+
+  def analyze!
+    AnalyzeThingsJob.perform_later(tenant_id, { "id" => id })
   end
 
   def body_text
     strings = []
-    results = analysis.fetch("steps", {}).values.map { |step| step["result"] }
-    collect_strings(results) { |s| strings << s }
+    collect_strings(references.flat_map(&:extracted)) { |s| strings << s }
     strings.uniq.join("\n").presence
-  end
-
-  def analyze!
-    AnalyzeThingJob.perform_later(tenant_id, id)
-  end
-
-  def export_path
-    [ resource&.key, locator_key ].compact.join("/")
-  end
-
-  def self.upsert_reference!(resource:, locator:, locator_key:, kind:, title: nil)
-    thing = find_or_initialize_by(resource: resource, locator_key: locator_key)
-    thing.assign_attributes(locator: locator, kind: kind, title: title)
-    thing.save!
-    thing
   end
 
   private
 
     def index_for_search
-      SearchIndex.index(self)
+      Tenant.switch(Tenant.find(tenant_id)) { SearchIndex.index(self) }
     end
 
     def remove_from_search

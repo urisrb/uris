@@ -18,7 +18,7 @@ class ExportThingsJob < ApplicationJob
       destination = Resource.find(destination_id)
       thing = Thing.find(thing_id)
 
-      next if thing.resource.nil? || thing.resource == destination
+      next if thing.reference.nil? || thing.referenced_by?(destination)
 
       destination.upload(thing.export_path, thing.download)
     end
@@ -27,10 +27,6 @@ class ExportThingsJob < ApplicationJob
   private
 
     def select(selector)
-      scope = Thing.where.not(resource_id: nil)
-      scope = scope.where(kind: selector["kind"]) if selector["kind"].present?
-      scope = scope.where(resource_id: selector["resource_id"]) if selector["resource_id"].present?
-      scope = scope.where(id: Thing.search(selector["query"]).ids) if selector["query"].present?
-      scope
+      Thing.referenced.matching(selector)
     end
 end

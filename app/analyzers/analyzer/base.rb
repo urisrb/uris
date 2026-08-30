@@ -4,7 +4,7 @@ module Analyzer
   class Base
     MAX_TEXT = 200_000
 
-    attr_reader :thing
+    attr_reader :thing, :reference
 
     def initialize(thing)
       @thing = thing
@@ -19,12 +19,19 @@ module Analyzer
     end
 
     def run
-      analyze
-      stamp_analyzed!
+      thing.references.each do |reference|
+        @reference = reference
+
+        begin
+          analyze
+        rescue Analyzer::Failed
+          nil
+        ensure
+          stamp_analyzed!
+        end
+      end
+
       thing
-    rescue StandardError
-      stamp_analyzed!
-      raise
     end
 
     def analyze
@@ -32,7 +39,7 @@ module Analyzer
 
     def step(name, force: false, after: nil)
       name = name.to_s
-      stored = thing.analysis.dig("steps", name) || {}
+      stored = reference.analysis.dig("steps", name) || {}
 
       if stored.key?("result") && !force && fresh?(stored, after)
         return stored["result"]
@@ -59,21 +66,21 @@ module Analyzer
     end
 
     def step_result(name)
-      thing.analysis.dig("steps", name.to_s, "result")
+      reference.analysis.dig("steps", name.to_s, "result")
     end
 
     private
 
       # One short transaction per step, rather than one held across an OCR run.
       def write_step!(name, entry)
-        analysis = thing.analysis.deep_dup
+        analysis = reference.analysis.deep_dup
         analysis["steps"] = (analysis["steps"] || {}).merge(name.to_s => entry)
 
-        Tenant.switch(thing.tenant) { thing.update!(analysis: analysis) }
+        Tenant.switch(reference.tenant) { reference.update!(analysis: analysis) }
       end
 
       def stamp_analyzed!
-        Tenant.switch(thing.tenant) { thing.update!(analyzed_at: Time.current) }
+        Tenant.switch(reference.tenant) { reference.update!(analyzed_at: Time.current) }
       end
 
       def fresh?(stored, after)
@@ -86,8 +93,8 @@ module Analyzer
       end
 
       def with_tempfile
-        Tempfile.create([ "thing", File.extname(thing.locator_key.to_s) ], binmode: true) do |file|
-          IO.copy_stream(thing.download, file)
+        Tempfile.create([ "thing", File.extname(reference.locator_key.to_s) ], binmode: true) do |file|
+          IO.copy_stream(reference.download, file)
           file.flush
           yield file.path
         end

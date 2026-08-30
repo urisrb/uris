@@ -7,9 +7,13 @@ TENANTS.each do |attrs|
   tenant = Tenant.find_or_create_by!(subdomain: attrs[:subdomain]) { |t| t.name = attrs[:name] }
 
   Tenant.switch(tenant) do
+    Resource::Database.find_or_create_by!(key: "database") do |resource|
+      resource.name = "Default storage"
+    end
+
     storage = Resource::S3.find_or_initialize_by(key: "things-#{tenant.subdomain}")
     storage.assign_attributes(
-      name: "Default storage",
+      name: "Object storage",
       details: {
         "endpoint" => ENV.fetch("S3_ENDPOINT", "http://127.0.0.1:9000"),
         "region" => ENV.fetch("S3_REGION", "us-east-1")

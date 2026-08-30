@@ -19,7 +19,7 @@ module Tool
         thing = thing!(id)
         thing.analyze!
 
-        { id: thing.id.to_s, queued: true, analyzed_at: thing.analyzed_at }
+        { id: thing.id.to_s, queued: thing.references.size, analyzed_at: thing.analyzed_at }
       end
     end
   end

@@ -17,7 +17,7 @@ module SearchIndex
       title: { type: "text", analyzer: "path" },
       locator_key: { type: "text", analyzer: "path" },
       body: { type: "text" },
-      resource_id: { type: "long" },
+      resource_ids: { type: "long" },
       created_at: { type: "date" }
     }
   }.freeze
@@ -61,9 +61,9 @@ module SearchIndex
           tenant_id: thing.tenant_id,
           kind: thing.kind,
           title: thing.title,
-          locator_key: thing.locator_key,
+          locator_key: thing.references.map(&:locator_key).compact.join(" "),
           body: thing.body_text,
-          resource_id: thing.resource_id,
+          resource_ids: thing.references.map(&:resource_id),
           created_at: thing.created_at
         }
       )

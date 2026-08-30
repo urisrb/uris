@@ -7,7 +7,7 @@ module Analyzer
     end
 
     def analyze
-      body = thing.download.read.force_encoding("UTF-8").scrub
+      body = reference.download.read.force_encoding("UTF-8").scrub
 
       step(:shape) { shape_of(body) }
       step(:text) { body.strip.truncate(MAX_TEXT) }
@@ -16,12 +16,12 @@ module Analyzer
     private
 
       def shape_of(body)
-        case File.extname(thing.locator_key.to_s).downcase
+        case File.extname(reference.locator_key.to_s).downcase
         when ".json"
           parsed = JSON.parse(body)
           { "format" => "json", "keys" => Array(parsed.is_a?(Hash) ? parsed.keys : nil).first(50) }
         when ".csv", ".tsv"
-          rows = CSV.parse(body, col_sep: File.extname(thing.locator_key).casecmp(".tsv").zero? ? "\t" : ",")
+          rows = CSV.parse(body, col_sep: File.extname(reference.locator_key).casecmp(".tsv").zero? ? "\t" : ",")
           { "format" => "csv", "columns" => rows.first || [], "rows" => [ rows.length - 1, 0 ].max }
         else
           { "format" => "unknown" }

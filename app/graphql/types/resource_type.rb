@@ -14,7 +14,7 @@ module Types
     end
 
     def things_count
-      object.things.size
+      ThingReference.where(resource_id: object.id).distinct.count(:thing_id)
     end
   end
 end

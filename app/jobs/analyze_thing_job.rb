@@ -10,10 +10,12 @@ class AnalyzeThingJob < ApplicationJob
 
   def perform(tenant_id, thing_id)
     tenant = Tenant.find(tenant_id)
-    thing = Tenant.switch(tenant) { Thing.includes(:resource).find_by(id: thing_id) }
+    thing = Tenant.switch(tenant) do
+      Thing.includes(references: :resource).find_by(id: thing_id)
+    end
 
     return if thing.nil?
 
-    Analyzer.for(thing).run
+    Tenant.switch(tenant) { Analyzer.for(thing).run }
   end
 end

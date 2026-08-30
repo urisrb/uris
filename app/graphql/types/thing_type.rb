@@ -5,8 +5,7 @@ module Types
     field :id, ID, null: false
     field :kind, String, null: false
     field :title, String
-    field :locator, GraphQL::Types::JSON, null: false
-    field :resource, Types::ResourceType
+    field :references, [ Types::ThingReferenceType ], null: false
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false
   end
 end

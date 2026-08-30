@@ -5,4 +5,8 @@ if ! gem list foreman -i --silent; then
   gem install foreman
 fi
 
+if [ "$(uname)" = "Darwin" ]; then
+  export OS_ACTIVITY_MODE=disable
+fi
+
 exec foreman start -f Procfile.dev "$@"

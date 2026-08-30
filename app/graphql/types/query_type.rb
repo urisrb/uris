@@ -32,7 +32,7 @@ module Types
     def things(kind: nil, resource_id: nil)
       scope = Thing.order(created_at: :desc)
       scope = scope.where(kind: kind) if kind
-      scope = scope.where(resource_id: resource_id) if resource_id
+      scope = scope.referencing(resource_id) if resource_id
       scope.limit(100)
     end
 

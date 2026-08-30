@@ -54,7 +54,7 @@ class AnalyzerTest < ActiveSupport::TestCase
     analyze "invoice.pdf"
 
     Tenant.switch(@tenant) do
-      analysis = thing("invoice.pdf").reload.analysis
+      analysis = reference("invoice.pdf").analysis
 
       assert_includes analysis.dig("steps", "text", "result"), "Invoice for March"
       assert_equal "1", analysis.dig("steps", "info", "result", "pages")
@@ -65,7 +65,7 @@ class AnalyzerTest < ActiveSupport::TestCase
     analyze "photo.png"
 
     Tenant.switch(@tenant) do
-      dimensions = thing("photo.png").reload.analysis.dig("steps", "dimensions", "result")
+      dimensions = reference("photo.png").analysis.dig("steps", "dimensions", "result")
 
       assert_equal 120, dimensions["width"]
       assert_equal 80, dimensions["height"]
@@ -76,7 +76,7 @@ class AnalyzerTest < ActiveSupport::TestCase
     analyze "rows.csv"
 
     Tenant.switch(@tenant) do
-      shape = thing("rows.csv").reload.analysis.dig("steps", "shape", "result")
+      shape = reference("rows.csv").analysis.dig("steps", "shape", "result")
 
       assert_equal %w[name amount], shape["columns"]
       assert_equal 2, shape["rows"]
@@ -87,12 +87,12 @@ class AnalyzerTest < ActiveSupport::TestCase
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
-      subject = thing("notes.txt").reload
-      first_finished = subject.analysis.dig("steps", "text", "finished_at")
+      subject = thing("notes.txt")
+      first_finished = reference("notes.txt").analysis.dig("steps", "text", "finished_at")
 
       Analyzer.for(subject).run
 
-      assert_equal first_finished, subject.reload.analysis.dig("steps", "text", "finished_at")
+      assert_equal first_finished, reference("notes.txt").analysis.dig("steps", "text", "finished_at")
     end
   end
 
@@ -100,14 +100,17 @@ class AnalyzerTest < ActiveSupport::TestCase
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
-      subject = thing("notes.txt").reload
+      subject = thing("notes.txt")
       analyzer = Analyzer.for(subject)
-      before = subject.analysis.dig("steps", "text", "finished_at")
+      before = reference("notes.txt").analysis.dig("steps", "text", "finished_at")
 
+      analyzer.run
       analyzer.step(:text, force: true) { "different" }
 
-      assert_not_equal before, subject.reload.analysis.dig("steps", "text", "finished_at")
-      assert_equal "different", subject.analysis.dig("steps", "text", "result")
+      after = reference("notes.txt").analysis
+
+      assert_not_equal before, after.dig("steps", "text", "finished_at")
+      assert_equal "different", after.dig("steps", "text", "result")
     end
   end
 
@@ -121,7 +124,7 @@ class AnalyzerTest < ActiveSupport::TestCase
   end
 
   test "syncing enqueues analysis for each new thing" do
-    Tenant.switch(@tenant) { Thing.delete_all }
+    Tenant.switch(@tenant) { Thing.destroy_all }
 
     assert_enqueued_jobs 4, only: AnalyzeThingJob do
       SyncResourceJob.perform_now(@tenant.id, @resource.id)
@@ -138,7 +141,11 @@ class AnalyzerTest < ActiveSupport::TestCase
     end
 
     def thing(key)
-      Thing.find_by!(locator_key: key)
+      thing_at(key)
+    end
+
+    def reference(key)
+      ThingReference.find_by!(locator_key: key).reload
     end
 
     def analyze(key)
