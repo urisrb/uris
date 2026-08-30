@@ -2,13 +2,14 @@ require "test_helper"
 require_relative "../support/fake_dav_server"
 
 class CaldavResourceTest < ActiveSupport::TestCase
-  EVENT = <<~ICS.freeze
+  EVENT = <<~'ICS'.freeze
     BEGIN:VCALENDAR
     VERSION:2.0
     BEGIN:VEVENT
     UID:pelicans-1
     DTSTART:20270830T120000Z
-    SUMMARY:Lunch with the pelicans
+    SUMMARY:Lunch with the pelicans\, then the tide tables\; briefly
+    LOCATION:1 Mudflat Lane
     END:VEVENT
     END:VCALENDAR
   ICS
@@ -59,6 +60,19 @@ class CaldavResourceTest < ActiveSupport::TestCase
       analysis = thing.references.first.reload.analysis
 
       assert_includes analysis.dig("steps", "text", "result"), "Lunch with the pelicans"
+    end
+  end
+
+  test "an escaped comma or semicolon survives unescaping" do
+    sync
+
+    Tenant.switch(@tenant) do
+      thing = Thing.first
+      AnalyzeThingJob.perform_now(@tenant.id, thing.id)
+
+      summary = thing.references.first.reload.analysis.dig("steps", "events", "result").first["summary"]
+
+      assert_equal "Lunch with the pelicans, then the tide tables; briefly", summary
     end
   end
 

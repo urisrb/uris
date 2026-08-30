@@ -185,6 +185,20 @@ announces itself.
 - [x] **`database`** — the tenant's own database as storage, so a reference can point at content
       this app produced. The only type whose storage sits behind the same RLS as the catalog, so it
       carries the tenant into its own queries.
+- [x] **`carddav`** — the same subclass trick a second time, pointed at `.vcf`, plus the contact
+      analyzer that was missing. `vcf` joins `Kind`, so a vCard found on any resource is a contact,
+      not only one arriving over DAV. Two vCard traps, both asserted and both failing when the guard
+      is removed: RFC 6350 folds long lines exactly as iCalendar does, and Apple exports group
+      properties as `item1.EMAIL`, so a parser reading the name before the dot invents a new field
+      per contact. `N` and `ADR` are one value with semicolons inside, so they split on *unescaped*
+      semicolons only — and unescaping has to happen per component afterwards, or `\;` is already a
+      plain `;` by the time the split sees it.
+- [x] **`\,` and `\;` survive unescaping** — `unescape` read `$1` after `$1 =~ /[nN]/`, and that
+      comparison is itself a match: it resets `$~`, so the following `$1` was nil and every escaped
+      comma and semicolon was replaced with nothing. It was written once and copied, so `calendar`
+      had shipped with it — every `.ics` summary silently lost its punctuation. The calendar
+      analyzer had no test at all despite being listed as exercised, which is how it survived; it
+      has one now.
 - [x] **`webdav` and `caldav`** — the second storage type, which is what makes storage an
       abstraction rather than a description of S3. `caldav` is a subclass of `webdav` rather than a
       type of its own, because a calendar collection *is* a WebDAV collection full of `.ics`: it

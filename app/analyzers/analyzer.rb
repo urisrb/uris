@@ -4,7 +4,7 @@ module Analyzer
   def self.all
     [
       Analyzer::Pdf, Analyzer::Image, Analyzer::Doc, Analyzer::Xlsx,
-      Analyzer::Calendar, Analyzer::Pkpass, Analyzer::Email, Analyzer::Feed,
+      Analyzer::Calendar, Analyzer::Pkpass, Analyzer::Email, Analyzer::Feed, Analyzer::Contact,
       Analyzer::Data, Analyzer::Text, Analyzer::Fallback
     ]
   end

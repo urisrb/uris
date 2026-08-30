@@ -8,6 +8,7 @@ module Kind
     "xlsx" => "xlsx", "xls" => "xlsx", "ods" => "xlsx",
     "doc" => "doc", "docx" => "doc", "odt" => "doc",
     "ics" => "calendar",
+    "vcf" => "contact", "vcard" => "contact",
     "pkpass" => "pkpass",
     "eml" => "email"
   }.freeze

@@ -24,7 +24,10 @@ module Analyzer
       end
 
       def unescape(value)
-        value.gsub(/\\([nN,;\\])/) { $1 =~ /[nN]/ ? "\n" : $1 }
+        value.gsub(/\\([nN,;\\])/) do
+          escaped = Regexp.last_match(1)
+          escaped.casecmp?("n") ? "\n" : escaped
+        end
       end
 
       def parse(body)
