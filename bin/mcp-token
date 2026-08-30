@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Mints a development bearer token for the /mcp endpoint, so it can be driven
+# before masks exists. Refuses outside development and test.
+#
+#   bin/mcp-token jons
+#   bin/mcp-token jons things:read resources:read
+
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+if [ $# -eq 0 ]; then
+  echo "usage: bin/mcp-token <subdomain> [scope ...]" >&2
+  exit 64
+fi
+
+export MCP_TOKEN_SUBDOMAIN="$1"
+shift
+export MCP_TOKEN_SCOPES="$*"
+
+exec bin/rails runner script/mint_token.rb

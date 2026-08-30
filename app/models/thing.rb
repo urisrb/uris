@@ -23,7 +23,8 @@ class Thing < ApplicationRecord
 
   def body_text
     strings = []
-    collect_strings(analysis["steps"]) { |s| strings << s }
+    results = analysis.fetch("steps", {}).values.map { |step| step["result"] }
+    collect_strings(results) { |s| strings << s }
     strings.uniq.join("\n").presence
   end
 

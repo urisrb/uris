@@ -1,4 +1,6 @@
 class Resource < ApplicationRecord
+  class Failed < StandardError; end
+
   include TenantScoped
 
   serialize :credentials, coder: JSON, type: Hash
@@ -53,6 +55,17 @@ class Resource < ApplicationRecord
 
   def check!
     raise NotImplementedError, "#{self.class} does not implement #check!"
+  end
+
+  def command(name, arguments = {})
+    schema = self.class.command_schema[name.to_s.to_sym]
+    raise ArgumentError, "#{self.class.sti_name} has no command '#{name}'" if schema.nil?
+
+    given = arguments.to_h.symbolize_keys.slice(*schema.keys)
+    missing = schema.reject { |_, type| type.end_with?("?") }.keys - given.keys
+    raise ArgumentError, "'#{name}' requires #{missing.join(', ')}" if missing.any?
+
+    public_send(:"command_#{name}", **given)
   end
 
   def syncable?

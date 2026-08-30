@@ -12,6 +12,13 @@ gem "puma", ">= 5.0"
 # the same domain layer; neither surface wraps the other.
 gem "graphql"
 
+# The endpoint the product is actually for. Claude adds it as a custom connector
+# and drives the four movements as typed tools.
+gem "mcp"
+
+# The bearer tokens the endpoint accepts. Claims are checked here; masks issues.
+gem "jwt"
+
 # Vite builds the React SPA [https://vite-ruby.netlify.app/]
 gem "vite_rails"
 

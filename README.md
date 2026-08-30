@@ -8,10 +8,12 @@ them, with analysis attached, and can hand the bytes back as an export or a loca
 
 ```
 sync       resource → catalog        pull references in          ✓ s3
-analyze    content  → understanding  per thing, by kind          — next
+analyze    content  → understanding  per thing, by kind          ✓ no model yet
 search     catalog  → you            one index across everything ✓
 export     catalog  → resource       bytes back out              ✓
 ```
+
+All four are reachable over `/mcp`, which is what the product is for.
 
 A **thing** is a reference, not the bytes. The catalog is the product; originals stay in the resource
 they came from. A **resource** is an instance — "my B2 bucket" — and its **type** (`s3`, `imap`,
@@ -50,13 +52,13 @@ should be exercised against both.
 
 Isolation has three layers, and the tests assert each one separately:
 
-| Layer | Enforced by | Fails how |
-|---|---|---|
-| application | `TenantScoped` default scope | a forgotten scope |
-| database | Postgres RLS, `FORCE` + policy | silently, if the app role is a superuser |
-| search | a per-tenant filtered alias | invisibly — RLS cannot reach the index |
-| cable | `subscription_scope :tenant_id` | two tenants sharing one stream name |
-| API | tenant-checked `object_from_id` | `node(id:)` walks out of the tenant |
+| Layer       | Enforced by                     | Fails how                                |
+| ----------- | ------------------------------- | ---------------------------------------- |
+| application | `TenantScoped` default scope    | a forgotten scope                        |
+| database    | Postgres RLS, `FORCE` + policy  | silently, if the app role is a superuser |
+| search      | a per-tenant filtered alias     | invisibly — RLS cannot reach the index   |
+| cable       | `subscription_scope :tenant_id` | two tenants sharing one stream name      |
+| API         | tenant-checked `object_from_id` | `node(id:)` walks out of the tenant      |
 
 Two of those have a trap worth knowing about. A table's **owner bypasses RLS** unless the table is
 marked `FORCE ROW LEVEL SECURITY`, and a **superuser bypasses it regardless** — which is why
@@ -71,11 +73,54 @@ browser  → /graphql   session auth, first-party client, urql + codegen + cable
 Claude   → /mcp       typed tools, token-scoped grants
 ```
 
-Neither wraps the other. Exposing GraphQL *as* an MCP tool is what would collapse them back into
+Neither wraps the other. Exposing GraphQL _as_ an MCP tool is what would collapse them back into
 one — a single passthrough tool cannot be partially granted.
 
 The Ruby schema is the source of truth and the TypeScript is generated from it, so the SPA cannot
 drift from the API without the types going red first. `bin/dev` keeps both watchers running.
+
+## The endpoint
+
+`POST /mcp` — stateless Streamable HTTP, eight tools, one bearer token per call.
+
+|                     |                     |
+| ------------------- | ------------------- |
+| `search_things`     | `things:read`       |
+| `get_thing`         | `things:read`       |
+| `analyze_thing`     | `things:write`      |
+| `list_resources`    | `resources:read`    |
+| `describe_resource` | `resources:read`    |
+| `command_resource`  | `resources:command` |
+| `sync_resource`     | `resources:command` |
+| `export_things`     | `resources:command` |
+
+**The token decides which tools exist.** The server is built per request from the caller's grant, so
+a tool outside it is absent from `tools/list` and answers `Tool not found` if called anyway — there
+is no allowlist consulted at call time for a prompt to argue with. A token minted for one tenant is
+rejected against another on its audience, before any tenant scoping runs.
+
+Credentials never travel through a tool call: they would land in the transcript. Connecting a
+resource is a browser flow, and that is most of what the web UI is for.
+
+### Driving it before the auth server exists
+
+An unauthenticated call answers `401` with a `WWW-Authenticate` header naming the issuer to go
+authenticate against — the whole handshake, for a client handed nothing but a URL. Until that issuer
+exists, `MASKS_DEV_SECRET` accepts locally signed tokens instead. It is refused outside development
+and test, because a signing secret in production would make this app the issuer of its own
+credentials.
+
+```sh
+bin/mcp-token jons                      # every scope
+bin/mcp-token jons things:read          # or fewer
+
+curl -sS http://jons.things.test:4242/.well-known/oauth-protected-resource
+
+curl -sS -X POST http://jons.things.test:4242/mcp \
+  -H "authorization: Bearer $(bin/mcp-token jons)" \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
 
 ## The boundary rule
 

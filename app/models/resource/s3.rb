@@ -14,8 +14,48 @@ class Resource
       }
     end
 
+    MAX_TEXT = 100_000
+
     def bucket
       key
+    end
+
+    def command(name, arguments = {})
+      super
+    rescue Aws::Errors::ServiceError, Seahorse::Client::NetworkingError => e
+      raise Resource::Failed, "#{key}: #{e.message}"
+    end
+
+    def command_list(prefix: nil, continuation_token: nil)
+      page = client.list_objects_v2(
+        bucket: bucket,
+        prefix: prefix.presence || details["prefix"],
+        continuation_token: continuation_token.presence,
+        max_keys: 1000
+      )
+
+      {
+        "objects" => page.contents.map do |object|
+          { "key" => object.key, "size" => object.size, "last_modified" => object.last_modified }
+        end,
+        "continuation_token" => page.next_continuation_token
+      }
+    end
+
+    def command_get(key:, version_id: nil)
+      bytes = client.get_object(bucket: bucket, key: key, version_id: version_id.presence).body.read
+      text = bytes.dup.force_encoding(Encoding::UTF_8)
+
+      if text.valid_encoding?
+        { "key" => key, "size" => bytes.bytesize, "text" => text.truncate(MAX_TEXT) }
+      else
+        { "key" => key, "size" => bytes.bytesize, "text" => nil,
+          "note" => "binary — sync it into the catalog or export it instead" }
+      end
+    end
+
+    def command_put(key:, body:)
+      upload(key, body)
     end
 
     def check!

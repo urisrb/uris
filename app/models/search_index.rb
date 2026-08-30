@@ -28,7 +28,7 @@ module SearchIndex
     end
 
     def index_name
-      "things_#{Rails.env}"
+      [ "things", Rails.env, ENV["TEST_ENV_NUMBER"].presence ].compact.join("_")
     end
 
     def alias_for(tenant)

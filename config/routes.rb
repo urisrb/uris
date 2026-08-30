@@ -5,6 +5,12 @@ Rails.application.routes.draw do
 
   post "/graphql", to: "graphql#execute"
 
+  post "/mcp", to: "mcp#handle"
+  match "/mcp", to: "mcp#unsupported", via: [ :get, :delete ]
+
+  get "/.well-known/oauth-protected-resource", to: "oauth_metadata#protected_resource"
+  get "/.well-known/oauth-protected-resource/mcp", to: "oauth_metadata#protected_resource"
+
   mount MissionControl::Jobs::Engine, at: "/jobs"
 
   get "up" => "rails/health#show", as: :rails_health_check
