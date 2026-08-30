@@ -35,8 +35,8 @@ class SyncResourceJob < ApplicationJob
         resource: resource,
         locator: resource.locator_for(object),
         locator_key: locator_key,
-        kind: Kind.for_filename(locator_key),
-        title: File.basename(locator_key)
+        kind: resource.kind_for(object),
+        title: resource.title_for(object)
       )
     end
 

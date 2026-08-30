@@ -125,6 +125,14 @@ class Resource < ApplicationRecord
     respond_to?(:each_page)
   end
 
+  def kind_for(object)
+    Kind.for_filename(locator_key_for(object))
+  end
+
+  def title_for(object)
+    File.basename(locator_key_for(object))
+  end
+
   def syncing?
     sync_started_at.present? && sync_started_at > SYNC_ABANDONED_AFTER.ago
   end

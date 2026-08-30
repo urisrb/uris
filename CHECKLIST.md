@@ -2,7 +2,8 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**109 items — 71 done · 5 partial · 27 to build · 6 deferred**, read at `11093db`.
+**119 items — 73 done · 5 partial · 35 to build · 6 deferred**, read at `d16fc4b` plus the working
+tree.
 
 |         |              |                                                        |
 | ------- | ------------ | ------------------------------------------------------ |
@@ -111,8 +112,11 @@ announces itself.
       the OS, and it is deliberately not in the runtime image either, being half a gigabyte. A
       `.docx` is no longer read as raw text by the text analyzer, which it was, so the failure is
       now visible rather than indexed as mojibake.
-- [ ] **Dispatch on owner type, not just kind** — an email analyzer needs to claim mail before a
-      blob exists, which `Kind.for_filename` cannot express.
+- [x] **Dispatch on owner type, not just kind** — the resource declares what its objects are.
+      `Resource#kind_for` and `#title_for` default to `Kind.for_filename` on the locator key, which
+      is what every file-shaped type wants and leaves s3 and `database` untouched; `imap` overrides
+      both, so a message is an `email` titled by its subject and no filename is invented for it.
+      The guess moved out of `SyncResourceJob`, which had no business making it.
 - [ ] **Children and dependency ordering** — email blocking on its attachments.
 - [ ] **Model-backed analysis** — summary, vision, classification. The expensive half. Sits on top
       of extraction rather than replacing it.
@@ -175,8 +179,22 @@ announces itself.
 - [x] **`database`** — the tenant's own database as storage, so a reference can point at content
       this app produced. The only type whose storage sits behind the same RLS as the catalog, so it
       carries the tenant into its own queries.
-- [ ] **`imap`** — carries the `UIDVALIDITY` trap: a UID means nothing outside its generation, so it
-      belongs in the locator.
+- [x] **`imap`** — the first type that is not object storage, and the one that proved the
+      abstraction generalizes: no blob until you fetch one, a generation-scoped cursor, and read-only
+      throughout. One mailbox per resource, the way one bucket is one `s3`. The `UIDVALIDITY` trap is
+      handled in both directions, and both were confirmed to fail when the check is removed. A UID
+      means nothing outside its generation, so the locator carries `(mailbox, uidvalidity, uid)` and
+      the locator key is all three: a renumbered mailbox catalogues afresh rather than silently
+      pointing at whatever now holds UID 4. A reference from a dead generation refuses to resolve
+      instead of returning the wrong message. And the sync cursor is `uidvalidity:uid`, so a cursor
+      from a previous generation restarts at 1 — without that check a resumed sync quietly catalogues
+      nothing and reports success, which is the same failure mode as the RLS-during-migration one.
+      Reads use `EXAMINE` and `BODY.PEEK[]`, so cataloguing your mail never marks it read; that is
+      also asserted, and fails without the `PEEK`. The `.eml` analyzer was already there and needed
+      no change, because `download` hands it the same RFC822 bytes a file would have.
+- [ ] **`imap` beyond one mailbox** — no `LIST`, no folder discovery, no `CONDSTORE`, and a
+      renumbered mailbox duplicates rather than rebinding, because recognising the duplicates is the
+      unbuilt dedup item and guessing here would lose mail.
 - [ ] **`oauth-google`, `oauth-github`, `openai-compatible`, `docker`, `ssh-exec`, `jellyfin`,
       `openhands`**
 - [ ] **Attach class `ssh`** — a CA minting short-lived certs per operation, scoped to one host and
