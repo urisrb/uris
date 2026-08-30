@@ -2,7 +2,7 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**108 items — 69 done · 4 partial · 29 to build · 6 deferred**, read at `712f6ac`.
+**109 items — 71 done · 5 partial · 27 to build · 6 deferred**, read at `11093db`.
 
 |         |              |                                                        |
 | ------- | ------------ | ------------------------------------------------------ |
@@ -100,7 +100,17 @@ announces itself.
       of one.
 - [x] **First-match-wins dispatch on kind, with a fallback that claims everything**
 - [x] **pdf, image, data, text, fallback** — the deterministic half, needing no model.
-- [ ] **email, xlsx, doc, calendar, pkpass** — five of the nine analyzers not yet ported.
+- [x] **email, xlsx, calendar, pkpass** — the deterministic half of each, since model-backed
+      summary is its own item and porting the prompts would have checked a box nothing can run. An
+      `.eml` gives up headers, body and the names of its attachments — named, never extracted, since
+      an attachment is a thing of its own and writing bytes from inside an analyzer is the sync
+      path's job. A workbook gives up each sheet's headers and a sample of rows. RFC 5545 folding
+      is the trap in `.ics`: unfold before splitting on a colon, or every long `SUMMARY` is silently
+      cut. Exercised against real files through the real dispatch.
+- [ ] ◐ **doc** — written, and nothing has run it: LibreOffice on this machine is killed on sight by
+      the OS, and it is deliberately not in the runtime image either, being half a gigabyte. A
+      `.docx` is no longer read as raw text by the text analyzer, which it was, so the failure is
+      now visible rather than indexed as mojibake.
 - [ ] **Dispatch on owner type, not just kind** — an email analyzer needs to claim mail before a
       blob exists, which `Kind.for_filename` cannot express.
 - [ ] **Children and dependency ordering** — email blocking on its attachments.
@@ -302,10 +312,11 @@ Deliberately small: only what a chat transcript must not do.
       images through `vipsthumbnail` and a PDF's first page through `pdftoppm` at three sizes. A
       thumbnail is a derivative, not data — regenerable from the reference — so it lives in the
       cache and never in a table anyone has to migrate. A kind with nothing to render answers 404.
-- [ ] **The Dockerfile cannot render any of it** — the runtime image installs `libvips` and neither
-      `poppler-utils` nor `tesseract-ocr`, so `pdftotext`, `pdftoppm` and OCR are missing wherever
-      the image runs. Every PDF and image analyzer, and every PDF thumbnail, fails outside a
-      laptop. Nothing has been deployed, which is the only reason this has not bitten.
+- [x] **The image carries what the analyzers shell out to** — `poppler-utils` and `tesseract-ocr`
+      were missing while `libvips` was present, so `pdfinfo`, `pdftotext`, `pdftoppm` and OCR all
+      worked on a laptop that has them from the Brewfile and failed everywhere else. Installed.
+      LibreOffice stays out on purpose: half a gigabyte is a trade to make deliberately, and the
+      `doc` analyzer is the only thing that wants it.
 
 ## Packaging
 
