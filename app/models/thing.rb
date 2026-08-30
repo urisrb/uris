@@ -15,6 +15,16 @@ class Thing < ApplicationRecord
     where(id: ids).in_order_of(:id, ids)
   end
 
+  def download
+    raise ArgumentError, "no resource" if resource.nil?
+
+    resource.download(locator)
+  end
+
+  def export_path
+    [ resource&.key, locator_key ].compact.join("/")
+  end
+
   def self.upsert_reference!(resource:, locator:, locator_key:, kind:, title: nil)
     thing = find_or_initialize_by(resource: resource, locator_key: locator_key)
     thing.assign_attributes(locator: locator, kind: kind, title: title)

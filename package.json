@@ -6,7 +6,8 @@
     "codegen:watch": "graphql-codegen --config codegen.ts --watch",
     "lint": "biome check",
     "lint:fix": "biome check --write",
-    "format": "biome format --write"
+    "format": "biome format --write",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@mantine/core": "^9.2.1",

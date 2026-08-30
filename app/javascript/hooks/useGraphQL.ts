@@ -1,5 +1,5 @@
 import type { TypedDocumentNode } from '@graphql-typed-document-node/core'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { client } from '../graphql/client'
 
 interface QueryOptions {
@@ -65,13 +65,17 @@ export function useSubscription<
   const skip = options?.skip ?? false
   const [data, setData] = useState<TData | null>(null)
   const [error, setError] = useState<Error | null>(null)
-  const variablesKey = JSON.stringify(variables)
+  const variablesKey = JSON.stringify(variables ?? {})
+  const stableVariables = useMemo(
+    () => JSON.parse(variablesKey) as TVariables,
+    [variablesKey],
+  )
 
   useEffect(() => {
     if (skip) return
 
     const { unsubscribe } = client
-      .subscription(subscription, (variables ?? {}) as TVariables)
+      .subscription(subscription, stableVariables)
       .subscribe((result) => {
         if (result.error) {
           setError(new Error(result.error.message))
@@ -81,7 +85,7 @@ export function useSubscription<
       })
 
     return () => unsubscribe()
-  }, [subscription, variablesKey, skip])
+  }, [subscription, stableVariables, skip])
 
   return { data, error }
 }

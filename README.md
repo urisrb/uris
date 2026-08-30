@@ -7,11 +7,20 @@ Drive search only searches Drive. Gmail search only searches Gmail. things searc
 them, with analysis attached, and can hand the bytes back as an export or a local copy.
 
 ```
-sync       resource → catalog        pull references in
-analyze    content  → understanding  per thing, by kind
-search     catalog  → you            one index across everything
-export     catalog  → resource       bytes back out
+sync       resource → catalog        pull references in          ✓ s3
+analyze    content  → understanding  per thing, by kind          — next
+search     catalog  → you            one index across everything ✓
+export     catalog  → resource       bytes back out              ✓
 ```
+
+A **thing** is a reference, not the bytes. The catalog is the product; originals stay in the resource
+they came from. A **resource** is an instance — "my B2 bucket" — and its **type** (`s3`, `imap`,
+`oauth-google`) is what decides how much code exists: one `s3` adapter serves AWS, R2, B2, Wasabi,
+MinIO and Garage. A type owns its adapter, its command schema, its locator shape, and its enumerator.
+
+Everything that touches an unbounded number of things checkpoints through
+[job-iteration](https://github.com/Shopify/job-iteration), so a sync or an export survives a deploy
+and resumes at its cursor rather than starting over.
 
 ## Running it
 
@@ -45,6 +54,8 @@ Isolation has three layers, and the tests assert each one separately:
 |---|---|---|
 | application | `TenantScoped` default scope | a forgotten scope |
 | database | Postgres RLS, `FORCE` + policy | silently, if the app role is a superuser |
+| search | a per-tenant filtered alias | invisibly — RLS cannot reach the index |
+| cable | `subscription_scope :tenant_id` | two tenants sharing one stream name |
 | API | tenant-checked `object_from_id` | `node(id:)` walks out of the tenant |
 
 Two of those have a trap worth knowing about. A table's **owner bypasses RLS** unless the table is

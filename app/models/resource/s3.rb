@@ -51,6 +51,11 @@ class Resource
       client.get_object(bucket: locator.fetch("bucket"), key: locator.fetch("key")).body
     end
 
+    def upload(key, body)
+      client.put_object(bucket: bucket, key: key, body: body)
+      { "bucket" => bucket, "key" => key }
+    end
+
     def client
       @client ||= Aws::S3::Client.new(
         endpoint: details.fetch("endpoint"),
