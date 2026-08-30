@@ -36,6 +36,15 @@ module Types
       scope.limit(100)
     end
 
+    field :search, [ Types::ThingType ], null: false do
+      argument :query, String, required: false
+      argument :kind, String, required: false
+    end
+
+    def search(query: nil, kind: nil)
+      Thing.search(query, kind: kind)
+    end
+
     field :resources, [ Types::ResourceType ], null: false
 
     def resources

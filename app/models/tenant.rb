@@ -6,6 +6,8 @@ class Tenant < ApplicationRecord
                         format: { with: /\A[a-z0-9][a-z0-9-]*\z/ }
   validates :name, presence: true
 
+  after_create_commit { SearchIndex.create_alias!(self) }
+
   class << self
     def resolve(host)
       find_by(subdomain: host.to_s.split(".").first)

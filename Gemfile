@@ -17,7 +17,6 @@ gem "vite_rails"
 
 # Search across every resource — the query path, and the one tenancy boundary
 # Postgres RLS cannot enforce.
-gem "searchkick"
 gem "opensearch-ruby"
 
 # Object storage. The tenant's default storage resource is an S3 bucket, so
