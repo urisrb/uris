@@ -31,6 +31,7 @@ module Analyzer
         end
       end
 
+      thing.announce_change!
       thing
     end
 

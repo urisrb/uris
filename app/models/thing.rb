@@ -88,6 +88,14 @@ class Thing < ApplicationRecord
     AnalyzeThingsJob.perform_later(tenant_id, { "id" => id })
   end
 
+  def announce_change!
+    Tenant.switch(tenant) do
+      ThingsSchema.subscriptions.trigger(:thing_changed, {}, self, scope: tenant_id)
+      ThingsSchema.subscriptions.trigger(:thing_changed, { id: to_gid_param }, self,
+                                         scope: tenant_id)
+    end
+  end
+
   def body_text
     strings = []
     collect_strings(references.flat_map(&:extracted)) { |s| strings << s }
