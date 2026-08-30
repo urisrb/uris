@@ -1,5 +1,13 @@
 require "test_helper"
 
+class Resource
+  class Compute < Resource
+    def self.capabilities
+      [ :compute ]
+    end
+  end
+end
+
 class ExportThingsJobTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
@@ -65,6 +73,34 @@ class ExportThingsJobTest < ActiveSupport::TestCase
     assert_equal [ "#{@source_bucket}/invoices/march.pdf" ], exported_keys
   end
 
+  test "a destination without the storage capability is refused" do
+    compute = Tenant.switch(@tenant) { Resource::Compute.create!(key: "gpu-box", name: "GPU") }
+
+    error = assert_raises(ArgumentError) do
+      ExportThingsJob.perform_now(@tenant.id, compute.id, {})
+    end
+
+    assert_match(/is not storage/, error.message)
+    assert_empty exported_keys
+  end
+
+  test "a thing already referenced on the destination is not exported into it" do
+    put @destination, "invoices/march.pdf"
+    SyncResourceJob.perform_now(@tenant.id, @destination.id)
+    SearchIndex.refresh!
+
+    Tenant.switch(@tenant) do
+      thing_at(@source, "invoices/march.pdf").merge!(thing_at(@destination, "invoices/march.pdf"))
+    end
+
+    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+
+    assert_equal [
+      "invoices/march.pdf",
+      "#{@source_bucket}/photos/beach.jpg"
+    ].sort, exported_keys
+  end
+
   test "exporting moves bytes without cataloguing them" do
     assert_no_difference -> { Tenant.switch(@tenant) { Thing.count } } do
       ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
@@ -90,6 +126,11 @@ class ExportThingsJobTest < ActiveSupport::TestCase
 
     def put(resource, key)
       resource.client.put_object(bucket: resource.bucket, key: key, body: "contents of #{key}")
+    end
+
+    def thing_at(resource, locator_key)
+      Thing.joins(:references)
+           .find_by(thing_references: { resource_id: resource.id, locator_key: locator_key })
     end
 
     def exported_keys

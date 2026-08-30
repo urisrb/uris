@@ -43,6 +43,12 @@ class Resource < ApplicationRecord
     capabilities.include?(:storage)
   end
 
+  def storage!
+    raise ArgumentError, "#{key} is not storage — it cannot be an export destination" unless storage?
+
+    self
+  end
+
   def describe
     {
       type: self.class.sti_name,

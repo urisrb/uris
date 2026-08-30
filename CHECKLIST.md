@@ -2,7 +2,7 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**103 items — 57 done · 6 partial · 34 to build · 6 deferred**, read at `21e0953`.
+**103 items — 57 done · 6 partial · 34 to build · 6 deferred**, read at `c13c78a`.
 
 |         |              |                                                        |
 | ------- | ------------ | ------------------------------------------------------ |
@@ -117,7 +117,9 @@ announces itself.
 - [x] **A resumable job-iteration run**
 - [x] **Selector-driven** — every argument left off widens it.
 - [x] **The destination must hold the storage capability**, and a thing never exports into a
-      resource it is already referenced on.
+      resource it is already referenced on. Enforced in the job rather than only in the tool, so the
+      invariant does not depend on which caller reached it, and both halves are exercised — each was
+      confirmed to fail when its guard is removed.
 - [ ] **Export records the reference it creates** — export still moves bytes and catalogues nothing,
       so a backup leaves the catalog not knowing about the copy. The model can express it now.
 - [ ] **Export format** — a directory tree keyed by resource and locator today; zip and
@@ -244,7 +246,7 @@ Deliberately small: only what a chat transcript must not do.
 
 ## Deliberately deferred
 
-- [ ] ⊘ **Broader test coverage** — 76 tests cover tenancy, the model and merges, both bulk jobs,
+- [ ] ⊘ **Broader test coverage** — 78 tests cover tenancy, the model and merges, both bulk jobs,
       analysis, search, resources, grants, the failure policy and the endpoint. Note the difference
       between this being deferred and CI being unable to run what exists, which is not deferred.
 - [ ] ⊘ **Table partitioning** — one table, indexed, cursor pagination, OpenSearch as the query path.

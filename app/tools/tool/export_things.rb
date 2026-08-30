@@ -21,11 +21,7 @@ module Tool
 
     def self.call(destination_id:, server_context:, query: nil, kind: nil, resource_id: nil)
       respond(server_context) do
-        destination = resource!(destination_id)
-
-        unless destination.storage?
-          raise ArgumentError, "#{destination.key} is not storage — it cannot be an export destination"
-        end
+        destination = resource!(destination_id).storage!
 
         selector = selector_from(query: query, kind: kind, resource_id: resource_id)
         ExportThingsJob.perform_later(destination.tenant_id, destination.id, selector)

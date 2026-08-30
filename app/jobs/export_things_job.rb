@@ -6,7 +6,10 @@ class ExportThingsJob < ApplicationJob
   retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5
 
   def build_enumerator(tenant_id, destination_id, selector, cursor:)
-    ids = Tenant.switch(Tenant.find(tenant_id)) { select(selector).pluck(:id) }
+    ids = Tenant.switch(Tenant.find(tenant_id)) do
+      Resource.find(destination_id).storage!
+      select(selector).pluck(:id)
+    end
 
     enumerator_builder.build_array_enumerator(ids, cursor: cursor)
   end
