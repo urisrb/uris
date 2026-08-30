@@ -90,10 +90,10 @@ class Thing < ApplicationRecord
     end
   end
 
-  def announce_change!
+  def announce_analyzed!
     Tenant.switch(tenant) do
-      ThingsSchema.subscriptions.trigger(:thing_changed, {}, self, scope: tenant_id)
-      ThingsSchema.subscriptions.trigger(:thing_changed, { id: to_gid_param }, self,
+      ThingsSchema.subscriptions.trigger(:thing_analyzed, {}, self, scope: tenant_id)
+      ThingsSchema.subscriptions.trigger(:thing_analyzed, { id: to_gid_param }, self,
                                          scope: tenant_id)
     end
   end

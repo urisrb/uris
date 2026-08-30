@@ -1,14 +1,14 @@
 require "test_helper"
 
-class ThingChangedTest < ActionCable::Channel::TestCase
+class ThingAnalyzedTest < ActionCable::Channel::TestCase
   tests GraphqlChannel
 
   EVERY_THING = <<~GRAPHQL
-    subscription ThingChanged { thingChanged { thing { id kind title } } }
+    subscription ThingAnalyzed { thingAnalyzed { thing { id kind title } } }
   GRAPHQL
 
   ONE_THING = <<~GRAPHQL
-    subscription ThingChanged($id: ID!) { thingChanged(id: $id) { thing { id title } } }
+    subscription ThingAnalyzed($id: ID!) { thingAnalyzed(id: $id) { thing { id title } } }
   GRAPHQL
 
   setup do

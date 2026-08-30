@@ -2,6 +2,6 @@
 
 module Types
   class SubscriptionType < Types::BaseObject
-    field :thing_changed, subscription: Subscriptions::ThingChanged
+    field :thing_analyzed, subscription: Subscriptions::ThingAnalyzed
   end
 end

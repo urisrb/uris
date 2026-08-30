@@ -1,17 +1,17 @@
 import { useEffect } from 'react'
 import {
   CatalogQuery,
-  ThingChangedSubscription,
+  ThingAnalyzedSubscription,
 } from '../graphql/queries/catalog'
 import { useQuery, useSubscription } from '../hooks/useGraphQL'
 
 export function App() {
   const { data, loading, error, refetch } = useQuery(CatalogQuery)
-  const { data: changed } = useSubscription(ThingChangedSubscription)
+  const { data: analyzed } = useSubscription(ThingAnalyzedSubscription)
 
   useEffect(() => {
-    if (changed) refetch()
-  }, [changed, refetch])
+    if (analyzed) refetch()
+  }, [analyzed, refetch])
 
   if (loading) return <p>Loading…</p>
   if (error) return <p>{error.message}</p>

@@ -13,7 +13,7 @@ Every feature this repo is meant to have, checked against what is actually in th
 
 **A checked box is a claim, and claims rot.** Three items on this page were once checked and were
 false: Solid Queue was in the Gemfile and mounted but never installed, so every job ran in-process;
-the Docker image had not built since the SPA landed; `thingChanged` was wired at every layer with
+the Docker image had not built since the SPA landed; `thingAnalyzed` was wired at every layer with
 nothing to fire it. All three were _configured_ rather than _exercised_. The tell is a claim with no
 verb — _mounted_, _present_, _defined_ — against _runs_, _builds_, _answers_. Prefer the latter, and
 where you see the former, assume it is broken until something executes it.
@@ -271,7 +271,7 @@ Deliberately small: only what a chat transcript must not do.
       truth and the TypeScript is generated from it, so the SPA cannot drift without the types going
       red.
 - [x] **GraphQL — things, references, search, resources, tenant, node**
-- [x] **`thingChanged`** — fires when an analysis finishes, which is the answer to the question that
+- [x] **`thingAnalyzed`** — fires when an analysis finishes, which is the answer to the question that
       kept it unwired: a thing commits once per object during a sync, so the naive `after_commit` is
       a hundred thousand events, while analysis is both the moment a thing became worth looking at
       and the only step already rate-bounded, running in its own pool behind a serial GPU. It takes

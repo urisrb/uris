@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Subscriptions
-  class ThingChanged < BaseSubscription
+  class ThingAnalyzed < BaseSubscription
     argument :id, ID, required: false,
              description: "Watch one thing. Left off, every thing in the tenant."
 

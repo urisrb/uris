@@ -24,9 +24,9 @@ export const CatalogQuery = graphql(`
   }
 `)
 
-export const ThingChangedSubscription = graphql(`
-  subscription ThingChanged {
-    thingChanged {
+export const ThingAnalyzedSubscription = graphql(`
+  subscription ThingAnalyzed {
+    thingAnalyzed {
       thing {
         id
         kind
