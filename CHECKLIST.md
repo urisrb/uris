@@ -2,7 +2,7 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**103 items — 55 done · 7 partial · 35 to build · 6 deferred**, read at `5d3ce66`.
+**103 items — 57 done · 6 partial · 34 to build · 6 deferred**, read at `21e0953`.
 
 |         |              |                                                        |
 | ------- | ------------ | ------------------------------------------------------ |
@@ -229,13 +229,15 @@ Deliberately small: only what a chat transcript must not do.
       SPA and not the toolchain, and `node_modules` is pruned. Verified by building it, checking the
       manifest, and booting it far enough to enumerate every tool.
 - [x] **`bin/check-boundary`** — no host, domain or secret in this repo.
-- [x] **CI: brakeman, bundler-audit, rubocop, biome, typecheck, boundary** — green, and all static.
-- [ ] ◐ **CI runs the test suite** — **it cannot, and never has.** The `test` job gets postgres
-      alone while seven test files need OpenSearch and MinIO, and `system-test` runs `test:system`
-      against a directory that does not exist. `QUEUE_DATABASE_URL` is set so the second database
-      resolves once the services arrive; the services are the remaining half.
-- [ ] **CI builds the image** — the gap that let the build stay broken for four commits. It needs no
-      services and is the cheapest deploy test there is.
+- [x] **CI: brakeman, bundler-audit, rubocop, biome, typecheck, boundary**
+- [x] **CI runs the whole suite** — against real OpenSearch and MinIO, with the analyzers' binaries
+      installed, and **as a non-superuser**, because a superuser bypasses RLS unconditionally and
+      would make every isolation test pass without proving anything. It had never run before the
+      first push; it caught three real breakages immediately.
+- [x] **CI builds the image** — the gap that let the build stay broken for four commits. It also
+      catches what a laptop cannot: `schema.graphql` and the generated TypeScript are gitignored
+      build products that exist in every working copy and no clean checkout, so both the image and
+      the typecheck now generate the API layer before they need it.
 - [ ] **`deploy/site.yaml`** — this repo ships the bundle its own install needs, because a
       self-hoster needs it too.
 - [ ] **Deployed anywhere at all** — the image has never run outside this laptop.
