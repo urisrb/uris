@@ -179,6 +179,19 @@ announces itself.
 - [x] **`database`** — the tenant's own database as storage, so a reference can point at content
       this app produced. The only type whose storage sits behind the same RLS as the catalog, so it
       carries the tenant into its own queries.
+- [x] **`filesystem`** — a directory tree as a resource, storage and syncable, needing no credential
+      and no service to test against. The enumeration is the easy half; the whole risk of this type
+      is that a tenant who names its own root reads the server. So the root must sit under one of
+      `THINGS_FILESYSTEM_ROOTS`, which is unset by default, meaning the type is unusable until an
+      operator decides what is mountable — the paths stay in the environment, never in this repo.
+      Four guards, each confirmed to fail when removed: the root is checked against that list; a
+      locator is confined by `realpath` under the root, so a symlink out is refused; the walk skips
+      symlinks entirely rather than following them; and writes resolve the nearest existing ancestor
+      before creating anything, because resolving a parent that does not exist yet fails every
+      export into a fresh directory. A lexical check runs before any of it, which is not redundant
+      the way it first looks: without it a path climbing out reports "cannot resolve" for a missing
+      file and "resolves outside" for a real one, which is a file-existence oracle for the whole
+      disk. Both now answer identically, and that is the assertion.
 - [x] **`imap`** — the first type that is not object storage, and the one that proved the
       abstraction generalizes: no blob until you fetch one, a generation-scoped cursor, and read-only
       throughout. One mailbox per resource, the way one bucket is one `s3`. The `UIDVALIDITY` trap is
