@@ -17,6 +17,7 @@ class FakeIssuer
 
   def initialize
     @keys = {}
+    @codes = {}
     @lock = Mutex.new
     @server = TCPServer.new("127.0.0.1", 0)
     @port = @server.addr[1]
@@ -29,6 +30,23 @@ class FakeIssuer
 
   def url_for(subdomain)
     "#{origin}/#{subdomain}"
+  end
+
+  def authorize!(location, scopes: Grant::SCOPES)
+    query = Rack::Utils.parse_query(URI.parse(location).query)
+    code = SecureRandom.urlsafe_base64(24)
+
+    @lock.synchronize do
+      @codes[code] = {
+        challenge: query["code_challenge"],
+        nonce: query["nonce"],
+        client_id: query["client_id"],
+        resource: query["resource"],
+        scopes: Array(scopes)
+      }
+    end
+
+    { code: code, state: query["state"], query: query }
   end
 
   def key_for(subdomain)
@@ -66,14 +84,28 @@ class FakeIssuer
 
     def respond(socket)
       line = socket.gets.to_s
+      length = 0
+
       while (header = socket.gets) && header.strip != ""
+        length = header.split(":", 2).last.to_i if header =~ /\AContent-Length:/i
       end
 
-      found = body_for(line.split(" ")[1].to_s)
+      method, path = line.split(" ")
+      payload = length.positive? ? socket.read(length).to_s : ""
+
+      found = method == "POST" ? post_for(path.to_s, payload) : body_for(path.to_s)
       body = JSON.generate(found || { "error" => "not_found" })
 
+      status = if found.nil?
+        "404 Not Found"
+      elsif found["error"]
+        "400 Bad Request"
+      else
+        "200 OK"
+      end
+
       socket.print [
-        "HTTP/1.1 #{found ? '200 OK' : '404 Not Found'}",
+        "HTTP/1.1 #{status}",
         "Content-Type: application/json",
         "Content-Length: #{body.bytesize}",
         "Connection: close",
@@ -90,6 +122,43 @@ class FakeIssuer
       when %r{\A/([^/]+)/\.well-known/openid-configuration\z} then discovery($1)
       when %r{\A/([^/]+)/\.well-known/jwks\.json\z} then jwks($1)
       end
+    end
+
+    def post_for(path, payload)
+      return nil unless path =~ %r{\A/([^/]+)/token\z}
+
+      subdomain = $1
+      form = URI.decode_www_form(payload).to_h
+      pending = @lock.synchronize { @codes.delete(form["code"]) }
+
+      return { "error" => "invalid_grant" } if pending.nil?
+      return { "error" => "invalid_grant" } unless verifies?(pending, form["code_verifier"])
+
+      granted(subdomain, pending)
+    end
+
+    def verifies?(pending, verifier)
+      return false if verifier.blank?
+
+      Base64.urlsafe_encode64(
+        OpenSSL::Digest::SHA256.digest(verifier), padding: false
+      ) == pending[:challenge]
+    end
+
+    def granted(subdomain, pending)
+      audience = pending[:resource].presence || "#{url_for(subdomain)}/mcp"
+
+      {
+        "access_token" => mint(subdomain: subdomain, scopes: pending[:scopes], audience: audience),
+        "id_token" => mint(subdomain: subdomain, audience: pending[:client_id],
+                           scopes: [], nonce: pending[:nonce],
+                           name: "Test Owner", preferred_username: "owner",
+                           email: "owner@example.invalid"),
+        "refresh_token" => SecureRandom.urlsafe_base64(24),
+        "token_type" => "Bearer",
+        "scope" => Array(pending[:scopes]).join(" "),
+        "expires_in" => 3600
+      }
     end
 
     def discovery(subdomain)

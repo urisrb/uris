@@ -454,10 +454,18 @@ written after that gem existed.
       than the shared HS256 secret it replaces, which could not fail that way. Nine tests cover the
       refusals: no credentials, a bad token, another tenant's token, a read scope against a mutation,
       a read scope against the resource list, and content without a grant.
-- [ ] ◐ **The browser half has not been driven against a real masks** — the bearer path is fully
-      exercised, and `/auth/callback` is not. `state` and `nonce` are checked in the engine and no
-      test executes them. This is the same gap masks' own checklist carries, and it stays open until
-      registration → authorize → callback → session → a query runs end to end.
+- [x] **The browser half is driven end to end** — `/auth` → the issuer → `/auth/callback` → a
+      session → `/auth/session` → a GraphQL query on the cookie alone, against a signing issuer that
+      serves discovery, JWKS and a token endpoint over a socket and checks the PKCE verifier. Twelve
+      tests, including a forged `state`, a callback with nothing in flight, a code the issuer never
+      issued, and a code redeemed twice. This was the largest unexercised surface in either repo,
+      and running it found two real defects: the session cookie overflowed at 4247 bytes because
+      three JWTs were kept in it, and a token response with no `access_token` established a session
+      holding `nil`. Both are fixed in masks, where every consumer gets the fix.
+- [ ] **The suite still fakes the issuer, not masks itself** — the flow is real and the server is
+      not. Registration and consent are not covered, and a change to masks' own token endpoint would
+      not fail anything here. The scripted run against a live masks is still the only thing that
+      would catch that.
 - [ ] **Signing out of masks, not just of `things`** — `masks_forget` drops the local session and
       leaves the issuer's, so signing in again is silent. Correct for a shared browser only if the
       person expects it, and RP-initiated logout is unbuilt on both sides.

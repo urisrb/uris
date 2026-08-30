@@ -5,6 +5,7 @@ require "rails/test_help"
 require_relative "support/fake_issuer"
 
 ENV["THINGS_PUBLIC_ORIGIN"] = nil
+ENV["MASKS_CLIENT_ID"] = "things-test-client"
 
 module ActiveSupport
   class TestCase
