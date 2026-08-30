@@ -39,7 +39,7 @@ class Resource
     def each_page(cursor: nil, prefix: nil)
       permitted_root!
 
-      walk(prefix).drop_while { |path| cursor.present? && path <= cursor }
+      walk(prefix).drop_while { |path| cursor.present? && !after?(path, cursor) }
                   .each_slice(PAGE) do |batch|
         yield batch.map { |path| entry(path) }, batch.last
       end
@@ -170,6 +170,10 @@ class Resource
         Pathname.new(path).relative_path_from(root).to_s
       rescue ArgumentError
         path.to_s
+      end
+
+      def after?(path, cursor)
+        (path.to_s.split("/") <=> cursor.to_s.split("/")).to_i.positive?
       end
 
       def walk(prefix = nil)

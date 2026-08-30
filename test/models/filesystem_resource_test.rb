@@ -63,6 +63,21 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     assert_equal [ "notes.txt", "photos/beach.jpg" ], seen
   end
 
+  test "the cursor follows the walk, not string order" do
+    write "a/deep.txt", "in a directory"
+    write "a.txt", "beside it"
+
+    walked = []
+    @resource.each_page { |page, _| walked.concat(page.map(&:path)) }
+
+    assert_operator walked.index("a/deep.txt"), :<, walked.index("a.txt")
+
+    resumed = []
+    @resource.each_page(cursor: "a/deep.txt") { |page, _| resumed.concat(page.map(&:path)) }
+
+    assert_equal walked.drop(walked.index("a/deep.txt") + 1), resumed
+  end
+
   test "a root outside the permitted list is refused" do
     Tenant.switch(@tenant) do
       outside = Resource::Filesystem.create!(key: "outside", details: { "root" => Dir.mktmpdir("elsewhere") })

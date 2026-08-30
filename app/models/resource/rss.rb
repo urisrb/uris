@@ -1,19 +1,13 @@
-require "net/http"
-require "resolv"
-require "ipaddr"
 require "nokogiri"
 
 class Resource
   class Rss < Resource
-    class Blocked < Resource::Failed; end
+    include PublicFetch
+
     class Gone < Resource::Failed; end
 
     PAGE = 200
-    MAX_BYTES = 5.megabytes
-    MAX_REDIRECTS = 3
     MAX_TEXT = 100_000
-    OPEN_TIMEOUT = 5
-    READ_TIMEOUT = 15
 
     Entry = Data.define(:id, :title, :link, :published_at, :content)
 
@@ -26,10 +20,6 @@ class Resource
         list: { limit: "integer?" },
         get: { id: "string" }
       }
-    end
-
-    def self.private_fetches_allowed?
-      ENV["THINGS_ALLOW_PRIVATE_FETCH"].present?
     end
 
     def url
@@ -137,57 +127,8 @@ class Resource
         item.at_xpath("./*[local-name()='#{name}']")&.text&.strip
       end
 
-      def fetch(target, redirects: MAX_REDIRECTS)
-        uri = permitted!(target)
-
-        response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
-                                   open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT) do |http|
-          http.request(Net::HTTP::Get.new(uri, "User-Agent" => "things"))
-        end
-
-        case response
-        when Net::HTTPRedirection
-          raise Resource::Failed, "#{key}: too many redirects from #{url}" if redirects.zero?
-
-          fetch(URI.join(uri, response["location"].to_s).to_s, redirects: redirects - 1)
-        when Net::HTTPSuccess
-          body_of(response)
-        else
-          raise Resource::Failed, "#{key}: #{url} answered #{response.code}"
-        end
-      rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, SystemCallError, OpenSSL::SSL::SSLError => e
-        raise Resource::Failed, "#{key}: #{e.class} fetching #{url}"
-      end
-
-      def body_of(response)
-        body = response.body.to_s
-        raise Resource::Failed, "#{key}: #{url} returned more than #{MAX_BYTES} bytes" if body.bytesize > MAX_BYTES
-
-        body
-      end
-
-      def permitted!(target)
-        uri = URI.parse(target.to_s)
-
-        unless uri.is_a?(URI::HTTP) && uri.host.present?
-          raise Blocked, "#{key}: #{target} is not an http or https URL"
-        end
-
-        return uri if self.class.private_fetches_allowed?
-
-        addresses(uri.host).each do |address|
-          if address.loopback? || address.private? || address.link_local?
-            raise Blocked, "#{key}: #{uri.host} resolves to #{address}, which is not a public address"
-          end
-        end
-
-        uri
-      end
-
-      def addresses(host)
-        Resolv.getaddresses(host).filter_map do |found|
-          IPAddr.new(found) rescue nil
-        end.presence || raise(Resource::Failed, "#{key}: #{host} does not resolve")
+      def fetch(target)
+        bounded(over_http(target) { |uri| Net::HTTP::Get.new(uri, "User-Agent" => "things") })
       end
   end
 end

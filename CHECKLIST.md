@@ -185,6 +185,22 @@ announces itself.
 - [x] **`database`** — the tenant's own database as storage, so a reference can point at content
       this app produced. The only type whose storage sits behind the same RLS as the catalog, so it
       carries the tenant into its own queries.
+- [x] **`webdav` and `caldav`** — the second storage type, which is what makes storage an
+      abstraction rather than a description of S3. `caldav` is a subclass of `webdav` rather than a
+      type of its own, because a calendar collection *is* a WebDAV collection full of `.ics`: it
+      narrows the walk to calendar objects, drops `put`, and declares its kind, and the existing
+      `.ics` analyzer reads what arrives without knowing it came from a server. That is the second
+      time an analyzer needed no change to meet a new type, which is the whole argument for the
+      reference being the unit.
+- [x] **The SSRF guard is shared, not copied** — `rss` and `webdav` both fetch a URL a tenant chose,
+      so `PublicFetch` holds one implementation: scheme, resolved address, redirects re-checked per
+      hop, capped, and size-bounded. A second copy is how two behaviours drift into one name.
+- [x] **The walk cursor compares path segments, not strings** — depth-first over sorted names does
+      not produce lexicographic *string* order: `a/x` is walked before `a.txt` and sorts after it,
+      because `.` is below `/`. So `path <= cursor` resumed in the wrong place, silently, on any
+      tree holding both a directory and a file sharing a prefix. Comparing `split("/")` matches the
+      traversal exactly. It was wrong in `filesystem` first and inherited into `webdav`; both are
+      fixed and a test pins the ordering rather than the happy path.
 - [x] **`rss`** — the first type whose references point at something the catalog does not hold. A
       feed entry is a link and a summary; the bytes live at someone else's URL, which is the
       "a link in Drive" half of the model that nothing had exercised. RSS and Atom parse to the same

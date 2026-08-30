@@ -1,0 +1,86 @@
+require "test_helper"
+require_relative "../support/fake_dav_server"
+
+class CaldavResourceTest < ActiveSupport::TestCase
+  EVENT = <<~ICS.freeze
+    BEGIN:VCALENDAR
+    VERSION:2.0
+    BEGIN:VEVENT
+    UID:pelicans-1
+    DTSTART:20270830T120000Z
+    SUMMARY:Lunch with the pelicans
+    END:VEVENT
+    END:VCALENDAR
+  ICS
+
+  setup do
+    SearchIndex.reset!
+
+    ENV["THINGS_ALLOW_PRIVATE_FETCH"] = "1"
+
+    @server = FakeDavServer.current
+    @server.reset!
+    @server.put "calendar/lunch.ics", EVENT, type: "text/calendar; charset=utf-8"
+    @server.put "calendar/notes.txt", "not an event"
+
+    @tenant = Tenant.create!(subdomain: "cal-#{SecureRandom.hex(4)}", name: "Calendars")
+
+    Tenant.switch(@tenant) do
+      @resource = Resource::Caldav.create!(
+        key: "cal-#{SecureRandom.hex(4)}",
+        name: "Calendar",
+        details: { "url" => @server.url },
+        credentials: { "username" => "someone", "password" => "irrelevant" }
+      )
+    end
+  end
+
+  teardown do
+    ENV.delete("THINGS_ALLOW_PRIVATE_FETCH")
+  end
+
+  test "only calendar objects are catalogued, and they are calendars" do
+    sync
+
+    Tenant.switch(@tenant) do
+      assert_equal 1, Thing.count
+      assert_equal "calendar", Thing.first.kind
+      assert_equal "calendar/lunch.ics", ThingReference.first.locator_key
+    end
+  end
+
+  test "the calendar analyzer reads it without knowing where it came from" do
+    sync
+
+    Tenant.switch(@tenant) do
+      thing = Thing.first
+      AnalyzeThingJob.perform_now(@tenant.id, thing.id)
+
+      analysis = thing.references.first.reload.analysis
+
+      assert_includes analysis.dig("steps", "text", "result"), "Lunch with the pelicans"
+    end
+  end
+
+  test "a calendar is read-only and cannot be an export destination" do
+    assert_not @resource.storage?
+    assert_raises(ArgumentError) { @resource.storage! }
+    assert_not @resource.class.command_schema.key?(:put)
+  end
+
+  test "it inherits the webdav walk, so a nested calendar is still found" do
+    @server.put "shared/team/standup.ics", EVENT, type: "text/calendar"
+
+    sync
+
+    Tenant.switch(@tenant) do
+      assert_equal %w[calendar/lunch.ics shared/team/standup.ics], ThingReference.pluck(:locator_key).sort
+    end
+  end
+
+  private
+
+    def sync
+      SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    end
+end
