@@ -65,6 +65,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      # The Ruby schema is the source of truth; the TypeScript is generated from
+      # it and committed nowhere, so it has to be produced before typechecking.
+      - name: Generate the API layer
+        run: |
+          bin/rails graphql:dump_schema
+          npm run codegen
+
       - name: Lint and format
         run: npm run lint
 
@@ -117,6 +129,15 @@ jobs:
             sleep 2
           done
 
+      # A superuser bypasses row-level security unconditionally, so connecting as
+      # one would make every isolation test pass without proving anything.
+      - name: Create the non-superuser application role
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h localhost -U postgres -c \
+            "CREATE ROLE things WITH LOGIN PASSWORD 'things' CREATEDB;"
+
       - name: Checkout code
         uses: actions/checkout@v6
 
@@ -128,8 +149,8 @@ jobs:
       - name: Run tests
         env:
           RAILS_ENV: test
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432
-          QUEUE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/things_test_queue
+          DATABASE_URL: postgres://things:things@localhost:5432
+          QUEUE_DATABASE_URL: postgres://things:things@localhost:5432/things_test_queue
           OPENSEARCH_URL: http://localhost:9201
           S3_ENDPOINT: http://localhost:9000
           S3_REGION: us-east-1
