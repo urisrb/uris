@@ -16,9 +16,13 @@ FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 # Rails app lives here
 WORKDIR /rails
 
-# Install base packages
+# Install base packages. poppler-utils and tesseract-ocr are what the pdf and
+# image analyzers actually shell out to — pdfinfo, pdftotext, pdftoppm and
+# tesseract — and without them every PDF and every thumbnail fails here while
+# working perfectly on a laptop that has them from the Brewfile.
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y curl libjemalloc2 libvips postgresql-client && \
+    apt-get install --no-install-recommends -y \
+      curl libjemalloc2 libvips poppler-utils tesseract-ocr postgresql-client && \
     ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 

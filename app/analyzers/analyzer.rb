@@ -2,7 +2,11 @@ module Analyzer
   class Failed < StandardError; end
 
   def self.all
-    [ Analyzer::Pdf, Analyzer::Image, Analyzer::Data, Analyzer::Text, Analyzer::Fallback ]
+    [
+      Analyzer::Pdf, Analyzer::Image, Analyzer::Doc, Analyzer::Xlsx,
+      Analyzer::Calendar, Analyzer::Pkpass, Analyzer::Email,
+      Analyzer::Data, Analyzer::Text, Analyzer::Fallback
+    ]
   end
 
   def self.for(thing)

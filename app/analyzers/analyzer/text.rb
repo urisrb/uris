@@ -1,7 +1,7 @@
 module Analyzer
   class Text < Base
     def self.handles?(reference)
-      %w[text doc].include?(reference.kind)
+      reference.kind == "text"
     end
 
     def analyze

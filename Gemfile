@@ -37,6 +37,12 @@ gem "job-iteration"
 # Out of stdlib as of Ruby 3.4
 gem "csv"
 
+# What the analyzers open. A spreadsheet is rows, a pkpass is a zip with a
+# manifest, and an .eml is headers plus parts — none of which shell out.
+gem "roo"
+gem "rubyzip", require: "zip"
+gem "mail"
+
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"
 
