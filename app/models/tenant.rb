@@ -20,7 +20,20 @@ class Tenant < ApplicationRecord
   def masks_credentials
     return nil unless connected?
 
-    { client_id: client_id, client_secret: client_secret }
+    {
+      client_id: client_id,
+      client_secret: client_secret,
+      registration_access_token: registration_access_token,
+      registration_client_uri: registration_client_uri
+    }
+  end
+
+  def disconnect!
+    update!(
+      client_id: nil, client_secret: nil,
+      registration_access_token: nil, registration_client_uri: nil,
+      connected_at: nil
+    )
   end
 
   def connect!(registration)

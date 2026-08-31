@@ -157,6 +157,39 @@ class HandshakeTest < ActionDispatch::IntegrationTest
     assert_equal "login_required", JSON.parse(response.body)["error"]
   end
 
+
+  test "a connected tenant hands the engine everything RFC 7592 needs" do
+    Tenant.switch(@tenant) do
+      @tenant.update!(client_id: "cid", client_secret: "csec",
+                      registration_access_token: "rat",
+                      registration_client_uri: "https://auth.test/register/cid",
+                      connected_at: Time.current)
+
+      held = @tenant.masks_credentials
+
+      assert_equal "rat", held[:registration_access_token]
+      assert_equal "https://auth.test/register/cid", held[:registration_client_uri]
+      assert Masks::Client::Registration.held("https://auth.test", held).present?,
+             "a stored registration token nothing can spend is a token that is not stored"
+    end
+  end
+
+  test "disconnecting drops every credential rather than only the pair" do
+    Tenant.switch(@tenant) do
+      @tenant.update!(client_id: "cid", client_secret: "csec",
+                      registration_access_token: "rat",
+                      registration_client_uri: "https://auth.test/register/cid",
+                      connected_at: Time.current)
+
+      @tenant.disconnect!
+
+      assert_not @tenant.connected?
+      assert_nil @tenant.registration_access_token
+      assert_nil @tenant.registration_client_uri
+      assert_nil @tenant.connected_at
+    end
+  end
+
   private
 
     def host

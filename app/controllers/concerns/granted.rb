@@ -1,5 +1,6 @@
 module Granted
   extend ActiveSupport::Concern
+  include Masks::Rails::Authentication
   include Masks::Rails::ProtectedResource
 
   included do

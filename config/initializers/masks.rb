@@ -6,6 +6,7 @@ Rails.application.config.to_prepare do
     config.redirect_uri = ->(request) { Tenant.redirect_url(request) }
     config.credentials = ->(request) { Tenant.resolve(request.host)&.masks_credentials }
     config.store = ->(request, registration) { Tenant.resolve!(request.host).connect!(registration) }
+    config.forget = ->(request) { Tenant.resolve!(request.host).disconnect! }
     config.resource_scopes = Grant::DESCRIBED
     config.scope = Masks::Client::Session::DEFAULT_SCOPE + [ "offline_access" ] + Grant::SCOPES
     config.after_sign_in = "/"
