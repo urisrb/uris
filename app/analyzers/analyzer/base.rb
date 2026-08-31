@@ -18,7 +18,15 @@ module Analyzer
       name.demodulize.underscore
     end
 
+    # An analyzer that finds things inside its bytes says so, and those things
+    # are catalogued before it reads anything else. Extraction is idempotent
+    # and keyed, so a re-analysis finds the children it made last time rather
+    # than a second copy of them.
     def run
+      extract_children! if thing.depth < Thing::DEPTH
+
+      return thing unless thing.children_ready?
+
       thing.references.each do |reference|
         @reference = reference
 
@@ -31,12 +39,71 @@ module Analyzer
         end
       end
 
-      thing.announce_analyzed!
+      thing.reload.announce_analyzed!
       thing
     end
 
     def analyze
     end
+
+    def has_children?
+      false
+    end
+
+    def children_of(_reference)
+      []
+    end
+
+    def child_storage
+      Resource::Database.find_or_create_by!(key: "children") do |resource|
+        resource.name = "Extracted children"
+        resource.details = {}
+      end
+    end
+
+    private
+
+      def extract_children!
+        return unless has_children?
+
+        made = thing.references.flat_map { |reference| catalogue_children(reference) }
+
+        made.each { |child| AnalyzeThingJob.perform_later(thing.tenant_id, child.id) }
+        thing.children.reset
+      end
+
+      def catalogue_children(reference)
+        @reference = reference
+        storage = child_storage
+
+        children_of(reference).filter_map.with_index do |child, index|
+          key = "#{reference.id}/#{index}/#{child.fetch(:filename)}"
+          next if ThingReference.exists?(resource: storage, locator_key: key)
+
+          record_child(storage, key, child)
+        end
+      rescue Analyzer::Failed
+        []
+      end
+
+      def record_child(storage, key, child)
+        storage.upload(key, child.fetch(:body))
+
+        held = Thing.create!(
+          kind: Kind.for_filename(child.fetch(:filename)) || "file",
+          title: child.fetch(:filename),
+          parent: thing
+        )
+
+        ThingReference.record!(
+          thing: held, resource: storage, locator_key: key,
+          locator: { "key" => key }
+        )
+
+        held
+      end
+
+    public
 
     def step(name, force: false, after: nil)
       name = name.to_s

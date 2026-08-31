@@ -370,7 +370,8 @@ CREATE TABLE public.things (
     kind character varying NOT NULL,
     title character varying,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    parent_id bigint
 );
 
 ALTER TABLE ONLY public.things FORCE ROW LEVEL SECURITY;
@@ -736,6 +737,13 @@ CREATE INDEX index_thing_references_on_thing_id ON public.thing_references USING
 
 
 --
+-- Name: index_things_on_parent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_things_on_parent_id ON public.things USING btree (parent_id);
+
+
+--
 -- Name: index_things_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -754,6 +762,13 @@ CREATE INDEX index_things_on_tenant_id_and_created_at ON public.things USING btr
 --
 
 CREATE INDEX index_things_on_tenant_id_and_kind ON public.things USING btree (tenant_id, kind);
+
+
+--
+-- Name: index_things_on_tenant_id_and_parent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_things_on_tenant_id_and_parent_id ON public.things USING btree (tenant_id, parent_id);
 
 
 --
@@ -834,6 +849,14 @@ ALTER TABLE ONLY public.runs
 
 ALTER TABLE ONLY public.resources
     ADD CONSTRAINT fk_rails_dc32a866bd FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: things fk_rails_e34bd51df4; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.things
+    ADD CONSTRAINT fk_rails_e34bd51df4 FOREIGN KEY (parent_id) REFERENCES public.things(id);
 
 
 --
@@ -971,6 +994,7 @@ ALTER TABLE public.things ENABLE ROW LEVEL SECURITY;
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260831170000'),
 ('20260831160000'),
 ('20260831130000'),
 ('20260830160000'),

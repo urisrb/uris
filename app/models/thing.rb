@@ -5,6 +5,10 @@ class Thing < ApplicationRecord
                                              inverse_of: :thing
   has_many :resources, through: :references
 
+  belongs_to :parent, class_name: "Thing", optional: true
+  has_many :children, -> { order(:id) }, class_name: "Thing", foreign_key: :parent_id,
+                                         inverse_of: :parent, dependent: :destroy
+
   validates :kind, presence: true
 
   after_commit :index_for_search, on: [ :create, :update ]
@@ -126,10 +130,32 @@ class Thing < ApplicationRecord
     end
   end
 
+  # A thing's searchable body is the union across its references, and across
+  # its children's — searching for a word that is only inside a PDF attached to
+  # an email has to find the email, which is the whole reason analysis waits
+  # for children at all.
   def body_text
     strings = []
     collect_strings(references.flat_map(&:extracted)) { |s| strings << s }
+    children.each { |child| collect_strings(child.references.flat_map(&:extracted)) { |s| strings << s } }
     strings.uniq.join("\n").presence
+  end
+
+  DEPTH = 4
+
+  def depth
+    held = 0
+    node = self
+
+    while (node = node.parent) && held < DEPTH
+      held += 1
+    end
+
+    held
+  end
+
+  def children_ready?
+    children.all? { |child| child.analyzed_at.present? }
   end
 
   private

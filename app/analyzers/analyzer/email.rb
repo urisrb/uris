@@ -8,9 +8,27 @@ module Analyzer
       thing.kind == "email"
     end
 
-    # An .eml is headers plus parts. The attachments are named but not pulled
-    # out: an attachment is a thing of its own, and making one here would mean
-    # writing bytes from inside an analyzer, which is the sync path's job.
+    # An attachment is a thing of its own, so it is catalogued as one before
+    # the message is read: `children_of` hands the bytes up and the base class
+    # writes them, keyed and idempotently, into this tenant's own storage. The
+    # message still records what it named, because the names are worth
+    # searching even when the bytes are not there.
+    def has_children?
+      true
+    end
+
+    def children_of(reference)
+      Mail.read_from_string(reference.download.read.force_encoding("UTF-8").scrub)
+          .attachments
+          .filter_map do |attachment|
+            next if attachment.filename.blank?
+
+            { filename: attachment.filename, body: attachment.body.decoded }
+          end
+    rescue StandardError
+      []
+    end
+
     def analyze
       message = parse
 
