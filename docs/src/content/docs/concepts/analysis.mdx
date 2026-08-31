@@ -1,0 +1,75 @@
+---
+title: Analysis
+description: The step machine — what runs per kind, why a failure is data, and how re-running is nearly free.
+---
+
+Analysis turns content into understanding. It fetches bytes it does not own, records what it learned
+on the thing, and leaves the original where it was.
+
+## Dispatch is by kind, first match wins
+
+An analyzer declares `handles?`, and the first one that claims a thing gets it. The dispatch reads
+mime type, extension, **or owner type** — which is how an email analyzer can claim a mail record
+before any blob exists for it.
+
+Nine analyzers ship: calendar, data, doc, email, image, pdf, pkpass, text, xlsx. Five of them need no
+model at all — extraction, OCR and structure are most of what a catalog needs before inference is
+even in the picture.
+
+## The step machine
+
+Analysis is not one operation, it is a sequence, and each step records itself:
+
+```
+analysis.steps.<name>
+  started_at
+  finished_at
+  result
+```
+
+That gives three properties worth stating separately:
+
+- **Completed steps are skipped.** Re-analyzing a thing is nearly free, which is what makes the outer
+  job-iteration cursor safe to replay. See [Jobs](/concepts/jobs/).
+- **Errored steps re-run.** A failure is not terminal state, it is a step without a `finished_at`.
+- **`after:` invalidates.** Declaring a step downstream of another means changing the upstream one
+  re-opens everything below it.
+
+## Two levels of resumability, and both are needed
+
+| | Scope | Mechanism |
+| --- | --- | --- |
+| across things | which item am I on | job-iteration cursor |
+| within a thing | which step am I on | `analysis.steps.<name>` |
+
+The inner level is what satisfies the outer level's idempotency requirement. Without it, a resumed
+iteration would redo whole analyses; with it, a re-processed thing costs a few skipped checks.
+
+## Children
+
+Some things block on others. `has_children?` and `children_ready?` express that — an email is not
+finished until its attachments are, which makes analysis a dependency graph rather than a queue.
+
+## A failure is data
+
+The step machine stores the error under `analysis.steps`, on the thing. So a failure is something you
+can **search for and re-run**, not a row in a dead-letter queue nobody reads.
+
+Which failure it is matters, and the error class is what distinguishes them:
+
+| | Is | Policy |
+| --- | --- | --- |
+| `Analyzer::Failed` | a file that cannot be read | **discarded** — retrying a malformed PDF produces a malformed PDF |
+| `Resource::Failed` | a resource that cannot be reached | **retried** with backoff — the bytes are probably still there |
+
+## Fairness
+
+Analysis is expensive and serial on one GPU. It runs in its own worker pool, and within that pool
+`limits_concurrency` caps each tenant — so one tenant with a large catalog cannot starve another.
+That is a fairness problem a single shared pool cannot express, which is why there are two.
+
+## Built-in analysis is the default rule set
+
+It is always on, so a tenant who configures nothing still gets a working catalog. User rules run
+*downstream* of it, for a reason that is easy to miss: you cannot match `kind: invoice` until an
+analyzer has decided that something is an invoice.

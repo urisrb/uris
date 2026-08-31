@@ -1,0 +1,73 @@
+---
+title: Sync a resource
+description: Pull a resource's contents into the catalog as references, resumably.
+---
+
+A sync walks a resource's enumerator and records what it finds as things. **No bytes move** — a thing
+is a reference — so a sync of a large bucket costs a walk and some rows, not a copy.
+
+## Check it first
+
+```json
+{ "name": "check_resource", "arguments": { "id": "..." } }
+```
+
+Cheap and read-only: a bucket `HEAD` rather than a listing. It answers whether the endpoint responds,
+the credentials are accepted, and the adapter holds the permission it needs. The result is recorded
+on the resource, so `list_resources` reports when each was last checked and what failed.
+
+Doing this before a sync turns a run that fails a thousand objects in into an answer you get
+immediately.
+
+## Sync it
+
+```json
+{ "name": "sync_resource", "arguments": { "id": "..." } }
+```
+
+The resource must be **syncable** — folders and a sync cycle belong to the syncable capability, not
+to every resource, so `docker` and `openai-compatible` have neither. `describe_resource` reports
+`syncable` for any given one.
+
+Two things make this safe to call repeatedly:
+
+- **A resource already syncing is left alone** rather than started twice. `sync_started_at` is the
+  lock.
+- **It resumes at its cursor.** A sync interrupted by a deploy carries on rather than starting over.
+
+New references are queued for analysis as they are found. That is the cost switch: the walk is cheap,
+the analysis is not.
+
+## Watch it
+
+```json
+{ "name": "list_runs", "arguments": { "kind": "sync" } }
+```
+
+Every tool that answers `queued` names a run, and the run is where progress, completion and failure
+live. `cancel_run` stops one — it sets a flag the iteration reads on its next check, so the work
+stops within a few dozen objects and whatever was already done stays done.
+
+## On a schedule
+
+A syncable resource has a `sync_interval` (five minutes by default) and a `next_sync_at`. The loop
+runs without anyone calling a tool; `sync_resource` is for when you do not want to wait for it.
+
+## Why enumerators are per type
+
+The cursor shape belongs to the dialect, not to the sync machinery:
+
+| Type | Cursor |
+| --- | --- |
+| `s3` | continuation token |
+| `oauth-google` | page token, or a Gmail history id |
+| `imap` | UID range — only valid within a `uidvalidity` |
+
+This is one of the four things a **type** owns, alongside its adapter, its command schema and its
+locator shape. See [Resources](/concepts/resources/).
+
+## When it fails
+
+A resource that cannot be reached raises `Resource::Failed`, which is **retried with backoff** — the
+bytes are probably still there. That is the opposite of an unreadable file, which is discarded,
+because retrying a malformed PDF produces a malformed PDF. See [Jobs](/concepts/jobs/).

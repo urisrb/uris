@@ -1,0 +1,73 @@
+---
+title: Resources
+description: Attach class, type, capability — three orthogonal axes, and the one that decides how much code exists.
+---
+
+A **resource** is a place things live, or a capability things can call. A resource is an
+*instance* — "my B2 bucket" — and `s3` is its **type**. A resource is never the software installed on
+a machine; that distinction is what keeps the vocabulary from collapsing.
+
+Three orthogonal axes describe one.
+
+## Attach class — what it takes to connect
+
+| Class | Connects by | Install | Credential |
+| --- | --- | --- | --- |
+| `api` | HTTPS to a third party | none | OAuth or API key |
+| `network` | direct to host:port | none | service credentials |
+| `ssh` | things dials in | none | short-lived SSH cert |
+| `node` | machine dials out | `things-node` | enrollment → node identity |
+
+`ssh` versus `node` is a **reachability** question, not a capability one. Everything reachable takes
+`ssh`; `node` exists for CGNAT, roaming laptops, and hardware you do not control the network of.
+
+SSH resources use short-lived certificates, never stored keys — things holds a CA and mints per
+operation, scoped to one host and one forced command.
+
+## Type — the dialect
+
+This is the axis that decides how much code exists. One type serves every vendor speaking it:
+
+| Type | Capability | Attach | Unlocks |
+| --- | --- | --- | --- |
+| `s3` | storage | api, network | AWS, R2, B2, Wasabi, MinIO, Garage |
+| `imap` | integration | api | Fastmail, Gmail, iCloud, any |
+| `oauth-google` | integration, storage | api | Gmail, Drive, Calendar |
+| `oauth-github` | integration | api | GitHub |
+| `openai-compatible` | inference | api, network | MLX, Ollama, and the hosted APIs |
+| `docker` | compute | ssh, node | any docker host |
+| `ssh-exec` | compute | ssh | any reachable host |
+| `jellyfin` | media | network | Jellyfin |
+
+**A type owns exactly four things:** its adapter, its command schema (what `describe_resource`
+returns), its locator shape, and its enumerator for resumable sync. Nothing above `Resource` names a
+vendor SDK — adapters translate their own vendor errors on the way out.
+
+For v1 the type registry is closed in code rather than extensible as data.
+
+## Capability — what it can do
+
+`storage`, `inference`, `integration`, `compute`, `browser`, `media`.
+
+Capability is what a grant is written against, and it is why folders and a sync cycle belong to the
+*syncable* capability rather than to every resource. `docker` and `openai-compatible` have neither.
+
+## Identity
+
+A resource is identified by `(tenant_id, type, key)`. The tenant is first because everything is
+tenant-scoped from migration #1 — see [Tenancy](/concepts/tenancy/).
+
+## What is never a resource
+
+things, masks, Postgres, OpenSearch, and the edge proxy are not resources, permanently.
+
+> **The test:** if things being down would stop you fixing things, it is not a resource.
+
+That is the same reason there are two reconcilers rather than one. things cannot reconcile things —
+a control plane cannot be a tenant of itself.
+
+## Credentials never travel through a tool call
+
+Connecting a resource is a browser flow, and that is most of what the web UI is for. A secret passed
+to an MCP tool would land in the transcript and the audit log, so enrollment returns a short-lived
+signed URL instead. See [Drive it from Claude](/guides/connector/).

@@ -1,0 +1,54 @@
+---
+title: Things
+description: A thing is a reference, not the bytes — what that buys, and the one place it costs you.
+---
+
+**A thing is a reference, not the bytes.** The catalog is the product; the bytes live in the resource
+they came from and stay there.
+
+A thing holds:
+
+- the **locator** — where the bytes are, in a shape its resource type defines
+- extracted **metadata** — size, timestamps, whatever the enumerator knew
+- the **analysis** — what the step machine understood, per kind
+- **derivatives** — thumbnails, extracted text, page renders
+
+Derivatives are a *cache, not data*. They are regenerable from the original, so losing them costs
+time and nothing else. That distinction is what lets the catalog stay small next to the corpus it
+describes.
+
+## Kind
+
+A thing has a **kind** — `pdf`, `email`, `image`, `xlsx` — and the kind decides how it is understood.
+Kind is not resource type, and the two are easy to collide:
+
+| | Means | Never means |
+| --- | --- | --- |
+| **kind** | `pdf`, `email`, `image` — what a *thing* is | a resource type |
+| **type** | `s3`, `imap`, `docker` — what a *resource* is an instance of | a thing's content kind |
+
+## Upload is not a special case
+
+"Upload" is: write to the tenant's default storage resource, then reference it. There is no separate
+upload path, no second storage story, and no thing that exists without a resource behind it. A file
+you dragged into the browser and an object that was already in a bucket are the same shape once they
+land.
+
+## Deletion is two-valued
+
+Deleting a thing and deleting what it points at are **different operations**, and conflating them
+loses data.
+
+| | Does | Reversible by |
+| --- | --- | --- |
+| forget the reference | drops the thing, its analysis, its derivatives | re-syncing the resource |
+| delete the object | removes the bytes from the resource | nothing |
+
+The default is forget. A catalog that deletes your originals when you tidy it is not a catalog you
+can tidy.
+
+## Scale
+
+Design for millions per tenant. One table, indexed, cursor pagination, OpenSearch as the query path.
+No partitioning up front — and avoid `count(*)`, which is the operation that quietly turns a
+responsive list into a thirty-second one somewhere past the first million rows.

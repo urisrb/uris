@@ -1,0 +1,62 @@
+---
+title: Drive it from Claude
+description: Point a custom connector at the endpoint, authorize through masks, and the chat is the UI.
+---
+
+The MCP endpoint is the primary interface. Add a custom connector pointed at your tenant's `/mcp`,
+authorize it, and Claude *is* the UI — the web app shrinks to what a chat transcript must not do:
+OAuth consent, secret capture, node enrollment, visual browsing.
+
+## The handshake, for a client handed nothing but a URL
+
+An unauthenticated call answers `401` with a `WWW-Authenticate` header naming the issuer to go
+authenticate against. That is the whole discovery step:
+
+```sh
+curl -sS http://jons.things.test:4242/.well-known/oauth-protected-resource
+```
+
+The client reads the issuer out of that, registers itself, and comes back with a token.
+
+## Tokens come from masks, or they do not exist
+
+There is no local minting path. This application **verifies and never signs**. Point
+`MASKS_ISSUER_TEMPLATE` at a running issuer, sign in through the web app, and the browser's session
+is a real token.
+
+For a raw `curl`, take one from that issuer's token endpoint:
+
+```sh
+curl -sS -X POST http://jons.things.test:4242/mcp \
+  -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+`tools/list` is the useful first call, because what comes back **is** your grant — the server was
+built from it. See [MCP tools](/reference/tools/).
+
+## Reaching it from a client that cannot resolve `.test`
+
+Set `THINGS_PUBLIC_ORIGIN` to the origin you are tunnelling through. It needs to be a **stable**
+hostname, because OAuth redirect URIs register against it and a tunnel that hands you a new name each
+run will invalidate the registration. Leave it blank when not tunnelling.
+
+## Connecting a resource is not a tool call
+
+Credentials would land in the transcript and the audit log, so they never travel through MCP.
+Enrollment returns a short-lived signed URL and the secret is captured in the browser instead. This
+is a standing constraint, not an implementation detail — `command_resource` cannot set credentials
+however the command is phrased.
+
+That is most of what the web UI is for.
+
+## Two interfaces, one domain layer
+
+```
+browser  → /graphql   session auth, first-party client, urql + codegen + cable subscriptions
+Claude   → /mcp       typed tools, token-scoped grants
+```
+
+Neither wraps the other. Exposing GraphQL *as* an MCP tool is what would collapse them back into
+one — a single passthrough tool cannot be partially granted, so every grant becomes all of them.

@@ -1,0 +1,46 @@
+---
+title: GraphQL
+description: The browser's interface — session auth, generated types, and why it does not wrap MCP.
+---
+
+```
+browser  → /graphql   session auth, first-party client, urql + codegen + cable subscriptions
+Claude   → /mcp       typed tools, token-scoped grants
+```
+
+Two interfaces over one domain layer. **Neither wraps the other**, and that is a decision rather than
+duplication: exposing GraphQL *as* an MCP tool would collapse them back into one, because a single
+passthrough tool cannot be partially granted. Every grant would become all of them.
+
+## The Ruby schema is the source of truth
+
+The TypeScript is generated from it and committed nowhere. So the SPA cannot drift from the API
+without the types going red first:
+
+```sh
+bin/rails graphql:dump_schema   # writes schema.graphql
+npm run codegen                 # regenerates the TypeScript from it
+```
+
+`bin/dev` keeps both watchers running, which is the only reason this holds in practice. In CI the
+same two commands run before the typecheck, because `schema.graphql` and the generated TypeScript are
+**build products, not source** — a clean checkout has neither, and the Vite build fails without them.
+
+## The client
+
+urql, with `@urql/exchange-graphcache` and Action Cable subscriptions. Cable is scoped with
+`subscription_scope :tenant_id`, which is one of the five isolation layers — without it two tenants
+share a stream name. See [Tenancy](/concepts/tenancy/).
+
+## Node lookups are tenant-checked
+
+`object_from_id` checks the tenant before returning anything. This is its own isolation layer for a
+specific reason: the global `node(id:)` field is a lookup that bypasses every association a default
+scope would have applied, so it can walk straight out of the tenant unless it checks. The suite
+asserts it directly.
+
+## Authentication
+
+GraphQL uses the browser **session**. MCP uses a bearer token per call. They are not the same
+credential and the session is not a token you can lift out of the browser and curl with — for that,
+take one from the issuer. See [Drive it from Claude](/guides/connector/).

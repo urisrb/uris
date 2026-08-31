@@ -1,0 +1,68 @@
+---
+title: The four movements
+description: Sync, analyze, search, export — and why everything else is access layer, auth, or deployment.
+---
+
+```
+sync       resource → catalog        pull references in
+analyze    content  → understanding  per thing, by kind
+search     catalog  → you            one index across everything
+export     catalog  → resource       bytes back out
+```
+
+Four movements. Everything else in the codebase is access layer, auth, or deployment for these.
+All four are reachable over `/mcp`, which is what the product is for.
+
+## sync — resource → catalog
+
+Pull references in. A sync walks a resource's enumerator and records what it finds as things, without
+moving any bytes. Enumerators are a **type** concern, because the cursor shape differs per dialect:
+S3 continuation tokens, Drive page tokens, Gmail history ids, IMAP UID ranges valid only within a
+`uidvalidity`.
+
+Sync is resumable at the item, so a hundred-thousand-object walk survives a deploy.
+See [Sync a resource](/guides/sync/).
+
+## analyze — content → understanding
+
+Fetch content the catalog does not own, understand it, and record that understanding on the thing.
+What runs is decided by the thing's **kind** — `pdf`, `email`, `image`, `xlsx` — through a
+`handles?` dispatch where the first match wins.
+
+Analysis is a step machine, and it is resumable *within* a thing as well as across them.
+See [Analysis](/concepts/analysis/).
+
+## search — catalog → you
+
+One index across everything, which is the whole point. OpenSearch is the query path; Postgres is the
+system of record. The index is designed for millions of things per tenant: cursor pagination, no
+`count(*)`, and a per-tenant filtered alias doing the isolation that row-level security cannot reach.
+
+See [Search the catalog](/guides/search/).
+
+## export — catalog → resource
+
+Bytes back out. An export selects things and writes them to a storage resource — the reverse of
+sync, and the reason the catalog is not a trap. Like sync, it checkpoints, so an interrupted export
+resumes rather than restarts.
+
+See [Export things back out](/guides/export/).
+
+## One form covers sync and export
+
+They look like different features and they are the same one, with the endpoints swapped:
+
+```
+sync all data from [ source ] to [ destination ]   every [ interval ]
+[ ] make it a thing        (unchecked: just do the dumb copying)
+```
+
+| source | destination | make it a thing | is |
+| --- | --- | --- | --- |
+| Drive | — | ✓ | **ingest** — references only |
+| Drive | B2 | — | **backup** |
+| Drive | default storage | ✓ | **ingest + materialize** |
+| things matching *q* | B2 | — | **export** |
+
+The catalog is never a destination; cataloguing is a flag. "Make it a thing" is the **cost switch** —
+unchecked is bytes moving, checked is analysis per item.

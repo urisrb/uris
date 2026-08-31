@@ -1,0 +1,48 @@
+---
+title: things
+description: A data unifier — one searchable index across everything you own, wherever it lives, with a way back out.
+template: splash
+hero:
+  tagline: one searchable index across everything you own...
+  actions:
+    - text: Run it
+      link: /start/running/
+      icon: document
+    - text: Drive it from Claude
+      link: /guides/connector/
+      icon: right-arrow
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Drive search only searches Drive. Gmail search only searches Gmail. things searches across all of
+them, with analysis attached, and can hand the bytes back as an export or a local copy.
+
+<CardGrid stagger>
+  <Card title="The catalog is the product" icon="seti:db">
+    A thing is a **reference, not the bytes**. Originals stay in the resource they came from; things
+    holds the reference, the extracted metadata, and the analysis.
+  </Card>
+  <Card title="One adapter, every vendor" icon="puzzle">
+    A **type** is a dialect, and it decides how much code exists. One `s3` adapter serves AWS, R2,
+    B2, Wasabi, MinIO and Garage — because they all speak the same one.
+  </Card>
+  <Card title="The endpoint is the interface" icon="seti:config">
+    `POST /mcp` — eight tools, one bearer token per call. **The token decides which tools exist**, so
+    a tool outside your grant is absent rather than refused.
+  </Card>
+  <Card title="It survives a deploy" icon="approve-check">
+    Every operation touching an unbounded number of things checkpoints through job-iteration, so a
+    sync or an export **resumes at its cursor** rather than starting over.
+  </Card>
+</CardGrid>
+
+<CardGrid>
+  <LinkCard title="Running it" href="/start/running/" description="Services, database, two tenants, in about three commands." />
+  <LinkCard title="The four movements" href="/start/movements/" description="Sync, analyze, search, export — everything else is access layer." />
+  <LinkCard title="Things" href="/concepts/things/" description="Why a reference, and what two-valued deletion means." />
+  <LinkCard title="Resources" href="/concepts/resources/" description="Attach class, type, capability — the three orthogonal axes." />
+  <LinkCard title="Tenancy" href="/concepts/tenancy/" description="Five layers of isolation, and the two that have traps." />
+  <LinkCard title="MCP tools" href="/reference/tools/" description="All eight, and the grant each one needs." />
+</CardGrid>

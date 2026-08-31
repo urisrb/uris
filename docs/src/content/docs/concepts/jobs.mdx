@@ -1,0 +1,72 @@
+---
+title: Jobs and failure
+description: Two worker pools, a durable queue in every environment, and a policy for the two kinds of failure.
+---
+
+Solid Queue, in a second database, **in development as well as production**. A queue that only exists
+in one environment is a queue whose failures are only discovered there.
+
+`bin/jobs` runs it, `bin/dev` keeps it up, and `/jobs` is Mission Control.
+
+## Two pools, because the work is two shapes
+
+| Pool | Queues | Why |
+| --- | --- | --- |
+| bulk | `sync`, `export`, `default` | iterators that enqueue rather than compute |
+| analysis | `analysis` | expensive, and serial on one GPU once models arrive |
+
+Splitting them is what stops a hundred-thousand-object sync from occupying the workers analysis
+needs. Within the analysis pool, `limits_concurrency` caps each tenant, so one large catalog cannot
+starve another.
+
+## Bulk execution
+
+Every operation touching an unbounded number of things — sync, export, reindex, rule backfills — goes
+through [job-iteration](https://github.com/Shopify/job-iteration). Solid Queue is supported out of the
+box.
+
+Three rules fall out of it:
+
+- **`each_iteration` enqueues, never analyzes.** Iterations have to finish in roughly thirty seconds
+  for graceful shutdown to work, and analysis on a serial GPU cannot promise that. The iterator is
+  fan-out, not work.
+- **Enumerators are a type concern.** The cursor shape belongs to the dialect: S3 continuation
+  tokens, Drive page tokens, Gmail history ids, IMAP UID ranges valid only within a `uidvalidity`.
+- **Code after `yield` in a custom enumerator is not guaranteed to run.** Cleanup there will be
+  skipped on interruption.
+
+Backfills partition on a **watermark** captured when a rule is enabled — that is what separates
+"everything that already existed" from "everything from here on", and it has to be captured at enable
+time rather than derived later.
+
+Before enabling something expensive, count it without counting it: a dry run reports *matches 47,213
+things, est. $N* from the index, not from `count(*)`.
+
+## A durable queue makes failure a persistent object
+
+So failure needs a policy. The two kinds are different, and the error class is what distinguishes
+them:
+
+| | Is | Policy |
+| --- | --- | --- |
+| `Analyzer::Failed` | a file that cannot be read | **discarded** — retrying a malformed PDF produces a malformed PDF |
+| `Resource::Failed` | a resource that cannot be reached | **retried** with backoff — the bytes are probably still there |
+
+Either way the analysis of a thing is recorded **on that thing**: the step machine stores the error
+under `analysis.steps`, so a failure is data you can search and re-run. Adapters translate their own
+vendor errors, so nothing above `Resource` names an SDK.
+
+## Stopping everything
+
+`THINGS_ITERATORS_DISABLED` stops every iteration job everywhere. It is an **operator** switch, not a
+tenant one — per-tenant and per-resource switches are rows in `gates`, set from the application.
+
+## Two bounds that live outside run supervision
+
+Run supervision bounds a run *tree*. These it does not reach:
+
+- **Catalog fan-out** — "for every image, run this prompt" across 100k things. Needs per-rule budgets
+  and rate limits.
+- **Data-plane re-entrancy** — a rule whose output re-matches itself loops, and there is no call stack
+  to bound it with. Things are marked with the rule that produced them, which is what breaks the
+  cycle.

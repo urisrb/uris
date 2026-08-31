@@ -1,0 +1,81 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Name the deploy after the branch it came from
+        id: target
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          slug=$(echo "$BRANCH" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed -e 's/[^a-z0-9]/-/g' -e 's/^-*//' -e 's/-*$//' \
+            | cut -c1-28 | sed -e 's/-*$//')
+          echo "branch=$slug" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.ref_name }}" = "main" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "site=https://things.pages.dev" >> "$GITHUB_OUTPUT"
+          else
+            echo "site=https://$slug.things.pages.dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install
+        working-directory: docs
+        run: npm ci
+
+      - name: Build
+        working-directory: docs
+        env:
+          DOCS_SITE: ${{ steps.target.outputs.site }}
+        run: npm run build
+
+      - name: Deploy
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: docs
+          command: >-
+            pages deploy dist
+            --project-name=things
+            --branch=${{ steps.target.outputs.branch }}
+
+      - name: Report where it landed
+        run: |
+          {
+            echo "### Docs deployed"
+            echo
+            echo "- canonical: ${{ steps.target.outputs.site }}"
+            echo "- this deploy: ${{ steps.deploy.outputs.deployment-url }}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,91 @@
+---
+title: MCP tools
+description: All eleven tools, the grant each one needs, and what the token does about the rest.
+---
+
+`POST /mcp` — stateless Streamable HTTP, one bearer token per call.
+
+## The grant decides which tools exist
+
+The server is **built per request from the caller's grant**. A tool outside that grant is absent from
+`tools/list` and answers `Tool not found` if called anyway. There is no allowlist consulted at call
+time for a prompt to argue with, because constraints are enforced by the token, never by the prompt.
+
+A token minted for one tenant is rejected against another **on its audience**, before any tenant
+scoping runs.
+
+## The tools
+
+| Tool | Grant | Does |
+| --- | --- | --- |
+| `search_things` | `things:read` | search the whole catalog at once |
+| `get_thing` | `things:read` | everything known about one thing, plus a text excerpt |
+| `analyze_thing` | `things:write` | queue one thing for analysis |
+| `list_resources` | `resources:read` | the places things live, and their sync state |
+| `describe_resource` | `resources:read` | one resource's capabilities and command vocabulary |
+| `check_resource` | `resources:read` | does it still answer, and are its credentials accepted |
+| `command_resource` | `resources:command` | run one command against one resource |
+| `sync_resource` | `resources:command` | pull a resource's contents in as references |
+| `export_things` | `resources:command` | copy matching bytes into a storage resource |
+| `list_runs` | `resources:read` | what the work you started is doing |
+| `cancel_run` | `resources:command` | stop a run that is still going |
+
+### Reading
+
+`search_things` takes `query`, `kind` and `limit` (1–200, 50 by default). Omit the query to list the
+most recent things of a kind. It matches titles, paths, and text extracted by analysis.
+
+`get_thing` takes an `id` and returns every reference the thing has, the per-step analysis result for
+each, and up to 8,000 characters of body text. A thing *groups* references; the bytes stay in the
+resources they came from, so use `export_things` to get those back out.
+
+### The selector grammar
+
+`export_things` shares its selector with `search_things`, and a rule's matcher is the same grammar
+again — one vocabulary, three uses:
+
+| Field | Restricts to |
+| --- | --- |
+| `query` | words to match |
+| `kind` | one kind |
+| `resource_id` | things from one resource |
+| `folder` | a prefix of the locator key, as a folder: `2024/invoices` |
+| `since` / `before` | when the thing was catalogued |
+
+**Every argument you leave off widens it.** No arguments at all means the whole catalog into this
+tenant's default storage, which is deliberate but worth knowing before you call it.
+
+### Runs
+
+Every tool that answers `queued` names a run. `list_runs` filters on `kind` (`sync`, `export`,
+`analyze`) and `status` (`queued`, `running`, `done`, `failed`, `cancelled`), newest first.
+
+`cancel_run` sets a flag the iteration reads on its next check rather than killing anything — a bulk
+job holds no token that can be revoked. The work stops within a few dozen objects and whatever it had
+already done stays done.
+
+## What a tool call cannot do
+
+**Credentials never travel through a tool call.** They would land in the transcript and the audit
+log. `command_resource` cannot set them, and connecting a resource is a browser flow instead — see
+[Drive it from Claude](/guides/connector/).
+
+## Budgets and limits
+
+| | Set by | Applies to |
+| --- | --- | --- |
+| rate limit | `mcp_limit`, per minute | the caller |
+| run budget | `run_budget`, per hour | tools that start runs |
+
+Only `analyze_thing`, `sync_resource` and `export_things` declare `starts_runs`, so only they debit
+the run budget. Over it, the call is refused with how many runs the token has started and what the
+ceiling is.
+
+Every call is written to `AuditEvent` on the `mcp` channel with its tool, status, scope, arguments
+and duration — including the ones that were denied.
+
+## Errors
+
+Five error classes are expected and returned as tool errors rather than crashing the transport:
+`Grant::Denied`, `OverBudget`, `ArgumentError`, `ActiveRecord::RecordNotFound` and `Resource::Failed`.
+The first two are recorded as `denied`; the rest as `error`.
