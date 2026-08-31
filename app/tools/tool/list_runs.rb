@@ -18,7 +18,7 @@ module Tool
     )
 
     def self.call(server_context:, kind: nil, status: nil, limit: nil)
-      respond(server_context) do
+      respond(server_context, { kind: kind, status: status, limit: limit }) do
         scope = Run.newest_first
         scope = scope.where(kind: kind) if kind.present?
         scope = scope.where(status: status) if status.present?

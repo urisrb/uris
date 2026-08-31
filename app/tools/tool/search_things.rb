@@ -21,7 +21,7 @@ module Tool
     )
 
     def self.call(server_context:, query: nil, kind: nil, limit: 50)
-      respond(server_context) do
+      respond(server_context, { query: query, kind: kind, limit: limit }) do
         things = Thing.search(query, kind: kind, limit: limit.clamp(1, 200))
 
         { count: things.size, things: things.map { |thing| summarize(thing) } }

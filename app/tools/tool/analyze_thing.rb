@@ -2,6 +2,7 @@ module Tool
   class AnalyzeThing < Base
     tool_name "analyze_thing"
     scope "things:write"
+    starts_runs true
 
     description <<~TEXT
       Queue one thing for analysis. Analysis is incremental — steps that already hold a
@@ -15,7 +16,7 @@ module Tool
     )
 
     def self.call(id:, server_context:)
-      respond(server_context) do
+      respond(server_context, { id: id }) do
         thing = thing!(id)
         run = thing.analyze!
 

@@ -16,7 +16,7 @@ module Tool
     )
 
     def self.call(id:, server_context:)
-      respond(server_context) do
+      respond(server_context, { id: id }) do
         run = Run.find_by(id: id) || raise(ArgumentError, "no run with id #{id}")
 
         { cancelled: run.cancel!, **ListRuns.describe_run(run.reload) }

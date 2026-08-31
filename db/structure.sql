@@ -27,6 +27,50 @@ CREATE TABLE public.ar_internal_metadata (
 
 
 --
+-- Name: audit_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.audit_events (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    run_id bigint,
+    channel character varying NOT NULL,
+    action character varying NOT NULL,
+    status character varying NOT NULL,
+    scope character varying,
+    subject character varying,
+    client_id character varying,
+    remote_ip character varying,
+    request_id character varying,
+    duration_ms integer,
+    detail character varying,
+    arguments jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.audit_events FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: audit_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.audit_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: audit_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.audit_events_id_seq OWNED BY public.audit_events.id;
+
+
+--
 -- Name: gates; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -314,6 +358,13 @@ ALTER SEQUENCE public.things_id_seq OWNED BY public.things.id;
 
 
 --
+-- Name: audit_events id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_events ALTER COLUMN id SET DEFAULT nextval('public.audit_events_id_seq'::regclass);
+
+
+--
 -- Name: gates id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -368,6 +419,14 @@ ALTER TABLE ONLY public.things ALTER COLUMN id SET DEFAULT nextval('public.thing
 
 ALTER TABLE ONLY public.ar_internal_metadata
     ADD CONSTRAINT ar_internal_metadata_pkey PRIMARY KEY (key);
+
+
+--
+-- Name: audit_events audit_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_events
+    ADD CONSTRAINT audit_events_pkey PRIMARY KEY (id);
 
 
 --
@@ -432,6 +491,41 @@ ALTER TABLE ONLY public.thing_references
 
 ALTER TABLE ONLY public.things
     ADD CONSTRAINT things_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: index_audit_events_on_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_audit_events_on_run_id ON public.audit_events USING btree (run_id);
+
+
+--
+-- Name: index_audit_events_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_audit_events_on_tenant_id ON public.audit_events USING btree (tenant_id);
+
+
+--
+-- Name: index_audit_events_on_tenant_id_and_action_and_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_audit_events_on_tenant_id_and_action_and_id ON public.audit_events USING btree (tenant_id, action, id);
+
+
+--
+-- Name: index_audit_events_on_tenant_id_and_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_audit_events_on_tenant_id_and_id ON public.audit_events USING btree (tenant_id, id);
+
+
+--
+-- Name: index_audit_events_on_tenant_id_and_status_and_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_audit_events_on_tenant_id_and_status_and_id ON public.audit_events USING btree (tenant_id, status, id);
 
 
 --
@@ -669,6 +763,28 @@ ALTER TABLE ONLY public.things
 
 
 --
+-- Name: audit_events fk_rails_e392adc554; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_events
+    ADD CONSTRAINT fk_rails_e392adc554 FOREIGN KEY (run_id) REFERENCES public.runs(id);
+
+
+--
+-- Name: audit_events fk_rails_fcd253d0d8; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_events
+    ADD CONSTRAINT fk_rails_fcd253d0d8 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: audit_events; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.audit_events ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: gates; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -691,6 +807,13 @@ ALTER TABLE public.resources ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.runs ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: audit_events tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.audit_events USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
+
 
 --
 -- Name: gates tenant_isolation; Type: POLICY; Schema: public; Owner: -
@@ -753,6 +876,7 @@ ALTER TABLE public.things ENABLE ROW LEVEL SECURITY;
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260831130000'),
 ('20260830160000'),
 ('20260830000009'),
 ('20260830000008'),

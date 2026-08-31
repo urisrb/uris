@@ -69,5 +69,22 @@ module Types
 
       Page.of(scope, after: after, limit: limit)
     end
+
+    field :audit_events, Types::AuditEventPageType, null: false, grants: "things:read" do
+      argument :action, String, required: false
+      argument :status, String, required: false
+      argument :subject, String, required: false
+      argument :after, ID, required: false
+      argument :limit, Integer, required: false
+    end
+
+    def audit_events(action: nil, status: nil, subject: nil, after: nil, limit: nil)
+      scope = AuditEvent.all
+      scope = scope.where(action: action) if action.present?
+      scope = scope.where(status: status) if status.present?
+      scope = scope.where(subject: subject) if subject.present?
+
+      Page.of(scope, after: after, limit: limit)
+    end
   end
 end

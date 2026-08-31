@@ -2,6 +2,7 @@ module Tool
   class ExportThings < Base
     tool_name "export_things"
     scope "resources:command"
+    starts_runs true
 
     description <<~TEXT
       Copy the bytes behind matching things into a storage resource — the way back out.
@@ -24,7 +25,7 @@ module Tool
     )
 
     def self.call(server_context:, destination_id: nil, query: nil, kind: nil, resource_id: nil)
-      respond(server_context) do
+      respond(server_context, { destination_id: destination_id, query: query, kind: kind, resource_id: resource_id }) do
         destination = if destination_id.present?
           resource!(destination_id).storage!
         else

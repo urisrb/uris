@@ -15,11 +15,47 @@ module Granted
     def authorize
       grant
     rescue Grant::Denied => e
+      denied(e)
       refuse(Masks::Client::Unauthorized.new(e.message))
     rescue Masks::Client::Challenge => e
+      denied(e)
       refuse(e)
     rescue Tenant::Unconfigured, Masks::Client::Unreachable => e
       unavailable(e)
+    end
+
+    def audit_channel
+      controller_name
+    end
+
+    def caller_key
+      presented = request.authorization.to_s[/\ABearer (\S+)\z/, 1]
+      held = presented ? "token:#{Digest::SHA256.hexdigest(presented)}" : "ip:#{request.remote_ip}"
+
+      [ current_tenant.id, held ].join(":")
+    end
+
+    def too_many
+      AuditEvent.record(
+        channel: audit_channel, action: "authorize", status: "denied",
+        context: audit_context, detail: "too many requests"
+      )
+
+      render json: {
+        jsonrpc: "2.0", id: nil,
+        error: { code: -32_000, message: "too many requests" }
+      }, status: :too_many_requests
+    end
+
+    def audit_context
+      { remote_ip: request.remote_ip, request_id: request.request_id }
+    end
+
+    def denied(error)
+      AuditEvent.record(
+        channel: audit_channel, action: "authorize", status: "denied",
+        context: audit_context, detail: error.message
+      )
     end
 
     def masks_claims_from(authorization)

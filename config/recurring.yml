@@ -3,6 +3,10 @@ shared: &shared
     class: ScheduleSyncsJob
     queue: sync
     schedule: every minute
+  sweep_audit_events:
+    class: SweepAuditEventsJob
+    queue: sync
+    schedule: every day at 4am
 
 development:
   <<: *shared

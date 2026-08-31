@@ -20,7 +20,7 @@ Rails.application.configure do
 
   # Show full error reports.
   config.consider_all_requests_local = true
-  config.cache_store = :null_store
+  config.cache_store = :solid_cache_store
 
   # Overrides the solid_queue adapter set for every other environment: the
   # assertions about what got enqueued are the point here, not the backend.

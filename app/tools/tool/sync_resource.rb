@@ -2,6 +2,7 @@ module Tool
   class SyncResource < Base
     tool_name "sync_resource"
     scope "resources:command"
+    starts_runs true
 
     description <<~TEXT
       Pull a resource's contents into the catalog as references, and queue each new one
@@ -16,7 +17,7 @@ module Tool
     )
 
     def self.call(id:, server_context:)
-      respond(server_context) do
+      respond(server_context, { id: id }) do
         resource = resource!(id)
         run = resource.sync!
 

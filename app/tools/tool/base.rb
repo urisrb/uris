@@ -1,7 +1,10 @@
 module Tool
+  class OverBudget < StandardError; end
+
   class Base < MCP::Tool
     EXPECTED = [
       Grant::Denied,
+      OverBudget,
       ArgumentError,
       ActiveRecord::RecordNotFound,
       Resource::Failed
@@ -13,12 +16,54 @@ module Tool
         @scope
       end
 
-      def respond(server_context)
-        server_context.fetch(:grant).permit!(scope)
+      def starts_runs(value = nil)
+        @starts_runs = value unless value.nil?
+        @starts_runs
+      end
 
-        text(yield.to_json)
+      def respond(server_context, arguments = {})
+        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        grant = server_context.fetch(:grant)
+        grant.permit!(scope)
+        within_budget!(grant)
+
+        result = yield
+
+        audit(grant, server_context, arguments, "ok", started)
+        text(result.to_json)
       rescue *EXPECTED => e
+        audit(grant, server_context, arguments,
+              refused?(e) ? "denied" : "error", started, e.message)
+
         text(e.message, error: true)
+      end
+
+      def refused?(error)
+        error.is_a?(Grant::Denied) || error.is_a?(OverBudget)
+      end
+
+      def within_budget!(grant)
+        return unless starts_runs
+
+        limit = Rails.configuration.things.run_budget
+        return if limit.zero?
+
+        key = [ "mcp:runs", Current.tenant.id, grant.subject, Time.current.to_i / 3600 ].join(":")
+        spent = Rails.cache.increment(key, 1, expires_in: 1.hour)
+
+        return if spent.nil? || spent <= limit
+
+        raise OverBudget,
+              "this token has started #{spent - 1} runs in the last hour, and #{limit} is the ceiling"
+      end
+
+      def audit(grant, server_context, arguments, status, started, detail = nil)
+        AuditEvent.record(
+          channel: "mcp", action: tool_name, status: status, scope: scope,
+          grant: grant, context: server_context.fetch(:audit, {}),
+          arguments: arguments, detail: detail,
+          duration_ms: ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round
+        )
       end
 
       def text(body, error: false)

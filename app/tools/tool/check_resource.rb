@@ -16,7 +16,7 @@ module Tool
     )
 
     def self.call(id:, server_context:)
-      respond(server_context) do
+      respond(server_context, { id: id }) do
         resource = resource!(id)
         ok = resource.check
 

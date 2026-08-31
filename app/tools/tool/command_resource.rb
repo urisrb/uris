@@ -19,7 +19,7 @@ module Tool
     )
 
     def self.call(id:, command:, server_context:, arguments: {})
-      respond(server_context) do
+      respond(server_context, { id: id, command: command, arguments: arguments }) do
         resource = resource!(id)
 
         { id: resource.id.to_s, command: command, result: resource.command(command, arguments) }

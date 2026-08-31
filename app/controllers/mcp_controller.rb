@@ -1,4 +1,7 @@
 class McpController < ApplicationController
+  rate_limit to: Rails.configuration.things.mcp_limit, within: 1.minute,
+             by: -> { caller_key }, with: -> { too_many }
+
   include Granted
 
   INSTRUCTIONS = <<~TEXT.freeze
@@ -45,7 +48,7 @@ class McpController < ApplicationController
         title: "things",
         instructions: INSTRUCTIONS,
         tools: grant.tools,
-        server_context: { tenant: current_tenant, grant: grant }
+        server_context: { tenant: current_tenant, grant: grant, audit: audit_context }
       )
     end
 end
