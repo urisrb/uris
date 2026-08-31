@@ -19,11 +19,10 @@ gem "mcp"
 # The bearer tokens the endpoint accepts. Claims are checked here; masks issues.
 gem "jwt"
 
-# Both halves of the auth client. masks-client verifies the tokens this app
-# accepts; masks-rails spends the ones it holds, and keeps them in the session
-# rather than in the browser.
-gem "masks-client", path: "../masks/client"
-gem "masks-rails", path: "../masks/engine"
+# Both halves of the auth client. It verifies the tokens this app accepts, and
+# spends the ones it holds — keeping them in the session rather than in the
+# browser. The Rails engine inside it mounts itself.
+gem "masks", path: "../masks/client"
 
 # Vite builds the React SPA [https://vite-ruby.netlify.app/]
 gem "vite_rails"

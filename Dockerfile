@@ -54,7 +54,6 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
 # Install application gems
 COPY vendor/* ./vendor/
 COPY --from=masks-client . /masks/client
-COPY --from=masks-engine . /masks/engine
 COPY Gemfile Gemfile.lock ./
 
 RUN bundle install && \
