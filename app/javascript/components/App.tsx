@@ -34,7 +34,8 @@ export function App() {
   const [opened, { toggle, close }] = useDisclosure()
   const location = useLocation()
   const navigate = useNavigate()
-  const { account, status, loading, login, logout, connect } = useSession()
+  const { account, status, loading, login, logout, logoutEverywhere, connect } =
+    useSession()
 
   if (loading) {
     return (
@@ -92,6 +93,9 @@ export function App() {
             <Menu.Dropdown>
               <Menu.Label>{account.tenant?.name}</Menu.Label>
               <Menu.Item onClick={logout}>Sign out</Menu.Item>
+              <Menu.Item onClick={logoutEverywhere}>
+                Sign out everywhere
+              </Menu.Item>
             </Menu.Dropdown>
           </Menu>
         </Group>

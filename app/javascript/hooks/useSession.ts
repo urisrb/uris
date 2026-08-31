@@ -49,6 +49,10 @@ export function useSession() {
     await session.logout()
     window.location.assign('/')
   }, [])
+  const logoutEverywhere = useCallback(async () => {
+    await session.logout({ everywhere: true })
+    window.location.assign('/')
+  }, [])
 
-  return { ...state, login, logout, connect }
+  return { ...state, login, logout, logoutEverywhere, connect }
 }
