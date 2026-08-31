@@ -198,6 +198,7 @@ class FakeIssuer
         "userinfo_endpoint" => "#{url}/userinfo",
         "jwks_uri" => "#{url}/.well-known/jwks.json",
         "registration_endpoint" => "#{url}/register",
+        "handshake_endpoint" => "#{url}/handshake",
         "revocation_endpoint" => "#{url}/revoke",
         "tenant" => { "subdomain" => subdomain }
       }

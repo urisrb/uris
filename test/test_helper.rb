@@ -29,13 +29,13 @@ module ActiveSupport
       FakeIssuer.current
     end
 
-    def pair!(tenant, client_id: "things-test-client", client_secret: "things-test-secret")
+    def connect!(tenant, client_id: "things-test-client", client_secret: "things-test-secret")
       tenant.update!(
         client_id: client_id,
         client_secret: client_secret,
         registration_access_token: "things-test-registration-token",
         registration_client_uri: "#{issuer.url_for(tenant.subdomain)}/register/#{client_id}",
-        paired_at: Time.current
+        connected_at: Time.current
       )
     end
 

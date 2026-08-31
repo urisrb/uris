@@ -1,5 +1,5 @@
 class Tenant < ApplicationRecord
-  class Unconfigured < StandardError; end
+  class Unconfigured < Masks::Client::Error; end
 
   encrypts :client_secret
   encrypts :registration_access_token
@@ -13,23 +13,33 @@ class Tenant < ApplicationRecord
 
   after_create_commit { SearchIndex.create_alias!(self) }
 
-  def paired?
+  def connected?
     client_id.present? && client_secret.present?
   end
 
-  def pair!(registration)
+  def masks_credentials
+    return nil unless connected?
+
+    { client_id: client_id, client_secret: client_secret }
+  end
+
+  def connect!(registration)
     update!(
       client_id: registration.client_id,
       client_secret: registration.client_secret,
       registration_access_token: registration.access_token,
       registration_client_uri: registration.uri,
-      paired_at: Time.current
+      connected_at: Time.current
     )
   end
 
   class << self
     def resolve(host)
       find_by(subdomain: host.to_s.split(".").first)
+    end
+
+    def resolve!(host)
+      resolve(host) || raise(Unconfigured, "no tenant is served at #{host}")
     end
 
     def origin(request)

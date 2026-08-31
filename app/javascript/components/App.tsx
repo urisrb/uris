@@ -34,7 +34,7 @@ export function App() {
   const [opened, { toggle, close }] = useDisclosure()
   const location = useLocation()
   const navigate = useNavigate()
-  const { account, loading, login, logout } = useSession()
+  const { account, status, loading, login, logout, connect } = useSession()
 
   if (loading) {
     return (
@@ -45,15 +45,19 @@ export function App() {
   }
 
   if (!account) {
+    const unconnected = status?.state === 'handshake_required'
+
     return (
       <Center h="100vh">
         <Stack align="center" gap="sm">
           <Title order={3}>things</Title>
           <Text c="dimmed" size="sm">
-            one index across everything you own
+            {unconnected
+              ? 'this app has not been connected to the server that signs people in'
+              : 'one index across everything you own'}
           </Text>
-          <Button mt="md" onClick={login}>
-            Sign in
+          <Button mt="md" onClick={unconnected ? connect : login}>
+            {unconnected ? 'Connect it' : 'Sign in'}
           </Button>
         </Stack>
       </Center>

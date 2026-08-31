@@ -1,10 +1,11 @@
-import { type Account, createSession } from '@masks/client'
+import { type Account, createSession, type Status } from '@masks/client'
 import { useCallback, useEffect, useState } from 'react'
 
 export const session = createSession({ basePath: '/auth' })
 
 interface SessionState {
   account: Account | null
+  status: Status | null
   loading: boolean
   error: Error | null
 }
@@ -12,6 +13,7 @@ interface SessionState {
 export function useSession() {
   const [state, setState] = useState<SessionState>({
     account: null,
+    status: null,
     loading: true,
     error: null,
   })
@@ -20,12 +22,20 @@ export function useSession() {
     let live = true
 
     session
-      .session()
-      .then((account) => {
-        if (live) setState({ account, loading: false, error: null })
+      .status()
+      .then((status) => {
+        if (!live) return
+
+        setState({
+          account: status.state === 'signed_in' ? status.account : null,
+          status,
+          loading: false,
+          error: null,
+        })
       })
       .catch((error: Error) => {
-        if (live) setState({ account: null, loading: false, error })
+        if (live)
+          setState({ account: null, status: null, loading: false, error })
       })
 
     return () => {
@@ -34,10 +44,11 @@ export function useSession() {
   }, [])
 
   const login = useCallback(() => session.login(), [])
+  const connect = useCallback(() => session.handshake(), [])
   const logout = useCallback(async () => {
     await session.logout()
     window.location.assign('/')
   }, [])
 
-  return { ...state, login, logout }
+  return { ...state, login, logout, connect }
 }

@@ -10,6 +10,8 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
     @other = Tenant.create!(subdomain: "auth-#{SecureRandom.hex(4)}", name: "Elsewhere")
 
     Tenant.switch(@tenant) { @thing = create_thing(kind: "pdf", title: "An invoice") }
+
+    connect!(@tenant)
   end
 
   test "a query with no credentials is refused with somewhere to sign in" do
@@ -24,6 +26,19 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
     assert_equal "/auth/", body["login_url"]
     assert_nil response.headers["WWW-Authenticate"],
                "a browser gets a login url; only a caller that presented a token gets a challenge"
+  end
+
+  test "an app nobody has connected says so, because there is no login to offer yet" do
+    @tenant.update!(client_id: nil, client_secret: nil, connected_at: nil)
+
+    post "/graphql", params: { query: CATALOG }, headers: host_for(@tenant)
+
+    assert_response :unauthorized
+
+    body = response.parsed_body
+
+    assert_equal "handshake_required", body["error"]
+    assert_equal "/auth/handshake", body["handshake_url"]
   end
 
   test "a presented token that is bad gets the bearer challenge, not a login page" do
