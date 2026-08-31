@@ -1,6 +1,8 @@
 require "test_helper"
 
 class McpAuditTest < ActionDispatch::IntegrationTest
+  include McpClient
+
   ALL = Grant::SCOPES
 
   setup do
@@ -47,11 +49,9 @@ class McpAuditTest < ActionDispatch::IntegrationTest
 
     Tenant.switch(@tenant) { AuditEvent.delete_all }
 
-    post "/mcp", headers: host_for(@tenant).merge(bearer(@tenant, [ "things:read" ])),
-                 params: rpc("tools/call", name: "sync_resource",
-                             arguments: { id: @resource.id.to_s }), as: :json
+    call(@tenant, [ "things:read" ], "tools/call",
+         name: "sync_resource", arguments: { id: @resource.id.to_s })
 
-    assert_response :success
     assert_empty events, "an ungranted tool is not registered, so no grant was exercised"
   end
 
@@ -128,43 +128,4 @@ class McpAuditTest < ActionDispatch::IntegrationTest
 
     assert_equal 1, events.length
   end
-
-  private
-
-    def origin_for(tenant)
-      "http://#{tenant.subdomain}.things.test"
-    end
-
-    def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.things.test" }
-    end
-
-    def bearer(tenant, scopes)
-      token = issuer.mint(
-        subdomain: tenant.subdomain, scopes: scopes,
-        audience: "#{origin_for(tenant)}/mcp"
-      )
-
-      { "Authorization" => "Bearer #{token}" }
-    end
-
-    def rpc(method, params = nil)
-      { jsonrpc: "2.0", id: SecureRandom.uuid, method: method, params: params }.compact
-    end
-
-    def call(tenant, scopes, method, **params)
-      post "/mcp", headers: host_for(tenant).merge(bearer(tenant, scopes)),
-                   params: rpc(method, params.presence), as: :json
-
-      assert_response :success
-      response.parsed_body
-    end
-
-    def tool(tenant, scopes, name, **arguments)
-      reply = call(tenant, scopes, "tools/call", name: name, arguments: arguments)
-
-      assert_not reply.dig("result", "isError"), reply.dig("result", "content", 0, "text")
-
-      JSON.parse(reply.dig("result", "content", 0, "text"))
-    end
 end

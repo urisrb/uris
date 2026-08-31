@@ -8,8 +8,18 @@ module Granted
 
   private
 
+    # A browser never attaches an Authorization header on its own, so a request
+    # that carries one is not a cross-site form post and has no CSRF token to
+    # send. Without this the bearer half of this concern is unreachable.
+    def verified_request?
+      request.authorization.present? || super
+    end
+
     def grant
-      @grant ||= Grant.new(tenant: current_tenant, claims: masks_claims_from(credentials))
+      @grant ||= Grant.new(tenant: current_tenant, claims: masks_claims_from(credentials)).tap do |held|
+        Current.grant = held
+        Current.audit = audit_context
+      end
     end
 
     def authorize

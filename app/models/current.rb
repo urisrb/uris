@@ -1,3 +1,7 @@
 class Current < ActiveSupport::CurrentAttributes
-  attribute :tenant
+  attribute :tenant, :grant, :audit
+
+  def audit
+    attributes[:audit] || {}
+  end
 end

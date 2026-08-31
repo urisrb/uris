@@ -1,37 +1,21 @@
 class McpController < ApplicationController
+  include ActionController::Live
+
   rate_limit to: Rails.configuration.things.mcp_limit, within: 1.minute,
              by: -> { caller_key }, with: -> { too_many }
 
   include Granted
 
-  INSTRUCTIONS = <<~TEXT.freeze
-    things is one searchable index across everything its owner keeps, wherever it lives.
-
-    A thing is a reference, not the bytes: the catalog holds where something lives and what
-    analysis understood about it, while the original stays in the resource it came from.
-    So searching is cheap and reading the bytes back means exporting them.
-
-    Start with search_things. Use list_resources to see where things come from, and
-    describe_resource before command_resource — each resource type has its own vocabulary.
-
-    Credentials never travel through a tool call. Connecting a resource happens in the
-    browser, and nothing here will accept a secret as an argument.
-  TEXT
-
   skip_forgery_protection
 
   def handle
-    reply = server.handle_json(request.raw_post)
+    status, headers, body = transport.call(request.env)
 
-    if reply
-      render json: reply
-    else
-      head :accepted
-    end
-  end
+    headers.each { |name, value| response.headers[name] = value }
+    self.status = status
 
-  def unsupported
-    head :method_not_allowed
+    remember_session(headers)
+    deliver(body)
   end
 
   private
@@ -42,13 +26,24 @@ class McpController < ApplicationController
       true
     end
 
-    def server
-      MCP::Server.new(
-        name: "things",
-        title: "things",
-        instructions: INSTRUCTIONS,
-        tools: grant.tools,
-        server_context: { tenant: current_tenant, grant: grant, audit: audit_context }
-      )
+    def transport
+      McpTransports.for(tenant: current_tenant, grant: grant)
+    end
+
+    def remember_session(headers)
+      issued = headers[McpTransports::SESSION_HEADER] || headers[McpTransports::SESSION_HEADER.downcase]
+
+      McpTransports.claim(issued, grant.subject)
+      McpTransports.forget(issued) if request.delete? && issued.present?
+    end
+
+    def deliver(body)
+      if body.respond_to?(:call)
+        body.call(response.stream)
+      else
+        body.each { |chunk| response.stream.write(chunk) }
+      end
+    ensure
+      response.stream.close
     end
 end

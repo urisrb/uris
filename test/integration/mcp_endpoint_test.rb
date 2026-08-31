@@ -1,6 +1,8 @@
 require "test_helper"
 
 class McpEndpointTest < ActionDispatch::IntegrationTest
+  include McpClient
+
   ALL = Grant::SCOPES
 
   setup do
@@ -217,43 +219,4 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     assert reply.dig("result", "isError")
     assert_match(/no default storage/, reply.dig("result", "content", 0, "text"))
   end
-
-  private
-
-    def origin_for(tenant)
-      "http://#{tenant.subdomain}.things.test"
-    end
-
-    def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.things.test" }
-    end
-
-    def bearer(tenant, scopes)
-      token = issuer.mint(
-        subdomain: tenant.subdomain, scopes: scopes,
-        audience: "#{origin_for(tenant)}/mcp"
-      )
-
-      { "Authorization" => "Bearer #{token}" }
-    end
-
-    def rpc(method, params = nil)
-      { jsonrpc: "2.0", id: SecureRandom.uuid, method: method, params: params }.compact
-    end
-
-    def call(tenant, scopes, method, **params)
-      post "/mcp", headers: host_for(tenant).merge(bearer(tenant, scopes)),
-                   params: rpc(method, params.presence), as: :json
-
-      assert_response :success
-      response.parsed_body
-    end
-
-    def tool(tenant, scopes, name, **arguments)
-      reply = call(tenant, scopes, "tools/call", name: name, arguments: arguments)
-
-      assert_not reply.dig("result", "isError"), reply.dig("result", "content", 0, "text")
-
-      JSON.parse(reply.dig("result", "content", 0, "text"))
-    end
 end

@@ -1,7 +1,10 @@
 require "test_helper"
 
 class McpLimitsTest < ActionDispatch::IntegrationTest
+  include McpClient
+
   ALL = Grant::SCOPES
+  NONSENSE = { "Authorization" => "Bearer nonsense" }.freeze
 
   setup do
     Rails.cache.clear
@@ -23,88 +26,80 @@ class McpLimitsTest < ActionDispatch::IntegrationTest
     Rails.configuration.things.run_budget
   end
 
+  def flood(tenant, held, times, session: nil)
+    times.times { send_rpc(tenant, held, "tools/list", nil, session: session) }
+  end
+
+  def sync
+    call(@tenant, ALL, "tools/call", name: "sync_resource", arguments: { id: @resource.id.to_s })
+  end
+
   test "a token is bounded at the edge, and the refusal is json-rpc shaped" do
-    held = bearer(@tenant, ALL)
+    held, session = session_for(@tenant, ALL)
 
-    limit.times { post "/mcp", headers: host_for(@tenant).merge(held), params: rpc("tools/list"), as: :json }
-
+    flood(@tenant, held, limit - 1, session: session)
     assert_response :success
 
-    post "/mcp", headers: host_for(@tenant).merge(held), params: rpc("tools/list"), as: :json
+    send_rpc(@tenant, held, "tools/list", nil, session: session)
 
     assert_response :too_many_requests
     assert_equal(-32_000, response.parsed_body.dig("error", "code"))
   end
 
   test "the limiter is reached before the token is verified" do
-    limit.times do
-      post "/mcp", headers: host_for(@tenant).merge("Authorization" => "Bearer nonsense"),
-                   params: rpc("tools/list"), as: :json
-      assert_response :unauthorized
-    end
+    flood(@tenant, NONSENSE, limit)
+    assert_response :unauthorized
 
-    post "/mcp", headers: host_for(@tenant).merge("Authorization" => "Bearer nonsense"),
-                 params: rpc("tools/list"), as: :json
+    send_rpc(@tenant, NONSENSE, "tools/list")
 
     assert_response :too_many_requests
   end
 
   test "two tokens have two budgets" do
-    spent = bearer(@tenant, ALL)
+    held, session = session_for(@tenant, ALL)
 
-    limit.times { post "/mcp", headers: host_for(@tenant).merge(spent), params: rpc("tools/list"), as: :json }
-
-    post "/mcp", headers: host_for(@tenant).merge(spent), params: rpc("tools/list"), as: :json
+    flood(@tenant, held, limit, session: session)
     assert_response :too_many_requests
 
-    post "/mcp", headers: host_for(@tenant).merge(bearer(@tenant, ALL)),
-                 params: rpc("tools/list"), as: :json
+    send_rpc(@tenant, bearer(@tenant, ALL), "initialize",
+             { protocolVersion: McpClient::PROTOCOL, capabilities: {},
+               clientInfo: { name: "second", version: "1" } })
+
     assert_response :success
   end
 
   test "one tenant cannot exhaust another's edge budget" do
-    limit.times do
-      post "/mcp", headers: host_for(@tenant).merge("Authorization" => "Bearer nonsense"),
-                   params: rpc("tools/list"), as: :json
-    end
-
-    post "/mcp", headers: host_for(@tenant).merge("Authorization" => "Bearer nonsense"),
-                 params: rpc("tools/list"), as: :json
+    flood(@tenant, NONSENSE, limit + 1)
     assert_response :too_many_requests
 
-    post "/mcp", headers: host_for(@other).merge("Authorization" => "Bearer nonsense"),
-                 params: rpc("tools/list"), as: :json
+    send_rpc(@other, NONSENSE, "tools/list")
+
     assert_response :unauthorized
   end
 
   test "starting runs is bounded far tighter than reading is" do
-    held = bearer(@tenant, ALL)
-
     budget.times do
-      reply = tools_call(held, "sync_resource", id: @resource.id.to_s)
+      reply = sync
+
       assert_not reply.dig("result", "isError"), reply.dig("result", "content", 0, "text")
     end
 
-    reply = tools_call(held, "sync_resource", id: @resource.id.to_s)
+    reply = sync
 
     assert reply.dig("result", "isError")
     assert_match(/#{budget} is the ceiling/, reply.dig("result", "content", 0, "text"))
   end
 
   test "a tool that starts no run does not spend the run budget" do
-    held = bearer(@tenant, ALL)
+    (budget + 5).times { call(@tenant, ALL, "tools/call", name: "list_resources", arguments: {}) }
 
-    (budget + 5).times { tools_call(held, "list_resources") }
-
-    reply = tools_call(held, "sync_resource", id: @resource.id.to_s)
+    reply = sync
 
     assert_not reply.dig("result", "isError"), reply.dig("result", "content", 0, "text")
   end
 
   test "being over budget is recorded as denied rather than as an error" do
-    held = bearer(@tenant, ALL)
-
-    (budget + 1).times { tools_call(held, "sync_resource", id: @resource.id.to_s) }
+    (budget + 1).times { sync }
 
     refused = Tenant.switch(@tenant) { AuditEvent.newest_first.first }
 
@@ -112,35 +107,4 @@ class McpLimitsTest < ActionDispatch::IntegrationTest
     assert_equal "denied", refused.status
     assert_match(/is the ceiling/, refused.detail)
   end
-
-  private
-
-    def origin_for(tenant)
-      "http://#{tenant.subdomain}.things.test"
-    end
-
-    def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.things.test" }
-    end
-
-    def bearer(tenant, scopes)
-      token = issuer.mint(
-        subdomain: tenant.subdomain, scopes: scopes,
-        audience: "#{origin_for(tenant)}/mcp"
-      )
-
-      { "Authorization" => "Bearer #{token}" }
-    end
-
-    def rpc(method, params = nil)
-      { jsonrpc: "2.0", id: SecureRandom.uuid, method: method, params: params }.compact
-    end
-
-    def tools_call(held, name, **arguments)
-      post "/mcp", headers: host_for(@tenant).merge(held),
-                   params: rpc("tools/call", name: name, arguments: arguments), as: :json
-
-      assert_response :success
-      response.parsed_body
-    end
 end

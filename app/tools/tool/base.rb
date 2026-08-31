@@ -21,19 +21,18 @@ module Tool
         @starts_runs
       end
 
-      def respond(server_context, arguments = {})
+      def respond(_server_context, arguments = {})
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        grant = server_context.fetch(:grant)
+        grant = Current.grant or raise Grant::Denied, "this call carries no grant"
         grant.permit!(scope)
         within_budget!(grant)
 
         result = yield
 
-        audit(grant, server_context, arguments, "ok", started)
+        audit(grant, arguments, "ok", started)
         text(result.to_json)
       rescue *EXPECTED => e
-        audit(grant, server_context, arguments,
-              refused?(e) ? "denied" : "error", started, e.message)
+        audit(Current.grant, arguments, refused?(e) ? "denied" : "error", started, e.message)
 
         text(e.message, error: true)
       end
@@ -57,10 +56,10 @@ module Tool
               "this token has started #{spent - 1} runs in the last hour, and #{limit} is the ceiling"
       end
 
-      def audit(grant, server_context, arguments, status, started, detail = nil)
+      def audit(grant, arguments, status, started, detail = nil)
         AuditEvent.record(
           channel: "mcp", action: tool_name, status: status, scope: scope,
-          grant: grant, context: server_context.fetch(:audit, {}),
+          grant: grant, context: Current.audit,
           arguments: arguments, detail: detail,
           duration_ms: ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round
         )

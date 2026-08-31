@@ -120,6 +120,30 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
     assert_response :unauthorized
   end
 
+
+  test "a bearer caller is not refused as forgery before it is authenticated" do
+    ActionController::Base.allow_forgery_protection = true
+
+    post "/graphql", params: { query: CATALOG },
+                     headers: host_for(@tenant).merge(bearer(@tenant, scopes: [ "things:read" ]))
+
+    assert_response :success
+    assert_equal [ { "kind" => "pdf", "title" => "An invoice" } ],
+                 response.parsed_body.dig("data", "things", "nodes")
+  ensure
+    ActionController::Base.allow_forgery_protection = false
+  end
+
+  test "a browser without a csrf token is still refused as forgery" do
+    ActionController::Base.allow_forgery_protection = true
+
+    post "/graphql", params: { query: CATALOG }, headers: host_for(@tenant)
+
+    assert_response :unprocessable_content
+  ensure
+    ActionController::Base.allow_forgery_protection = false
+  end
+
   private
 
     def host_for(tenant)

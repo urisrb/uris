@@ -3,6 +3,7 @@ require_relative "../config/environment"
 require "rails/test_help"
 
 require_relative "support/fake_issuer"
+require_relative "support/mcp_client"
 
 ENV["THINGS_PUBLIC_ORIGIN"] = nil
 
