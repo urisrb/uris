@@ -53,6 +53,8 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
 
 # Install application gems
 COPY vendor/* ./vendor/
+COPY --from=masks-client . /masks/client
+COPY --from=masks-engine . /masks/engine
 COPY Gemfile Gemfile.lock ./
 
 RUN bundle install && \
@@ -61,6 +63,9 @@ RUN bundle install && \
     bundle exec bootsnap precompile -j 1 --gemfile
 
 # Install node modules
+COPY --from=masks-web . /masks/web
+RUN npm --prefix /masks/web ci && npm --prefix /masks/web run build
+
 COPY package.json package-lock.json ./
 RUN npm ci
 
@@ -93,6 +98,7 @@ USER 1000:1000
 
 # Copy built artifacts: gems, application
 COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
+COPY --chown=rails:rails --from=build /masks /masks
 COPY --chown=rails:rails --from=build /rails /rails
 
 # Entrypoint prepares the database.
