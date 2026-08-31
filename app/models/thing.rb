@@ -25,14 +25,34 @@ class Thing < ApplicationRecord
     where(id: ThingReference.select(:thing_id))
   end
 
+  SELECTOR = %w[id kind resource_id query folder since before].freeze
+
+  def self.under(folder)
+    prefix = folder.to_s.delete_prefix("/").chomp("/")
+    return all if prefix.empty?
+
+    where(id: ThingReference.under(prefix).select(:thing_id))
+  end
+
   def self.matching(selector)
     selector = selector.to_h.with_indifferent_access
     scope = all
     scope = scope.where(id: selector[:id]) if selector[:id].present?
     scope = scope.where(kind: selector[:kind]) if selector[:kind].present?
     scope = scope.referencing(selector[:resource_id]) if selector[:resource_id].present?
+    scope = scope.under(selector[:folder]) if selector[:folder].present?
+    scope = scope.where(created_at: moment(selector[:since])..) if selector[:since].present?
+    scope = scope.where(created_at: ...moment(selector[:before])) if selector[:before].present?
     scope = scope.where(id: search(selector[:query]).ids) if selector[:query].present?
     scope
+  end
+
+  def self.moment(value)
+    return value if value.respond_to?(:to_time) && !value.is_a?(String)
+
+    Time.zone.parse(value.to_s) || raise(ArgumentError, "#{value} is not a date")
+  rescue ArgumentError, TypeError
+    raise ArgumentError, "#{value} is not a date"
   end
 
   def merge!(other)

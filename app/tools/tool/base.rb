@@ -2,6 +2,18 @@ module Tool
   class OverBudget < StandardError; end
 
   class Base < MCP::Tool
+    SELECTOR_SCHEMA = {
+      query: { type: "string", description: "Words to match, as in search_things." },
+      kind: { type: "string", description: "Restrict to one kind." },
+      resource_id: { type: "string", description: "Restrict to things from one resource." },
+      folder: {
+        type: "string",
+        description: "Restrict to a prefix of the locator key, as a folder: 2024/invoices."
+      },
+      since: { type: "string", description: "Only things catalogued at or after this time." },
+      before: { type: "string", description: "Only things catalogued before this time." }
+    }.freeze
+
     EXPECTED = [
       Grant::Denied,
       OverBudget,
@@ -98,8 +110,12 @@ module Tool
         }
       end
 
-      def selector_from(query: nil, kind: nil, resource_id: nil)
-        { "query" => query, "kind" => kind, "resource_id" => resource_id }.compact
+      def selector_from(query: nil, kind: nil, resource_id: nil, folder: nil,
+                        since: nil, before: nil)
+        {
+          "query" => query, "kind" => kind, "resource_id" => resource_id,
+          "folder" => folder, "since" => since, "before" => before
+        }.compact
       end
     end
   end

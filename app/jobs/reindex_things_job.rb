@@ -15,7 +15,7 @@ class ReindexThingsJob < ApplicationJob
   def build_enumerator(tenant_id, _index = nil, _run_id = nil, cursor:)
     tenant = Tenant.find(tenant_id)
 
-    things = Enumerator.new do |yielder|
+    pages = Enumerator.new do |yielder|
       after = cursor
 
       loop do
@@ -23,23 +23,27 @@ class ReindexThingsJob < ApplicationJob
         break if batch.empty?
 
         after = batch.last.id.to_s
-        batch.each { |thing| yielder.yield(thing, thing.id.to_s) }
+        yielder.yield(batch, after)
 
         break if batch.size < PAGE
       end
     end
 
-    enumerator_builder.wrap(enumerator_builder, things)
+    enumerator_builder.wrap(enumerator_builder, pages)
   end
 
-  def each_iteration(thing, tenant_id, index = nil, _run_id = nil)
-    return track_iteration if dry_run?
+  # A page at a time rather than a thing at a time: one request per document
+  # is fine for a callback and is what made a rebuild of a large catalog a
+  # request storm. The cursor is still the last id of the page, so an
+  # interrupted run resumes at a page boundary rather than replaying the walk.
+  def each_iteration(things, tenant_id, index = nil, _run_id = nil)
+    return track_iteration(things.size) if dry_run?
 
     Tenant.switch(tenant_for(tenant_id)) do
-      SearchIndex.index(thing, into: index.presence || SearchIndex.alias_name)
+      SearchIndex.index_all(things, into: index.presence || SearchIndex.alias_name)
     end
 
-    track_iteration
+    track_iteration(things.size)
   end
 
   private

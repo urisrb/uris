@@ -1,4 +1,6 @@
 module SearchIndex
+  class Failed < StandardError; end
+
   SETTINGS = {
     analysis: {
       tokenizer: {
@@ -112,6 +114,29 @@ module SearchIndex
 
     def index(thing, into: alias_name)
       client.index(index: into, id: thing.id, body: document(thing))
+    end
+
+    # One request per thing is fine for a callback and is not fine for a
+    # rebuild. `_bulk` is a newline-delimited body, and it answers 200 with
+    # per-item errors inside, so a caller that only checks the status
+    # believes a half-written page landed.
+    def index_all(things, into: alias_name)
+      things = things.to_a
+      return 0 if things.empty?
+
+      body = things.flat_map do |thing|
+        [ { index: { _index: into, _id: thing.id } }, document(thing) ]
+      end
+
+      response = client.bulk(body: body)
+      refused = Array(response["items"]).filter_map { |item| item.dig("index", "error") }
+
+      if refused.any?
+        raise Failed, "#{refused.length} of #{things.length} documents were refused: " \
+                      "#{refused.first['reason']}"
+      end
+
+      things.length
     end
 
     def delete(thing, from: alias_name)

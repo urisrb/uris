@@ -173,4 +173,26 @@ class ReindexThingsJobTest < ActiveSupport::TestCase
 
     assert_equal [ "Late invoice" ], titles(late)
   end
+
+  test "a reindex spends one request per page, not one per thing" do
+    Tenant.switch(@tenant) do
+      Array.new(5) { |n| create_thing(kind: "pdf", title: "paged-#{n}") }
+    end
+
+    bulks = 0
+    singles = 0
+
+    SearchIndex.client.define_singleton_method(:bulk) { |**| bulks += 1; { "items" => [] } }
+    SearchIndex.client.define_singleton_method(:index) { |**| singles += 1; {} }
+
+    begin
+      ReindexThingsJob.perform_now(@tenant.id)
+    ensure
+      SearchIndex.client.singleton_class.remove_method(:bulk)
+      SearchIndex.client.singleton_class.remove_method(:index)
+    end
+
+    assert_equal 0, singles, "a rebuild must not put one document per request"
+    assert_equal 1, bulks, "a page under the page size is one request"
+  end
 end

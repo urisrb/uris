@@ -70,6 +70,18 @@ module Types
       Page.of(scope, after: after, limit: limit)
     end
 
+    field :merge_proposals, Types::MergeProposalPageType, null: false, grants: "things:read" do
+      argument :status, String, required: false
+      argument :after, ID, required: false
+      argument :limit, Integer, required: false
+    end
+
+    def merge_proposals(status: nil, after: nil, limit: nil)
+      scope = MergeProposal.where(status: status.presence || "open")
+
+      Page.of(scope, after: after, limit: limit)
+    end
+
     field :audit_events, Types::AuditEventPageType, null: false, grants: "things:read" do
       argument :action, String, required: false
       argument :status, String, required: false

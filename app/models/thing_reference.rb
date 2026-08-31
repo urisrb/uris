@@ -8,6 +8,16 @@ class ThingReference < ApplicationRecord
 
   scope :oldest_first, -> { order(:created_at, :id) }
 
+  # A folder is a prefix of the locator key, which is the only thing every
+  # type has in common — `s3` has no directories, `imap` has no path at all,
+  # and both still key on something a prefix means something in.
+  scope :under, ->(prefix) {
+    escaped = sanitize_sql_like(prefix.to_s.delete_prefix("/").chomp("/"))
+
+    where("locator_key = :exact OR locator_key LIKE :under ESCAPE '\\'",
+          exact: prefix, under: "#{escaped}/%")
+  }
+
   after_commit :reindex_thing
 
   delegate :kind, to: :thing

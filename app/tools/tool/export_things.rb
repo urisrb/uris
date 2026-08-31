@@ -18,21 +18,23 @@ module Tool
           type: "string",
           description: "A storage resource to write into. Defaults to this tenant's default storage."
         },
-        query: { type: "string", description: "Words to match, as in search_things." },
-        kind: { type: "string", description: "Restrict to one kind." },
-        resource_id: { type: "string", description: "Restrict to things from one resource." }
+        **SELECTOR_SCHEMA
       }
     )
 
-    def self.call(server_context:, destination_id: nil, query: nil, kind: nil, resource_id: nil)
-      respond(server_context, { destination_id: destination_id, query: query, kind: kind, resource_id: resource_id }) do
+    def self.call(server_context:, destination_id: nil, query: nil, kind: nil, resource_id: nil,
+                  folder: nil, since: nil, before: nil)
+      selected = { query: query, kind: kind, resource_id: resource_id,
+                   folder: folder, since: since, before: before }
+
+      respond(server_context, selected.merge(destination_id: destination_id)) do
         destination = if destination_id.present?
           resource!(destination_id).storage!
         else
           Resource.default_storage!
         end
 
-        selector = selector_from(query: query, kind: kind, resource_id: resource_id)
+        selector = selector_from(**selected)
         run = Run.start!(kind: "export", resource: destination, selector: selector)
         ExportThingsJob.perform_later(destination.tenant_id, destination.id, selector, run.id)
 
