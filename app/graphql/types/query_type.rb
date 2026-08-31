@@ -2,22 +2,6 @@
 
 module Types
   class QueryType < Types::BaseObject
-    field :node, Types::NodeType, null: true, grants: %w[things:read resources:read], description: "Fetches an object given its ID." do
-      argument :id, ID, required: true, description: "ID of the object."
-    end
-
-    def node(id:)
-      context.schema.object_from_id(id, context)
-    end
-
-    field :nodes, [ Types::NodeType, null: true ], null: true, grants: %w[things:read resources:read], description: "Fetches a list of objects given a list of IDs." do
-      argument :ids, [ ID ], required: true, description: "IDs of the objects."
-    end
-
-    def nodes(ids:)
-      ids.map { |id| context.schema.object_from_id(id, context) }
-    end
-
     field :tenant, Types::TenantType, null: true, grants: "things:read"
 
     def tenant

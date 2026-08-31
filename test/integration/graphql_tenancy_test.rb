@@ -7,8 +7,8 @@ class GraphqlTenancyTest < ActionDispatch::IntegrationTest
     @jons = Tenant.create!(subdomain: "jons", name: "Jon's things")
     @acme = Tenant.create!(subdomain: "acme", name: "Acme")
 
-    Tenant.switch(@jons) { Thing.create!(kind: "pdf", title: "Jon's invoice") }
-    Tenant.switch(@acme) { Thing.create!(kind: "pdf", title: "Acme's invoice") }
+    Tenant.switch(@jons) { @jons_thing = Thing.create!(kind: "pdf", title: "Jon's invoice") }
+    Tenant.switch(@acme) { @acme_thing = Thing.create!(kind: "pdf", title: "Acme's invoice") }
   end
 
   test "each tenant's catalog contains only its own things" do
@@ -25,6 +25,18 @@ class GraphqlTenancyTest < ActionDispatch::IntegrationTest
     )
   end
 
+  test "fetching a thing by id is bounded by the tenant that asked" do
+    assert_equal(
+      { "thing" => nil },
+      query_as("jons", "{ thing(id: #{@acme_thing.id}) { title } }")
+    )
+
+    assert_equal(
+      { "thing" => { "title" => "Jon's invoice" } },
+      query_as("jons", "{ thing(id: #{@jons_thing.id}) { title } }")
+    )
+  end
+
   test "an unknown subdomain resolves to no tenant at all" do
     host! "nobody.things.test"
     post "/graphql", params: { query: CATALOG }
@@ -34,9 +46,9 @@ class GraphqlTenancyTest < ActionDispatch::IntegrationTest
 
   private
 
-    def query_as(subdomain)
+    def query_as(subdomain, query = CATALOG)
       host! "#{subdomain}.things.test"
-      post "/graphql", params: { query: CATALOG }, headers: bearer(subdomain)
+      post "/graphql", params: { query: query }, headers: bearer(subdomain)
 
       assert_response :success
       JSON.parse(response.body).fetch("data")

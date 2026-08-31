@@ -48,12 +48,10 @@ class TenantIsolationTest < ActiveSupport::TestCase
     Tenant.switch(@acme) { assert_equal [ "acme-bucket" ], Resource.unscoped.pluck(:key) }
   end
 
-  test "a global id from another tenant does not resolve" do
+  test "an id from another tenant does not resolve" do
     Tenant.switch(@jons) do
-      context = { tenant: @jons, tenant_id: @jons.id }
-
-      assert_nil ThingsSchema.object_from_id(@acme_thing.to_gid_param, context)
-      assert_equal @jons_thing, ThingsSchema.object_from_id(@jons_thing.to_gid_param, context)
+      assert_nil Thing.find_by(id: @acme_thing.id)
+      assert_equal @jons_thing, Thing.find_by(id: @jons_thing.id)
     end
   end
 end
