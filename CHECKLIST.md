@@ -2,13 +2,13 @@
 
 Every feature this repo is meant to have, checked against what is actually in the tree.
 
-**147 items — 105 done · 7 partial · 29 to build · 6 deferred**, read at `41f24cc` plus the reindex
-work in the tree. The suite was run rather than cited: **272 runs, 718 assertions, 0 failures** —
-run serially, because the parallel hang Packaging records turned up again.
+**147 items — 105 done · 7 partial · 29 to build · 6 deferred**, read at `768c938` plus the
+handshake work in the tree. The suite was run rather than cited: **272 runs, 718 assertions, 0
+failures**.
 
-**Not read against a clean tree.** The connect flow is being renamed as this is written — handshake
-for the request, connected for the state — so §Auth still says *pair* where the code has moved on.
-Read it for what it claims rather than for the names it uses.
+**The rename landed.** *Handshake* is the request and *connected* is the state, in both repos and in
+all three client libraries — and the flow itself moved into `masks-rails`, so this app no longer
+owns a line of it. What is left here is where the credentials are read from and written to.
 
 |         |              |                                                        |
 | ------- | ------------ | ------------------------------------------------------ |
@@ -550,36 +550,52 @@ written after that gem existed.
       holding `nil`. Both are fixed in masks, where every consumer gets the fix.
 - [ ] ◐ **The suite still fakes the issuer, not masks itself** — the flow is real and the server is
       not, so a change to masks' own token endpoint would not fail anything here. What used to be
-      wholly untested between the two is now partly driven: `home/bin/probe-pairing` runs first run,
-      the approval, the redemption and the sign-in after it against a live masks, twenty-one checks.
+      wholly untested between the two is now partly driven: `home/bin/probe-handshake` runs the
+      handshake, the approval, the redemption and the sign-in after it against a live masks in a
+      container, twenty-two checks.
       That covers registration and consent, and covers them where they actually happen. It is a
       script somebody runs, not a suite, which is the half still missing.
 - [ ] **Signing out of masks, not just of `things`** — `masks_forget` drops the local session and
       leaves the issuer's, so signing in again is silent. Correct for a shared browser only if the
       person expects it, and RP-initiated logout is unbuilt on both sides.
-- [x] **This app pairs itself, and holds its own credentials** — `plans/020`, and it was the item
-      above this one for as long as `MASKS_CLIENT_ID` was a blank line in `.env.example` that
-      nothing could fill. A first-party app must not self-register anonymously, because that is how
-      a stranger's connector also arrives; so an unpaired tenant offers a setup screen, one button
-      sends the browser to its own issuer's approval screen, and the one-time token that comes back
-      is redeemed at `/register` server-side. The secret never travels a browser and nobody types it
-      anywhere.
+- [x] **This app shakes hands for itself, and holds its own credentials** — `plans/020`, and it was
+      the item above this one for as long as `MASKS_CLIENT_ID` was a blank line in `.env.example`
+      that nothing could fill. A first-party app must not self-register anonymously, because that is
+      how a stranger's connector also arrives; so an unconnected tenant is offered the handshake,
+      one button sends the browser to its own issuer's approval screen, and the one-time token that
+      comes back is redeemed at `/register` server-side. The secret never travels a browser and
+      nobody types it anywhere.
+      **The flow is not written here any more.** It was sixty lines of state, `iss` checks, refusal
+      pages and a redeem call whose metadata had to agree with what the connect URL sent — all of
+      which every consumer of masks would have rewritten. It lives in `masks-rails` now, and this
+      app supplies the two ends only a consumer knows: `config.credentials` reads them off the
+      tenant, `config.store` writes what came back. **The whole integration is two lambdas.**
       **The two-env-vars note is superseded, as it said it would be.** The credentials are a row —
       `client_id`, `client_secret`, `registration_access_token`, `registration_client_uri`,
-      `paired_at` on `tenants`, the two secrets encrypted — because pairing is per tenant and each
-      one gets a different secret, so there is no single value an env var could hold. A test reads
-      the raw column rather than trusting `encrypts`.
-- [x] **The unpaired screen says only that it is unpaired** — it is public, so it does not name the
-      issuer or admit whether one exists; the issuer appears only in a redirect somebody asked for.
-      Once paired, setup is not offered again to a browser that is not signed in, so a stranger
-      cannot make a running install rotate its own credentials.
+      `connected_at` on `tenants`, the two secrets encrypted — because a handshake is per tenant and
+      each one gets a different secret, so there is no single value an env var could hold. A test
+      reads the raw column rather than trusting `encrypts`.
+- [x] **The unconnected screen says only that it is unconnected** — it is public, so it does not name
+      the issuer or admit whether one exists; the issuer appears only in a redirect somebody asked
+      for. **This survived the move into the engine, and nearly did not**: the engine's page named
+      the issuer it was about to send you to, which is friendlier and is exactly the leak this item
+      exists to stop — a stranger who learns an unclaimed masks hostname can claim its tenant first.
+      Once connected, the handshake is not offered again to a browser that is not signed in, so a
+      stranger cannot make a running install rotate its own credentials.
+- [x] **An unconnected app refuses differently from a signed-out one** — `handshake_required` with
+      the URL to go to, rather than `login_required` pointing at a sign-in that cannot complete
+      without a client. The SPA reads it off `session.status()` and offers *Connect it* instead of
+      *Sign in*; a browser navigation is redirected there. What used to happen was a redirect to
+      masks carrying `client_id=`, and masks answering a stranger an error page about a client that
+      does not exist.
 - [x] **A signed-in actor now holds `things:*`, because approving granted them** — masks narrows a
       token to the scopes the actor holds, and a fresh actor held only the four masks defines, so
       the first real sign-in used to **succeed** and then refuse every field with `this token does
       not carry things:read`. The grant had to be made on the masks side and now is: the approval
       screen grants the approving actor what the client declares, and the descriptions on it come
       from this app's own RFC 9728 document rather than from anything masks knows. Driven end to
-      end by `home/bin/probe-pairing`, which reads the scope out of the access token at the far end.
+      end by `home/bin/probe-handshake`, which reads the scope out of the access token at the far
+      end.
 - [x] **The redirect_uri is resolved from the same origin as the resource** — it was
       `request.base_url` while the resource was `THINGS_PUBLIC_ORIGIN`, so tunnelling made the two
       disagree. masks pins both at approval, which turns a latent mismatch into a refusal.
@@ -594,9 +610,16 @@ written after that gem existed.
 
 ## Packaging
 
-- [x] **The image builds** — Node reaches the build stage only, the final image carries the compiled
-      SPA and not the toolchain, and `node_modules` is pruned. Verified by building it, checking the
-      manifest, and booting it far enough to enumerate every tool.
+- [x] **The image builds, and until now it could not have** — Node reaches the build stage only, the
+      final image carries the compiled SPA and not the toolchain, and `node_modules` is pruned.
+      **The gems and the npm package are path-referenced across a workspace that is not a repo, and
+      a path outside the build context does not exist inside it**: `bundle install` answered *the
+      path `/masks/client` does not exist* the moment the engine was adopted, and the running dev
+      container was an image built before that. The three packages arrive as named build contexts —
+      `masks-client`, `masks-engine`, `masks-web` in `home/dev/compose.yml` — landing at the same
+      relative paths the Gemfile and `package.json` already name, and `/masks` is carried into the
+      runtime stage because a path gem is loaded from its source at boot. Publishing is still the
+      real fix; this is what makes the stack boot until then.
 - [x] **`bin/check-boundary`** — no host, domain or secret in this repo.
 - [x] **CI: brakeman, bundler-audit, rubocop, biome, typecheck, boundary**
 - [ ] **The suite hangs about one run in ten, in parallel only** — 235 tests pass serially every
