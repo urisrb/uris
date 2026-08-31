@@ -6,6 +6,16 @@ on:
     branches: [main]
 
 jobs:
+  boundary:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: No host, domain, or secret may be named here
+        run: bin/check-boundary
+
   scan_ruby:
     runs-on: ubuntu-latest
 
@@ -176,11 +186,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Mint a token that can read masks
+        id: masks
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.MASKS_APP_ID }}
+          private-key: ${{ secrets.MASKS_APP_PRIVATE_KEY }}
+          owner: masksrb
+          repositories: masks
+
       - name: Checkout masks
         uses: actions/checkout@v6
         with:
           repository: masksrb/masks
-          token: ${{ secrets.MASKS_REPO_TOKEN || github.token }}
+          token: ${{ steps.masks.outputs.token }}
           path: .masks
           persist-credentials: false
 
@@ -211,7 +230,6 @@ jobs:
           context: .
           build-contexts: |
             masks-client=.masks/client
-            masks-engine=.masks/engine
             masks-web=.masks/web
           platforms: linux/amd64
           push: ${{ github.event_name == 'push' }}
