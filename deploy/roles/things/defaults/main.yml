@@ -1,0 +1,24 @@
+things_image: ghcr.io/things-host/things
+things_image_tag: latest
+things_image_digest: ""
+
+things_deploy_path: /srv/things
+things_network: edge
+
+things_postgres_host: postgres
+things_postgres_port: 5432
+things_postgres_user: things
+
+things_opensearch_image: opensearchproject/opensearch:2.11.0
+things_opensearch_heap: 512m
+things_opensearch_memory: 1500m
+
+things_s3_image: minio/minio
+things_s3_region: us-east-1
+things_s3_access_key_id: things
+
+things_web_concurrency: 1
+things_max_threads: 3
+things_log_level: info
+things_analysis_concurrency: 1
+things_bulk_concurrency: 2
