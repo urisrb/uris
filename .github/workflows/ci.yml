@@ -23,6 +23,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Check out masks, which the Gemfile takes by path
+        uses: ./.github/actions/masks
+        with:
+          app-id: ${{ secrets.MASKS_APP_ID }}
+          private-key: ${{ secrets.MASKS_APP_PRIVATE_KEY }}
+          path: ${{ github.workspace }}/../masks
+
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -41,6 +48,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+
+      - name: Check out masks, which the Gemfile takes by path
+        uses: ./.github/actions/masks
+        with:
+          app-id: ${{ secrets.MASKS_APP_ID }}
+          private-key: ${{ secrets.MASKS_APP_PRIVATE_KEY }}
+          path: ${{ github.workspace }}/../masks
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -74,6 +88,13 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Check out masks, which the Gemfile takes by path
+        uses: ./.github/actions/masks
+        with:
+          app-id: ${{ secrets.MASKS_APP_ID }}
+          private-key: ${{ secrets.MASKS_APP_PRIVATE_KEY }}
+          path: ${{ github.workspace }}/../masks
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
@@ -151,6 +172,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Check out masks, which the Gemfile takes by path
+        uses: ./.github/actions/masks
+        with:
+          app-id: ${{ secrets.MASKS_APP_ID }}
+          private-key: ${{ secrets.MASKS_APP_PRIVATE_KEY }}
+          path: ${{ github.workspace }}/../masks
+
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -186,22 +214,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Mint a token that can read masks
-        id: masks
-        uses: actions/create-github-app-token@v2
+      - name: Check out masks, whose client and web halves the image copies in
+        uses: ./.github/actions/masks
         with:
           app-id: ${{ secrets.MASKS_APP_ID }}
           private-key: ${{ secrets.MASKS_APP_PRIVATE_KEY }}
-          owner: masksrb
-          repositories: masks
-
-      - name: Checkout masks
-        uses: actions/checkout@v6
-        with:
-          repository: masksrb/masks
-          token: ${{ steps.masks.outputs.token }}
           path: .masks
-          persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
