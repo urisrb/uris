@@ -17,8 +17,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PAGES_PROJECT: things
-  PAGES_DOMAIN: things-9vd.pages.dev
+  PAGES_PROJECT: thingies
+  PAGES_DOMAIN: thingies.pages.dev
 
 jobs:
   deploy:
