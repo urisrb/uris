@@ -3,7 +3,7 @@ import { defineConfig, passthroughImageService } from "astro/config";
 import starlight from "@astrojs/starlight";
 
 export default defineConfig({
-  site: process.env.DOCS_SITE || "https://things.pages.dev",
+  site: process.env.DOCS_SITE || "https://things-9vd.pages.dev",
   image: { service: passthroughImageService() },
   integrations: [
     starlight({

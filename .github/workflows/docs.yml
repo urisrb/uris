@@ -18,6 +18,7 @@ concurrency:
 
 env:
   PAGES_PROJECT: things
+  PAGES_DOMAIN: things-9vd.pages.dev
 
 jobs:
   deploy:
@@ -47,9 +48,9 @@ jobs:
             | cut -c1-28 | sed -e 's/-*$//')
           echo "branch=$slug" >> "$GITHUB_OUTPUT"
           if [ "${{ github.ref_name }}" = "main" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "site=https://$PAGES_PROJECT.pages.dev" >> "$GITHUB_OUTPUT"
+            echo "site=https://$PAGES_DOMAIN" >> "$GITHUB_OUTPUT"
           else
-            echo "site=https://$slug.$PAGES_PROJECT.pages.dev" >> "$GITHUB_OUTPUT"
+            echo "site=https://$slug.$PAGES_DOMAIN" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Install
