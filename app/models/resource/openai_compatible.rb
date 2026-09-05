@@ -6,10 +6,13 @@ class Resource
     DEFAULT_ROLE = "default"
     OPEN_TIMEOUT = 5
     READ_TIMEOUT = 120
+    VISION_TIMEOUT = 600
     MAX_TOKENS = 1024
     TEMPERATURE = 0.2
     JSON_ATTEMPTS = 3
     MAX_PROMPT = 40_000
+    MAX_IMAGE = 8.megabytes
+    IMAGE_TYPE = "image/jpeg"
     JSON_SYSTEM = "Respond with valid JSON only. No markdown, no explanation."
 
     def self.capabilities
@@ -49,6 +52,7 @@ class Resource
     end
 
     def read_timeout = details.fetch("read_timeout", READ_TIMEOUT).to_i
+    def vision_timeout = details.fetch("read_timeout", VISION_TIMEOUT).to_i
     def max_tokens = details.fetch("max_tokens", MAX_TOKENS).to_i
     def temperature = details.fetch("temperature", TEMPERATURE).to_f
     def json_mode? = details.fetch("json_mode", true)
@@ -74,12 +78,13 @@ class Resource
       true
     end
 
-    def summarize(prompt, role:, promptable: nil)
+    def summarize(prompt, role:, promptable: nil, images: [])
       model = model_for(role)
       last = nil
 
       JSON_ATTEMPTS.times do |index|
-        answer = complete(prompt, model: model, role: role, promptable: promptable, attempt: index + 1)
+        answer = complete(prompt, model: model, role: role, promptable: promptable,
+                          attempt: index + 1, images: images)
         parsed = self.class.extract_json(answer)
 
         return parsed if parsed.is_a?(Hash) && parsed.present?
@@ -156,13 +161,13 @@ class Resource
         get("/models").fetch("data", []).filter_map { |entry| entry["id"] }
       end
 
-      def complete(prompt, model:, role:, promptable:, attempt:)
+      def complete(prompt, model:, role:, promptable:, attempt:, images:)
         body = scrub(prompt).truncate(MAX_PROMPT)
         record = Prompt.open!(resource: self, role: role, model: model,
                               request: body, promptable: promptable, attempt: attempt)
 
         begin
-          content = ask(body, model)
+          content = ask(body, model, images)
         rescue StandardError => e
           record.fail!(e)
           raise
@@ -172,22 +177,39 @@ class Resource
         content
       end
 
-      def ask(body, model)
+      def ask(body, model, images)
         messages = [
           { role: "system", content: JSON_SYSTEM },
-          { role: "user", content: body }
+          { role: "user", content: said(body, images) }
         ]
 
         payload = { model: model, messages: messages, stream: false,
                     max_tokens: max_tokens, temperature: temperature }
         payload[:response_format] = { type: "json_object" } if json_mode?
 
-        answered = post("/chat/completions", payload)
+        answered = post("/chat/completions", payload,
+                        timeout: images.any? ? vision_timeout : read_timeout)
         content = answered.dig("choices", 0, "message", "content").to_s
 
         raise Resource::Unusable, "#{key}: #{model} answered with nothing" if content.blank?
 
         without_reasoning(content)
+      end
+
+      def said(body, images)
+        return body if images.empty?
+
+        [ { type: "text", text: body } ] +
+          images.map { |bytes| { type: "image_url", image_url: { url: data_uri(bytes) } } }
+      end
+
+      def data_uri(bytes)
+        if bytes.bytesize > MAX_IMAGE
+          raise Resource::Unusable,
+                "#{key}: an image of #{bytes.bytesize} bytes is more than #{MAX_IMAGE} to send"
+        end
+
+        "data:#{IMAGE_TYPE};base64,#{Base64.strict_encode64(bytes)}"
       end
 
       def without_reasoning(text)
@@ -199,11 +221,11 @@ class Resource
       end
 
       def get(path)
-        answer(dial(path)) { |uri| Net::HTTP::Get.new(uri, headers) }
+        answer(dial(path), read_timeout) { |uri| Net::HTTP::Get.new(uri, headers) }
       end
 
-      def post(path, body)
-        answer(dial(path)) do |uri|
+      def post(path, body, timeout: read_timeout)
+        answer(dial(path), timeout) do |uri|
           request = Net::HTTP::Post.new(uri, headers)
           request.body = JSON.generate(body)
           request
@@ -224,8 +246,8 @@ class Resource
         uri
       end
 
-      def answer(uri, &build)
-        response = exchange(uri, &build)
+      def answer(uri, timeout, &build)
+        response = exchange(uri, timeout, &build)
 
         case response
         when Net::HTTPSuccess then JSON.parse(response.body.to_s)
@@ -239,13 +261,13 @@ class Resource
         raise Resource::Unusable, "#{key}: #{uri.host} did not answer with JSON"
       end
 
-      def exchange(uri, &build)
+      def exchange(uri, timeout, &build)
         Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
-                                            open_timeout: OPEN_TIMEOUT, read_timeout: read_timeout) do |http|
+                                            open_timeout: OPEN_TIMEOUT, read_timeout: timeout) do |http|
           http.request(build.call(uri))
         end
       rescue Net::OpenTimeout, Net::ReadTimeout
-        raise Resource::Failed, "#{key}: #{uri.host} did not answer in #{read_timeout}s"
+        raise Resource::Failed, "#{key}: #{uri.host} did not answer in #{timeout}s"
       rescue SocketError, SystemCallError, OpenSSL::SSL::SSLError, IOError => e
         raise Resource::Failed, "#{key}: #{e.class} reaching #{uri.host}"
       end

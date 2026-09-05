@@ -41,7 +41,8 @@ TENANTS.each do |attrs|
           "base_url" => endpoint,
           "models" => {
             "fast" => ENV.fetch("OLLAMA_FAST_MODEL", "gemma3:4b"),
-            "smart" => ENV.fetch("OLLAMA_SMART_MODEL", "llama3.1:8b")
+            "smart" => ENV.fetch("OLLAMA_SMART_MODEL", "llama3.1:8b"),
+            "vision" => ENV.fetch("OLLAMA_VISION_MODEL", "gemma3:4b")
           }
         }
       )

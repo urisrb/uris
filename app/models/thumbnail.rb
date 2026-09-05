@@ -52,7 +52,7 @@ class Thumbnail
 
     def from_image(path, dir)
       out = File.join(dir, "out.jpg")
-      run("vipsthumbnail", path, "--size", "#{width}x", "-o", "#{out}[Q=80]")
+      run("vipsthumbnail", path, "--size", "#{width}x>", "-o", "#{out}[Q=80]")
       File.binread(out)
     end
 

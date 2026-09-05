@@ -75,6 +75,10 @@ module Analyzer
       PROMPT
     end
 
+    def summary_images
+      []
+    end
+
     def has_children?
       false
     end
@@ -191,7 +195,7 @@ module Analyzer
         step(:summary,
              after: [ self.class.summary_after, inference.updated_at ].max,
              about: { "resource" => inference.key, "model" => inference.model_for(role), "role" => role.to_s }) do
-          shaped(inference.summarize(prompt, role: role, promptable: reference))
+          shaped(inference.summarize(prompt, role: role, promptable: reference, images: summary_images))
         end
       rescue Resource::Unusable => e
         raise Analyzer::Failed, e.message

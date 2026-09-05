@@ -15,6 +15,7 @@ class FakeModelServer
     @served = []
     @answers = []
     @prompts = []
+    @attachments = []
     @counts = Hash.new(0)
     @authorizations = Hash.new { |hash, key| hash[key] = [] }
     @hang = 0
@@ -36,6 +37,7 @@ class FakeModelServer
       @served = []
       @answers = []
       @prompts = []
+      @attachments = []
       @counts = Hash.new(0)
       @authorizations = Hash.new { |hash, key| hash[key] = [] }
       @hang = 0
@@ -69,6 +71,10 @@ class FakeModelServer
 
   def prompts
     @lock.synchronize { @prompts.dup }
+  end
+
+  def attachments
+    @lock.synchronize { @attachments.dup }
   end
 
   def count_for(path)
@@ -147,10 +153,29 @@ class FakeModelServer
     def record_prompt(body)
       parsed = JSON.parse(body)
       user = Array(parsed["messages"]).reverse.find { |message| message["role"] == "user" }
+      content = user.to_h["content"]
 
-      @lock.synchronize { @prompts << user.to_h["content"].to_s }
+      @lock.synchronize do
+        @prompts << spoken(content)
+        @attachments << attached(content)
+      end
     rescue JSON::ParserError
-      @lock.synchronize { @prompts << body.to_s }
+      @lock.synchronize do
+        @prompts << body.to_s
+        @attachments << []
+      end
+    end
+
+    def spoken(content)
+      return content.to_s unless content.is_a?(Array)
+
+      content.filter_map { |part| part["text"] }.join("\n")
+    end
+
+    def attached(content)
+      return [] unless content.is_a?(Array)
+
+      content.filter_map { |part| part.dig("image_url", "url") }
     end
 
     def rendered(status, body)

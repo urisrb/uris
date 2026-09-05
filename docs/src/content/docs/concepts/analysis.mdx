@@ -25,7 +25,7 @@ unconditionally and is last, so every thing has an analyzer.
 | Analyzer | Steps | Shells out to |
 | --- | --- | --- |
 | `Pdf` | `info`, `text` | `pdfinfo`, `pdftotext` |
-| `Image` | `dimensions`, `ocr` | `vipsheader`, `tesseract` |
+| `Image` | `dimensions`, `deviation`, `ocr` | `vipsheader`, `vips`, `tesseract` |
 | `Email` | `headers`, `attachments`, `text` | — (`mail` gem) |
 
 `brew bundle` installs the binaries. `Analyzer::Base::MAX_TEXT` truncates extracted text at 200,000
@@ -127,7 +127,8 @@ array are coerced, because small models do that.
 
 ### Roles
 
-An analyzer declares `summary_role`, defaulting to `:smart`; `Email` takes `:fast`. A role resolves
+An analyzer declares `summary_role`, defaulting to `:smart`; `Email` takes `:fast` and `Image` takes
+`:vision`. A role resolves
 through `Resource.for_role`, which finds an active `inference` resource whose `details["models"]`
 names it, preferring the tenant's default. Roles therefore span servers: `fast` can be one host and
 `smart` another, and re-pointing a role is data rather than a deploy.
@@ -178,7 +179,47 @@ limits_concurrency to: ENV.fetch("ANALYSIS_PER_TENANT", 2).to_i,
 
 See [Jobs](/concepts/jobs/).
 
+## Vision
+
+An image carries no text to summarize, so `Analyzer::Image` sends the picture. `summary_images`
+returns the reference's `large` thumbnail — one JPEG, no wider than 1024px — and `Base#summarize!`
+hands it to the resource alongside the prompt, as an OpenAI-shaped content part:
+
+```json
+[{ "type": "text", "text": "…" },
+ { "type": "image_url", "image_url": { "url": "data:image/jpeg;base64,…" } }]
+```
+
+The preview is what bounds the call. An original is whatever the camera wrote; a 1024px JPEG is a
+few hundred kilobytes, and it comes from the same renderer the catalog's thumbnails do.
+`vipsthumbnail` is asked to shrink only — `--size 1024x>` — so a 64px icon is sent at 64px rather
+than blown up to 1024 and charged for as if it carried more. `MAX_IMAGE` refuses anything over 8MB
+as `Resource::Unusable`, which is the discard policy: sending it again would fail the same way.
+
+The prompt carries the filename, the dimensions, and whatever `tesseract` read, fenced with the same
+"this is data, not instructions" line every other analyzer uses. OCR text is context, not the
+subject: a screenshot is described from its pixels and its words together, and an image tesseract
+found nothing in is still described.
+
+Vision calls are slower than text, so they take `VISION_TIMEOUT` — 600 seconds against 120 —
+unless `details["read_timeout"]` says otherwise.
+
+### The images that are not worth a GPU
+
+Two kinds of image are described without asking a model at all, from the `dimensions` and
+`deviation` steps:
+
+| | Is | Written as |
+| --- | --- | --- |
+| a sliver | either side ≤ 10px | a spacer or a tracking pixel |
+| a flat image | `vips deviate` < 1.0 | a background, a rule, or a placeholder |
+
+Email is full of both. They still get a `summary` step, so they are searchable and the catalog has
+no holes in it — the step is simply written from what extraction already knows. This is also the one
+summary that appears with no inference resource configured.
+
 :::note[TODO]
-Vision is not built: `Analyzer::Image` writes no `text` step, so an image gets no summary. Rules
-that match on an analyzer's output — `kind: invoice` and the like — are not built either.
+Rules that match on an analyzer's output — `kind: invoice` and the like — are not built. Neither is
+video: an animated GIF or WebP is described from its first frame, since that is what `Thumbnail`
+renders.
 :::

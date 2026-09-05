@@ -8,7 +8,7 @@ them, with analysis attached, and can hand the bytes back as an export or a loca
 
 ```
 sync       resource → catalog        pull references in          ✓ s3
-analyze    content  → understanding  per thing, by kind          ✓ summaries
+analyze    content  → understanding  per thing, by kind          ✓ summaries, vision
 search     catalog  → you            one index across everything ✓
 export     catalog  → resource       bytes back out              ✓
 ```
