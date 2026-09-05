@@ -24,7 +24,7 @@ module Analyzer
 
         step(:deviation) { run_command("vips", "deviate", path).strip.to_f }
 
-        step(:ocr) { run_command("tesseract", path, "stdout").strip.truncate(MAX_TEXT) }
+        step(:ocr) { read(path).strip.truncate(MAX_TEXT) }
       end
     end
 
@@ -45,10 +45,26 @@ module Analyzer
     end
 
     def summary_images
-      [ Thumbnail.for(reference, size: PREVIEW) ]
+      [ preview ]
     end
 
     private
+
+      def read(path)
+        run_command("tesseract", path, "stdout")
+      rescue Analyzer::Failed
+        Tempfile.create([ "preview", ".jpg" ], binmode: true) do |file|
+          file.write(preview)
+          file.flush
+          run_command("tesseract", file.path, "stdout")
+        end
+      end
+
+      def preview
+        @preview ||= Thumbnail.for(reference, size: PREVIEW)
+      rescue Thumbnail::Unavailable => e
+        raise Analyzer::Failed, e.message
+      end
 
       def summarize!
         return super unless trivial?

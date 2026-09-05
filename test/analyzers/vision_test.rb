@@ -24,6 +24,7 @@ class VisionTest < ActiveSupport::TestCase
       store "sign.png"
       store "pixel.png"
       store "photo.png"
+      store "animated.gif"
     end
 
     SyncResourceJob.perform_now(@tenant.id, @storage.id)
@@ -83,6 +84,42 @@ class VisionTest < ActiveSupport::TestCase
     assert_includes asked, "PELICAN CENSUS 4820"
     assert_includes asked, "data, not"
     assert_includes asked, "1902×357"
+  end
+
+  test "an image tesseract cannot open is read from the preview instead" do
+    inference!
+    @server.answer_json({ summary: "Three frames of text." })
+
+    analyze "animated.gif"
+
+    Tenant.switch(@tenant) do
+      ocr = reference("animated.gif").analysis.dig("steps", "ocr")
+
+      assert_includes ocr["result"], "FRAME 1"
+      assert_nil ocr["error"]
+    end
+
+    assert_includes @server.prompts.last, "FRAME 1"
+  end
+
+  test "a format tesseract and the model both read is still described" do
+    inference!
+    @server.answer_json({ summary: "A sign." })
+
+    analyze "animated.gif"
+
+    assert_equal 1, @server.attachments.last.length
+
+    Tenant.switch(@tenant) do
+      assert_equal "A sign.",
+                   reference("animated.gif").analysis.dig("steps", "summary", "result", "summary")
+    end
+  end
+
+  test "the formats vips reads are catalogued as images" do
+    assert_equal "image", Kind.for_filename("avatar.bmp")
+    assert_equal "image", Kind.for_filename("favicon.ico")
+    assert_equal "image", Kind.for_filename("scan.TIFF")
   end
 
   test "the description reaches the search index" do

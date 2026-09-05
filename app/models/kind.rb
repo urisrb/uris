@@ -3,6 +3,7 @@ module Kind
     "pdf" => "pdf",
     "png" => "image", "jpg" => "image", "jpeg" => "image", "gif" => "image",
     "webp" => "image", "heic" => "image", "tif" => "image", "tiff" => "image",
+    "bmp" => "image", "ico" => "image",
     "txt" => "text", "md" => "text", "rtf" => "text",
     "csv" => "data", "tsv" => "data", "json" => "data", "xml" => "data",
     "xlsx" => "xlsx", "xls" => "xlsx", "ods" => "xlsx",
