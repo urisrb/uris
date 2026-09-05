@@ -37,6 +37,9 @@ ENV RAILS_ENV="production" \
 # Node, for the Vite build.
 FROM docker.io/library/node:$NODE_VERSION-slim AS node
 
+FROM scratch AS masks-client
+COPY vendor/.keep /
+
 # Throw-away build stage to reduce size of final image
 FROM base AS build
 
@@ -53,25 +56,28 @@ RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
     ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 # Install application gems
-COPY vendor/* ./vendor/
+ARG MASKS_CLIENT_PATH=""
+ENV MASKS_CLIENT_PATH=${MASKS_CLIENT_PATH}
+
 COPY --from=masks-client . /masks/client
+COPY vendor/* ./vendor/
 COPY Gemfile Gemfile.lock ./
 
-RUN bundle install && \
+RUN if [ -n "${MASKS_CLIENT_PATH}" ]; then rm -f Gemfile.lock && export BUNDLE_DEPLOYMENT=0; fi && \
+    bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git && \
     # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
     bundle exec bootsnap precompile -j 1 --gemfile
 
 # Install node modules
-COPY --from=masks-web . /masks/web
-RUN npm --prefix /masks/web ci && npm --prefix /masks/web run build
-
 COPY package.json package-lock.json ./
 COPY web/package.json ./web/package.json
 RUN npm ci
 
 # Copy application code
 COPY . .
+
+RUN if [ -n "${MASKS_CLIENT_PATH}" ]; then rm -f Gemfile.lock && BUNDLE_DEPLOYMENT=0 bundle install; fi
 
 # schema.graphql and the generated TypeScript are build products, not source, so
 # a clean checkout has neither and the Vite build fails without them.
@@ -92,6 +98,9 @@ RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile && \
 
 # Final stage for app image
 FROM base
+
+ARG MASKS_CLIENT_PATH=""
+ENV MASKS_CLIENT_PATH=${MASKS_CLIENT_PATH}
 
 # Run and own only the runtime files as a non-root user for security
 RUN groupadd --system --gid 1000 rails && \

@@ -6,6 +6,8 @@
 
 # Ignore bundler config.
 /.bundle
+/Gemfile.local
+/Gemfile.local.lock
 
 # Ignore all environment files — every host, domain, and credential arrives
 # through one of these, which is what keeps bin/check-boundary meaningful.

@@ -22,7 +22,15 @@ gem "jwt"
 # Both halves of the auth client. It verifies the tokens this app accepts, and
 # spends the ones it holds — keeping them in the session rather than in the
 # browser. The Rails engine inside it mounts itself.
-gem "masks", path: "../masks/client"
+masks_client = ENV["MASKS_CLIENT_PATH"].to_s
+
+if File.file?(File.join(masks_client, "masks.gemspec"))
+  gem "masks", path: masks_client
+elsif Bundler.default_gemfile.basename.to_s == "Gemfile.local"
+  gem "masks", path: "../masks/client"
+else
+  gem "masks", "~> 0.5"
+end
 
 # Vite builds the React SPA [https://vite-ruby.netlify.app/]
 gem "vite_rails"
