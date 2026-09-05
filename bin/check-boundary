@@ -16,7 +16,7 @@ PATTERNS='geiger\.to|home-server|\bvultr\b|\bmbp\b|100\.[0-9]+\.[0-9]+\.[0-9]+'
 checked() {
   git ls-files -z --cached --others --exclude-standard | while IFS= read -r -d '' file; do
     case "$file" in
-      *.md|bin/check-boundary) continue ;;
+      *.md|LICENSE|*/LICENSE|NOTICE|*/NOTICE|bin/check-boundary) continue ;;
       plans/*|node_modules/*|*/node_modules/*|tmp/*|*/tmp/*|vendor/*|*/vendor/*) continue ;;
     esac
 
