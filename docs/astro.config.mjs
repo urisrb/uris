@@ -7,11 +7,11 @@ export default defineConfig({
   image: { service: passthroughImageService() },
   integrations: [
     starlight({
-      title: "Uris",
+      title: "uris",
       logo: {
         dark: "./src/assets/dark-logo.svg",
         light: "./src/assets/light-logo.svg",
-        alt: "Uris",
+        alt: "uris",
       },
       description:
         "A data unifier — one searchable index across everything you own, wherever it lives, with a way back out.",

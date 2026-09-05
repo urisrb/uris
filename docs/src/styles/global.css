@@ -1,39 +1,128 @@
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+/* ---- The app's design system ------------------------------------------- */
+/* Kept in step with app/javascript/styles/things.css. The docs, the signed-out
+   Gate and the signed-in app are three surfaces of one product, so the tokens
+   are declared here in the same names and mapped onto Starlight's below. */
+
 :root {
-  --sl-color-accent-low: #16302a;
-  --sl-color-accent: #2f8f74;
-  --sl-color-accent-high: #b9e4d5;
-  --sl-color-white: #f4f8f6;
-  --sl-color-gray-1: #dde6e2;
-  --sl-color-gray-2: #b3c2bc;
-  --sl-color-gray-3: #7c8d87;
-  --sl-color-gray-4: #4a5a54;
-  --sl-color-gray-5: #2a3733;
-  --sl-color-gray-6: #1a2523;
-  --sl-color-black: #101817;
+  --void: #080d0f;
+  --base: #0d1417;
+  --raised: #131f23;
+  --lifted: #1a282d;
+  --line: #1e2d33;
+  --edge: #2b3f47;
+  --muted: #6f8b95;
+  --soft: #9db7bf;
+  --text: #d9e8eb;
+  --bright: #f3fbfc;
+
+  --brass: #ffc247;
+  --brass-dim: #a97d1f;
+
+  --k-pdf: #e2705f;
+  --k-email: #dd8a52;
+  --k-xlsx: #a3b45c;
+  --k-contact: #6fb583;
+  --k-data: #4fb39b;
+  --k-calendar: #4fabb4;
+  --k-text: #5f9fd0;
+  --k-doc: #8093cc;
+  --k-image: #a684c4;
+  --k-pkpass: #c67d9e;
+  --k-file: #7d8f96;
+
+  --sl-font:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  --sl-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-:root[data-theme="light"] {
-  --sl-color-accent-low: #d5ece3;
-  --sl-color-accent: #1d6b55;
-  --sl-color-accent-high: #123f33;
-  --sl-color-white: #101817;
-  --sl-color-gray-1: #2a3733;
-  --sl-color-gray-2: #4a5a54;
-  --sl-color-gray-3: #6d7d77;
-  --sl-color-gray-4: #a5b4ae;
-  --sl-color-gray-5: #dbe4e0;
-  --sl-color-gray-6: #edf2f0;
-  --sl-color-gray-7: #f5f9f7;
+/* Dark is the app's only mode, so it is the one the docs match exactly.
+   :root:root outranks Starlight's own :root defaults, which the bundler may
+   emit after this file. */
+:root:root {
+  --sl-color-accent-low: #3a2c0c;
+  --sl-color-accent: var(--brass-dim);
+  --sl-color-accent-high: var(--brass);
+
+  --sl-color-white: var(--bright);
+  --sl-color-gray-1: var(--text);
+  --sl-color-gray-2: var(--soft);
+  --sl-color-gray-3: var(--muted);
+  --sl-color-gray-4: var(--edge);
+  --sl-color-gray-5: var(--line);
+  --sl-color-gray-6: var(--raised);
+  --sl-color-black: var(--void);
+
+  --sl-color-bg-nav: var(--base);
+  --sl-color-bg-sidebar: var(--base);
+  --sl-color-hairline-shade: var(--line);
+}
+
+/* Light reads off the same hues, darkened onto a warm-neutral ground rather
+   than inverted, so the kind colours stay recognisable. */
+:root:root[data-theme="light"] {
+  --sl-color-accent-low: #f3e4bd;
+  --sl-color-accent: #7d5a11;
+  --sl-color-accent-high: #4a350a;
+
+  --sl-color-white: #0b1214;
+  --sl-color-gray-1: #162327;
+  --sl-color-gray-2: #33474e;
+  --sl-color-gray-3: #5c757e;
+  --sl-color-gray-4: #93a9b0;
+  --sl-color-gray-5: #d3dfe2;
+  --sl-color-gray-6: #eef3f4;
+  --sl-color-gray-7: #f7fafa;
   --sl-color-black: #ffffff;
+
+  --sl-color-bg-nav: #f7fafa;
+  --sl-color-bg-sidebar: #f7fafa;
+  --sl-color-hairline-shade: #d3dfe2;
+
+  --k-pdf: #b8452f;
+  --k-email: #a85c1c;
+  --k-xlsx: #5f6d24;
+  --k-contact: #2f7a48;
+  --k-data: #17705f;
+  --k-calendar: #1a6a75;
+  --k-text: #2a5f8f;
+  --k-doc: #46579b;
+  --k-image: #6d4a92;
+  --k-pkpass: #8f4468;
+  --k-file: #4c5b61;
 }
 
 .rejects {
-  --sl-color-asides-text-accent: var(--sl-color-red);
-  --sl-color-asides-border: var(--sl-color-red);
+  --sl-color-asides-text-accent: var(--k-pdf);
+  --sl-color-asides-border: var(--k-pdf);
 }
 
-table code {
-  white-space: nowrap;
+/* Asides carry kind colours rather than Starlight's stock indigo and green.
+   Its own rules already read these tokens, so retint the tokens instead of
+   fighting .starlight-aside--note for the background at equal specificity. */
+:root:root {
+  --sl-color-blue-low: color-mix(in srgb, var(--k-text) 12%, var(--sl-color-black));
+  --sl-color-blue: var(--k-text);
+  --sl-color-blue-high: var(--k-text);
+
+  --sl-color-purple-low: color-mix(in srgb, var(--k-data) 12%, var(--sl-color-black));
+  --sl-color-purple: var(--k-data);
+  --sl-color-purple-high: var(--k-data);
+
+  --sl-color-green-low: color-mix(in srgb, var(--k-contact) 12%, var(--sl-color-black));
+  --sl-color-green: var(--k-contact);
+  --sl-color-green-high: var(--k-contact);
+
+  --sl-color-orange-low: color-mix(in srgb, var(--brass) 12%, var(--sl-color-black));
+  --sl-color-orange: var(--brass);
+  --sl-color-orange-high: var(--brass);
+
+  --sl-color-red-low: color-mix(in srgb, var(--k-pdf) 12%, var(--sl-color-black));
+  --sl-color-red: var(--k-pdf);
+  --sl-color-red-high: var(--k-pdf);
 }
 
 /* ---- Layout ------------------------------------------------------------ */
@@ -56,10 +145,12 @@ table code {
 }
 
 .sl-markdown-content th {
+  font-family: var(--sl-font-mono);
   font-size: var(--sl-text-xs);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--sl-color-gray-3);
+  font-weight: 500;
 }
 
 /* In a headerless table the first column is the term being defined. */
@@ -75,13 +166,34 @@ table code {
 /* Sections should read as groups: more air above a heading than below it. */
 .sl-markdown-content :is(h2, h3, h4) {
   margin-block: 2.25em 0.65em;
+  letter-spacing: -0.02em;
 }
 
-/* Bare fences carry schematics — route tables, column lists — not code. */
 .sl-markdown-content .expressive-code {
   margin-block: 1.4rem;
 }
 
 .sl-markdown-content :not(pre) > code {
   font-size: 0.9em;
+}
+
+/* ---- The spectrum ------------------------------------------------------ */
+/* The eleven kinds, in KIND_ORDER — the same bar the app draws on its Gate. */
+
+.spectrum {
+  display: flex;
+  gap: 3px;
+  height: 5px;
+  margin: 0 0 2rem;
+}
+
+.spectrum span {
+  flex: 1;
+  border-radius: 999px;
+  background: var(--tone);
+}
+
+.site-title {
+  letter-spacing: -0.035em;
+  font-weight: 700;
 }
