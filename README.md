@@ -7,7 +7,7 @@ Drive search only searches Drive. Gmail search only searches Gmail. thingies sea
 them, with analysis attached, and can hand the bytes back as an export or a local copy.
 
 ```
-sync       resource → catalog        pull references in          ✓ s3
+sync       resource → catalog        pull references in          ✓ eight of ten types
 analyze    content  → understanding  per thing, by kind          ✓ summaries, vision
 search     catalog  → you            one index across everything ✓
 export     catalog  → resource       bytes back out              ✓
@@ -51,7 +51,7 @@ Single-tenant assumptions do not announce themselves — they leak silently thro
 forgot, months later. So there are two tenants from the first seed, and every scenario in the suite
 should be exercised against both.
 
-Isolation has three layers, and the tests assert each one separately:
+Isolation has four layers, and the tests assert each one separately:
 
 | Layer       | Enforced by                     | Fails how                                |
 | ----------- | ------------------------------- | ---------------------------------------- |
@@ -59,13 +59,16 @@ Isolation has three layers, and the tests assert each one separately:
 | database    | Postgres RLS, `FORCE` + policy  | silently, if the app role is a superuser |
 | search      | a per-tenant filtered alias     | invisibly — RLS cannot reach the index   |
 | cable       | `subscription_scope :tenant_id` | two tenants sharing one stream name      |
-| API         | tenant-checked `object_from_id` | `node(id:)` walks out of the tenant      |
 
 Two of those have a trap worth knowing about. A table's **owner bypasses RLS** unless the table is
 marked `FORCE ROW LEVEL SECURITY`, and a **superuser bypasses it regardless** — which is why
-`compose.yml` creates a separate non-superuser role for the app rather than letting Rails connect as
-`POSTGRES_USER`. Both were caught by `test/models/tenant_isolation_test.rb` failing, which is what
-that file is for.
+`db/docker-entrypoint-initdb.d`, mounted by `compose.yml`, creates a separate non-superuser role for
+the app rather than letting Rails connect as `POSTGRES_USER`. Both were caught by
+`test/models/tenant_isolation_test.rb` failing, which is what that file is for.
+
+There is no `node(id:)` field and no `object_from_id`, so nothing walks the graph by global id. Add
+one and it needs its own tenant check and its own test, since it would bypass the associations a
+default scope reaches through.
 
 ## Two interfaces, one domain layer
 
@@ -82,7 +85,7 @@ drift from the API without the types going red first. `bin/dev` keeps both watch
 
 ## The endpoint
 
-`POST /mcp` — stateless Streamable HTTP, eight tools, one bearer token per call.
+`POST /mcp` — stateless Streamable HTTP, eleven tools, one bearer token per call.
 
 |                     |                     |
 | ------------------- | ------------------- |
@@ -91,9 +94,12 @@ drift from the API without the types going red first. `bin/dev` keeps both watch
 | `analyze_thing`     | `things:write`      |
 | `list_resources`    | `resources:read`    |
 | `describe_resource` | `resources:read`    |
+| `check_resource`    | `resources:read`    |
+| `list_runs`         | `resources:read`    |
 | `command_resource`  | `resources:command` |
 | `sync_resource`     | `resources:command` |
 | `export_things`     | `resources:command` |
+| `cancel_run`        | `resources:command` |
 
 **The token decides which tools exist.** The server is built per request from the caller's grant, so
 a tool outside it is absent from `tools/list` and answers `Tool not found` if called anyway — there
