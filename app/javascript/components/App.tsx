@@ -4,6 +4,7 @@ import {
   IconLayoutGrid,
   IconProgressCheck,
   IconSearch,
+  IconSettings,
 } from '@tabler/icons-react'
 import { CatalogDocument } from '@thingies/client'
 import { useQuery } from '@thingies/client/react'
@@ -21,6 +22,7 @@ import { tone } from '../kinds'
 import { Catalog } from './Catalog'
 import { Resources } from './Resources'
 import { Runs } from './Runs'
+import { Settings } from './Settings'
 import { Spectrum } from './Spectrum'
 import { ThingDetail } from './ThingDetail'
 import { UploadsProvider, useUploads } from './Uploads'
@@ -29,6 +31,7 @@ const SECTIONS = [
   { to: '/', label: 'Catalog', icon: IconLayoutGrid },
   { to: '/resources', label: 'Resources', icon: IconDatabase },
   { to: '/runs', label: 'Runs', icon: IconProgressCheck },
+  { to: '/settings', label: 'Settings', icon: IconSettings },
 ]
 
 export function App() {
@@ -142,6 +145,9 @@ function Shell({
           </Menu.Target>
           <Menu.Dropdown>
             {tenant && <Menu.Label>{tenant}</Menu.Label>}
+            <Menu.Item component={Link} to="/settings">
+              Settings
+            </Menu.Item>
             <Menu.Item onClick={logout}>Sign out</Menu.Item>
             <Menu.Item onClick={logoutEverywhere}>
               Sign out everywhere
@@ -160,6 +166,17 @@ function Shell({
           <Route path="/things/:id" element={<ThingDetail />} />
           <Route path="/resources" element={<Resources />} />
           <Route path="/runs" element={<Runs />} />
+          <Route
+            path="/settings"
+            element={
+              <Settings
+                who={who}
+                tenant={tenant}
+                logout={logout}
+                logoutEverywhere={logoutEverywhere}
+              />
+            }
+          />
         </Routes>
       </main>
     </div>

@@ -282,6 +282,42 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.settings (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    subject character varying,
+    key character varying NOT NULL,
+    value jsonb,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.settings FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: settings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.settings_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: settings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.settings_id_seq OWNED BY public.settings.id;
+
+
+--
 -- Name: tenants; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -439,6 +475,13 @@ ALTER TABLE ONLY public.runs ALTER COLUMN id SET DEFAULT nextval('public.runs_id
 
 
 --
+-- Name: settings id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settings ALTER COLUMN id SET DEFAULT nextval('public.settings_id_seq'::regclass);
+
+
+--
 -- Name: tenants id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -521,6 +564,14 @@ ALTER TABLE ONLY public.runs
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: settings settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settings
+    ADD CONSTRAINT settings_pkey PRIMARY KEY (id);
 
 
 --
@@ -695,6 +746,20 @@ CREATE INDEX index_runs_on_tenant_id_and_status_and_id ON public.runs USING btre
 
 
 --
+-- Name: index_settings_on_scope; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_settings_on_scope ON public.settings USING btree (tenant_id, subject, key) NULLS NOT DISTINCT;
+
+
+--
+-- Name: index_settings_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_settings_on_tenant_id ON public.settings USING btree (tenant_id);
+
+
+--
 -- Name: index_tenants_on_subdomain; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -793,6 +858,14 @@ ALTER TABLE ONLY public.runs
 
 ALTER TABLE ONLY public.gates
     ADD CONSTRAINT fk_rails_1402937732 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: settings fk_rails_3a7e6495d2; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.settings
+    ADD CONSTRAINT fk_rails_3a7e6495d2 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -920,6 +993,12 @@ ALTER TABLE public.resources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.runs ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: settings; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: audit_events tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -962,6 +1041,13 @@ CREATE POLICY tenant_isolation ON public.runs USING ((tenant_id = (NULLIF(curren
 
 
 --
+-- Name: settings tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
 -- Name: thing_references tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -994,6 +1080,7 @@ ALTER TABLE public.things ENABLE ROW LEVEL SECURITY;
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260905120000'),
 ('20260831170000'),
 ('20260831160000'),
 ('20260831130000'),

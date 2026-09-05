@@ -1,0 +1,20 @@
+query Settings {
+  settings {
+    key
+    level
+    value
+    defaultValue
+    allowed
+    label
+    note
+  }
+}
+
+mutation SetSetting($key: String!, $value: String!) {
+  setSetting(input: { key: $key, value: $value }) {
+    setting {
+      key
+      value
+    }
+  }
+}

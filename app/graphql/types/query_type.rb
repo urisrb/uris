@@ -8,6 +8,21 @@ module Types
       context[:tenant]
     end
 
+    field :settings, [ Types::SettingType ], null: false, grants: "settings:read"
+
+    # What a caller cannot change it has no business reading, so the list is
+    # what this token's scopes reach — today that is the personal ones.
+    def settings
+      grant = context[:grant]
+      subject = grant.subject
+
+      Setting::LEVELS.flat_map { |level| Setting.at(level) }
+                     .select { |definition| grant.permits?(definition.reads) }
+                     .map do |definition|
+        definition.to_h.merge(value: Setting.read(definition.key, subject: subject))
+      end
+    end
+
     field :thing, Types::ThingType, null: true, grants: "things:read" do
       argument :id, ID, required: true
     end
