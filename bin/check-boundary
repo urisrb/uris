@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Enforces the boundary rule (PLAN.md §3): nothing in a shareable repo may name
-# a host, a domain, or a secret. Those facts live in geiger-to/home.
+# a host, a domain, or a secret. Those facts live in the private infra repo,
+# which supplies the domains it owns via BOUNDARY_PATTERNS or .boundary-patterns.
 #
 # Design docs have to name the thing they forbid, so *.md and plans/ are
 # excluded. Everything that gets executed, templated, or deployed is checked.
@@ -8,7 +9,15 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-PATTERNS='geiger\.to|home-server|\bvultr\b|\bmbp\b|100\.[0-9]+\.[0-9]+\.[0-9]+'
+PATTERNS='home-server|\bvultr\b|\bmbp\b|100\.[0-9]+\.[0-9]+\.[0-9]+'
+
+supplied=$(
+  { [ -n "${BOUNDARY_PATTERNS:-}" ] && printf '%s\n' "$BOUNDARY_PATTERNS"
+    [ -f .boundary-patterns ] && cat .boundary-patterns; } |
+  grep -vE '^[[:space:]]*(#|$)' | paste -sd '|' -
+)
+
+[ -n "$supplied" ] && PATTERNS="$PATTERNS|$supplied"
 
 # Only files git would carry: tracked, plus untracked ones that are not
 # ignored. Anything .gitignore already excludes — vendored suites, build
