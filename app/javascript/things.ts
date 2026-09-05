@@ -1,5 +1,5 @@
-import { createThings, metaCSRFToken } from '@things/client'
-import { actionCableExchange } from '@things/client/actioncable'
+import { createThings, metaCSRFToken } from '@thingies/client'
+import { actionCableExchange } from '@thingies/client/actioncable'
 import { session } from './hooks/useSession'
 
 export const things = createThings({

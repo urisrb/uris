@@ -17,8 +17,8 @@ import {
   AnalyzeThingDocument,
   SplitReferenceDocument,
   ThingDocument,
-} from '@things/client'
-import { useMutation, useQuery } from '@things/client/react'
+} from '@thingies/client'
+import { useMutation, useQuery } from '@thingies/client/react'
 import { Link, useParams } from 'react-router-dom'
 import { KindBadge } from './KindBadge'
 import { Thumb } from './Thumb'

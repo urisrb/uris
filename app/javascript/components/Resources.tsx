@@ -24,8 +24,8 @@ import {
   SetDefaultStorageDocument,
   SetSyncIntervalDocument,
   SyncResourceDocument,
-} from '@things/client'
-import { useMutation, useQuery } from '@things/client/react'
+} from '@thingies/client'
+import { useMutation, useQuery } from '@thingies/client/react'
 import { useState } from 'react'
 
 function Health({

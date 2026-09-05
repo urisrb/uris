@@ -13,8 +13,8 @@ import {
   Text,
   Title,
 } from '@mantine/core'
-import { CancelRunDocument, RunsDocument } from '@things/client'
-import { useMutation, useQuery } from '@things/client/react'
+import { CancelRunDocument, RunsDocument } from '@thingies/client'
+import { useMutation, useQuery } from '@thingies/client/react'
 import { useEffect, useState } from 'react'
 
 const STATUSES = ['queued', 'running', 'done', 'failed', 'cancelled']

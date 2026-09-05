@@ -17,8 +17,8 @@ import {
   CatalogDocument,
   SearchDocument,
   ThingAnalyzedDocument,
-} from '@things/client'
-import { useQuery, useSubscription } from '@things/client/react'
+} from '@thingies/client'
+import { useQuery, useSubscription } from '@thingies/client/react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { KindBadge } from './KindBadge'
