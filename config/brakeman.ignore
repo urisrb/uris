@@ -1,0 +1,9 @@
+{
+  "ignored_warnings": [
+    {
+      "fingerprint": "a1ed194fd92d300882baeaf6ed52ead2f6b615fada0bbc758a5b8cdb19b35525",
+      "note": "The target cannot leave the configured auth domain. Current.issuer is format(MASKS_ISSUER_TEMPLATE, subdomain:) over a fixed template, and Granted#authorize runs as a before_action that raises Grant::Denied unless the host resolves to a seeded tenant — so the subdomain reaching this line is a value the database already vouched for, not the raw Host header. allow_other_host is required because the broker is masks, which is a different origin by design."
+    }
+  ],
+  "brakeman_version": "8.0.6"
+}
