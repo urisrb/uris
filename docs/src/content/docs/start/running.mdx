@@ -30,12 +30,12 @@ bypasses row-level security unconditionally — see [Tenancy](/concepts/tenancy/
 `bin/setup` seeds two. Add them to `/etc/hosts`:
 
 ```
-127.0.0.1 things.test demo.things.test acme.things.test
+127.0.0.1 uris.test demo.uris.test acme.uris.test
 ```
 
-Then [demo.things.test:4242](http://demo.things.test:4242) and
-[acme.things.test:4242](http://acme.things.test:4242). The suffix is `THINGS_HOST_SUFFIX`
-(`things.test`) and the port is `PORT` (4242).
+Then [demo.uris.test:4242](http://demo.uris.test:4242) and
+[acme.uris.test:4242](http://acme.uris.test:4242). The suffix is `URIS_HOST_SUFFIX`
+(`uris.test`) and the port is `PORT` (4242).
 
 Two tenants exist from the first seed so that every scenario in the suite can be exercised against
 both.

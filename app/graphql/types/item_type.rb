@@ -2,7 +2,7 @@
 
 module Types
   class ItemType < Types::BaseObject
-    grants "items:catalog:read"
+    grants "uris:catalog:read"
 
     SUMMARY = 400
 

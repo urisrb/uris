@@ -5,7 +5,7 @@ class SignInTest < ActionDispatch::IntegrationTest
     @tenant = Tenant.create!(subdomain: "signin-#{SecureRandom.hex(4)}", name: "Sign in")
     connect!(@tenant)
 
-    Tenant.switch(@tenant) { @item = create_thing(kind: "pdf", title: "An invoice") }
+    Tenant.switch(@tenant) { @item = create_item(kind: "pdf", title: "An invoice") }
   end
 
   test "starting a sign-in redirects to this tenant's issuer with pkce" do
@@ -20,7 +20,7 @@ class SignInTest < ActionDispatch::IntegrationTest
     assert_equal "S256", query["code_challenge_method"]
     assert query["state"].present?
     assert query["nonce"].present?
-    assert_includes query["scope"].split, "items:catalog:read"
+    assert_includes query["scope"].split, "uris:catalog:read"
     assert_equal "http://#{@tenant.subdomain}.uris.test/mcp", query["resource"]
     assert_not_includes response.location, "code_verifier"
   end
@@ -45,7 +45,7 @@ class SignInTest < ActionDispatch::IntegrationTest
     assert_equal "owner", account["nickname"]
     assert_equal "owner@example.invalid", account["email"]
     assert_equal @tenant.subdomain, account.dig("tenant", "subdomain")
-    assert_includes account["scopes"], "items:catalog:read"
+    assert_includes account["scopes"], "uris:catalog:read"
     assert_nil account["access_token"], "a token must never reach the browser"
   end
 
@@ -133,18 +133,18 @@ class SignInTest < ActionDispatch::IntegrationTest
   end
 
   test "the scopes the session carries are the ones the issuer granted" do
-    sign_in(scopes: %w[items:catalog:read])
+    sign_in(scopes: %w[uris:catalog:read])
 
     get "/auth/session", headers: host
 
-    assert_equal [ "items:catalog:read" ], response.parsed_body["scopes"] & Grant::SCOPES
+    assert_equal [ "uris:catalog:read" ], response.parsed_body["scopes"] & Grant::SCOPES
 
     post "/graphql",
          params: { query: "mutation($id: ID!) { analyzeItem(input: { id: $id }) { run { id } } }",
                    variables: { id: @item.id.to_s } },
          headers: host
 
-    assert_match(/does not carry items:catalog:write/,
+    assert_match(/does not carry uris:catalog:write/,
                  response.parsed_body.dig("errors", 0, "message"))
   end
 

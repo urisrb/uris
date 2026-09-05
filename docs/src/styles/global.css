@@ -2,7 +2,7 @@
 @import "@fontsource/ibm-plex-mono/500.css";
 
 /* ---- The app's design system ------------------------------------------- */
-/* Kept in step with app/javascript/styles/things.css. The docs, the signed-out
+/* Kept in step with app/javascript/styles/items.css. The docs, the signed-out
    Gate and the signed-in app are three surfaces of one product, so the tokens
    are declared here in the same names and mapped onto Starlight's below. */
 

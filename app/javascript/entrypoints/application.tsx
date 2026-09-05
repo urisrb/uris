@@ -2,7 +2,7 @@ import '@mantine/core/styles.css'
 import '../styles/uris.css'
 
 import { MantineProvider } from '@mantine/core'
-import { UrisProvider } from '@uris/client/react'
+import { UrisProvider } from '@uris-to/client/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'

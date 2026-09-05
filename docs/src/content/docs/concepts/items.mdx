@@ -1,24 +1,24 @@
 ---
-title: Things
-description: One thing row, one reference per place the bytes live, and the kind that decides how it is analyzed.
+title: Items
+description: One item row, one reference per place the bytes live, and the kind that decides how it is analyzed.
 ---
 
-A thing is a row in `things` with one `thing_references` row per place its bytes live. The bytes
+A item is a row in `items` with one `item_references` row per place its bytes live. The bytes
 themselves stay in the resource they came from.
 
-`app/models/thing.rb` · `app/models/thing_reference.rb`
+`app/models/item.rb` · `app/models/reference.rb`
 
-## Thing
+## Item
 
 | | |
 | --- | --- |
 | `kind` | what it is — `pdf`, `email`, `image`… Required |
 | `title` | display name, usually the basename of the locator key |
-| `parent_id` | set on a thing extracted from another, such as an email attachment |
+| `parent_id` | set on a item extracted from another, such as an email attachment |
 
-`Thing#analyzed_at` is the maximum `analyzed_at` across its references, not a column.
+`Item#analyzed_at` is the maximum `analyzed_at` across its references, not a column.
 
-## ThingReference
+## Reference
 
 | | |
 | --- | --- |
@@ -29,10 +29,10 @@ themselves stay in the resource they came from.
 | `changed_at` | set when `version` changes, which also clears `analyzed_at` |
 | `analysis` | the step machine's record — see [Analysis](/concepts/analysis/) |
 
-`ThingReference.discover!` is the sync path: it finds or creates the reference, creates a thing if
+`Reference.discover!` is the sync path: it finds or creates the reference, creates a item if
 there is not one yet, and calls `note_version!`. A changed version re-opens analysis.
 
-`ThingReference.record!` is the export path: it attaches a reference to a thing you already have,
+`Reference.record!` is the export path: it attaches a reference to a item you already have,
 and records `source_version` so `stale_against?` can tell whether the copy has fallen behind.
 
 ## Kind
@@ -60,19 +60,19 @@ Kind is not resource type. `pdf` is a kind; `s3` is a [type](/concepts/resources
 
 An analyzer that declares `has_children?` returns child bodies from `children_of`, and
 `Analyzer::Base` writes them into a `Resource::Database` resource keyed `children` before analyzing
-the parent. `Thing::DEPTH` caps the chain at 4.
+the parent. `Item::DEPTH` caps the chain at 4.
 
-`Thing#body_text` is the union of the strings extracted from a thing's own references and its
+`Item#body_text` is the union of the strings extracted from a item's own references and its
 children's, so an email matches on a word that only appears in an attached PDF.
 
-`Thing#children_ready?` is true when every child has an `analyzed_at`. A parent that found children
-returns without analyzing; the last child to finish re-enqueues it (`AnalyzeThingJob#wake_parent`).
+`Item#children_ready?` is true when every child has an `analyzed_at`. A parent that found children
+returns without analyzing; the last child to finish re-enqueues it (`AnalyzeItemJob#wake_parent`).
 
 ## Merging
 
-`Thing#merge!` moves every reference off another thing onto this one.
+`Item#merge!` moves every reference off another item onto this one.
 `Blocking` groups candidates, `ProposeMergesJob` writes `MergeProposal` rows, and the GraphQL
-mutations `mergeThings`, `settleMergeProposal` and `splitReference` act on them.
+mutations `mergeItems`, `settleMergeProposal` and `splitReference` act on them.
 
 :::note[TODO]
 Merging is reachable over GraphQL only. There is no MCP tool for it.
@@ -80,14 +80,14 @@ Merging is reachable over GraphQL only. There is no MCP tool for it.
 
 ## Deletion
 
-Deleting a thing and deleting the bytes it points at are separate operations.
+Deleting a item and deleting the bytes it points at are separate operations.
 
 | | Does | Reversible by |
 | --- | --- | --- |
-| destroy the thing | drops the row, its references and its analysis | re-syncing the resource |
+| destroy the item | drops the row, its references and its analysis | re-syncing the resource |
 | delete the object | removes the bytes from the resource | nothing |
 
-`Thing` `dependent: :destroy` cascades to references and children. Nothing in the catalog deletes a
+`Item` `dependent: :destroy` cascades to references and children. Nothing in the catalog deletes a
 resource's objects.
 
 ## Scale

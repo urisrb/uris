@@ -35,10 +35,10 @@ class FilesystemResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       assert_equal 3, Item.count
-      assert_equal "pdf", thing_at("invoices/march.pdf").kind
-      assert_equal "march.pdf", thing_at("invoices/march.pdf").title
-      assert_equal "image", thing_at("photos/beach.jpg").kind
-      assert_equal "text", thing_at("notes.txt").kind
+      assert_equal "pdf", item_at("invoices/march.pdf").kind
+      assert_equal "march.pdf", item_at("invoices/march.pdf").title
+      assert_equal "image", item_at("photos/beach.jpg").kind
+      assert_equal "text", item_at("notes.txt").kind
     end
   end
 
@@ -46,7 +46,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal "remember the milk", thing_at("notes.txt").references.first.download.read
+      assert_equal "remember the milk", item_at("notes.txt").references.first.download.read
     end
   end
 
@@ -135,7 +135,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
       ExportItemsJob.perform_now(@tenant.id, destination.id, {})
 
       assert_equal "remember the milk", (backup_root + @resource.key + "notes.txt").read
-      assert_equal 2, thing_at("notes.txt").references.count
+      assert_equal 2, item_at("notes.txt").references.count
     end
   end
 
@@ -155,7 +155,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
       target.write(contents)
     end
 
-    def thing_at(locator_key)
+    def item_at(locator_key)
       Item.joins(:references).find_by!(item_references: { locator_key: locator_key })
     end
 end

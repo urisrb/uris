@@ -1,7 +1,7 @@
 module Tool
   class AnalyzeItem < Base
     tool_name "analyze_item"
-    scope "items:catalog:write"
+    scope "uris:catalog:write"
     starts_runs true
 
     description <<~TEXT

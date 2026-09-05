@@ -2,20 +2,20 @@ class Grant
   class Denied < StandardError; end
 
   DESCRIBED = {
-    "items:catalog:read" => "Search your catalog and read what is in it",
-    "items:catalog:write" => "Add to your catalog, and run analysis over it",
-    "items:resources:read" => "List the places your items live",
-    "items:resources:command" => "Act on those places — sync, fetch, and export",
-    "items:settings:read" => "Read how you have set items up for yourself",
-    "items:settings:write" => "Change how items behaves for you",
-    "items:settings:admin" => "Change how items behaves for everyone here"
+    "uris:catalog:read" => "Search your catalog and read what is in it",
+    "uris:catalog:write" => "Add to your catalog, and run analysis over it",
+    "uris:resources:read" => "List the places your items live",
+    "uris:resources:command" => "Act on those places — sync, fetch, and export",
+    "uris:settings:read" => "Read how you have set uris up for yourself",
+    "uris:settings:write" => "Change how uris behaves for you",
+    "uris:settings:admin" => "Change how uris behaves for everyone here"
   }.freeze
 
-  NAMESPACE = "items:".freeze
+  NAMESPACE = "uris:".freeze
 
   SCOPES = DESCRIBED.keys.freeze
 
-  ADMINISTRATIVE = %w[items:settings:admin].freeze
+  ADMINISTRATIVE = %w[uris:settings:admin].freeze
 
   SIGN_IN = (SCOPES - ADMINISTRATIVE).freeze
 

@@ -1,7 +1,7 @@
 module Tool
   class GetItem < Base
     tool_name "get_item"
-    scope "items:catalog:read"
+    scope "uris:catalog:read"
 
     EXCERPT = 8_000
 

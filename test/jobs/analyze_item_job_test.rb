@@ -1,6 +1,6 @@
 require "test_helper"
 
-class AnalyzeThingJobTest < ActiveSupport::TestCase
+class AnalyzeItemJobTest < ActiveSupport::TestCase
   include ActiveJob::TestHelper
 
   setup do

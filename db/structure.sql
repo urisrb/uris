@@ -196,7 +196,7 @@ CREATE TABLE public.merge_proposals (
     tenant_id bigint NOT NULL,
     blocking_key character varying NOT NULL,
     reason character varying NOT NULL,
-    thing_ids jsonb DEFAULT '[]'::jsonb NOT NULL,
+    item_ids jsonb DEFAULT '[]'::jsonb NOT NULL,
     status character varying DEFAULT 'open'::character varying NOT NULL,
     settled_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
@@ -715,6 +715,13 @@ CREATE INDEX index_item_references_on_item_id ON public.item_references USING bt
 
 
 --
+-- Name: index_item_references_on_locator; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_item_references_on_locator ON public.item_references USING btree (tenant_id, resource_id, locator_key) WHERE (locator_key IS NOT NULL);
+
+
+--
 -- Name: index_item_references_on_resource_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -943,13 +950,6 @@ CREATE INDEX index_settings_on_tenant_id ON public.settings USING btree (tenant_
 --
 
 CREATE UNIQUE INDEX index_tenants_on_subdomain ON public.tenants USING btree (subdomain);
-
-
---
--- Name: index_thing_references_on_locator; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_thing_references_on_locator ON public.item_references USING btree (tenant_id, resource_id, locator_key) WHERE (locator_key IS NOT NULL);
 
 
 --
@@ -1233,6 +1233,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260905233000'),
 ('20260905230001'),
 ('20260905230000'),
 ('20260905130002'),

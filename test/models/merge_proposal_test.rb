@@ -12,7 +12,7 @@ class MergeProposalTest < ActiveSupport::TestCase
     end
   end
 
-  def thing_on(resource, key, kind: "pdf", version: nil, title: nil)
+  def item_on(resource, key, kind: "pdf", version: nil, title: nil)
     Tenant.switch(@tenant) do
       item = Item.create!(kind: kind, title: title || File.basename(key))
       Reference.create!(item: item, resource: resource, locator_key: key,
@@ -28,32 +28,32 @@ class MergeProposalTest < ActiveSupport::TestCase
   end
 
   test "the same name in two places is proposed, and a unique name is not" do
-    a = thing_on(@drive, "2024/invoices/march.pdf")
-    b = thing_on(@backup, "archive/march.pdf")
-    thing_on(@drive, "2024/invoices/april.pdf")
+    a = item_on(@drive, "2024/invoices/march.pdf")
+    b = item_on(@backup, "archive/march.pdf")
+    item_on(@drive, "2024/invoices/april.pdf")
 
     proposals = propose!
 
     assert_equal 1, proposals.length
     assert_equal "same-name", proposals.first.reason
-    assert_equal [ a.id, b.id ].sort, proposals.first.thing_ids
+    assert_equal [ a.id, b.id ].sort, proposals.first.item_ids
   end
 
   test "the same name of a different kind is not the same item" do
-    thing_on(@drive, "notes/report.pdf", kind: "pdf")
-    thing_on(@backup, "notes/report.pdf", kind: "text")
+    item_on(@drive, "notes/report.pdf", kind: "pdf")
+    item_on(@backup, "notes/report.pdf", kind: "text")
 
     assert_empty propose!
   end
 
   test "two references reporting the same version on the same type are proposed" do
-    a = thing_on(@drive, "one.pdf", version: "etag-abc")
-    b = thing_on(@backup, "quite-another-name.pdf", version: "etag-abc")
+    a = item_on(@drive, "one.pdf", version: "etag-abc")
+    b = item_on(@backup, "quite-another-name.pdf", version: "etag-abc")
 
     proposals = propose!.select { |held| held.reason == "same-bytes" }
 
     assert_equal 1, proposals.length
-    assert_equal [ a.id, b.id ].sort, proposals.first.thing_ids
+    assert_equal [ a.id, b.id ].sort, proposals.first.item_ids
   end
 
   test "the same version string from two different types is not a match" do
@@ -61,14 +61,14 @@ class MergeProposalTest < ActiveSupport::TestCase
       Resource::Filesystem.create!(key: "disk", details: { "root" => "/tmp" })
     end
 
-    thing_on(@drive, "one.pdf", version: "collides")
-    thing_on(other, "two.pdf", version: "collides")
+    item_on(@drive, "one.pdf", version: "collides")
+    item_on(other, "two.pdf", version: "collides")
 
     assert_empty propose!.select { |held| held.reason == "same-bytes" }
   end
 
   test "a item is never proposed against itself" do
-    item = thing_on(@drive, "one.pdf")
+    item = item_on(@drive, "one.pdf")
 
     Tenant.switch(@tenant) do
       Reference.create!(item: item, resource: @backup, locator_key: "one.pdf", locator: {})
@@ -78,8 +78,8 @@ class MergeProposalTest < ActiveSupport::TestCase
   end
 
   test "running twice leaves one proposal, not two" do
-    thing_on(@drive, "march.pdf")
-    thing_on(@backup, "march.pdf")
+    item_on(@drive, "march.pdf")
+    item_on(@backup, "march.pdf")
 
     propose!
     proposals = propose!
@@ -88,8 +88,8 @@ class MergeProposalTest < ActiveSupport::TestCase
   end
 
   test "accepting merges the references onto the oldest and settles the proposal" do
-    a = thing_on(@drive, "march.pdf")
-    b = thing_on(@backup, "march.pdf")
+    a = item_on(@drive, "march.pdf")
+    b = item_on(@backup, "march.pdf")
 
     proposal = propose!.first
 
@@ -105,8 +105,8 @@ class MergeProposalTest < ActiveSupport::TestCase
   end
 
   test "rejecting settles it and merges nothing" do
-    a = thing_on(@drive, "march.pdf")
-    b = thing_on(@backup, "march.pdf")
+    a = item_on(@drive, "march.pdf")
+    b = item_on(@backup, "march.pdf")
 
     proposal = propose!.first
 
@@ -120,8 +120,8 @@ class MergeProposalTest < ActiveSupport::TestCase
   end
 
   test "a proposal whose items have moved on is refused rather than acted on" do
-    thing_on(@drive, "march.pdf")
-    b = thing_on(@backup, "march.pdf")
+    item_on(@drive, "march.pdf")
+    b = item_on(@backup, "march.pdf")
 
     proposal = propose!.first
 
@@ -134,8 +134,8 @@ class MergeProposalTest < ActiveSupport::TestCase
   end
 
   test "one tenant's proposals are invisible to another" do
-    thing_on(@drive, "march.pdf")
-    thing_on(@backup, "march.pdf")
+    item_on(@drive, "march.pdf")
+    item_on(@backup, "march.pdf")
     propose!
 
     elsewhere = Tenant.create!(subdomain: "dedupe-#{SecureRandom.hex(4)}", name: "Elsewhere")
@@ -145,8 +145,8 @@ class MergeProposalTest < ActiveSupport::TestCase
   end
 
   test "a dry run reports what it would propose and writes nothing" do
-    thing_on(@drive, "march.pdf")
-    thing_on(@backup, "march.pdf")
+    item_on(@drive, "march.pdf")
+    item_on(@backup, "march.pdf")
 
     Tenant.switch(@tenant) { Gate.create!(key: "dedupe", enabled: true, live: false) }
 

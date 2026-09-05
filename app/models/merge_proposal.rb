@@ -13,11 +13,11 @@ class MergeProposal < ApplicationRecord
   scope :newest_first, -> { order(id: :desc) }
 
   def items
-    Item.where(id: thing_ids).order(:created_at, :id)
+    Item.where(id: item_ids).order(:created_at, :id)
   end
 
   def current?
-    items.count == thing_ids.length
+    items.count == item_ids.length
   end
 
   def accept!

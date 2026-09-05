@@ -14,12 +14,12 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) do
       @resource = Resource::S3.create!(key: "endpoint-bucket", name: "Bucket",
                                        details: { "endpoint" => "http://127.0.0.1:1" })
-      @item = create_thing(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf",
+      @item = create_item(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf",
                             resource: @resource, locator: { "bucket" => "endpoint-bucket" })
     end
 
     Tenant.switch(@other) do
-      @theirs = create_thing(kind: "pdf", title: "Their invoice", locator_key: "invoices/theirs.pdf")
+      @theirs = create_item(kind: "pdf", title: "Their invoice", locator_key: "invoices/theirs.pdf")
     end
 
     SearchIndex.refresh!
@@ -69,13 +69,13 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
   end
 
   test "the token decides which tools exist at all" do
-    names = call(@tenant, [ "items:catalog:read" ], "tools/list").dig("result", "tools").map { |t| t["name"] }
+    names = call(@tenant, [ "uris:catalog:read" ], "tools/list").dig("result", "tools").map { |t| t["name"] }
 
     assert_equal %w[search_items get_item], names
   end
 
   test "a tool outside the grant is not callable, not merely unlisted" do
-    reply = call(@tenant, [ "items:catalog:read" ], "tools/call",
+    reply = call(@tenant, [ "uris:catalog:read" ], "tools/call",
                  name: "sync_resource", arguments: { id: @resource.id.to_s })
 
     assert_nil reply["result"]

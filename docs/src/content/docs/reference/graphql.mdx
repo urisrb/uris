@@ -10,7 +10,7 @@ description: The browser's interface — the same Grant as MCP, generated TypeSc
 ## The schema
 
 ```ruby
-class ThingiesSchema < GraphQL::Schema
+class UrisSchema < GraphQL::Schema
   query(Types::QueryType)
   mutation(Types::MutationType)
   subscription(Types::SubscriptionType)
@@ -28,15 +28,15 @@ end
 
 | Field | Grant | |
 | --- | --- | --- |
-| `tenant` | `things:read` | who answered |
-| `thing(id:)` | `things:read` | one thing |
-| `things(kind:, resourceId:, after:, limit:)` | `things:read` | a page of the catalog |
-| `search(query:, kind:, limit:)` | `things:read` | the index, clamped to 1–200 |
-| `kinds` | `things:read` | counts grouped by kind |
+| `tenant` | `uris:read` | who answered |
+| `item(id:)` | `uris:read` | one item |
+| `items(kind:, resourceId:, after:, limit:)` | `uris:read` | a page of the catalog |
+| `search(query:, kind:, limit:)` | `uris:read` | the index, clamped to 1–200 |
+| `kinds` | `uris:read` | counts grouped by kind |
 | `resources` | `resources:read` | active resources, ordered by type and key |
-| `runs(kind:, status:, after:, limit:)` | `things:read` | a page of runs |
-| `mergeProposals(status:, after:, limit:)` | `things:read` | open proposals by default |
-| `auditEvents(action:, status:, subject:, after:, limit:)` | `things:read` | a page of the audit log |
+| `runs(kind:, status:, after:, limit:)` | `uris:read` | a page of runs |
+| `mergeProposals(status:, after:, limit:)` | `uris:read` | open proposals by default |
+| `auditEvents(action:, status:, subject:, after:, limit:)` | `uris:read` | a page of the audit log |
 
 Paged fields go through `Page.of(scope, after:, limit:)` — keyset pagination on the primary key,
 newest first, `limit` clamped to 1–200 with a default of 50. One extra row is fetched to answer
@@ -46,16 +46,16 @@ newest first, `limit` clamped to 1–200 with a default of 50. One extra row is 
 
 | Field | Grant |
 | --- | --- |
-| `analyzeThing` `mergeThings` `splitReference` `proposeMerges` `settleMergeProposal` | `things:write` |
-| `exportThings` `cancelRun` | `things:write` |
+| `analyzeItem` `mergeItems` `splitReference` `proposeMerges` `settleMergeProposal` | `uris:write` |
+| `exportItems` `cancelRun` | `uris:write` |
 | `syncResource` `checkResource` `setDefaultStorage` `setSyncInterval` | `resources:command` |
 
-`exportThings` and `cancelRun` take `things:write` here and `resources:command` over
+`exportItems` and `cancelRun` take `uris:write` here and `resources:command` over
 [MCP](/reference/tools/). Merging and dedupe are reachable here and nowhere else.
 
 ### Subscriptions
 
-`thingAnalyzed`, triggered by `Thing#announce_analyzed!` both globally and per thing id.
+`itemAnalyzed`, triggered by `Item#announce_analyzed!` both globally and per item id.
 `Subscriptions::BaseSubscription` declares `subscription_scope :tenant_id`.
 
 ## Authorization is the same Grant

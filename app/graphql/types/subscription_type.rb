@@ -2,6 +2,6 @@
 
 module Types
   class SubscriptionType < Types::BaseObject
-    field :item_analyzed, subscription: Subscriptions::ItemAnalyzed, grants: "items:catalog:read"
+    field :item_analyzed, subscription: Subscriptions::ItemAnalyzed, grants: "uris:catalog:read"
   end
 end

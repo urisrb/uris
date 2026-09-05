@@ -26,7 +26,7 @@ module Blocking
       def query(reason, cursor, limit)
         sql = ActiveRecord::Base.sanitize_sql_array([ <<~SQL.squish, cursor.to_s, limit ])
           SELECT #{KEYS[reason]} AS blocking_key,
-                 array_agg(DISTINCT items.id) AS thing_ids
+                 array_agg(DISTINCT items.id) AS item_ids
           FROM items
           JOIN item_references ON item_references.item_id = items.id
           JOIN resources ON resources.id = item_references.resource_id
@@ -39,7 +39,7 @@ module Blocking
 
         ActiveRecord::Base.connection.select_all(sql).to_a.each do |row|
           row["reason"] = reason
-          row["thing_ids"] = parse_ids(row["thing_ids"])
+          row["item_ids"] = parse_ids(row["item_ids"])
         end
       end
 

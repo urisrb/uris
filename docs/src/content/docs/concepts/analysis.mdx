@@ -10,15 +10,15 @@ reference. Originals are not modified.
 
 ## Dispatch
 
-`Analyzer.for(thing)` returns the first analyzer whose `handles?` claims the thing. Order is the
+`Analyzer.for(item)` returns the first analyzer whose `handles?` claims the item. Order is the
 literal order of `Analyzer.all` in `app/analyzers/analyzer.rb`:
 
 ```
 Pdf · Image · Doc · Xlsx · Calendar · Pkpass · Email · Feed · Contact · Data · Text · Fallback
 ```
 
-Most `handles?` implementations test `thing.kind`. `Analyzer::Fallback` returns true
-unconditionally and is last, so every thing has an analyzer.
+Most `handles?` implementations test `item.kind`. `Analyzer::Fallback` returns true
+unconditionally and is last, so every item has an analyzer.
 
 ## What each one extracts
 
@@ -66,7 +66,7 @@ A step is re-run when any of these hold:
 | `after:` is later than `finished_at` | the step was declared downstream of something newer |
 | `reference.changed_at` is later than `finished_at` | the bytes changed under it |
 
-Otherwise the stored result is returned without running anything, which makes re-analyzing a thing
+Otherwise the stored result is returned without running anything, which makes re-analyzing a item
 cheap and the outer job cursor safe to replay.
 
 `step_result(name)` reads a stored result without running the block.
@@ -75,25 +75,25 @@ cheap and the outer job cursor safe to replay.
 
 | | Scope | Mechanism |
 | --- | --- | --- |
-| across things | which item am I on | job-iteration cursor |
-| within a thing | which step am I on | `analysis["steps"]` |
+| across items | which item am I on | job-iteration cursor |
+| within a item | which step am I on | `analysis["steps"]` |
 
 ## Children
 
 An analyzer declaring `has_children?` returns child bodies from `children_of(reference)`.
 `Analyzer::Base#extract_children!` writes each into the `children` `Resource::Database` resource,
-keyed `<reference_id>/<index>/<filename>`, and enqueues an `AnalyzeThingJob` for each.
+keyed `<reference_id>/<index>/<filename>`, and enqueues an `AnalyzeItemJob` for each.
 
 The key is deterministic, so re-analysis finds last time's children rather than making a second set.
 
-A thing with children returns from `run` without analyzing itself until `children_ready?`. The last
-child to finish wakes the parent (`AnalyzeThingJob#wake_parent`).
+A item with children returns from `run` without analyzing itself until `children_ready?`. The last
+child to finish wakes the parent (`AnalyzeItemJob#wake_parent`).
 
-`Thing::DEPTH` caps the chain at 4 levels.
+`Item::DEPTH` caps the chain at 4 levels.
 
 ## Failure
 
-The error class decides the policy, in `AnalyzeThingJob`:
+The error class decides the policy, in `AnalyzeItemJob`:
 
 ```ruby
 discard_on Analyzer::Failed
@@ -148,7 +148,7 @@ appeared.
 
 Because of that, turning inference on does not fill in a catalog analyzed before it. An `after:`
 cutoff cannot expire a step that was never written, so the backfill is explicit:
-`AnalyzeThingsJob.perform_later(tenant.id, {})`.
+`AnalyzeItemsJob.perform_later(tenant.id, {})`.
 
 ### Images
 
@@ -182,7 +182,7 @@ is the extension list, taken from the loader in libvips 8.17 that knows the form
 ### Provenance
 
 The resource key, model and role are written to the step entry, beside `result` rather than inside
-it. `ThingReference#extracted` collects only `result`, so a model name in there would land in the
+it. `Reference#extracted` collects only `result`, so a model name in there would land in the
 OpenSearch `body` of every document.
 
 Every call is a `prompts` row carrying the resource, role, model, request and response. That is
@@ -196,12 +196,12 @@ reached leaves the `Run` and the resource's `check_error` instead.
 
 ## Fairness
 
-`AnalyzeThingJob` runs on the `analysis` queue with its own worker pool, and caps concurrent jobs
+`AnalyzeItemJob` runs on the `analysis` queue with its own worker pool, and caps concurrent jobs
 per tenant:
 
 ```ruby
 limits_concurrency to: ENV.fetch("ANALYSIS_PER_TENANT", 2).to_i,
-                   key: ->(tenant_id, _thing_id) { "analysis/#{tenant_id}" },
+                   key: ->(tenant_id, _item_id) { "analysis/#{tenant_id}" },
                    duration: 30.minutes
 ```
 

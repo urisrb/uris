@@ -1,6 +1,6 @@
 import { Alert, Button, Group, Loader, Stack } from '@mantine/core'
-import { SetSettingDocument, SettingsDocument } from '@uris/client'
-import { useMutation, useQuery } from '@uris/client/react'
+import { SetSettingDocument, SettingsDocument } from '@uris-to/client'
+import { useMutation, useQuery } from '@uris-to/client/react'
 
 interface Props {
   who: string

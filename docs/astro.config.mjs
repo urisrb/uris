@@ -35,7 +35,7 @@ export default defineConfig({
         {
           label: "Concepts",
           items: [
-            { label: "Things", slug: "concepts/things" },
+            { label: "Items", slug: "concepts/items" },
             { label: "Resources", slug: "concepts/resources" },
             { label: "Tenancy", slug: "concepts/tenancy" },
             { label: "Analysis", slug: "concepts/analysis" },
@@ -47,7 +47,7 @@ export default defineConfig({
           items: [
             { label: "Sync a resource", slug: "guides/sync" },
             { label: "Search the catalog", slug: "guides/search" },
-            { label: "Export things back out", slug: "guides/export" },
+            { label: "Export items back out", slug: "guides/export" },
             { label: "Drive it from Claude", slug: "guides/connector" },
           ],
         },

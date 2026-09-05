@@ -1,13 +1,13 @@
 ---
-title: Export things back out
-description: Copy the bytes behind matching things into a storage resource, resumably and idempotently.
+title: Export items back out
+description: Copy the bytes behind matching items into a storage resource, resumably and idempotently.
 ---
 
-`export_things` selects things and writes their bytes into a storage resource.
+`export_items` selects items and writes their bytes into a storage resource.
 
 ```json
 {
-  "name": "export_things",
+  "name": "export_items",
   "arguments": {
     "destination_id": "...",
     "query": "invoice",
@@ -22,13 +22,13 @@ capabilities include `storage` — `Resource#storage!` raises `ArgumentError` ot
 
 ## The selector
 
-`Tool::Base::SELECTOR_SCHEMA`. The same grammar `search_things` uses, resolved by `Thing.matching`:
+`Tool::Base::SELECTOR_SCHEMA`. The same grammar `search_items` uses, resolved by `Item.matching`:
 
 | Field | Restricts to |
 | --- | --- |
 | `query` | words to match, through the search index |
 | `kind` | one kind |
-| `resource_id` | things referenced by one resource |
+| `resource_id` | items referenced by one resource |
 | `folder` | a prefix of the locator key: `2024/invoices` |
 | `since` / `before` | `created_at` bounds |
 
@@ -37,20 +37,20 @@ capabilities include `storage` — `Resource#storage!` raises `ArgumentError` ot
 
 :::caution[Every argument you leave off widens it]
 No arguments at all selects the whole catalog into this tenant's default storage. Run
-`search_things` with the same selector first.
+`search_items` with the same selector first.
 :::
 
 ## Each copy is a reference
 
-`ExportThingsJob#each_iteration` finds a source reference on another resource, writes the bytes, and
-records the copy with `ThingReference.record!` — another reference on the same thing, carrying
+`ExportItemsJob#each_iteration` finds a source reference on another resource, writes the bytes, and
+records the copy with `Reference.record!` — another reference on the same item, carrying
 `source_version`.
 
 Two consequences:
 
-- A thing already copied is skipped unless `copy.stale_against?(source)`, so re-running an export
+- A item already copied is skipped unless `copy.stale_against?(source)`, so re-running an export
   resumes rather than duplicates.
-- The copy is findable. It is the same thing, now living in one more place.
+- The copy is findable. It is the same item, now living in one more place.
 
 ## It resumes
 
@@ -68,6 +68,6 @@ copied stays copied and catalogued.
 
 ## Deleting is separate
 
-Once the bytes are somewhere you control, destroying the thing and deleting the object in the
+Once the bytes are somewhere you control, destroying the item and deleting the object in the
 resource remain two operations. Nothing in the catalog deletes a resource's objects — see
-[Things](/concepts/things/).
+[Items](/concepts/items/).

@@ -14,8 +14,8 @@ class MergeTest < ActiveSupport::TestCase
 
   test "one document in two places is one item with two references" do
     Tenant.switch(@tenant) do
-      pdf = create_thing(kind: "pdf", title: "Contract", resource: @s3, locator_key: "contract.pdf")
-      link = create_thing(kind: "pdf", title: "Contract", resource: @drive, locator_key: "Contract")
+      pdf = create_item(kind: "pdf", title: "Contract", resource: @s3, locator_key: "contract.pdf")
+      link = create_item(kind: "pdf", title: "Contract", resource: @drive, locator_key: "Contract")
 
       pdf.merge!(link)
 
@@ -27,8 +27,8 @@ class MergeTest < ActiveSupport::TestCase
 
   test "a merge is a move, so nothing is left pointing at the other item" do
     Tenant.switch(@tenant) do
-      keep = create_thing(kind: "pdf", title: "Keep", resource: @s3, locator_key: "a.pdf")
-      gone = create_thing(kind: "pdf", title: "Gone", resource: @drive, locator_key: "b.pdf")
+      keep = create_item(kind: "pdf", title: "Keep", resource: @s3, locator_key: "a.pdf")
+      gone = create_item(kind: "pdf", title: "Gone", resource: @drive, locator_key: "b.pdf")
       moved = gone.references.first
 
       keep.merge!(gone)
@@ -41,8 +41,8 @@ class MergeTest < ActiveSupport::TestCase
 
   test "a reference can move to any item, which is all a merge is" do
     Tenant.switch(@tenant) do
-      one = create_thing(kind: "pdf", title: "One", resource: @s3, locator_key: "one.pdf")
-      two = create_thing(kind: "pdf", title: "Two", resource: @drive, locator_key: "two.pdf")
+      one = create_item(kind: "pdf", title: "One", resource: @s3, locator_key: "one.pdf")
+      two = create_item(kind: "pdf", title: "Two", resource: @drive, locator_key: "two.pdf")
 
       two.references.first.move_to!(one)
 
@@ -53,7 +53,7 @@ class MergeTest < ActiveSupport::TestCase
 
   test "splitting a reference off gives it a item of its own" do
     Tenant.switch(@tenant) do
-      grouped = create_thing(kind: "pdf", title: "Grouped", resource: @s3, locator_key: "a.pdf")
+      grouped = create_item(kind: "pdf", title: "Grouped", resource: @s3, locator_key: "a.pdf")
       grouped.references.create!(resource: @drive, locator_key: "b.pdf")
       grouped.references.reset
 
@@ -67,7 +67,7 @@ class MergeTest < ActiveSupport::TestCase
 
   test "merging the same place twice keeps one reference, not a duplicate" do
     Tenant.switch(@tenant) do
-      keep = create_thing(kind: "pdf", title: "Keep", resource: @s3, locator_key: "same.pdf")
+      keep = create_item(kind: "pdf", title: "Keep", resource: @s3, locator_key: "same.pdf")
       other = Item.create!(kind: "pdf", title: "Other")
       other.references.create!(resource: @drive, locator_key: "same.pdf")
 
@@ -81,8 +81,8 @@ class MergeTest < ActiveSupport::TestCase
     kept = nil
 
     Tenant.switch(@tenant) do
-      one = create_thing(kind: "pdf", title: "One", resource: @s3, locator_key: "one.pdf")
-      two = create_thing(kind: "pdf", title: "Two", resource: @drive, locator_key: "two.pdf")
+      one = create_item(kind: "pdf", title: "One", resource: @s3, locator_key: "one.pdf")
+      two = create_item(kind: "pdf", title: "Two", resource: @drive, locator_key: "two.pdf")
 
       one.references.first.update!(analysis: { "steps" => { "text" => { "result" => "kingfisher" } } })
       two.references.first.update!(analysis: { "steps" => { "text" => { "result" => "salamander" } } })
@@ -101,7 +101,7 @@ class MergeTest < ActiveSupport::TestCase
 
   test "destroying a item takes its references with it" do
     Tenant.switch(@tenant) do
-      item = create_thing(kind: "pdf", title: "Doomed", resource: @s3, locator_key: "x.pdf")
+      item = create_item(kind: "pdf", title: "Doomed", resource: @s3, locator_key: "x.pdf")
 
       assert_difference -> { Reference.count }, -1 do
         item.destroy!

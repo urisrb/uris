@@ -2,7 +2,7 @@
 
 module Types
   class ResourceType < Types::BaseObject
-    grants "items:resources:read"
+    grants "uris:resources:read"
 
     field :id, ID, null: false
     field :type, String, null: false, method: :type

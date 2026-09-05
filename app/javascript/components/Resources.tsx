@@ -20,8 +20,8 @@ import {
   SetDefaultStorageDocument,
   SetSyncIntervalDocument,
   SyncResourceDocument,
-} from '@uris/client'
-import { useMutation, useQuery } from '@uris/client/react'
+} from '@uris-to/client'
+import { useMutation, useQuery } from '@uris-to/client/react'
 import { type CSSProperties, useState } from 'react'
 
 interface Resource {

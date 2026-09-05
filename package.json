@@ -18,7 +18,7 @@
     "@masks/client": "^2.0.0",
     "@rails/actioncable": "^8.1.300",
     "@tabler/icons-react": "^3.44.0",
-    "@uris/client": "file:./web",
+    "@uris-to/client": "file:./web",
     "@urql/core": "^6.0.1",
     "@urql/exchange-graphcache": "^9.0.0",
     "graphql": "^16.14.0",

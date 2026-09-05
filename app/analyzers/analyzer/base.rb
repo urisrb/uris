@@ -10,7 +10,7 @@ module Analyzer
       @item = item
     end
 
-    def self.handles?(_thing)
+    def self.handles?(_item)
       false
     end
 

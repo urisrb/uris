@@ -1,7 +1,7 @@
 module Tool
   class ListResources < Base
     tool_name "list_resources"
-    scope "items:resources:read"
+    scope "uris:resources:read"
 
     description <<~TEXT
       The places items live and the capabilities they can be asked for. Each entry is an

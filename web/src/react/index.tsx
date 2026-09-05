@@ -11,7 +11,7 @@ import {
 } from 'react'
 import type { UrisClient } from '../client.js'
 
-const ThingsContext = createContext<UrisClient | null>(null)
+const UrisContext = createContext<UrisClient | null>(null)
 
 export function UrisProvider({
   client,
@@ -20,15 +20,13 @@ export function UrisProvider({
   client: UrisClient
   children: ReactNode
 }) {
-  return (
-    <ThingsContext.Provider value={client}>{children}</ThingsContext.Provider>
-  )
+  return <UrisContext.Provider value={client}>{children}</UrisContext.Provider>
 }
 
-export function useThings(): UrisClient {
-  const client = useContext(ThingsContext)
+export function useUris(): UrisClient {
+  const client = useContext(UrisContext)
   if (!client) {
-    throw new Error('useThings must be used inside a UrisProvider')
+    throw new Error('useUris must be used inside a UrisProvider')
   }
   return client
 }
@@ -42,7 +40,7 @@ export function useQuery<TData, TVariables extends Record<string, unknown>>(
   variables?: TVariables,
   options?: QueryOptions,
 ) {
-  const client = useThings()
+  const client = useUris()
   const skip = options?.skip ?? false
   const [data, setData] = useState<TData | null>(null)
   const [loading, setLoading] = useState(!skip)
@@ -94,7 +92,7 @@ export function useSubscription<
   variables?: TVariables,
   options?: SubscriptionOptions,
 ) {
-  const client = useThings()
+  const client = useUris()
   const skip = options?.skip ?? false
   const [data, setData] = useState<TData | null>(null)
   const [error, setError] = useState<Error | null>(null)
@@ -126,7 +124,7 @@ export function useSubscription<
 export function useMutation<TData, TVariables extends Record<string, unknown>>(
   mutation: TypedDocumentNode<TData, TVariables>,
 ) {
-  const client = useThings()
+  const client = useUris()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 

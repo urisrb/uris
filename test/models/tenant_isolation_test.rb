@@ -5,18 +5,18 @@ class TenantIsolationTest < ActiveSupport::TestCase
     @demo = Tenant.create!(subdomain: "demo-#{SecureRandom.hex(4)}", name: "Demo items")
     @acme = Tenant.create!(subdomain: "acme-#{SecureRandom.hex(4)}", name: "Acme")
 
-    Tenant.switch(@demo) { @demo_thing = Item.create!(kind: "pdf", title: "Demo invoice") }
-    Tenant.switch(@acme) { @acme_thing = Item.create!(kind: "pdf", title: "Acme's invoice") }
+    Tenant.switch(@demo) { @demo_item = Item.create!(kind: "pdf", title: "Demo invoice") }
+    Tenant.switch(@acme) { @acme_item = Item.create!(kind: "pdf", title: "Acme's invoice") }
   end
 
   test "a tenant sees only its own items" do
-    Tenant.switch(@demo) { assert_equal [ @demo_thing.id ], Item.pluck(:id) }
-    Tenant.switch(@acme) { assert_equal [ @acme_thing.id ], Item.pluck(:id) }
+    Tenant.switch(@demo) { assert_equal [ @demo_item.id ], Item.pluck(:id) }
+    Tenant.switch(@acme) { assert_equal [ @acme_item.id ], Item.pluck(:id) }
   end
 
   test "row-level security holds when the application scope is gone" do
     Tenant.switch(@demo) do
-      assert_equal [ @demo_thing.id ], Item.unscoped.pluck(:id)
+      assert_equal [ @demo_item.id ], Item.unscoped.pluck(:id)
     end
   end
 
@@ -34,9 +34,9 @@ class TenantIsolationTest < ActiveSupport::TestCase
 
   test "a nested switch restores the outer tenant rather than clearing it" do
     Tenant.switch(@demo) do
-      Tenant.switch(@acme) { assert_equal [ @acme_thing.id ], Item.unscoped.pluck(:id) }
+      Tenant.switch(@acme) { assert_equal [ @acme_item.id ], Item.unscoped.pluck(:id) }
 
-      assert_equal [ @demo_thing.id ], Item.unscoped.pluck(:id)
+      assert_equal [ @demo_item.id ], Item.unscoped.pluck(:id)
     end
   end
 
@@ -50,8 +50,8 @@ class TenantIsolationTest < ActiveSupport::TestCase
 
   test "an id from another tenant does not resolve" do
     Tenant.switch(@demo) do
-      assert_nil Item.find_by(id: @acme_thing.id)
-      assert_equal @demo_thing, Item.find_by(id: @demo_thing.id)
+      assert_nil Item.find_by(id: @acme_item.id)
+      assert_equal @demo_item, Item.find_by(id: @demo_item.id)
     end
   end
 end

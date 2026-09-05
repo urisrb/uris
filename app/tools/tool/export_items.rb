@@ -1,7 +1,7 @@
 module Tool
   class ExportItems < Base
     tool_name "export_items"
-    scope "items:resources:command"
+    scope "uris:resources:command"
     starts_runs true
 
     description <<~TEXT

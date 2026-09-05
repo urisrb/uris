@@ -20,7 +20,7 @@ class FailurePolicyTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       @broken = Reference.discover!(resource: @reachable, locator: { "bucket" => @bucket, "key" => "broken.pdf" },
                                          locator_key: "broken.pdf", kind: "pdf", title: "broken.pdf").item
-      @stranded = create_thing(kind: "text", title: "stranded.txt", locator_key: "stranded.txt",
+      @stranded = create_item(kind: "text", title: "stranded.txt", locator_key: "stranded.txt",
                                resource: @unreachable, locator: { "bucket" => "gone", "key" => "stranded.txt" })
     end
   end

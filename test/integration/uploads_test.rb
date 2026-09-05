@@ -42,7 +42,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_equal "contents of march", (@root + "march.pdf").read
 
     Tenant.switch(@tenant) do
-      item = thing_at("march.pdf")
+      item = item_at("march.pdf")
 
       assert_equal "pdf", item.kind
       assert_equal "march.pdf", item.title
@@ -62,7 +62,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
 
       assert_equal "analyze", run.kind
       assert_equal "queued", run.status
-      assert_equal({ "id" => thing_at("march.pdf").id }, run.selector)
+      assert_equal({ "id" => item_at("march.pdf").id }, run.selector)
     end
   end
 
@@ -73,7 +73,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_equal "photos/2024/beach.jpg", response.parsed_body["path"]
     assert_equal "jpeg bytes", (@root + "photos/2024/beach.jpg").read
 
-    Tenant.switch(@tenant) { assert_equal "image", thing_at("photos/2024/beach.jpg").kind }
+    Tenant.switch(@tenant) { assert_equal "image", item_at("photos/2024/beach.jpg").kind }
   end
 
   test "a path that climbs out of the resource is flattened, not followed" do
@@ -116,7 +116,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
   end
 
   test "a token that may read but not write cannot drop anything" do
-    upload "march.pdf", "contents", scopes: [ "items:catalog:read" ]
+    upload "march.pdf", "contents", scopes: [ "uris:catalog:read" ]
 
     assert_response :unauthorized
     Tenant.switch(@tenant) { assert_equal 0, Item.count }

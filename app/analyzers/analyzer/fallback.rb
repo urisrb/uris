@@ -1,6 +1,6 @@
 module Analyzer
   class Fallback < Base
-    def self.handles?(_thing)
+    def self.handles?(_item)
       true
     end
 

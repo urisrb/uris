@@ -18,7 +18,7 @@ class Reference < ApplicationRecord
           exact: prefix, under: "#{escaped}/%")
   }
 
-  after_commit :reindex_thing
+  after_commit :reindex_item
 
   delegate :kind, to: :item
 
@@ -115,7 +115,7 @@ class Reference < ApplicationRecord
 
   private
 
-    def reindex_thing
+    def reindex_item
       Tenant.switch(Tenant.find(tenant_id)) do
         subject = Item.find_by(id: item_id)
         SearchIndex.index(subject) if subject

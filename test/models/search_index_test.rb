@@ -8,14 +8,14 @@ class SearchIndexTest < ActiveSupport::TestCase
     @acme = Tenant.create!(subdomain: "acme-#{SecureRandom.hex(4)}", name: "Acme")
 
     Tenant.switch(@demo) do
-      create_thing(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf")
-      create_thing(kind: "image", title: "Beach photo", locator_key: "photos/beach.jpg")
-      create_thing(kind: "pdf", title: "file-1.pdf", locator_key: "docs/file-1.pdf")
-      create_thing(kind: "pdf", title: "file-2.pdf", locator_key: "docs/file-2.pdf")
+      create_item(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf")
+      create_item(kind: "image", title: "Beach photo", locator_key: "photos/beach.jpg")
+      create_item(kind: "pdf", title: "file-1.pdf", locator_key: "docs/file-1.pdf")
+      create_item(kind: "pdf", title: "file-2.pdf", locator_key: "docs/file-2.pdf")
     end
 
     Tenant.switch(@acme) do
-      create_thing(kind: "pdf", title: "Acme invoice", locator_key: "invoices/acme.pdf")
+      create_item(kind: "pdf", title: "Acme invoice", locator_key: "invoices/acme.pdf")
     end
 
     SearchIndex.refresh!

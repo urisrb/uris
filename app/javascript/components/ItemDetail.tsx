@@ -4,8 +4,8 @@ import {
   AnalyzeItemDocument,
   ItemDocument,
   SplitReferenceDocument,
-} from '@uris/client'
-import { useMutation, useQuery } from '@uris/client/react'
+} from '@uris-to/client'
+import { useMutation, useQuery } from '@uris-to/client/react'
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { KindBadge } from './KindBadge'

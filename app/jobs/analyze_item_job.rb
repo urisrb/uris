@@ -62,7 +62,7 @@ class AnalyzeItemJob < ApplicationJob
     def run
       return @run if defined?(@run)
 
-      tenant_id, _thing_id, run_id = arguments
+      tenant_id, _item_id, run_id = arguments
       return @run = nil if run_id.nil?
 
       @run = Tenant.switch(Tenant.find(tenant_id)) { Run.find_by(id: run_id) }

@@ -21,7 +21,7 @@ class ConnectionTest < ActionCable::Connection::TestCase
     connect_as(@tenant)
 
     assert_equal @tenant, connection.tenant
-    assert connection.grant.permits?("items:catalog:read")
+    assert connection.grant.permits?("uris:catalog:read")
   end
 
   test "a session holding another tenant's token is refused" do
@@ -46,12 +46,12 @@ class ConnectionTest < ActionCable::Connection::TestCase
   end
 
   test "the grant is narrowed to the scopes the token actually carries" do
-    sign_in(@tenant, scopes: %w[items:catalog:read])
+    sign_in(@tenant, scopes: %w[uris:catalog:read])
 
     connect_as(@tenant)
 
-    assert connection.grant.permits?("items:catalog:read")
-    assert_not connection.grant.permits?("items:resources:command")
+    assert connection.grant.permits?("uris:catalog:read")
+    assert_not connection.grant.permits?("uris:resources:command")
   end
 
   private

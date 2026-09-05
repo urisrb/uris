@@ -1,5 +1,5 @@
-import { createUris, metaCSRFToken } from '@uris/client'
-import { actionCableExchange } from '@uris/client/actioncable'
+import { createUris, metaCSRFToken } from '@uris-to/client'
+import { actionCableExchange } from '@uris-to/client/actioncable'
 import { session } from './hooks/useSession'
 
 export const client = createUris({

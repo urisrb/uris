@@ -1,7 +1,7 @@
 module Tool
   class DescribeResource < Base
     tool_name "describe_resource"
-    scope "items:resources:read"
+    scope "uris:resources:read"
 
     description <<~TEXT
       What one resource can be asked to do: its capabilities and the exact command

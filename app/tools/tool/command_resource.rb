@@ -1,7 +1,7 @@
 module Tool
   class CommandResource < Base
     tool_name "command_resource"
-    scope "items:resources:command"
+    scope "uris:resources:command"
 
     description <<~TEXT
       Run one command against one resource, in its own vocabulary. Call describe_resource

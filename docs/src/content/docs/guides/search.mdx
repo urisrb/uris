@@ -4,7 +4,7 @@ description: One OpenSearch query across every resource that has been synced, ma
 ---
 
 ```json
-{ "name": "search_things", "arguments": { "query": "invoice 2024", "kind": "pdf", "limit": 50 } }
+{ "name": "search_items", "arguments": { "query": "invoice 2024", "kind": "pdf", "limit": 50 } }
 ```
 
 | Argument | |
@@ -13,7 +13,7 @@ description: One OpenSearch query across every resource that has been synced, ma
 | `kind` | `pdf`, `image`, `text`, `data`, `xlsx`, `doc`, `email`, `calendar`, `contact`, `pkpass`, `file` |
 | `limit` | clamped to 1–200, 50 by default |
 
-Omit `query` and the search becomes a `match_all` — the most recent things, optionally of one kind.
+Omit `query` and the search becomes a `match_all` — the most recent items, optionally of one kind.
 
 ## What it matches
 
@@ -25,36 +25,36 @@ Omit `query` and the search becomes a `match_all` — the most recent things, op
 
 | Field | Holds | Analyzer |
 | --- | --- | --- |
-| `title` | the thing's title, boosted ×2 | `path` |
+| `title` | the item's title, boosted ×2 | `path` |
 | `locator_key` | the key within its resource | `path` |
-| `body` | `Thing#body_text` | standard |
+| `body` | `Item#body_text` | standard |
 
 The `path` analyzer tokenizes on `/ \ - _ .` and whitespace, so `2024/invoices/acme-jan.pdf` matches
 on `acme` and on `invoices`.
 
-`body` is the union of every string extracted by analysis across a thing's references *and* its
+`body` is the union of every string extracted by analysis across a item's references *and* its
 children's, so a scanned PDF matches on its OCR and an email matches on a word that only appears in
-its attachment. Search quality is downstream of [analysis](/concepts/analysis/) — a thing synced but
+its attachment. Search quality is downstream of [analysis](/concepts/analysis/) — a item synced but
 not yet analyzed matches on its path and title alone.
 
-`Thing.search` asks the index for ids and reloads them from Postgres with `in_order_of`, so results
+`Item.search` asks the index for ids and reloads them from Postgres with `in_order_of`, so results
 keep their relevance order while every column comes from the system of record.
 
 ## Then get one
 
 ```json
-{ "name": "get_thing", "arguments": { "id": "..." } }
+{ "name": "get_item", "arguments": { "id": "..." } }
 ```
 
 Returns every reference, its locator, the per-step analysis results, and `body_text` truncated to
-8,000 characters (`Tool::GetThing::EXCERPT`).
+8,000 characters (`Tool::GetItem::EXCERPT`).
 
-A thing groups references. The same document in a bucket and in Drive is one thing with two, not two
-things.
+A item groups references. The same document in a bucket and in Drive is one item with two, not two
+items.
 
 ## Getting the bytes
 
-`get_thing` returns an excerpt, not the file. `export_things` copies bytes into a storage resource;
+`get_item` returns an excerpt, not the file. `export_items` copies bytes into a storage resource;
 the browser reads them at `/references/:id/content`. See [Export](/guides/export/).
 
 ## Isolation
@@ -70,6 +70,6 @@ See [Tenancy](/concepts/tenancy/).
 
 ## Rebuilding
 
-`ReindexThingsJob` writes into a fresh versioned index a page at a time, then `SearchIndex.promote!`
+`ReindexItemsJob` writes into a fresh versioned index a page at a time, then `SearchIndex.promote!`
 swaps every alias in one `update_aliases` call. Promotion refuses an index holding fewer documents
 than it was told to expect.

@@ -3,7 +3,7 @@ title: Resources
 description: Ten STI subclasses of Resource, what each can do, and which of them can sync.
 ---
 
-A resource is a place things live. It is an *instance* — one bucket, one mailbox — and its type is
+A resource is a place items live. It is an *instance* — one bucket, one mailbox — and its type is
 the STI subclass it belongs to.
 
 `app/models/resource.rb`, `app/models/resource/`
@@ -59,7 +59,7 @@ rides on cannot be archived, and the database refuses to delete it or to point a
 tenant — the foreign key carries `tenant_id`, so a cross-tenant transport is unrepresentable rather
 than merely refused.
 
-`storage?` gates two things: being an export destination (`Resource#storage!`) and being the
+`storage?` gates two items: being an export destination (`Resource#storage!`) and being the
 tenant's `default_storage`, which `Resource#make_default_storage!` sets exclusively.
 
 ## Syncable

@@ -79,8 +79,8 @@ class SettingTest < ActiveSupport::TestCase
     definition = Setting.definition!("catalog_view")
 
     assert_predicate definition, :personal?
-    assert_equal "items:settings:read", definition.reads
-    assert_equal "items:settings:write", definition.writes
+    assert_equal "uris:settings:read", definition.reads
+    assert_equal "uris:settings:write", definition.writes
     assert_includes Grant::SCOPES, definition.reads
     assert_includes Grant::SCOPES, definition.writes
   end

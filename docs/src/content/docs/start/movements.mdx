@@ -5,7 +5,7 @@ description: sync, analyze, search and export — the four operations everything
 
 ```
 sync       resource → catalog        pull references in
-analyze    content  → understanding  per thing, by kind
+analyze    content  → understanding  per item, by kind
 search     catalog  → you            one index across everything
 export     catalog  → resource       bytes back out
 ```
@@ -16,7 +16,7 @@ All four are reachable over `/mcp` and over `/graphql`.
 
 `Resource#sync!` claims the resource, starts a `Run`, and enqueues `SyncResourceJob`.
 
-The job iterates `each_page` on the resource and records a `ThingReference` per object. No bytes
+The job iterates `each_page` on the resource and records a `Reference` per object. No bytes
 move. Eight of the ten types sync: six implement `each_page` and `Caldav` and `Carddav`
 inherit it from `Webdav`. See
 [Resources](/concepts/resources/).
@@ -25,7 +25,7 @@ inherit it from `Webdav`. See
 
 ## analyze
 
-`Analyzer.for(thing)` picks the first of twelve analyzers whose `handles?` returns true, then runs
+`Analyzer.for(item)` picks the first of twelve analyzers whose `handles?` returns true, then runs
 its `step`s. Steps record `started_at`, `finished_at` and either `result` or `error` under
 `reference.analysis["steps"]`.
 
@@ -33,17 +33,17 @@ its `step`s. Steps record `started_at`, `finished_at` and either `result` or `er
 
 ## search
 
-`Thing.search` asks `SearchIndex` for ids and reloads them from Postgres in index order. OpenSearch
+`Item.search` asks `SearchIndex` for ids and reloads them from Postgres in index order. OpenSearch
 is the query path; Postgres is the system of record.
 
 `app/models/search_index.rb` · [Search the catalog](/guides/search/)
 
 ## export
 
-`ExportThingsJob` iterates the things a selector matches and copies each one's bytes into a storage
-resource, recording the copy as another `ThingReference` on the same thing.
+`ExportItemsJob` iterates the items a selector matches and copies each one's bytes into a storage
+resource, recording the copy as another `Reference` on the same item.
 
-`app/jobs/export_things_job.rb` · [Export things back out](/guides/export/)
+`app/jobs/export_items_job.rb` · [Export items back out](/guides/export/)
 
 ## Sync and export are one form
 
@@ -55,10 +55,10 @@ combinations follow:
 | a resource | — | ✓ | ingest — references only |
 | a resource | a storage resource | — | backup |
 | a resource | default storage | ✓ | ingest + materialize |
-| things matching a selector | a storage resource | — | export |
+| items matching a selector | a storage resource | — | export |
 
 :::note[TODO]
 Only two of these four are implemented as first-class operations today: ingest (`sync_resource`) and
-export (`export_things`). Backup and ingest-plus-materialize are compositions that have no single
+export (`export_items`). Backup and ingest-plus-materialize are compositions that have no single
 entry point yet.
 :::

@@ -26,9 +26,9 @@ A tool outside the grant is absent from `tools/list`. Calling it anyway answers 
 
 | | |
 | --- | --- |
-| `things:read` | Search your catalog and read what is in it |
-| `things:write` | Add to your catalog, and run analysis over it |
-| `resources:read` | List the places your things live |
+| `uris:read` | Search your catalog and read what is in it |
+| `uris:write` | Add to your catalog, and run analysis over it |
+| `resources:read` | List the places your items live |
 | `resources:command` | Act on those places — sync, fetch, and export |
 
 Scopes not in `Grant::SCOPES` are dropped from the token's claims.
@@ -37,15 +37,15 @@ Scopes not in `Grant::SCOPES` are dropped from the token's claims.
 
 | Tool | Scope | Starts a run | Does |
 | --- | --- | --- | --- |
-| `search_things` | `things:read` | | search the catalog |
-| `get_thing` | `things:read` | | one thing in full, plus an 8,000-character excerpt |
-| `analyze_thing` | `things:write` | ✓ | queue one thing for analysis |
+| `search_items` | `uris:read` | | search the catalog |
+| `get_item` | `uris:read` | | one item in full, plus an 8,000-character excerpt |
+| `analyze_item` | `uris:write` | ✓ | queue one item for analysis |
 | `list_resources` | `resources:read` | | the resources, and their sync state |
 | `describe_resource` | `resources:read` | | one resource's capabilities and command schema |
 | `check_resource` | `resources:read` | | does it answer, and are its credentials accepted |
 | `command_resource` | `resources:command` | | run one command against one resource |
 | `sync_resource` | `resources:command` | ✓ | walk it and record what it holds |
-| `export_things` | `resources:command` | ✓ | copy matching bytes into a storage resource |
+| `export_items` | `resources:command` | ✓ | copy matching bytes into a storage resource |
 | `list_runs` | `resources:read` | | what the work you started is doing |
 | `cancel_run` | `resources:command` | | stop a run that is still open |
 
@@ -55,23 +55,23 @@ Scopes not in `Grant::SCOPES` are dropped from the token's claims.
 
 ## Arguments
 
-`search_things` takes `query`, `kind` and `limit` (1–200, default 50). See
+`search_items` takes `query`, `kind` and `limit` (1–200, default 50). See
 [Search](/guides/search/).
 
-`get_thing` takes `id`.
+`get_item` takes `id`.
 
-`export_things` takes `destination_id` plus the selector below. `list_runs` filters on `kind` and
+`export_items` takes `destination_id` plus the selector below. `list_runs` filters on `kind` and
 `status`; `cancel_run` takes a run id.
 
 ### The selector
 
-`Tool::Base::SELECTOR_SCHEMA`, shared by `export_things` and resolved by `Thing.matching`:
+`Tool::Base::SELECTOR_SCHEMA`, shared by `export_items` and resolved by `Item.matching`:
 
 | Field | Restricts to |
 | --- | --- |
 | `query` | words to match |
 | `kind` | one kind |
-| `resource_id` | things referenced by one resource |
+| `resource_id` | items referenced by one resource |
 | `folder` | a prefix of the locator key: `2024/invoices` |
 | `since` / `before` | `created_at` bounds |
 
@@ -89,8 +89,8 @@ holds no token that can be revoked. See [Jobs](/concepts/jobs/).
 
 | | Set by | Default | Applies to |
 | --- | --- | --- | --- |
-| rate limit | `THINGS_MCP_LIMIT`, per minute | 120 | every call, keyed on tenant + token digest |
-| run budget | `THINGS_RUN_BUDGET`, per hour | 20 | tools declaring `starts_runs` |
+| rate limit | `URIS_MCP_LIMIT`, per minute | 120 | every call, keyed on tenant + token digest |
+| run budget | `URIS_RUN_BUDGET`, per hour | 20 | tools declaring `starts_runs` |
 
 The rate limit is `McpController`'s `rate_limit`, keyed by `caller_key` — the tenant id plus a
 SHA-256 of the bearer token, or the remote IP when there is none. Over it, the response is a
@@ -105,7 +105,7 @@ Every call is written to `AuditEvent` on the `mcp` channel with its tool name, s
 arguments, duration in milliseconds, and the request's remote IP and request id. Denied calls are
 recorded too.
 
-`SweepAuditEventsJob` deletes events older than `THINGS_AUDIT_RETENTION_DAYS`, default 90.
+`SweepAuditEventsJob` deletes events older than `URIS_AUDIT_RETENTION_DAYS`, default 90.
 
 ## Errors
 

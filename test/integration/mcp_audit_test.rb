@@ -15,7 +15,7 @@ class McpAuditTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) do
       @resource = Resource::S3.create!(key: "audited-bucket", name: "Bucket",
                                        details: { "endpoint" => "http://127.0.0.1:1" })
-      @item = create_thing(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf",
+      @item = create_item(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf",
                             resource: @resource, locator: { "bucket" => "audited-bucket" })
     end
 
@@ -34,7 +34,7 @@ class McpAuditTest < ActionDispatch::IntegrationTest
     assert_equal "mcp", event.channel
     assert_equal "search_items", event.action
     assert_equal "ok", event.status
-    assert_equal "items:catalog:read", event.scope
+    assert_equal "uris:catalog:read", event.scope
     assert_equal "test", event.subject
     assert_equal({ "query" => "invoice", "kind" => nil, "limit" => 50 }, event.arguments)
     assert event.duration_ms >= 0
@@ -42,14 +42,14 @@ class McpAuditTest < ActionDispatch::IntegrationTest
   end
 
   test "a call the token does not carry the scope for is recorded as denied" do
-    call(@tenant, [ "items:catalog:read" ], "tools/call",
+    call(@tenant, [ "uris:catalog:read" ], "tools/call",
          name: "search_items", arguments: { query: "invoice" })
 
     assert_equal "ok", events.first.status
 
     Tenant.switch(@tenant) { AuditEvent.delete_all }
 
-    call(@tenant, [ "items:catalog:read" ], "tools/call",
+    call(@tenant, [ "uris:catalog:read" ], "tools/call",
          name: "sync_resource", arguments: { id: @resource.id.to_s })
 
     assert_empty events, "an ungranted tool is not registered, so no grant was exercised"

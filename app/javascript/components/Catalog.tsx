@@ -11,8 +11,8 @@ import {
   SearchDocument,
   SetSettingDocument,
   SettingsDocument,
-} from '@uris/client'
-import { useMutation, useQuery, useSubscription } from '@uris/client/react'
+} from '@uris-to/client'
+import { useMutation, useQuery, useSubscription } from '@uris-to/client/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { KindBadge } from './KindBadge'

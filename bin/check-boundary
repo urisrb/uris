@@ -3,7 +3,7 @@
 # a host, a domain, or a secret. Those facts live in the private infra repo,
 # which supplies the domains it owns via BOUNDARY_PATTERNS or .boundary-patterns.
 #
-# Design docs have to name the thing they forbid, so *.md and plans/ are
+# Design docs have to name the item they forbid, so *.md and plans/ are
 # excluded. Everything that gets executed, templated, or deployed is checked.
 
 set -uo pipefail

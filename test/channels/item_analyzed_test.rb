@@ -1,6 +1,6 @@
 require "test_helper"
 
-class ThingAnalyzedTest < ActionCable::Channel::TestCase
+class ItemAnalyzedTest < ActionCable::Channel::TestCase
   tests GraphqlChannel
 
   EVERY_THING = <<~GRAPHQL
@@ -19,8 +19,8 @@ class ThingAnalyzedTest < ActionCable::Channel::TestCase
 
     Tenant.switch(@tenant) do
       @storage = Resource::Database.create!(key: "database", name: "Storage")
-      @item = thing_on("notes.txt", "the notes")
-      @unwatched = thing_on("other.txt", "other notes")
+      @item = item_on("notes.txt", "the notes")
+      @unwatched = item_on("other.txt", "other notes")
     end
   end
 
@@ -73,7 +73,7 @@ class ThingAnalyzedTest < ActionCable::Channel::TestCase
       Tenant.switch(@tenant) { Analyzer.for(item).run }
     end
 
-    def thing_on(key, body)
+    def item_on(key, body)
       @storage.upload(key, body)
 
       Reference.discover!(resource: @storage, locator: { "key" => key },

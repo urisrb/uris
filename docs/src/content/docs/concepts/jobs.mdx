@@ -16,7 +16,7 @@ production. `bin/jobs` runs it, `bin/dev` keeps it up, and `/jobs` mounts Missio
 | analysis | `analysis` | `ANALYSIS_THREADS`, default 4 | `ANALYSIS_CONCURRENCY`, default 1 |
 
 Splitting them keeps a large sync from occupying the workers analysis needs. Within the analysis
-pool, `AnalyzeThingJob` caps concurrency per tenant with `limits_concurrency`
+pool, `AnalyzeItemJob` caps concurrency per tenant with `limits_concurrency`
 (`ANALYSIS_PER_TENANT`, default 2).
 
 ## Recurring
@@ -33,25 +33,25 @@ pool, `AnalyzeThingJob` caps concurrency per tenant with `limits_concurrency`
 
 ## Iteration
 
-Every job over an unbounded number of things includes `JobIteration::Iteration` and `TrackedRun`:
+Every job over an unbounded number of items includes `JobIteration::Iteration` and `TrackedRun`:
 
 | Job | Queue | Gate key |
 | --- | --- | --- |
 | `SyncResourceJob` | `sync` | `sync` |
-| `ExportThingsJob` | `export` | `export` |
-| `AnalyzeThingsJob` | `default` | `analyze` |
-| `ReindexThingsJob` | `default` | `reindex` |
+| `ExportItemsJob` | `export` | `export` |
+| `AnalyzeItemsJob` | `default` | `analyze` |
+| `ReindexItemsJob` | `default` | `reindex` |
 | `ProposeMergesJob` | `default` | `dedupe` |
 
 Three rules follow from job-iteration:
 
 - `each_iteration` enqueues rather than computes. Iterations must finish quickly for graceful
-  shutdown to work; `AnalyzeThingsJob#each_iteration` is one `perform_later` call.
+  shutdown to work; `AnalyzeItemsJob#each_iteration` is one `perform_later` call.
 - The cursor shape belongs to the type. `SyncResourceJob` wraps whatever `resource.each_page`
   yields as its next cursor.
 - Code after `yield` in a custom enumerator is not guaranteed to run.
 
-`ReindexThingsJob` and `ProposeMergesJob` iterate *pages* rather than rows, cursoring on the last id
+`ReindexItemsJob` and `ProposeMergesJob` iterate *pages* rather than rows, cursoring on the last id
 of each page, because one request per document made a rebuild a request storm.
 
 ## Runs
@@ -85,12 +85,12 @@ declared. Absence means the iterator's own default, not "off".
 
 `live: false` is a dry run — the iteration walks and counts but does nothing.
 
-`THINGS_ITERATORS_DISABLED` shuts every iterator everywhere. It is an operator switch; per-tenant
+`URIS_ITERATORS_DISABLED` shuts every iterator everywhere. It is an operator switch; per-tenant
 and per-resource switches are `gates` rows.
 
 ## Failure policy
 
-The error class decides. Both `SyncResourceJob` and `ExportThingsJob` carry:
+The error class decides. Both `SyncResourceJob` and `ExportItemsJob` carry:
 
 ```ruby
 retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5 do |job, error|
@@ -98,7 +98,7 @@ retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5 do |job, erro
 end
 ```
 
-and `AnalyzeThingJob` additionally `discard_on Analyzer::Failed`.
+and `AnalyzeItemJob` additionally `discard_on Analyzer::Failed`.
 
 | | Is | Policy |
 | --- | --- | --- |

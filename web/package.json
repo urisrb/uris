@@ -1,5 +1,5 @@
 {
-  "name": "@uris/client",
+  "name": "@uris-to/client",
   "version": "0.1.0",
   "private": true,
   "description": "A typed client for the items GraphQL API: transport, operations, and optional React bindings.",

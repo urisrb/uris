@@ -31,7 +31,7 @@ class HandshakeTest < ActionDispatch::IntegrationTest
     assert_equal "#{origin}/auth/handshake/callback", query["return_to"]
     assert_equal "#{origin}/auth/callback", query["redirect_uris"]
     assert_includes query["scope"].split, Grant::NAMESPACE
-    assert_not_includes query["scope"].split, "items:catalog:read",
+    assert_not_includes query["scope"].split, "uris:catalog:read",
                         "the handshake asks for the namespace; sign-in asks for the scopes"
     assert_includes query["scope"].split, "offline_access"
     assert query["state"].present?

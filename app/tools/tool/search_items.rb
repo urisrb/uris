@@ -1,7 +1,7 @@
 module Tool
   class SearchItems < Base
     tool_name "search_items"
-    scope "items:catalog:read"
+    scope "uris:catalog:read"
 
     description <<~TEXT
       Search the whole catalog at once — every resource that has been synced, not one

@@ -9,7 +9,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
     @tenant = Tenant.create!(subdomain: "auth-#{SecureRandom.hex(4)}", name: "Auth")
     @other = Tenant.create!(subdomain: "auth-#{SecureRandom.hex(4)}", name: "Elsewhere")
 
-    Tenant.switch(@tenant) { @item = create_thing(kind: "pdf", title: "An invoice") }
+    Tenant.switch(@tenant) { @item = create_item(kind: "pdf", title: "An invoice") }
 
     connect!(@tenant)
   end
@@ -67,20 +67,20 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
   end
 
   test "a read scope does not carry the resource list" do
-    body = execute(RESOURCES, scopes: %w[items:catalog:read])
+    body = execute(RESOURCES, scopes: %w[uris:catalog:read])
 
     assert_nil body.dig("data", "resources")
-    assert_match(/does not carry items:resources:read/, body.dig("errors", 0, "message"))
+    assert_match(/does not carry uris:resources:read/, body.dig("errors", 0, "message"))
   end
 
   test "a read scope cannot drive a mutation" do
-    body = execute(ANALYZE, scopes: %w[items:catalog:read], variables: { id: @item.id.to_s })
+    body = execute(ANALYZE, scopes: %w[uris:catalog:read], variables: { id: @item.id.to_s })
 
-    assert_match(/does not carry items:catalog:write/, body.dig("errors", 0, "message"))
+    assert_match(/does not carry uris:catalog:write/, body.dig("errors", 0, "message"))
   end
 
   test "a write scope can" do
-    body = execute(ANALYZE, scopes: %w[items:catalog:read items:catalog:write],
+    body = execute(ANALYZE, scopes: %w[uris:catalog:read uris:catalog:write],
                             variables: { id: @item.id.to_s })
 
     assert_nil body["errors"]
@@ -88,7 +88,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
   end
 
   test "resource commands want the resource scope, not the write scope" do
-    body = execute(RESOURCES, scopes: %w[items:catalog:write items:resources:read])
+    body = execute(RESOURCES, scopes: %w[uris:catalog:write uris:resources:read])
 
     assert_nil body["errors"]
   end
@@ -96,7 +96,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
   test "a read scope cannot walk from a item to a resource" do
     query = "{ items { nodes { references { resource { key } } } } }"
 
-    body = execute(query, scopes: %w[items:catalog:read])
+    body = execute(query, scopes: %w[uris:catalog:read])
 
     assert_nil body.dig("data", "items"),
                "nesting must not reach past the scope the entry point checked"
@@ -106,7 +106,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
   test "holding both scopes walks the whole way" do
     query = "{ items { nodes { references { resource { key } } } } }"
 
-    body = execute(query, scopes: %w[items:catalog:read items:resources:read])
+    body = execute(query, scopes: %w[uris:catalog:read uris:resources:read])
 
     assert_nil body["errors"]
     assert body.dig("data", "items", "nodes", 0, "references", 0, "resource", "key").present?
@@ -125,7 +125,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
     ActionController::Base.allow_forgery_protection = true
 
     post "/graphql", params: { query: CATALOG },
-                     headers: host_for(@tenant).merge(bearer(@tenant, scopes: [ "items:catalog:read" ]))
+                     headers: host_for(@tenant).merge(bearer(@tenant, scopes: [ "uris:catalog:read" ]))
 
     assert_response :success
     assert_equal [ { "kind" => "pdf", "title" => "An invoice" } ],

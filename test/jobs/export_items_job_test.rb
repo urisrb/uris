@@ -8,7 +8,7 @@ class Resource
   end
 end
 
-class ExportThingsJobTest < ActiveSupport::TestCase
+class ExportItemsJobTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
@@ -90,7 +90,7 @@ class ExportThingsJobTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      thing_at(@source, "invoices/march.pdf").merge!(thing_at(@destination, "invoices/march.pdf"))
+      item_at(@source, "invoices/march.pdf").merge!(item_at(@destination, "invoices/march.pdf"))
     end
 
     ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
@@ -109,7 +109,7 @@ class ExportThingsJobTest < ActiveSupport::TestCase
     end
 
     Tenant.switch(@tenant) do
-      item = thing_at(@source, "invoices/march.pdf")
+      item = item_at(@source, "invoices/march.pdf")
       copy = item.references.find_by(resource_id: @destination.id)
 
       assert_equal "#{@source_bucket}/invoices/march.pdf", copy.locator_key
@@ -142,7 +142,7 @@ class ExportThingsJobTest < ActiveSupport::TestCase
     ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     Tenant.switch(@tenant) do
-      item = thing_at(@source, "invoices/march.pdf")
+      item = item_at(@source, "invoices/march.pdf")
       source = item.source_for(@destination)
       copy = item.copy_at(@destination)
 
@@ -206,7 +206,7 @@ class ExportThingsJobTest < ActiveSupport::TestCase
     SyncResourceJob.perform_now(@tenant.id, @destination.id)
 
     Tenant.switch(@tenant) do
-      thing_at(@source, "invoices/march.pdf").merge!(thing_at(@destination, "invoices/march.pdf"))
+      item_at(@source, "invoices/march.pdf").merge!(item_at(@destination, "invoices/march.pdf"))
     end
 
     put @source, "invoices/march.pdf", body: "a corrected invoice"
@@ -225,13 +225,13 @@ class ExportThingsJobTest < ActiveSupport::TestCase
     put @destination, "#{@source_bucket}/invoices/march.pdf"
     SyncResourceJob.perform_now(@tenant.id, @destination.id)
 
-    squatter = Tenant.switch(@tenant) { thing_at(@destination, "#{@source_bucket}/invoices/march.pdf") }
+    squatter = Tenant.switch(@tenant) { item_at(@destination, "#{@source_bucket}/invoices/march.pdf") }
 
     ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     Tenant.switch(@tenant) do
       assert_nil Item.find_by(id: squatter.id)
-      assert_equal thing_at(@source, "invoices/march.pdf").id,
+      assert_equal item_at(@source, "invoices/march.pdf").id,
                    Reference.find_by(resource_id: @destination.id,
                                           locator_key: "#{@source_bucket}/invoices/march.pdf").item_id
     end
@@ -258,7 +258,7 @@ class ExportThingsJobTest < ActiveSupport::TestCase
       resource.client.put_object(bucket: resource.bucket, key: key, body: body || "contents of #{key}")
     end
 
-    def thing_at(resource, locator_key)
+    def item_at(resource, locator_key)
       Item.joins(:references)
            .find_by(item_references: { resource_id: resource.id, locator_key: locator_key })
     end

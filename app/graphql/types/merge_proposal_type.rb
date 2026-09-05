@@ -2,7 +2,7 @@
 
 module Types
   class MergeProposalType < Types::BaseObject
-    grants "items:catalog:read"
+    grants "uris:catalog:read"
 
     field :id, ID, null: false
     field :blocking_key, String, null: false

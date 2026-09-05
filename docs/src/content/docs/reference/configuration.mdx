@@ -11,16 +11,16 @@ environment; `.env.example` documents the full set and `bin/setup` copies it to 
 
 | | Default | |
 | --- | --- | --- |
-| `THINGS_HOST_SUFFIX` | `things.test` | the suffix tenant subdomains hang off; read in `config/environments/development.rb` |
+| `URIS_HOST_SUFFIX` | `uris.test` | the suffix tenant subdomains hang off; read in `config/environments/development.rb` |
 | `PORT` | 4242 | |
-| `THINGS_PUBLIC_ORIGIN` | — | overrides `request.base_url` in `Tenant.origin`, and takes `%{subdomain}` the way `MASKS_ISSUER_TEMPLATE` does. Must be stable, since OAuth redirect URIs register against it. Blank when not tunnelling |
+| `URIS_PUBLIC_ORIGIN` | — | overrides `request.base_url` in `Tenant.origin`, and takes `%{subdomain}` the way `MASKS_ISSUER_TEMPLATE` does. Must be stable, since OAuth redirect URIs register against it. Blank when not tunnelling |
 
 ## Datastores
 
 | | Default | |
 | --- | --- | --- |
 | `POSTGRES_HOST` `POSTGRES_PORT` | `127.0.0.1`, 5434 | |
-| `POSTGRES_USER` `POSTGRES_PASSWORD` | `things` | must not be a superuser |
+| `POSTGRES_USER` `POSTGRES_PASSWORD` | `items` | must not be a superuser |
 | `OPENSEARCH_URL` | `http://127.0.0.1:9201` | read in `SearchIndex.client` |
 | `PG_BIN_PATH` | — | prepended to `PATH` in `config/application.rb`, for when the linked `pg_dump` is older than the server in `compose.yml` |
 
@@ -39,13 +39,13 @@ production.
 | | Default | |
 | --- | --- | --- |
 | `S3_ENDPOINT` `S3_REGION` | `http://127.0.0.1:9000`, `us-east-1` | read by `db/seeds.rb` only |
-| `S3_ACCESS_KEY_ID` `S3_SECRET_ACCESS_KEY` | `things` / `thingsthings` | read by `db/seeds.rb` only |
-| `THINGS_FILESYSTEM_ROOTS` | *unset* | colon-separated roots a `filesystem` resource may be rooted under |
+| `S3_ACCESS_KEY_ID` `S3_SECRET_ACCESS_KEY` | `items` / `urisuris` | read by `db/seeds.rb` only |
+| `URIS_FILESYSTEM_ROOTS` | *unset* | colon-separated roots a `filesystem` resource may be rooted under |
 
 An `s3` resource carries its own endpoint and credentials in its row. The `S3_*` variables only seed
 the development MinIO bucket.
 
-`THINGS_FILESYSTEM_ROOTS` unset makes the `filesystem` type unusable, which is the intended default
+`URIS_FILESYSTEM_ROOTS` unset makes the `filesystem` type unusable, which is the intended default
 for a server holding more than one tenant's catalog. `Resource::Filesystem::Escaped` is raised on a
 path that leaves its root.
 
@@ -78,30 +78,30 @@ minting path.
 
 ## Limits
 
-Read in `config/application.rb` into `config.thingies`:
+Read in `config/application.rb` into `config.uris`:
 
 | | Default | Applies to |
 | --- | --- | --- |
-| `THINGS_MCP_LIMIT` | 120 / minute | every `/mcp` call |
-| `THINGS_RUN_BUDGET` | 20 / hour | tools declaring `starts_runs`; `0` disables |
-| `THINGS_AUDIT_RETENTION_DAYS` | 90 | `SweepAuditEventsJob` |
+| `URIS_MCP_LIMIT` | 120 / minute | every `/mcp` call |
+| `URIS_RUN_BUDGET` | 20 / hour | tools declaring `starts_runs`; `0` disables |
+| `URIS_AUDIT_RETENTION_DAYS` | 90 | `SweepAuditEventsJob` |
 
 ## Workers
 
-Read in `config/queue.yml` and `AnalyzeThingJob`:
+Read in `config/queue.yml` and `AnalyzeItemJob`:
 
 | | Default | |
 | --- | --- | --- |
 | `BULK_CONCURRENCY` | 1 | processes on `sync`, `export`, `default` |
 | `ANALYSIS_THREADS` | 4 | threads on `analysis` |
 | `ANALYSIS_CONCURRENCY` | 1 | processes on `analysis` |
-| `ANALYSIS_PER_TENANT` | 2 | concurrent `AnalyzeThingJob`s per tenant |
+| `ANALYSIS_PER_TENANT` | 2 | concurrent `AnalyzeItemJob`s per tenant |
 
 ## Switches
 
 | | |
 | --- | --- |
-| `THINGS_ITERATORS_DISABLED` | any value stops every iteration job everywhere |
+| `URIS_ITERATORS_DISABLED` | any value stops every iteration job everywhere |
 
 An operator switch, read by `Gate.stopped_everywhere?`. Per-tenant and per-resource switches are
 `gates` rows — see [Jobs](/concepts/jobs/).

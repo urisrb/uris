@@ -1,6 +1,6 @@
 require "test_helper"
 
-class ReindexThingsJobTest < ActiveSupport::TestCase
+class ReindexItemsJobTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
@@ -8,12 +8,12 @@ class ReindexThingsJobTest < ActiveSupport::TestCase
     @other = Tenant.create!(subdomain: "othr-#{SecureRandom.hex(4)}", name: "Other")
 
     Tenant.switch(@tenant) do
-      create_thing(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf")
-      create_thing(kind: "image", title: "Beach photo", locator_key: "photos/beach.jpg")
+      create_item(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf")
+      create_item(kind: "image", title: "Beach photo", locator_key: "photos/beach.jpg")
     end
 
     Tenant.switch(@other) do
-      create_thing(kind: "pdf", title: "Acme invoice", locator_key: "invoices/acme.pdf")
+      create_item(kind: "pdf", title: "Acme invoice", locator_key: "invoices/acme.pdf")
     end
 
     SearchIndex.refresh!
@@ -97,7 +97,7 @@ class ReindexThingsJobTest < ActiveSupport::TestCase
   test "it walks in pages, so a catalog larger than one page is covered whole" do
     Tenant.switch(@tenant) do
       (ReindexItemsJob::PAGE + 5).times do |n|
-        create_thing(kind: "pdf", title: "bulk-#{n}", locator_key: "bulk/#{n}.pdf")
+        create_item(kind: "pdf", title: "bulk-#{n}", locator_key: "bulk/#{n}.pdf")
       end
 
       SearchIndex.client.delete_by_query(
@@ -169,14 +169,14 @@ class ReindexThingsJobTest < ActiveSupport::TestCase
 
     late = Tenant.create!(subdomain: "late-#{SecureRandom.hex(4)}", name: "Late")
 
-    Tenant.switch(late) { create_thing(kind: "pdf", title: "Late invoice") }
+    Tenant.switch(late) { create_item(kind: "pdf", title: "Late invoice") }
 
     assert_equal [ "Late invoice" ], titles(late)
   end
 
   test "a reindex spends one request per page, not one per item" do
     Tenant.switch(@tenant) do
-      Array.new(5) { |n| create_thing(kind: "pdf", title: "paged-#{n}") }
+      Array.new(5) { |n| create_item(kind: "pdf", title: "paged-#{n}") }
     end
 
     bulks = 0

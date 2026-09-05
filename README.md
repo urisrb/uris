@@ -1,26 +1,26 @@
-# thingies
+# uris
 
 A data unifier — one searchable index across everything you own, wherever it lives, with a way back
 out.
 
-Drive search only searches Drive. Gmail search only searches Gmail. thingies searches across all of
+Drive search only searches Drive. Gmail search only searches Gmail. uris searches across all of
 them, with analysis attached, and can hand the bytes back as an export or a local copy.
 
 ```
 sync       resource → catalog        pull references in          ✓ eight of ten types
-analyze    content  → understanding  per thing, by kind          ✓ summaries, vision
+analyze    content  → understanding  per item, by kind          ✓ summaries, vision
 search     catalog  → you            one index across everything ✓
 export     catalog  → resource       bytes back out              ✓
 ```
 
 All four are reachable over `/mcp`, which is what the product is for.
 
-A **thing** is a reference, not the bytes. The catalog is the product; originals stay in the resource
+A **item** is a reference, not the bytes. The catalog is the product; originals stay in the resource
 they came from. A **resource** is an instance — "my B2 bucket" — and its **type** (`s3`, `imap`,
 `oauth-google`) is what decides how much code exists: one `s3` adapter serves AWS, R2, B2, Wasabi,
 MinIO and Garage. A type owns its adapter, its command schema, its locator shape, and its enumerator.
 
-Everything that touches an unbounded number of things checkpoints through
+Everything that touches an unbounded number of items checkpoints through
 [job-iteration](https://github.com/Shopify/job-iteration), so a sync or an export survives a deploy
 and resumes at its cursor rather than starting over.
 
@@ -39,10 +39,10 @@ bin/dev              # web, worker, vite, and the codegen watchers
 Tenants are addressed by subdomain, so add these to `/etc/hosts`:
 
 ```
-127.0.0.1 things.test demo.things.test acme.things.test
+127.0.0.1 uris.test demo.uris.test acme.uris.test
 ```
 
-Then <http://demo.things.test:4242> and <http://acme.things.test:4242>.
+Then <http://demo.uris.test:4242> and <http://acme.uris.test:4242>.
 
 ## Two tenants, always
 
@@ -88,16 +88,16 @@ drift from the API without the types going red first. `bin/dev` keeps both watch
 
 |                     |                     |
 | ------------------- | ------------------- |
-| `search_things`     | `things:read`       |
-| `get_thing`         | `things:read`       |
-| `analyze_thing`     | `things:write`      |
+| `search_items`      | `uris:read`         |
+| `get_item`          | `uris:read`         |
+| `analyze_item`      | `uris:write`        |
 | `list_resources`    | `resources:read`    |
 | `describe_resource` | `resources:read`    |
 | `check_resource`    | `resources:read`    |
 | `list_runs`         | `resources:read`    |
 | `command_resource`  | `resources:command` |
 | `sync_resource`     | `resources:command` |
-| `export_things`     | `resources:command` |
+| `export_items`      | `resources:command` |
 | `cancel_run`        | `resources:command` |
 
 **The token decides which tools exist.** The server is built per request from the caller's grant, so
@@ -119,9 +119,9 @@ the web app, and the browser's session is a real token; for a raw `curl`, take o
 token endpoint.
 
 ```sh
-curl -sS http://demo.things.test:4242/.well-known/oauth-protected-resource
+curl -sS http://demo.uris.test:4242/.well-known/oauth-protected-resource
 
-curl -sS -X POST http://demo.things.test:4242/mcp \
+curl -sS -X POST http://demo.uris.test:4242/mcp \
   -H "authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
@@ -152,7 +152,7 @@ different and the error class is what distinguishes them:
 | `Analyzer::Failed` | a file that cannot be read        | **discarded** — retrying a malformed PDF produces a malformed PDF |
 | `Resource::Failed` | a resource that cannot be reached | **retried** with backoff — the bytes are probably still there     |
 
-The analysis of a thing is recorded on that thing either way: the step machine stores the error
+The analysis of a item is recorded on that item either way: the step machine stores the error
 under `analysis.steps`, so a failure is data you can search and re-run, not a row in a dead-letter
 queue. Adapters translate their own vendor errors, so nothing above `Resource` names an SDK.
 

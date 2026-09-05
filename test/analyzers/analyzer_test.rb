@@ -185,7 +185,7 @@ class AnalyzerTest < ActiveSupport::TestCase
     end
 
     def item(key)
-      thing_at(key)
+      item_at(key)
     end
 
     def reference(key)

@@ -6,8 +6,8 @@ import {
   IconSearch,
   IconSettings,
 } from '@tabler/icons-react'
-import { CatalogDocument } from '@uris/client'
-import { useQuery } from '@uris/client/react'
+import { CatalogDocument } from '@uris-to/client'
+import { useQuery } from '@uris-to/client/react'
 import { type CSSProperties, useEffect, useState } from 'react'
 import {
   Link,

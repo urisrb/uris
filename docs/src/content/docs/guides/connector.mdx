@@ -12,7 +12,7 @@ An unauthenticated call answers `401` with a `WWW-Authenticate` header pointing 
 resource metadata:
 
 ```sh
-curl -sS http://demo.things.test:4242/.well-known/oauth-protected-resource
+curl -sS http://demo.uris.test:4242/.well-known/oauth-protected-resource
 ```
 
 Both `/.well-known/oauth-protected-resource` and `.../mcp` are routed. The client reads the issuer
@@ -28,7 +28,7 @@ Point `MASKS_ISSUER_TEMPLATE` at a running issuer. For a raw `curl`, take a toke
 token endpoint:
 
 ```sh
-curl -sS -X POST http://demo.things.test:4242/mcp \
+curl -sS -X POST http://demo.uris.test:4242/mcp \
   -H "authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
@@ -54,7 +54,7 @@ a presented one would be. A cookie and a bearer reach the same `Grant` by the sa
 
 ## Behind a tunnel
 
-Set `THINGS_PUBLIC_ORIGIN` to the origin you are tunnelling through. `Tenant.origin` prefers it over
+Set `URIS_PUBLIC_ORIGIN` to the origin you are tunnelling through. `Tenant.origin` prefers it over
 `request.base_url`, and `Tenant.resource_url` builds the audience from it. It must be stable —
 OAuth redirect URIs register against it. Leave it blank when not tunnelling.
 

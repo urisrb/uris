@@ -34,7 +34,7 @@ module ActiveSupport
 
     fixtures :all
 
-    def create_thing(kind:, title: nil, resource: nil, locator_key: nil, locator: {})
+    def create_item(kind:, title: nil, resource: nil, locator_key: nil, locator: {})
       item = Item.create!(kind: kind, title: title)
       item.references.create!(resource: resource || scratch_resource,
                                locator_key: locator_key, locator: locator)
@@ -51,7 +51,7 @@ module ActiveSupport
       )
     end
 
-    def thing_at(locator_key)
+    def item_at(locator_key)
       Item.joins(:references).find_by!(item_references: { locator_key: locator_key })
     end
   end

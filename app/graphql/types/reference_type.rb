@@ -2,7 +2,7 @@
 
 module Types
   class ReferenceType < Types::BaseObject
-    grants "items:catalog:read"
+    grants "uris:catalog:read"
 
     field :id, ID, null: false
     field :resource, Types::ResourceType, null: false

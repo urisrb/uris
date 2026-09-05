@@ -3,7 +3,7 @@ title: Sync a resource
 description: Walk a resource's enumerator and record what it holds as references, resumably.
 ---
 
-A sync walks `resource.each_page` and records a `ThingReference` per object. No bytes move.
+A sync walks `resource.each_page` and records a `Reference` per object. No bytes move.
 
 ## Check it first
 
@@ -36,14 +36,14 @@ def sync!
 end
 ```
 
-Two things make it safe to call repeatedly:
+Two items make it safe to call repeatedly:
 
 - `claim_sync!` is a conditional `UPDATE` on `sync_started_at`. A resource already syncing returns
   `false` rather than starting twice. The claim goes stale after `SYNC_ABANDONED_AFTER`, 6 hours.
 - The job resumes at its cursor. `SyncResourceJob#build_enumerator` passes the cursor straight into
   `each_page` and yields the resource's own next cursor alongside each object.
 
-Each iteration calls `ThingReference.discover!` and enqueues `AnalyzeThingJob` for anything not yet
+Each iteration calls `Reference.discover!` and enqueues `AnalyzeItemJob` for anything not yet
 analyzed.
 
 ## Cursors are per type

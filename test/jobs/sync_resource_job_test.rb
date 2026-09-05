@@ -41,14 +41,14 @@ class SyncResourceJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       assert_equal 3, Item.count
 
-      pdf = thing_at("invoices/march.pdf")
+      pdf = item_at("invoices/march.pdf")
       assert_equal "pdf", pdf.kind
       assert_equal "march.pdf", pdf.title
       assert_equal @bucket, pdf.locator["bucket"]
       assert_equal @resource, pdf.resource
 
-      assert_equal "image", thing_at("photos/beach.jpg").kind
-      assert_equal "text", thing_at("notes.txt").kind
+      assert_equal "image", item_at("photos/beach.jpg").kind
+      assert_equal "text", item_at("notes.txt").kind
     end
   end
 
@@ -68,7 +68,7 @@ class SyncResourceJobTest < ActiveSupport::TestCase
     SyncResourceJob.perform_now(@tenant.id, @resource.id)
 
     Tenant.switch(@tenant) do
-      item = thing_at("notes.txt")
+      item = item_at("notes.txt")
 
       assert_equal "contents of notes.txt", @resource.download(item.locator).read
     end
