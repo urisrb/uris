@@ -1,72 +1,116 @@
 ---
 title: Jobs and failure
-description: Two worker pools, a durable queue in every environment, and a policy for the two kinds of failure.
+description: Solid Queue in two pools, job-iteration for anything unbounded, runs, gates and the retry policy.
 ---
 
-Solid Queue, in a second database, **in development as well as production**. A queue that only exists
-in one environment is a queue whose failures are only discovered there.
+Solid Queue, in a second database (`config.solid_queue.connects_to`), in development as well as
+production. `bin/jobs` runs it, `bin/dev` keeps it up, and `/jobs` mounts Mission Control.
 
-`bin/jobs` runs it, `bin/dev` keeps it up, and `/jobs` is Mission Control.
+## Two pools
 
-## Two pools, because the work is two shapes
+`config/queue.yml`:
 
-| Pool | Queues | Why |
+| Pool | Queues | Threads | Processes |
+| --- | --- | --- | --- |
+| bulk | `sync`, `export`, `default` | 5 | `BULK_CONCURRENCY`, default 1 |
+| analysis | `analysis` | `ANALYSIS_THREADS`, default 4 | `ANALYSIS_CONCURRENCY`, default 1 |
+
+Splitting them keeps a large sync from occupying the workers analysis needs. Within the analysis
+pool, `AnalyzeThingJob` caps concurrency per tenant with `limits_concurrency`
+(`ANALYSIS_PER_TENANT`, default 2).
+
+## Recurring
+
+`config/recurring.yml`:
+
+| Job | Queue | Schedule |
 | --- | --- | --- |
-| bulk | `sync`, `export`, `default` | iterators that enqueue rather than compute |
-| analysis | `analysis` | expensive, and serial on one GPU once models arrive |
+| `ScheduleSyncsJob` | `sync` | every minute |
+| `SweepAuditEventsJob` | `sync` | daily at 4am |
+| `SolidQueue::Job.clear_finished_in_batches` | — | hourly at :12, production only |
 
-Splitting them is what stops a hundred-thousand-object sync from occupying the workers analysis
-needs. Within the analysis pool, `limits_concurrency` caps each tenant, so one large catalog cannot
-starve another.
+`ScheduleSyncsJob` walks every tenant and calls `sync!` on each `Resource.due_for_sync`.
 
-## Bulk execution
+## Iteration
 
-Every operation touching an unbounded number of things — sync, export, reindex, rule backfills — goes
-through [job-iteration](https://github.com/Shopify/job-iteration). Solid Queue is supported out of the
-box.
+Every job over an unbounded number of things includes `JobIteration::Iteration` and `TrackedRun`:
 
-Three rules fall out of it:
+| Job | Queue | Gate key |
+| --- | --- | --- |
+| `SyncResourceJob` | `sync` | `sync` |
+| `ExportThingsJob` | `export` | `export` |
+| `AnalyzeThingsJob` | `default` | `analyze` |
+| `ReindexThingsJob` | `default` | `reindex` |
+| `ProposeMergesJob` | `default` | `dedupe` |
 
-- **`each_iteration` enqueues, never analyzes.** Iterations have to finish in roughly thirty seconds
-  for graceful shutdown to work, and analysis on a serial GPU cannot promise that. The iterator is
-  fan-out, not work.
-- **Enumerators are a type concern.** The cursor shape belongs to the dialect: S3 continuation
-  tokens, Drive page tokens, Gmail history ids, IMAP UID ranges valid only within a `uidvalidity`.
-- **Code after `yield` in a custom enumerator is not guaranteed to run.** Cleanup there will be
-  skipped on interruption.
+Three rules follow from job-iteration:
 
-Backfills partition on a **watermark** captured when a rule is enabled — that is what separates
-"everything that already existed" from "everything from here on", and it has to be captured at enable
-time rather than derived later.
+- `each_iteration` enqueues rather than computes. Iterations must finish quickly for graceful
+  shutdown to work; `AnalyzeThingsJob#each_iteration` is one `perform_later` call.
+- The cursor shape belongs to the type. `SyncResourceJob` wraps whatever `resource.each_page`
+  yields as its next cursor.
+- Code after `yield` in a custom enumerator is not guaranteed to run.
 
-Before enabling something expensive, count it without counting it: a dry run reports *matches 47,213
-things, est. $N* from the index, not from `count(*)`.
+`ReindexThingsJob` and `ProposeMergesJob` iterate *pages* rather than rows, cursoring on the last id
+of each page, because one request per document made a rebuild a request storm.
 
-## A durable queue makes failure a persistent object
+## Runs
 
-So failure needs a policy. The two kinds are different, and the error class is what distinguishes
-them:
+`app/models/run.rb`. Every bulk operation creates one, and `TrackedRun` updates it.
+
+| | |
+| --- | --- |
+| `kind` | `sync`, `export`, `analyze`, `reindex`, `dedupe` |
+| `status` | `queued`, `running`, `done`, `failed`, `cancelled`, `gated` |
+| `processed` | incremented by `progressed!` |
+| `deadline` | optional; passing it cancels the run |
+
+`Run#halted?` re-reads the status from the database and returns true if the row is gone, the run was
+cancelled, or its deadline passed. That is the only way to stop a run — a bulk job holds no token
+anything can revoke, so cancellation is a flag the iteration reads.
+
+`gated!` is distinct from `cancelled!`: nobody asked for it to stop.
+
+## Gates
+
+`app/models/gate.rb`. A gate is a row keyed by an iterator name, optionally scoped to one record.
+
+```ruby
+Gate.decide(key: "sync", reference: resource, enabled: true, live: true)
+# => Decision(enabled:, live:)
+```
+
+Most specific wins: a gate on the reference, then the key-wide gate, then what the iterator
+declared. Absence means the iterator's own default, not "off".
+
+`live: false` is a dry run — the iteration walks and counts but does nothing.
+
+`THINGS_ITERATORS_DISABLED` shuts every iterator everywhere. It is an operator switch; per-tenant
+and per-resource switches are `gates` rows.
+
+## Failure policy
+
+The error class decides. Both `SyncResourceJob` and `ExportThingsJob` carry:
+
+```ruby
+retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5 do |job, error|
+  job.fail_run(error)
+end
+```
+
+and `AnalyzeThingJob` additionally `discard_on Analyzer::Failed`.
 
 | | Is | Policy |
 | --- | --- | --- |
-| `Analyzer::Failed` | a file that cannot be read | **discarded** — retrying a malformed PDF produces a malformed PDF |
-| `Resource::Failed` | a resource that cannot be reached | **retried** with backoff — the bytes are probably still there |
+| `Analyzer::Failed` | a file that cannot be read | discarded |
+| `Resource::Failed` | a resource that cannot be reached | retried, five attempts |
 
-Either way the analysis of a thing is recorded **on that thing**: the step machine stores the error
-under `analysis.steps`, so a failure is data you can search and re-run. Adapters translate their own
-vendor errors, so nothing above `Resource` names an SDK.
+Adapters translate vendor errors, so nothing above `Resource` names an SDK.
 
-## Stopping everything
+`test/jobs/failure_policy_test.rb` asserts both halves; `test/jobs/gated_iteration_test.rb` covers
+gates.
 
-`THINGS_ITERATORS_DISABLED` stops every iteration job everywhere. It is an **operator** switch, not a
-tenant one — per-tenant and per-resource switches are rows in `gates`, set from the application.
-
-## Two bounds that live outside run supervision
-
-Run supervision bounds a run *tree*. These it does not reach:
-
-- **Catalog fan-out** — "for every image, run this prompt" across 100k things. Needs per-rule budgets
-  and rate limits.
-- **Data-plane re-entrancy** — a rule whose output re-matches itself loops, and there is no call stack
-  to bound it with. Things are marked with the rule that produced them, which is what breaks the
-  cycle.
+:::note[TODO]
+Two bounds are unimplemented: per-rule budgets for catalog-wide fan-out, and re-entrancy limits for
+a rule whose output re-matches itself. Neither has a rule engine to hang off yet.
+:::

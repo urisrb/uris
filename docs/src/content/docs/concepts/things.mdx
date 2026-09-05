@@ -1,54 +1,96 @@
 ---
 title: Things
-description: A thing is a reference, not the bytes — what that buys, and the one place it costs you.
+description: One thing row, one reference per place the bytes live, and the kind that decides how it is analyzed.
 ---
 
-**A thing is a reference, not the bytes.** The catalog is the product; the bytes live in the resource
-they came from and stay there.
+A thing is a row in `things` with one `thing_references` row per place its bytes live. The bytes
+themselves stay in the resource they came from.
 
-A thing holds:
+`app/models/thing.rb` · `app/models/thing_reference.rb`
 
-- the **locator** — where the bytes are, in a shape its resource type defines
-- extracted **metadata** — size, timestamps, whatever the enumerator knew
-- the **analysis** — what the step machine understood, per kind
-- **derivatives** — thumbnails, extracted text, page renders
+## Thing
 
-Derivatives are a *cache, not data*. They are regenerable from the original, so losing them costs
-time and nothing else. That distinction is what lets the catalog stay small next to the corpus it
-describes.
+| | |
+| --- | --- |
+| `kind` | what it is — `pdf`, `email`, `image`… Required |
+| `title` | display name, usually the basename of the locator key |
+| `parent_id` | set on a thing extracted from another, such as an email attachment |
+
+`Thing#analyzed_at` is the maximum `analyzed_at` across its references, not a column.
+
+## ThingReference
+
+| | |
+| --- | --- |
+| `resource_id` | which resource holds this copy |
+| `locator_key` | the key within it — unique per `(tenant_id, resource_id)` |
+| `locator` | the type-specific address, as JSON |
+| `version` | what the resource last reported, usually an ETag |
+| `changed_at` | set when `version` changes, which also clears `analyzed_at` |
+| `analysis` | the step machine's record — see [Analysis](/concepts/analysis/) |
+
+`ThingReference.discover!` is the sync path: it finds or creates the reference, creates a thing if
+there is not one yet, and calls `note_version!`. A changed version re-opens analysis.
+
+`ThingReference.record!` is the export path: it attaches a reference to a thing you already have,
+and records `source_version` so `stale_against?` can tell whether the copy has fallen behind.
 
 ## Kind
 
-A thing has a **kind** — `pdf`, `email`, `image`, `xlsx` — and the kind decides how it is understood.
-Kind is not resource type, and the two are easy to collide:
+Assigned from the file extension by `Kind.for_filename` (`app/models/kind.rb`), defaulting to
+`file`.
 
-| | Means | Never means |
-| --- | --- | --- |
-| **kind** | `pdf`, `email`, `image` — what a *thing* is | a resource type |
-| **type** | `s3`, `imap`, `docker` — what a *resource* is an instance of | a thing's content kind |
+| kind | extensions |
+| --- | --- |
+| `pdf` | pdf |
+| `image` | png, jpg, jpeg, gif, webp, heic, tif, tiff |
+| `text` | txt, md, rtf |
+| `data` | csv, tsv, json, xml |
+| `xlsx` | xlsx, xls, ods |
+| `doc` | doc, docx, odt |
+| `calendar` | ics |
+| `contact` | vcf, vcard |
+| `pkpass` | pkpass |
+| `email` | eml |
+| `file` | anything else |
 
-## Upload is not a special case
+Kind is not resource type. `pdf` is a kind; `s3` is a [type](/concepts/resources/).
 
-"Upload" is: write to the tenant's default storage resource, then reference it. There is no separate
-upload path, no second storage story, and no thing that exists without a resource behind it. A file
-you dragged into the browser and an object that was already in a bucket are the same shape once they
-land.
+## Children
 
-## Deletion is two-valued
+An analyzer that declares `has_children?` returns child bodies from `children_of`, and
+`Analyzer::Base` writes them into a `Resource::Database` resource keyed `children` before analyzing
+the parent. `Thing::DEPTH` caps the chain at 4.
 
-Deleting a thing and deleting what it points at are **different operations**, and conflating them
-loses data.
+`Thing#body_text` is the union of the strings extracted from a thing's own references and its
+children's, so an email matches on a word that only appears in an attached PDF.
+
+`Thing#children_ready?` is true when every child has an `analyzed_at`. A parent that found children
+returns without analyzing; the last child to finish re-enqueues it (`AnalyzeThingJob#wake_parent`).
+
+## Merging
+
+`Thing#merge!` moves every reference off another thing onto this one.
+`Blocking` groups candidates, `ProposeMergesJob` writes `MergeProposal` rows, and the GraphQL
+mutations `mergeThings`, `settleMergeProposal` and `splitReference` act on them.
+
+:::note[TODO]
+Merging is reachable over GraphQL only. There is no MCP tool for it.
+:::
+
+## Deletion
+
+Deleting a thing and deleting the bytes it points at are separate operations.
 
 | | Does | Reversible by |
 | --- | --- | --- |
-| forget the reference | drops the thing, its analysis, its derivatives | re-syncing the resource |
+| destroy the thing | drops the row, its references and its analysis | re-syncing the resource |
 | delete the object | removes the bytes from the resource | nothing |
 
-The default is forget. A catalog that deletes your originals when you tidy it is not a catalog you
-can tidy.
+`Thing` `dependent: :destroy` cascades to references and children. Nothing in the catalog deletes a
+resource's objects.
 
 ## Scale
 
-Design for millions per tenant. One table, indexed, cursor pagination, OpenSearch as the query path.
-No partitioning up front — and avoid `count(*)`, which is the operation that quietly turns a
-responsive list into a thirty-second one somewhere past the first million rows.
+One table, cursor pagination through `Page.of`, OpenSearch as the query path. `count(*)` is avoided
+on catalog-sized scopes.

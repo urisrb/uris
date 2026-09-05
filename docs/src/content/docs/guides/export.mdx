@@ -1,10 +1,9 @@
 ---
 title: Export things back out
-description: The way back out — copy the bytes behind matching things into a storage resource.
+description: Copy the bytes behind matching things into a storage resource, resumably and idempotently.
 ---
 
-A catalog you cannot get out of is a trap. `export_things` copies the bytes behind matching things
-into a storage resource, and it is the reverse of a sync in every respect that matters.
+`export_things` selects things and writes their bytes into a storage resource.
 
 ```json
 {
@@ -18,64 +17,57 @@ into a storage resource, and it is the reverse of a sync in every respect that m
 }
 ```
 
-`destination_id` defaults to this tenant's **default storage** if you leave it off.
+`destination_id` defaults to `Resource.default_storage!`, and must name a resource whose
+capabilities include `storage` — `Resource#storage!` raises `ArgumentError` otherwise.
 
-## The selector is the search grammar
+## The selector
 
-Same fields, same meaning — one grammar covers a search query, an export's source, and a rule's
-matcher:
+`Tool::Base::SELECTOR_SCHEMA`. The same grammar `search_things` uses, resolved by `Thing.matching`:
 
 | Field | Restricts to |
 | --- | --- |
-| `query` | words to match |
+| `query` | words to match, through the search index |
 | `kind` | one kind |
-| `resource_id` | things from one resource |
-| `folder` | a prefix of the locator key, as a folder: `2024/invoices` |
-| `since` / `before` | when the thing was catalogued |
+| `resource_id` | things referenced by one resource |
+| `folder` | a prefix of the locator key: `2024/invoices` |
+| `since` / `before` | `created_at` bounds |
+
+`folder` matches the exact key or `<prefix>/%`, escaped with `sanitize_sql_like`. A `since` or
+`before` that will not parse raises `ArgumentError`.
 
 :::caution[Every argument you leave off widens it]
-No arguments at all means **the whole catalog** into this tenant's default storage. That is the
-consistent reading of the grammar rather than an accident, but it is worth searching with the same
-selector first and looking at the count.
+No arguments at all selects the whole catalog into this tenant's default storage. Run
+`search_things` with the same selector first.
 :::
 
-## Each copy is catalogued
+## Each copy is a reference
 
-A copy is written as **another reference to the thing it came from**, not as a new thing. Two
-consequences:
+`ExportThingsJob#each_iteration` finds a source reference on another resource, writes the bytes, and
+records the copy with `ThingReference.record!` — another reference on the same thing, carrying
+`source_version`.
 
-- A thing already written to the destination is **left alone**, so re-running an export resumes
-  rather than duplicates.
-- The exported copy is findable. It is the same thing, now living in one more place.
+Two consequences:
+
+- A thing already copied is skipped unless `copy.stale_against?(source)`, so re-running an export
+  resumes rather than duplicates.
+- The copy is findable. It is the same thing, now living in one more place.
 
 ## It resumes
 
-Like every operation over an unbounded number of things, an export checkpoints through
-job-iteration. An export interrupted by a deploy carries on at its cursor. Watch it with `list_runs`
-and stop it with `cancel_run`:
+The job includes `JobIteration::Iteration`, so an export interrupted by a deploy continues at its
+cursor.
 
 ```json
 { "name": "list_runs", "arguments": { "kind": "export" } }
 ```
 
-Cancelling sets a flag the iteration reads on its next check rather than killing anything — the work
-stops within a few dozen objects, and whatever was already copied stays copied and catalogued.
+`cancel_run` sets the run's status; the iteration reads it on its next `halted?` check. Whatever was
+copied stays copied and catalogued.
 
-## Backup and export are the same form
+`Resource::Failed` is retried five times with polynomial backoff, then fails the run.
 
-The sync/export family is one shape with the endpoints swapped, and the flag is what separates them:
+## Deleting is separate
 
-| source | destination | make it a thing | is |
-| --- | --- | --- | --- |
-| Drive | — | ✓ | **ingest** — references only |
-| Drive | B2 | — | **backup** |
-| Drive | default storage | ✓ | **ingest + materialize** |
-| things matching *q* | B2 | — | **export** |
-
-The catalog is never a destination; cataloguing is a flag. See
-[The four movements](/start/movements/).
-
-## Deleting is not exporting
-
-Once the bytes are somewhere you control, forgetting the reference and deleting the object are still
-two different operations — and the default is forget. See [Things](/concepts/things/).
+Once the bytes are somewhere you control, destroying the thing and deleting the object in the
+resource remain two operations. Nothing in the catalog deletes a resource's objects — see
+[Things](/concepts/things/).

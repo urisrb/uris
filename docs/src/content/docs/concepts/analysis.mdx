@@ -1,75 +1,127 @@
 ---
 title: Analysis
-description: The step machine — what runs per kind, why a failure is data, and how re-running is nearly free.
+description: Twelve analyzers, first-match dispatch, and a step machine that records each step on the reference.
 ---
 
-Analysis turns content into understanding. It fetches bytes it does not own, records what it learned
-on the thing, and leaves the original where it was.
+Analysis fetches a reference's bytes, extracts what it can, and writes the result onto the
+reference. Originals are not modified.
 
-## Dispatch is by kind, first match wins
+`app/analyzers/`
 
-An analyzer declares `handles?`, and the first one that claims a thing gets it. The dispatch reads
-mime type, extension, **or owner type** — which is how an email analyzer can claim a mail record
-before any blob exists for it.
+## Dispatch
 
-Nine analyzers ship: calendar, data, doc, email, image, pdf, pkpass, text, xlsx. Five of them need no
-model at all — extraction, OCR and structure are most of what a catalog needs before inference is
-even in the picture.
+`Analyzer.for(thing)` returns the first analyzer whose `handles?` claims the thing. Order is the
+literal order of `Analyzer.all` in `app/analyzers/analyzer.rb`:
+
+```
+Pdf · Image · Doc · Xlsx · Calendar · Pkpass · Email · Feed · Contact · Data · Text · Fallback
+```
+
+Most `handles?` implementations test `thing.kind`. `Analyzer::Fallback` returns true
+unconditionally and is last, so every thing has an analyzer.
+
+## What each one extracts
+
+| Analyzer | Steps | Shells out to |
+| --- | --- | --- |
+| `Pdf` | `info`, `text` | `pdfinfo`, `pdftotext` |
+| `Image` | `dimensions`, `ocr` | `vipsheader`, `tesseract` |
+| `Email` | `headers`, `attachments`, `text` | — (`mail` gem) |
+
+`brew bundle` installs the binaries. `Analyzer::Base::MAX_TEXT` truncates extracted text at 200,000
+characters.
+
+:::note[TODO]
+The remaining nine analyzers are not documented here yet. Read the `analyze` method in each file
+under `app/analyzers/analyzer/`; the pattern is the same three lines.
+:::
 
 ## The step machine
 
-Analysis is not one operation, it is a sequence, and each step records itself:
+`step(name) { … }` writes one entry per step under `reference.analysis["steps"]`:
 
+```json
+{
+  "steps": {
+    "text": {
+      "started_at": "2026-09-04T10:00:00.000Z",
+      "finished_at": "2026-09-04T10:00:04.120Z",
+      "result": "…"
+    }
+  }
+}
 ```
-analysis.steps.<name>
-  started_at
-  finished_at
-  result
-```
 
-That gives three properties worth stating separately:
+A step that raises stores `error` instead of `result`, with the exception class and a message
+truncated to 500 characters, and re-raises.
 
-- **Completed steps are skipped.** Re-analyzing a thing is nearly free, which is what makes the outer
-  job-iteration cursor safe to replay. See [Jobs](/concepts/jobs/).
-- **Errored steps re-run.** A failure is not terminal state, it is a step without a `finished_at`.
-- **`after:` invalidates.** Declaring a step downstream of another means changing the upstream one
-  re-opens everything below it.
+Each step is written in its own transaction, so a long OCR run does not hold one open.
 
-## Two levels of resumability, and both are needed
+A step is re-run when any of these hold:
+
+| | |
+| --- | --- |
+| no `result` is stored | it has never succeeded |
+| `force: true` | the caller demanded it |
+| `after:` is later than `finished_at` | the step was declared downstream of something newer |
+| `reference.changed_at` is later than `finished_at` | the bytes changed under it |
+
+Otherwise the stored result is returned without running anything, which is what makes re-analyzing
+a thing cheap and the outer job cursor safe to replay.
+
+`step_result(name)` reads a stored result without running the block.
+
+## Two levels of resumability
 
 | | Scope | Mechanism |
 | --- | --- | --- |
 | across things | which item am I on | job-iteration cursor |
-| within a thing | which step am I on | `analysis.steps.<name>` |
-
-The inner level is what satisfies the outer level's idempotency requirement. Without it, a resumed
-iteration would redo whole analyses; with it, a re-processed thing costs a few skipped checks.
+| within a thing | which step am I on | `analysis["steps"]` |
 
 ## Children
 
-Some things block on others. `has_children?` and `children_ready?` express that — an email is not
-finished until its attachments are, which makes analysis a dependency graph rather than a queue.
+An analyzer declaring `has_children?` returns child bodies from `children_of(reference)`.
+`Analyzer::Base#extract_children!` writes each into the `children` `Resource::Database` resource,
+keyed `<reference_id>/<index>/<filename>`, and enqueues an `AnalyzeThingJob` for each.
 
-## A failure is data
+The key is deterministic, so re-analysis finds last time's children rather than making a second set.
 
-The step machine stores the error under `analysis.steps`, on the thing. So a failure is something you
-can **search for and re-run**, not a row in a dead-letter queue nobody reads.
+A thing with children returns from `run` without analyzing itself until `children_ready?`. The last
+child to finish wakes the parent (`AnalyzeThingJob#wake_parent`).
 
-Which failure it is matters, and the error class is what distinguishes them:
+`Thing::DEPTH` caps the chain at 4 levels.
+
+## Failure
+
+The error class decides the policy, in `AnalyzeThingJob`:
+
+```ruby
+discard_on Analyzer::Failed
+retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5
+```
 
 | | Is | Policy |
 | --- | --- | --- |
-| `Analyzer::Failed` | a file that cannot be read | **discarded** — retrying a malformed PDF produces a malformed PDF |
-| `Resource::Failed` | a resource that cannot be reached | **retried** with backoff — the bytes are probably still there |
+| `Analyzer::Failed` | a file that cannot be read | discarded — a retry produces the same result |
+| `Resource::Failed` | a resource that cannot be reached | retried with backoff |
+
+Either way the error is stored under `analysis["steps"]` on the reference, so it is searchable and
+re-runnable rather than a row in a dead-letter queue.
 
 ## Fairness
 
-Analysis is expensive and serial on one GPU. It runs in its own worker pool, and within that pool
-`limits_concurrency` caps each tenant — so one tenant with a large catalog cannot starve another.
-That is a fairness problem a single shared pool cannot express, which is why there are two.
+`AnalyzeThingJob` runs on the `analysis` queue with its own worker pool, and caps concurrent jobs
+per tenant:
 
-## Built-in analysis is the default rule set
+```ruby
+limits_concurrency to: ENV.fetch("ANALYSIS_PER_TENANT", 2).to_i,
+                   key: ->(tenant_id, _thing_id) { "analysis/#{tenant_id}" },
+                   duration: 30.minutes
+```
 
-It is always on, so a tenant who configures nothing still gets a working catalog. User rules run
-*downstream* of it, for a reason that is easy to miss: you cannot match `kind: invoice` until an
-analyzer has decided that something is an invoice.
+See [Jobs](/concepts/jobs/).
+
+:::note[TODO]
+No model-backed analysis exists yet. Every analyzer currently ships is extraction, OCR or parsing.
+Rules that match on an analyzer's output — `kind: invoice` and the like — are not built.
+:::

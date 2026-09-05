@@ -1,62 +1,75 @@
 ---
 title: Search the catalog
-description: One index across every resource that has been synced — and what it matches.
+description: One OpenSearch query across every resource that has been synced, matching titles, paths and extracted text.
 ---
-
-Drive search only searches Drive. This searches across everything that has been synced, in one query,
-with analysis attached.
 
 ```json
 { "name": "search_things", "arguments": { "query": "invoice 2024", "kind": "pdf", "limit": 50 } }
 ```
 
-| Argument | Does |
+| Argument | |
 | --- | --- |
-| `query` | words to match — **all** of them must appear |
-| `kind` | restrict to one kind: `pdf`, `image`, `text`, `data`, `xlsx`, `doc`, `email`, `calendar`, `file` |
-| `limit` | 1–200, 50 by default |
+| `query` | words to match; the operator is `and`, so all of them must appear |
+| `kind` | `pdf`, `image`, `text`, `data`, `xlsx`, `doc`, `email`, `calendar`, `contact`, `pkpass`, `file` |
+| `limit` | clamped to 1–200, 50 by default |
 
-Omit the query entirely to list the most recent things of a kind.
+Omit `query` and the search becomes a `match_all` — the most recent things, optionally of one kind.
 
 ## What it matches
 
-Titles, paths, and **text extracted by analysis** — which is the part that makes it worth having. A
-scanned PDF matches on its OCR; an email matches on its body; a spreadsheet matches on cells. None of
-that is in the filename, and none of it is searchable in the resource the thing came from.
+`SearchIndex.search` runs a `multi_match` over three fields:
 
-Which means search quality is downstream of [analysis](/concepts/analysis/). A thing that has been
-synced but not yet analyzed matches on its path and little else.
+```ruby
+{ multi_match: { query: query, fields: %w[title^2 locator_key body], operator: "and" } }
+```
 
-## Then get the whole of one
+| Field | Holds | Analyzer |
+| --- | --- | --- |
+| `title` | the thing's title, boosted ×2 | `path` |
+| `locator_key` | the key within its resource | `path` |
+| `body` | `Thing#body_text` | standard |
+
+The `path` analyzer tokenizes on `/ \ - _ .` and whitespace, so `2024/invoices/acme-jan.pdf` matches
+on `acme` and on `invoices`.
+
+`body` is the union of every string extracted by analysis across a thing's references *and* its
+children's, so a scanned PDF matches on its OCR and an email matches on a word that only appears in
+its attachment. Search quality is downstream of [analysis](/concepts/analysis/) — a thing synced but
+not yet analyzed matches on its path and title alone.
+
+`Thing.search` asks the index for ids and reloads them from Postgres with `in_order_of`, so results
+keep their relevance order while every column comes from the system of record.
+
+## Then get one
 
 ```json
 { "name": "get_thing", "arguments": { "id": "..." } }
 ```
 
-That returns every place the thing lives, what analysis extracted from each of them, the per-step
-results, and up to 8,000 characters of body text.
+Returns every reference, its locator, the per-step analysis results, and `body_text` truncated to
+8,000 characters (`Tool::GetThing::EXCERPT`).
 
-A thing groups **references**. The same document in a bucket and in Drive is one thing with two
-references, not two things — which is what makes a cross-resource catalog worth more than two
-searches.
+A thing groups references. The same document in a bucket and in Drive is one thing with two, not two
+things.
 
 ## Getting the bytes
 
-`get_thing` gives you an excerpt, not the file. The bytes stay in the resource they came from, so
-`export_things` is how they come back out. See [Export](/guides/export/).
+`get_thing` returns an excerpt, not the file. `export_things` copies bytes into a storage resource;
+the browser reads them at `/references/:id/content`. See [Export](/guides/export/).
 
 ## Isolation
 
-Search is the one layer row-level security cannot reach. OpenSearch holds its own copy of enough of
-the catalog to answer a query, and no Postgres policy applies to it.
+The application never queries the underlying index — only `SearchIndex.alias_for(tenant)`, an alias
+carrying a `term` filter on `tenant_id` that the engine applies:
 
-The application never queries the underlying index — only a **per-tenant filtered alias** that
-carries the tenant filter with it. A leak here would be invisible, with no error and just results
-that should not be there, which is why it is asserted directly rather than inferred.
+```ruby
+{ add: { index: index, alias: alias_for(tenant), filter: { term: { tenant_id: tenant.id } } } }
+```
+
 See [Tenancy](/concepts/tenancy/).
 
-## Scale
+## Rebuilding
 
-Designed for millions of things per tenant: cursor pagination, OpenSearch as the query path, and no
-`count(*)` anywhere on it. A dry run before something expensive reports *matches 47,213 things* off
-the index rather than by counting rows.
+`ReindexThingsJob` writes into a fresh versioned index a page at a time, then `SearchIndex.promote!`
+swaps every alias in one `update_aliases` call. Promotion refuses an index holding fewer documents
+than it was told to expect.

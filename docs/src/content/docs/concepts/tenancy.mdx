@@ -1,55 +1,101 @@
 ---
 title: Tenancy
-description: Five layers of isolation, asserted separately — and the two that fail silently.
+description: Four isolation layers, the Postgres setting they turn on, and the tests that assert each one.
 ---
 
-Tenancy is present from migration #1: `tenant_id` everywhere, row-level security as the backstop,
-and tokens bound to the tenant's own URL. Retrofitting it is not a thing that happens, because
-single-tenant assumptions do not announce themselves — they leak through a scope someone forgot,
-months later.
+Every catalog table carries `tenant_id` from migration #1. Two tenants exist from the first seed so
+that every scenario can be exercised against both.
 
-So there are **two tenants from the first seed**, and every scenario in the suite should be exercised
-against both.
-
-## Five layers, asserted separately
+## The layers
 
 | Layer | Enforced by | Fails how |
 | --- | --- | --- |
 | application | `TenantScoped` default scope | a forgotten scope |
-| database | Postgres RLS, `FORCE` + policy | silently, if the app role is a superuser |
-| search | a per-tenant filtered alias | invisibly — RLS cannot reach the index |
+| database | Postgres RLS, `FORCE` + `tenant_isolation` policy | silently, if the app role is a superuser |
+| search | a per-tenant filtered alias | invisibly — RLS cannot reach OpenSearch |
 | cable | `subscription_scope :tenant_id` | two tenants sharing one stream name |
-| API | tenant-checked `object_from_id` | `node(id:)` walks out of the tenant |
 
-The tests assert each one separately, because a layer that is only covered transitively is a layer
-that can regress without anything going red.
+Each is asserted separately. A layer covered only transitively can regress without anything going
+red.
 
-## The two traps
+## Application
 
-**A table's owner bypasses RLS** unless the table is marked `FORCE ROW LEVEL SECURITY`, and **a
-superuser bypasses it regardless.** Either one makes every isolation test pass without proving
-anything at all.
+`app/models/concerns/tenant_scoped.rb` is three lines:
 
-That is why `compose.yml` creates a separate non-superuser role for the application rather than
-letting Rails connect as `POSTGRES_USER`, and why CI does the same before running the suite. Both
-traps were caught by `test/models/tenant_isolation_test.rb` failing, which is what that file is for.
+```ruby
+belongs_to :tenant, default: -> { Current.tenant }
+default_scope { where(tenant_id: Current.tenant&.id) }
+```
 
-## The search index is the path RLS cannot protect
+Included by `Thing`, `ThingReference`, `Resource`, `Run`, `Gate`, `AuditEvent`, `MergeProposal` and
+`ResourceBlob`.
 
-Postgres policies stop at the edge of Postgres. OpenSearch has its own copy of enough of the catalog
-to answer a query, and nothing in the database can stop a query from reading another tenant's copy.
+## Database
 
-Isolation there is a **per-tenant filtered alias**: the application never queries the underlying
-index, only an alias that carries the tenant filter with it. A leak at this layer is invisible —
-there is no error, just results that should not be there — which is why it is asserted directly
-rather than inferred from the application layer being correct.
+Seven tables carry `ENABLE` + `FORCE ROW LEVEL SECURITY` and a `tenant_isolation` policy in
+`db/structure.sql`:
 
-## Tokens are bound to the tenant
+```sql
+CREATE POLICY tenant_isolation ON public.things
+  USING (tenant_id = NULLIF(current_setting('things.tenant_id', true), '')::bigint)
+  WITH CHECK (tenant_id = NULLIF(current_setting('things.tenant_id', true), '')::bigint);
+```
 
-Each tenant's issuer signs with its own key, and `aud` is bound to the tenant's canonical URL. A
-token minted for one tenant is rejected against another **on its audience, before any tenant scoping
-runs** — so the isolation layers above are a backstop for a request that should never have been
-authenticated in the first place.
+`Tenant.switch` sets that setting with `set_config(..., true)` inside a transaction and restores the
+previous value on the way out — the *previous* value, not empty, so a nested switch does not blind
+the outer one.
 
-Tenants are addressed by subdomain. `MASKS_ISSUER_TEMPLATE` is a template over that subdomain, and a
-token is rejected unless `iss` matches it.
+Two traps:
+
+- A table's owner bypasses RLS unless the table is `FORCE`d.
+- A superuser bypasses it regardless.
+
+Either makes every isolation test pass without proving anything, which is why
+`db/docker-entrypoint-initdb.d` creates a separate non-superuser role for the application rather
+than letting Rails connect as `POSTGRES_USER`. CI does the same.
+
+`test/models/tenant_isolation_test.rb` asserts RLS holds with `Thing.unscoped`, that a cross-tenant
+insert raises `ActiveRecord::StatementInvalid`, that no tenant in scope reads nothing at all, and
+that a nested switch restores the outer tenant.
+
+The schema is dumped as SQL (`config.active_record.schema_format = :sql`) because `schema.rb` cannot
+represent a policy.
+
+## Search
+
+Postgres policies stop at Postgres. The application never queries the underlying OpenSearch index —
+only `SearchIndex.alias_for(tenant)`, an alias carrying a `tenant_id` filter term applied by the
+engine.
+
+```
+things_development           the shared alias
+things_development_t3        tenant 3's filtered alias
+things_development_v2026…    the concrete versioned index
+```
+
+`test/models/search_index_test.rb` covers it. See [Search](/guides/search/).
+
+## Cable
+
+`Subscriptions::BaseSubscription` declares `subscription_scope :tenant_id`, so two tenants
+subscribing to the same field do not share a stream name.
+
+## Tokens
+
+Requests resolve their tenant from the subdomain (`Tenant.resolve`). A token is checked twice
+before any scope applies:
+
+- `aud` must match this tenant's own `/mcp` URL, verified by `masks`.
+- `iss` must match `MASKS_ISSUER_TEMPLATE` formatted with this subdomain.
+
+`Grant#verify_tenant!` then compares the token's `tenant` claim subdomain against the tenant that
+was resolved, and raises `Grant::Denied` on a mismatch.
+
+`test/integration/graphql_tenancy_test.rb` asserts that a thing id from another tenant resolves to
+`nil`, and that an unknown subdomain is a 404.
+
+:::note[TODO]
+There is no `node(id:)` field and no `object_from_id` — the schema does not use global ids. If
+relay-style node lookup is added it needs its own tenant check and its own test, since it would
+bypass the associations a default scope reaches through.
+:::

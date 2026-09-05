@@ -1,59 +1,66 @@
 ---
 title: Configuration
-description: Everything arrives through the environment — what each variable does, and which ones have unsafe defaults.
+description: Every environment variable, its default, and where it is read.
 ---
 
-Nothing in this repository may name a host, a domain, or a secret. Those are facts about a deployment,
-so **everything arrives through the environment** and `.env.example` documents what. `bin/check-boundary`
-enforces it, in CI as well as locally.
+Nothing in the repository names a host, a domain, or a secret. Everything arrives through the
+environment; `.env.example` documents the full set and `bin/setup` copies it to `.env`.
+`bin/check-boundary` enforces the rule, in CI as well as locally.
 
 ## Application
 
-| | |
-| --- | --- |
-| `THINGS_HOST_SUFFIX` | the suffix tenant subdomains hang off — `things.test` in development |
-| `PORT` | 4242 in development |
-| `THINGS_PUBLIC_ORIGIN` | public origin for the MCP endpoint when tunnelling to a client that cannot reach `.test`. **Must be stable** — OAuth redirect URIs register against it. Blank when not tunnelling |
+| | Default | |
+| --- | --- | --- |
+| `THINGS_HOST_SUFFIX` | `things.test` | the suffix tenant subdomains hang off; read in `config/environments/development.rb` |
+| `PORT` | 4242 | |
+| `THINGS_PUBLIC_ORIGIN` | — | overrides `request.base_url` in `Tenant.origin`. Must be stable, since OAuth redirect URIs register against it. Blank when not tunnelling |
 
 ## Datastores
 
-| | |
-| --- | --- |
-| `POSTGRES_HOST` / `POSTGRES_PORT` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | the primary database |
-| `OPENSEARCH_URL` | the query path |
-| `PG_BIN_PATH` | set when the linked `pg_dump` is older than the server in `compose.yml` |
+| | Default | |
+| --- | --- | --- |
+| `POSTGRES_HOST` `POSTGRES_PORT` | `127.0.0.1`, 5434 | |
+| `POSTGRES_USER` `POSTGRES_PASSWORD` | `things` | must not be a superuser |
+| `OPENSEARCH_URL` | `http://127.0.0.1:9201` | read in `SearchIndex.client` |
+| `PG_BIN_PATH` | — | prepended to `PATH` in `config/application.rb`, for when the linked `pg_dump` is older than the server in `compose.yml` |
 
 :::caution[The application role must not be a superuser]
 A superuser bypasses row-level security unconditionally, and a table's owner bypasses it unless the
-table is marked `FORCE ROW LEVEL SECURITY`. Either one makes every isolation test pass without
-proving anything. `compose.yml` creates a separate non-superuser role for this reason, and CI does
-the same before running the suite. See [Tenancy](/concepts/tenancy/).
+table is `FORCE`d. Either makes every isolation test pass without proving anything.
+`db/docker-entrypoint-initdb.d` creates a separate non-superuser role, and CI does the same. See
+[Tenancy](/concepts/tenancy/).
 :::
 
-Solid Queue runs in a **second database**, in development as well as production — a queue that only
-exists in one environment is a queue whose failures are only discovered there.
+Solid Queue runs in a second database (`config.solid_queue.connects_to`), in development as well as
+production.
 
 ## Storage
 
-| | |
-| --- | --- |
-| `S3_ENDPOINT` / `S3_REGION` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | the development MinIO, and any `s3` resource configured from the environment |
-| `THINGS_FILESYSTEM_ROOTS` | colon-separated roots a filesystem resource may be rooted under |
+| | Default | |
+| --- | --- | --- |
+| `S3_ENDPOINT` `S3_REGION` | `http://127.0.0.1:9000`, `us-east-1` | read by `db/seeds.rb` only |
+| `S3_ACCESS_KEY_ID` `S3_SECRET_ACCESS_KEY` | `things` / `thingsthings` | read by `db/seeds.rb` only |
+| `THINGS_FILESYSTEM_ROOTS` | *unset* | colon-separated roots a `filesystem` resource may be rooted under |
 
-**`THINGS_FILESYSTEM_ROOTS` is unset by default, and that makes the filesystem type unusable.** That
-is the right default for a server holding more than one tenant's catalog: an unrooted filesystem
-resource is a path traversal with extra steps.
+An `s3` resource carries its own endpoint and credentials in its row. The `S3_*` variables only seed
+the development MinIO bucket.
+
+`THINGS_FILESYSTEM_ROOTS` unset makes the `filesystem` type unusable, which is the intended default
+for a server holding more than one tenant's catalog. `Resource::Filesystem::Escaped` is raised on a
+path that leaves its root.
 
 ## Encryption
 
-| | |
-| --- | --- |
-| `ENCRYPTION_PRIMARY_KEY` | |
-| `ENCRYPTION_DETERMINISTIC_KEY` | |
-| `ENCRYPTION_KEY_DERIVATION_SALT` | |
+| |
+| --- |
+| `ENCRYPTION_PRIMARY_KEY` |
+| `ENCRYPTION_DETERMINISTIC_KEY` |
+| `ENCRYPTION_KEY_DERIVATION_SALT` |
 
-The values in `.env.example` are development-only and named so you cannot mistake them for anything
-else. Generate real ones anywhere credentials are actually stored:
+Read in `config/application.rb` into `config.active_record.encryption`. `Resource#credentials` and
+`Tenant#client_secret` are encrypted with them.
+
+The values in `.env.example` are development-only and named so. Generate real ones with:
 
 ```sh
 bin/rails db:encryption:init
@@ -63,20 +70,38 @@ bin/rails db:encryption:init
 
 | | |
 | --- | --- |
-| `MASKS_ISSUER_TEMPLATE` | the tenant's issuer, as a template over its subdomain |
+| `MASKS_ISSUER_TEMPLATE` | the tenant's issuer, as a template over `%{subdomain}` |
 
-Tokens are rejected unless `iss` matches this and `aud` matches the tenant's own `/mcp` URL. There is
-no local minting path — this application **verifies and never signs**.
+Read in `Tenant.issuer_url`, which raises `Tenant::Unconfigured` when it is unset. Tokens are
+rejected unless `iss` matches it and `aud` matches the tenant's own `/mcp` URL. There is no local
+minting path.
 
-## Operational switches
+## Limits
+
+Read in `config/application.rb` into `config.things`:
+
+| | Default | Applies to |
+| --- | --- | --- |
+| `THINGS_MCP_LIMIT` | 120 / minute | every `/mcp` call |
+| `THINGS_RUN_BUDGET` | 20 / hour | tools declaring `starts_runs`; `0` disables |
+| `THINGS_AUDIT_RETENTION_DAYS` | 90 | `SweepAuditEventsJob` |
+
+## Workers
+
+Read in `config/queue.yml` and `AnalyzeThingJob`:
+
+| | Default | |
+| --- | --- | --- |
+| `BULK_CONCURRENCY` | 1 | processes on `sync`, `export`, `default` |
+| `ANALYSIS_THREADS` | 4 | threads on `analysis` |
+| `ANALYSIS_CONCURRENCY` | 1 | processes on `analysis` |
+| `ANALYSIS_PER_TENANT` | 2 | concurrent `AnalyzeThingJob`s per tenant |
+
+## Switches
 
 | | |
 | --- | --- |
-| `THINGS_ITERATORS_DISABLED` | stops every iteration job everywhere |
+| `THINGS_ITERATORS_DISABLED` | any value stops every iteration job everywhere |
 
-This one is for the **operator**, not a tenant — it is the big red switch. Per-tenant and
-per-resource switches are rows in `gates`, set from the application.
-
-Two more limits are application configuration rather than environment: `mcp_limit` rate-limits the
-caller per minute, and `run_budget` caps how many runs one token may start per hour. See
-[MCP tools](/reference/tools/).
+An operator switch, read by `Gate.stopped_everywhere?`. Per-tenant and per-resource switches are
+`gates` rows — see [Jobs](/concepts/jobs/).

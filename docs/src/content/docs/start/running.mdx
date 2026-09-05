@@ -1,45 +1,66 @@
 ---
 title: Running it
-description: Services, database, two tenants, and the generated API types — locally, in about three commands.
+description: Backing services in Docker, Rails on the host, two tenants, and the generated API types.
 ---
 
-Rails runs on the host; Postgres, OpenSearch, MinIO and Mailpit run in Docker. The analyzers shell
-out to native binaries and inference runs on the GPU, so containerising the app would buy nothing and
-cost the debugger.
+Rails runs on the host. Postgres, OpenSearch, MinIO and Mailpit run in Docker (`compose.yml`). The
+analyzers shell out to native binaries, which is why the app itself is not containerised in
+development.
 
 ```sh
 brew bundle          # native dependencies the analyzers need
-bin/setup            # services, database, two tenants, generated API types
-bin/dev              # web, worker, vite, and the codegen watchers
+bin/setup            # services, database, seed, generated API types
+bin/dev              # web, worker, vite, and the two codegen watchers
 ```
+
+## Services
+
+| Service | Image | Host port |
+| --- | --- | --- |
+| postgres | `postgres:17-alpine` | 5434 |
+| opensearch | `opensearchproject/opensearch:2.11.0` | 9201 |
+| minio | `minio/minio` | 9000, console 9001 |
+| mailpit | `axllent/mailpit` | 1025, UI 8025 |
+
+`db/docker-entrypoint-initdb.d` creates a non-superuser role for the application. A superuser
+bypasses row-level security unconditionally — see [Tenancy](/concepts/tenancy/).
 
 ## Tenants are subdomains
 
-Add these to `/etc/hosts`:
+`bin/setup` seeds two. Add them to `/etc/hosts`:
 
 ```
 127.0.0.1 things.test jons.things.test acme.things.test
 ```
 
 Then [jons.things.test:4242](http://jons.things.test:4242) and
-[acme.things.test:4242](http://acme.things.test:4242).
+[acme.things.test:4242](http://acme.things.test:4242). The suffix is `THINGS_HOST_SUFFIX`
+(`things.test`) and the port is `PORT` (4242).
 
-Two tenants exist from the first seed on purpose. Single-tenant assumptions do not announce
-themselves — they leak through a scope someone forgot, months later — so every scenario in the suite
-should be exercised against both. See [Tenancy](/concepts/tenancy/).
+Two tenants exist from the first seed so that every scenario in the suite can be exercised against
+both.
 
 ## What `bin/dev` runs
 
-| Process | Does |
-| --- | --- |
-| web | Rails, on `PORT` (4242 by default) |
-| worker | Solid Queue, both pools — see [Jobs](/concepts/jobs/) |
-| vite | the SPA, with HMR |
-| codegen | dumps the GraphQL schema and regenerates the TypeScript from it |
+`Procfile.dev`:
 
-The Ruby schema is the source of truth and the TypeScript is generated from it, so the SPA cannot
-drift from the API without the types going red first. Both watchers have to be running for that to
-hold, which is why they are in `bin/dev` rather than a thing you remember to do.
+| Process | Command |
+| --- | --- |
+| web | `bin/rails server -p ${PORT:-4242}` |
+| vite | `bin/vite dev` |
+| worker | `bin/jobs` — Solid Queue, both pools |
+| schema | chokidar on `app/graphql/**/*.rb` → `graphql:dump_schema` + `npm run codegen` |
+| codegen | chokidar on `app/javascript/**/*.ts{,x}` → `npm run codegen` |
+
+## Build products
+
+`schema.graphql` and the generated TypeScript under `app/javascript/graphql/generated/` are not
+committed. A clean checkout has neither, and the Vite build fails without them:
+
+```sh
+bin/rails graphql:dump_schema
+npm run codegen
+```
 
 ## The suite
 
@@ -47,13 +68,8 @@ hold, which is why they are in `bin/dev` rather than a thing you remember to do.
 bin/rails test
 ```
 
-`schema.graphql` and the generated TypeScript are build products, not source. A clean checkout has
-neither, so anything that builds the frontend has to produce them first:
-
-```sh
-bin/rails graphql:dump_schema
-npm run codegen
-```
+40 test files under `test/`. Isolation is asserted directly in
+`test/models/tenant_isolation_test.rb` and `test/integration/graphql_tenancy_test.rb`.
 
 ## Before committing
 
@@ -61,6 +77,5 @@ npm run codegen
 bin/check-boundary
 ```
 
-Nothing in this repository may name a host, a domain, or a secret — those are facts about a
-deployment, and they arrive through the environment. `.env.example` documents what.
-The check is wired into CI so the rule is greppable rather than remembered.
+Nothing in the repository may name a host, a domain, or a secret. The script greps tracked and
+unignored files for a fixed pattern set, skipping `*.md` and `plans/`. It also runs in CI.

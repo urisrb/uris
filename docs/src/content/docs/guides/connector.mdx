@@ -1,30 +1,31 @@
 ---
 title: Drive it from Claude
-description: Point a custom connector at the endpoint, authorize through masks, and the chat is the UI.
+description: Point a custom connector at the tenant's /mcp endpoint, authorize through masks, and call the tools.
 ---
 
-The MCP endpoint is the primary interface. Add a custom connector pointed at your tenant's `/mcp`,
-authorize it, and Claude *is* the UI — the web app shrinks to what a chat transcript must not do:
-OAuth consent, secret capture, node enrollment, visual browsing.
+`POST /mcp` is stateless Streamable HTTP, served by `McpController` and built per request from the
+caller's grant.
 
-## The handshake, for a client handed nothing but a URL
+## Discovery
 
-An unauthenticated call answers `401` with a `WWW-Authenticate` header naming the issuer to go
-authenticate against. That is the whole discovery step:
+An unauthenticated call answers `401` with a `WWW-Authenticate` header pointing at the protected
+resource metadata:
 
 ```sh
 curl -sS http://jons.things.test:4242/.well-known/oauth-protected-resource
 ```
 
-The client reads the issuer out of that, registers itself, and comes back with a token.
+Both `/.well-known/oauth-protected-resource` and `.../mcp` are routed. The client reads the issuer
+out of it, registers itself with that issuer, and comes back with a token.
 
-## Tokens come from masks, or they do not exist
+## Tokens come from masks
 
-There is no local minting path. This application **verifies and never signs**. Point
-`MASKS_ISSUER_TEMPLATE` at a running issuer, sign in through the web app, and the browser's session
-is a real token.
+This application verifies and never signs. `Granted#masks_claims_from` hands the credential to
+`masks_resource.authenticate`, which checks the signature against the issuer's JWKS, then `iss`
+against `MASKS_ISSUER_TEMPLATE` and `aud` against this tenant's own `/mcp` URL.
 
-For a raw `curl`, take one from that issuer's token endpoint:
+Point `MASKS_ISSUER_TEMPLATE` at a running issuer. For a raw `curl`, take a token from that issuer's
+token endpoint:
 
 ```sh
 curl -sS -X POST http://jons.things.test:4242/mcp \
@@ -33,30 +34,46 @@ curl -sS -X POST http://jons.things.test:4242/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-`tools/list` is the useful first call, because what comes back **is** your grant — the server was
-built from it. See [MCP tools](/reference/tools/).
+`tools/list` returns your grant — `Grant#tools` filters `Tool.all` by the token's scopes, so a tool
+you cannot call is absent rather than refused. See [MCP tools](/reference/tools/).
 
-## Reaching it from a client that cannot resolve `.test`
+## The browser holds a token too
 
-Set `THINGS_PUBLIC_ORIGIN` to the origin you are tunnelling through. It needs to be a **stable**
-hostname, because OAuth redirect URIs register against it and a tunnel that hands you a new name each
-run will invalidate the registration. Leave it blank when not tunnelling.
+`Granted#credentials` prefers the `Authorization` header and falls back to the session:
 
-## Connecting a resource is not a tool call
+```ruby
+def session_authorization
+  return nil unless masks_signed_in? || (masks_tokens && masks_refresh!)
 
-Credentials would land in the transcript and the audit log, so they never travel through MCP.
-Enrollment returns a short-lived signed URL and the secret is captured in the browser instead. This
-is a standing constraint, not an implementation detail — `command_resource` cannot set credentials
-however the command is phrased.
+  "Bearer #{masks_access_token}"
+end
+```
 
-That is most of what the web UI is for.
+`masks-rails` keeps the token in the encrypted session, and it is verified on the way in exactly as
+a presented one would be. A cookie and a bearer reach the same `Grant` by the same path.
+
+## Behind a tunnel
+
+Set `THINGS_PUBLIC_ORIGIN` to the origin you are tunnelling through. `Tenant.origin` prefers it over
+`request.base_url`, and `Tenant.resource_url` builds the audience from it. It must be stable —
+OAuth redirect URIs register against it. Leave it blank when not tunnelling.
+
+## Connecting a resource is a browser flow
+
+`enroll_resource` returns a signed link with a 30-minute window; the credential is captured at
+`/enroll/:token` in the browser. `command_resource` cannot set credentials however the command is
+phrased.
+
+:::note[TODO]
+`Tool::EnrollResource` exists at `app/tools/tool/enroll_resource.rb` but is not listed in
+`Tool.all`, so it is not currently reachable over MCP. Enrollment today is a web-UI action.
+:::
 
 ## Two interfaces, one domain layer
 
 ```
-browser  → /graphql   session auth, first-party client, urql + codegen + cable subscriptions
-Claude   → /mcp       typed tools, token-scoped grants
+browser  → /graphql   urql + codegen + cable subscriptions
+Claude   → /mcp       typed tools
 ```
 
-Neither wraps the other. Exposing GraphQL *as* an MCP tool is what would collapse them back into
-one — a single passthrough tool cannot be partially granted, so every grant becomes all of them.
+Neither wraps the other. Both authorize through `Grant`. See [GraphQL](/reference/graphql/).

@@ -1,46 +1,91 @@
 ---
 title: GraphQL
-description: The browser's interface — session auth, generated types, and why it does not wrap MCP.
+description: The browser's interface — the same Grant as MCP, generated TypeScript, and cable subscriptions.
 ---
 
-```
-browser  → /graphql   session auth, first-party client, urql + codegen + cable subscriptions
-Claude   → /mcp       typed tools, token-scoped grants
+`POST /graphql`, served by `GraphqlController`. `/graphiql` is mounted in development.
+
+`app/graphql/`
+
+## The schema
+
+```ruby
+class ThingsSchema < GraphQL::Schema
+  query(Types::QueryType)
+  mutation(Types::MutationType)
+  subscription(Types::SubscriptionType)
+
+  use GraphQL::Subscriptions::ActionCableSubscriptions
+  use GraphQL::Dataloader
+
+  max_depth(15)
+  max_query_string_tokens(5000)
+  validate_max_errors(100)
+end
 ```
 
-Two interfaces over one domain layer. **Neither wraps the other**, and that is a decision rather than
-duplication: exposing GraphQL *as* an MCP tool would collapse them back into one, because a single
-passthrough tool cannot be partially granted. Every grant would become all of them.
+### Queries
+
+| Field | Grant | |
+| --- | --- | --- |
+| `tenant` | `things:read` | who answered |
+| `thing(id:)` | `things:read` | one thing |
+| `things(kind:, resourceId:, after:, limit:)` | `things:read` | a page of the catalog |
+| `search(query:, kind:, limit:)` | `things:read` | the index, clamped to 1–200 |
+| `kinds` | `things:read` | counts grouped by kind |
+| `resources` | `resources:read` | active resources, ordered by type and key |
+| `runs(kind:, status:, after:, limit:)` | `things:read` | a page of runs |
+| `mergeProposals(status:, after:, limit:)` | `things:read` | open proposals by default |
+| `auditEvents(action:, status:, subject:, after:, limit:)` | `things:read` | a page of the audit log |
+
+Paged fields go through `Page.of(scope, after:, limit:)` — keyset pagination on the primary key,
+newest first, `limit` clamped to 1–200 with a default of 50. One extra row is fetched to answer
+"is there more"; nothing counts.
+
+### Mutations
+
+| Field | Grant |
+| --- | --- |
+| `analyzeThing` `mergeThings` `splitReference` `proposeMerges` `settleMergeProposal` | `things:write` |
+| `exportThings` `cancelRun` | `things:write` |
+| `syncResource` `checkResource` `setDefaultStorage` `setSyncInterval` | `resources:command` |
+
+`exportThings` and `cancelRun` take `things:write` here and `resources:command` over
+[MCP](/reference/tools/). Merging and dedupe are reachable here and nowhere else.
+
+### Subscriptions
+
+`thingAnalyzed`, triggered by `Thing#announce_analyzed!` both globally and per thing id.
+`Subscriptions::BaseSubscription` declares `subscription_scope :tenant_id`.
+
+## Authorization is the same Grant
+
+`Types::BaseField` takes a `grants:` option and checks it in `authorized?`:
+
+```ruby
+field :resources, [ Types::ResourceType ], null: false, grants: "resources:read"
+```
+
+A field whose grant the token does not carry raises a `GraphQL::ExecutionError` naming the missing
+scope. A field with no `grants:` is open to any authenticated caller.
+
+Both interfaces reach `Grant` through the `Granted` concern. The browser's token lives in the
+encrypted session and is verified on the way in exactly as a presented bearer would be — see
+[Drive it from Claude](/guides/connector/).
 
 ## The Ruby schema is the source of truth
 
-The TypeScript is generated from it and committed nowhere. So the SPA cannot drift from the API
-without the types going red first:
+The TypeScript is generated from it and is not committed:
 
 ```sh
 bin/rails graphql:dump_schema   # writes schema.graphql
-npm run codegen                 # regenerates the TypeScript from it
+npm run codegen                 # regenerates the TypeScript
 ```
 
-`bin/dev` keeps both watchers running, which is the only reason this holds in practice. In CI the
-same two commands run before the typecheck, because `schema.graphql` and the generated TypeScript are
-**build products, not source** — a clean checkout has neither, and the Vite build fails without them.
+`bin/dev` runs both watchers (`Procfile.dev`, the `schema` and `codegen` processes). CI runs the
+same two commands before the typecheck, because `schema.graphql` and the generated types are build
+products — a clean checkout has neither and the Vite build fails without them.
 
 ## The client
 
-urql, with `@urql/exchange-graphcache` and Action Cable subscriptions. Cable is scoped with
-`subscription_scope :tenant_id`, which is one of the five isolation layers — without it two tenants
-share a stream name. See [Tenancy](/concepts/tenancy/).
-
-## Node lookups are tenant-checked
-
-`object_from_id` checks the tenant before returning anything. This is its own isolation layer for a
-specific reason: the global `node(id:)` field is a lookup that bypasses every association a default
-scope would have applied, so it can walk straight out of the tenant unless it checks. The suite
-asserts it directly.
-
-## Authentication
-
-GraphQL uses the browser **session**. MCP uses a bearer token per call. They are not the same
-credential and the session is not a token you can lift out of the browser and curl with — for that,
-take one from the issuer. See [Drive it from Claude](/guides/connector/).
+urql, with `@urql/exchange-graphcache` and Action Cable subscriptions.

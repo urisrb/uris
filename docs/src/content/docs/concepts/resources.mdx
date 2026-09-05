@@ -1,73 +1,102 @@
 ---
 title: Resources
-description: Attach class, type, capability — three orthogonal axes, and the one that decides how much code exists.
+description: Nine STI subclasses of Resource, what each can do, and which of them can sync.
 ---
 
-A **resource** is a place things live, or a capability things can call. A resource is an
-*instance* — "my B2 bucket" — and `s3` is its **type**. A resource is never the software installed on
-a machine; that distinction is what keeps the vocabulary from collapsing.
+A resource is a place things live. It is an *instance* — one bucket, one mailbox — and its type is
+the STI subclass it belongs to.
 
-Three orthogonal axes describe one.
+`app/models/resource.rb`, `app/models/resource/`
 
-## Attach class — what it takes to connect
+Identity is `(tenant_id, type, key)`; `key` is validated unique within that pair. `sti_name`
+dasherizes the class name, so `Resource::OauthGoogle` stores and reports as `oauth-google`.
 
-| Class | Connects by | Install | Credential |
+## The types
+
+| Type | Class | Capabilities | Syncs |
 | --- | --- | --- | --- |
-| `api` | HTTPS to a third party | none | OAuth or API key |
-| `network` | direct to host:port | none | service credentials |
-| `ssh` | things dials in | none | short-lived SSH cert |
-| `node` | machine dials out | `things-node` | enrollment → node identity |
+| `s3` | `Resource::S3` | storage | ✓ |
+| `filesystem` | `Resource::Filesystem` | storage | ✓ |
+| `database` | `Resource::Database` | storage | ✓ |
+| `webdav` | `Resource::Webdav` | storage | ✓ |
+| `imap` | `Resource::Imap` | — | ✓ |
+| `rss` | `Resource::Rss` | — | ✓ |
+| `caldav` | `Resource::Caldav` | — | ✓ |
+| `carddav` | `Resource::Carddav` | — | ✓ |
+| `oauth-google` | `Resource::OauthGoogle` | integration | — |
 
-`ssh` versus `node` is a **reachability** question, not a capability one. Everything reachable takes
-`ssh`; `node` exists for CGNAT, roaming laptops, and hardware you do not control the network of.
+`Caldav` and `Carddav` subclass `Webdav` and inherit its `each_page`, narrowing what they walk with
+a `wanted?` predicate.
 
-SSH resources use short-lived certificates, never stored keys — things holds a CA and mints per
-operation, scoped to one host and one forced command.
+`Resource::Brokered` is a concern, not a type. `Resource::OauthGoogle` is the only type that
+includes it — see [Enrollment](#enrollment) below.
 
-## Type — the dialect
+One class serves every vendor speaking its dialect: `s3` covers AWS, R2, B2, Wasabi, MinIO and
+Garage.
 
-This is the axis that decides how much code exists. One type serves every vendor speaking it:
+:::note[TODO]
+`compute`, `inference`, `browser` and `media` capabilities are named in the plan and have no
+implementation. Neither do the `docker`, `ssh-exec` and `openai-compatible` types, nor the `node`
+attach class.
+:::
 
-| Type | Capability | Attach | Unlocks |
-| --- | --- | --- | --- |
-| `s3` | storage | api, network | AWS, R2, B2, Wasabi, MinIO, Garage |
-| `imap` | integration | api | Fastmail, Gmail, iCloud, any |
-| `oauth-google` | integration, storage | api | Gmail, Drive, Calendar |
-| `oauth-github` | integration | api | GitHub |
-| `openai-compatible` | inference | api, network | MLX, Ollama, and the hosted APIs |
-| `docker` | compute | ssh, node | any docker host |
-| `ssh-exec` | compute | ssh | any reachable host |
-| `jellyfin` | media | network | Jellyfin |
+## Capability
 
-**A type owns exactly four things:** its adapter, its command schema (what `describe_resource`
-returns), its locator shape, and its enumerator for resumable sync. Nothing above `Resource` names a
-vendor SDK — adapters translate their own vendor errors on the way out.
+`self.capabilities` returns an array of symbols. Only `storage` and `integration` are in use.
 
-For v1 the type registry is closed in code rather than extensible as data.
+`storage?` gates two things: being an export destination (`Resource#storage!`) and being the
+tenant's `default_storage`, which `Resource#make_default_storage!` sets exclusively.
 
-## Capability — what it can do
+## Syncable
 
-`storage`, `inference`, `integration`, `compute`, `browser`, `media`.
+`Resource#syncable?` is `respond_to?(:each_page)`. There is no flag and no registry — a type either
+implements the enumerator or it cannot sync.
 
-Capability is what a grant is written against, and it is why folders and a sync cycle belong to the
-*syncable* capability rather than to every resource. `docker` and `openai-compatible` have neither.
+Only a syncable resource may hold a `sync_interval`, enforced by the
+`only_a_syncable_resource_keeps_a_schedule` validation.
 
-## Identity
+| | |
+| --- | --- |
+| `MINIMUM_SYNC_INTERVAL` | 1 minute |
+| `SYNC_ABANDONED_AFTER` | 6 hours — after which `sync_started_at` no longer counts as a lock |
 
-A resource is identified by `(tenant_id, type, key)`. The tenant is first because everything is
-tenant-scoped from migration #1 — see [Tenancy](/concepts/tenancy/).
+`claim_sync!` takes the lock with a conditional `UPDATE`, so a resource already syncing is left
+alone rather than started twice. `release_sync!` clears it and computes `next_sync_at`.
 
-## What is never a resource
+## Commands
 
-things, masks, Postgres, OpenSearch, and the edge proxy are not resources, permanently.
+`self.command_schema` maps a command name to its parameter types; `?` marks a parameter optional.
+`Resource#command` validates arguments against the schema and dispatches to `command_<name>`.
 
-> **The test:** if things being down would stop you fixing things, it is not a resource.
+```ruby
+# app/models/resource/s3.rb
+{
+  list: { prefix: "string?", continuation_token: "string?" },
+  get:  { key: "string", version_id: "string?" },
+  put:  { key: "string", body: "bytes" }
+}
+```
 
-That is the same reason there are two reconcilers rather than one. things cannot reconcile things —
-a control plane cannot be a tenant of itself.
+`describe_resource` returns this schema, so a caller discovers a type's vocabulary rather than
+having it written down. See [MCP tools](/reference/tools/).
 
-## Credentials never travel through a tool call
+## Checking
 
-Connecting a resource is a browser flow, and that is most of what the web UI is for. A secret passed
-to an MCP tool would land in the transcript and the audit log, so enrollment returns a short-lived
-signed URL instead. See [Drive it from Claude](/guides/connector/).
+`check!` is implemented per type and is cheap — a `HEAD` rather than a listing. `check` wraps it,
+writes `checked_at` and `check_error`, and returns a boolean. `healthy?` reads those columns.
+
+## Failure
+
+Adapters raise `Resource::Failed` (or a subclass — `Resource::Filesystem::Escaped`,
+`Resource::Rss::Gone`) rather than a vendor error. Jobs retry it with backoff; see
+[Jobs](/concepts/jobs/).
+
+## Enrollment
+
+Types that include `Resource::Brokered` hold a connection id, not a credential. `Broker.release`
+exchanges it for an access token at the issuer's `/connections/token` endpoint on each use.
+
+`Enrollment.open!` builds a signed, 30-minute (`Enrollment::WINDOW`) token; `/enroll/:token` is
+where the browser completes it. Nothing is created until the link is followed.
+
+Credentials never travel through an MCP tool call.

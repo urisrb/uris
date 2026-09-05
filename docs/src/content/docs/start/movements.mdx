@@ -1,6 +1,6 @@
 ---
 title: The four movements
-description: Sync, analyze, search, export — and why everything else is access layer, auth, or deployment.
+description: sync, analyze, search and export — the four operations everything else serves.
 ---
 
 ```
@@ -10,59 +10,53 @@ search     catalog  → you            one index across everything
 export     catalog  → resource       bytes back out
 ```
 
-Four movements. Everything else in the codebase is access layer, auth, or deployment for these.
-All four are reachable over `/mcp`, which is what the product is for.
+All four are reachable over `/mcp` and over `/graphql`.
 
-## sync — resource → catalog
+## sync
 
-Pull references in. A sync walks a resource's enumerator and records what it finds as things, without
-moving any bytes. Enumerators are a **type** concern, because the cursor shape differs per dialect:
-S3 continuation tokens, Drive page tokens, Gmail history ids, IMAP UID ranges valid only within a
-`uidvalidity`.
+`Resource#sync!` claims the resource, starts a `Run`, and enqueues `SyncResourceJob`.
 
-Sync is resumable at the item, so a hundred-thousand-object walk survives a deploy.
-See [Sync a resource](/guides/sync/).
+The job iterates `each_page` on the resource and records a `ThingReference` per object. No bytes
+move. Six of the nine types implement `each_page`; the rest cannot sync — see
+[Resources](/concepts/resources/).
 
-## analyze — content → understanding
+`app/models/resource.rb`, `app/jobs/sync_resource_job.rb` · [Sync a resource](/guides/sync/)
 
-Fetch content the catalog does not own, understand it, and record that understanding on the thing.
-What runs is decided by the thing's **kind** — `pdf`, `email`, `image`, `xlsx` — through a
-`handles?` dispatch where the first match wins.
+## analyze
 
-Analysis is a step machine, and it is resumable *within* a thing as well as across them.
-See [Analysis](/concepts/analysis/).
+`Analyzer.for(thing)` picks the first of twelve analyzers whose `handles?` returns true, then runs
+its `step`s. Steps record `started_at`, `finished_at` and either `result` or `error` under
+`reference.analysis["steps"]`.
 
-## search — catalog → you
+`app/analyzers/` · [Analysis](/concepts/analysis/)
 
-One index across everything, which is the whole point. OpenSearch is the query path; Postgres is the
-system of record. The index is designed for millions of things per tenant: cursor pagination, no
-`count(*)`, and a per-tenant filtered alias doing the isolation that row-level security cannot reach.
+## search
 
-See [Search the catalog](/guides/search/).
+`Thing.search` asks `SearchIndex` for ids and reloads them from Postgres in index order. OpenSearch
+is the query path; Postgres is the system of record.
 
-## export — catalog → resource
+`app/models/search_index.rb` · [Search the catalog](/guides/search/)
 
-Bytes back out. An export selects things and writes them to a storage resource — the reverse of
-sync, and the reason the catalog is not a trap. Like sync, it checkpoints, so an interrupted export
-resumes rather than restarts.
+## export
 
-See [Export things back out](/guides/export/).
+`ExportThingsJob` iterates the things a selector matches and copies each one's bytes into a storage
+resource, recording the copy as another `ThingReference` on the same thing.
 
-## One form covers sync and export
+`app/jobs/export_things_job.rb` · [Export things back out](/guides/export/)
 
-They look like different features and they are the same one, with the endpoints swapped:
+## Sync and export are one form
 
-```
-sync all data from [ source ] to [ destination ]   every [ interval ]
-[ ] make it a thing        (unchecked: just do the dumb copying)
-```
+The same shape with source and destination swapped. Cataloguing is a flag, not a destination.
 
-| source | destination | make it a thing | is |
+| source | destination | catalogued | is |
 | --- | --- | --- | --- |
-| Drive | — | ✓ | **ingest** — references only |
-| Drive | B2 | — | **backup** |
-| Drive | default storage | ✓ | **ingest + materialize** |
-| things matching *q* | B2 | — | **export** |
+| a resource | — | ✓ | ingest — references only |
+| a resource | a storage resource | — | backup |
+| a resource | default storage | ✓ | ingest + materialize |
+| things matching a selector | a storage resource | — | export |
 
-The catalog is never a destination; cataloguing is a flag. "Make it a thing" is the **cost switch** —
-unchecked is bytes moving, checked is analysis per item.
+:::note[TODO]
+Only two of these four are implemented as first-class operations today: ingest (`sync_resource`) and
+export (`export_things`). Backup and ingest-plus-materialize are compositions that have no single
+entry point yet.
+:::
