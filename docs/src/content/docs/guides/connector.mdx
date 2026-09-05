@@ -58,6 +58,10 @@ Set `THINGS_PUBLIC_ORIGIN` to the origin you are tunnelling through. `Tenant.ori
 `request.base_url`, and `Tenant.resource_url` builds the audience from it. It must be stable —
 OAuth redirect URIs register against it. Leave it blank when not tunnelling.
 
+Where every tenant answers on its own host, write it as a template over the subdomain —
+`https://%{subdomain}.example.com` — or every tenant pairs itself against the first tenant's
+resource, and claims that tenant's namespace pointing at somebody else's endpoint.
+
 ## Connecting a resource is a browser flow
 
 `enroll_resource` returns a signed link with a 30-minute window; the credential is captured at

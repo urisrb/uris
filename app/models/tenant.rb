@@ -48,7 +48,11 @@ class Tenant < ApplicationRecord
 
   class << self
     def resolve(host)
-      find_by(subdomain: host.to_s.split(".").first)
+      find_by(subdomain: subdomain_in(host))
+    end
+
+    def subdomain_in(host)
+      host.to_s.split(".").first
     end
 
     def resolve!(host)
@@ -56,7 +60,10 @@ class Tenant < ApplicationRecord
     end
 
     def origin(request)
-      ENV["THINGS_PUBLIC_ORIGIN"].presence || request.base_url
+      override = ENV["THINGS_PUBLIC_ORIGIN"].presence
+      return request.base_url if override.nil?
+
+      format(override, subdomain: subdomain_in(request.host))
     end
 
     def resource_url(request)
@@ -67,7 +74,7 @@ class Tenant < ApplicationRecord
       template = ENV["MASKS_ISSUER_TEMPLATE"].presence
       raise Unconfigured, "MASKS_ISSUER_TEMPLATE is not set" if template.nil?
 
-      format(template, subdomain: request.host.to_s.split(".").first)
+      format(template, subdomain: subdomain_in(request.host))
     end
 
     def redirect_url(request)

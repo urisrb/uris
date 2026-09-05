@@ -13,7 +13,7 @@ environment; `.env.example` documents the full set and `bin/setup` copies it to 
 | --- | --- | --- |
 | `THINGS_HOST_SUFFIX` | `things.test` | the suffix tenant subdomains hang off; read in `config/environments/development.rb` |
 | `PORT` | 4242 | |
-| `THINGS_PUBLIC_ORIGIN` | — | overrides `request.base_url` in `Tenant.origin`. Must be stable, since OAuth redirect URIs register against it. Blank when not tunnelling |
+| `THINGS_PUBLIC_ORIGIN` | — | overrides `request.base_url` in `Tenant.origin`, and takes `%{subdomain}` the way `MASKS_ISSUER_TEMPLATE` does. Must be stable, since OAuth redirect URIs register against it. Blank when not tunnelling |
 
 ## Datastores
 
