@@ -16,6 +16,66 @@ jobs:
       - name: No host, domain, or secret may be named here
         run: bin/check-boundary
 
+  format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Install shfmt
+        run: |
+          curl -fsSL -o /usr/local/bin/shfmt \
+            https://github.com/mvdan/sh/releases/download/v3.14.0/shfmt_v3.14.0_linux_amd64
+          chmod +x /usr/local/bin/shfmt
+
+      - name: YAML and Markdown
+        run: |
+          npx --yes prettier --check --no-error-on-unmatched-pattern \
+            "*.{yml,yaml,md}" ".github/**/*.{yml,yaml}" "config/**/*.{yml,yaml}"
+
+      - name: Shell
+        run: |
+          mapfile -t scripts < <(shfmt -f bin script)
+          shfmt -d -i 2 -ci "${scripts[@]}"
+          shellcheck "${scripts[@]}"
+
+  actions:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Lint the workflows
+        uses: raven-actions/actionlint@v2
+
+  boot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Eager load the way production does
+        env:
+          RAILS_ENV: production
+          SECRET_KEY_BASE: boot_check_secret_key_base_not_for_deployments
+          ENCRYPTION_PRIMARY_KEY: boot_check_primary_key_not_for_credentials
+          ENCRYPTION_DETERMINISTIC_KEY: boot_check_deterministic_key_not_real
+          ENCRYPTION_KEY_DERIVATION_SALT: boot_check_key_derivation_salt_fake
+        run: bin/rails zeitwerk:check
+
   scan_ruby:
     runs-on: ubuntu-latest
 
@@ -130,7 +190,7 @@ jobs:
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=things -e MINIO_ROOT_PASSWORD=thingsthings \
             minio/minio server /data
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             curl -fs http://localhost:9000/minio/health/live && break
             sleep 2
           done
