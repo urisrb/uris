@@ -13,9 +13,9 @@ import {
   Text,
   Title,
 } from '@mantine/core'
+import { CancelRunDocument, RunsDocument } from '@things/client'
+import { useMutation, useQuery } from '@things/client/react'
 import { useEffect, useState } from 'react'
-import { CancelRunMutation, RunsQuery } from '../graphql/queries/catalog'
-import { useMutation, useQuery } from '../hooks/useGraphQL'
 
 const STATUSES = ['queued', 'running', 'done', 'failed', 'cancelled']
 
@@ -43,12 +43,12 @@ function elapsed(startedAt?: string | null, finishedAt?: string | null) {
 
 export function Runs() {
   const [status, setStatus] = useState<string | null>(null)
-  const { data, loading, error, refetch } = useQuery(RunsQuery, {
+  const { data, loading, error, refetch } = useQuery(RunsDocument, {
     status,
     after: null,
     limit: 50,
   })
-  const cancel = useMutation(CancelRunMutation)
+  const cancel = useMutation(CancelRunDocument)
 
   const rows = data?.runs.nodes ?? []
   const busy = rows.some((run) => OPEN.has(run.status))

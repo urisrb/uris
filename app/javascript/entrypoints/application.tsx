@@ -1,10 +1,12 @@
 import '@mantine/core/styles.css'
 
 import { createTheme, MantineProvider } from '@mantine/core'
+import { ThingsProvider } from '@things/client/react'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { App } from '../components/App'
+import { things } from '../things'
 
 const theme = createTheme({
   primaryColor: 'dark',
@@ -21,9 +23,11 @@ if (root) {
   createRoot(root).render(
     <StrictMode>
       <MantineProvider theme={theme} defaultColorScheme="auto">
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
+        <ThingsProvider client={things}>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </ThingsProvider>
       </MantineProvider>
     </StrictMode>,
   )

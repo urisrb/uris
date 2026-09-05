@@ -13,21 +13,21 @@ import {
   Title,
 } from '@mantine/core'
 import { IconArrowLeft, IconCut, IconSparkles } from '@tabler/icons-react'
-import { Link, useParams } from 'react-router-dom'
 import {
-  AnalyzeThingMutation,
-  SplitReferenceMutation,
-  ThingQuery,
-} from '../graphql/queries/catalog'
-import { useMutation, useQuery } from '../hooks/useGraphQL'
+  AnalyzeThingDocument,
+  SplitReferenceDocument,
+  ThingDocument,
+} from '@things/client'
+import { useMutation, useQuery } from '@things/client/react'
+import { Link, useParams } from 'react-router-dom'
 import { KindBadge } from './KindBadge'
 import { Thumb } from './Thumb'
 
 export function ThingDetail() {
   const { id = '' } = useParams()
-  const { data, loading, error, refetch } = useQuery(ThingQuery, { id })
-  const analyze = useMutation(AnalyzeThingMutation)
-  const split = useMutation(SplitReferenceMutation)
+  const { data, loading, error, refetch } = useQuery(ThingDocument, { id })
+  const analyze = useMutation(AnalyzeThingDocument)
+  const split = useMutation(SplitReferenceDocument)
 
   if (loading) return <Loader size="sm" />
   if (error) return <Alert color="red">{error.message}</Alert>

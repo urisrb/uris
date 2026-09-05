@@ -107,6 +107,7 @@ jobs:
         run: |
           bin/rails graphql:dump_schema
           npm run codegen
+          npm run build:sdk
 
       - name: Lint and format
         run: npm run lint

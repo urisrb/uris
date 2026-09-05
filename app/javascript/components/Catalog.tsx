@@ -13,14 +13,14 @@ import {
   Title,
 } from '@mantine/core'
 import { IconSearch } from '@tabler/icons-react'
+import {
+  CatalogDocument,
+  SearchDocument,
+  ThingAnalyzedDocument,
+} from '@things/client'
+import { useQuery, useSubscription } from '@things/client/react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  CatalogQuery,
-  SearchQuery,
-  ThingAnalyzedSubscription,
-} from '../graphql/queries/catalog'
-import { useQuery, useSubscription } from '../hooks/useGraphQL'
 import { KindBadge } from './KindBadge'
 import { Thumb } from './Thumb'
 
@@ -45,16 +45,16 @@ export function Catalog() {
   const searching = term.trim().length > 0
 
   const catalog = useQuery(
-    CatalogQuery,
+    CatalogDocument,
     { kind, after: cursor, limit: PAGE },
     { skip: searching },
   )
   const found = useQuery(
-    SearchQuery,
+    SearchDocument,
     { query: term, kind },
     { skip: !searching },
   )
-  const { data: analyzed } = useSubscription(ThingAnalyzedSubscription)
+  const { data: analyzed } = useSubscription(ThingAnalyzedDocument)
 
   useEffect(() => {
     const page = catalog.data?.things

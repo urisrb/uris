@@ -2,4 +2,5 @@ web: bin/rails server -p ${PORT:-4242}
 vite: bin/vite dev
 worker: bin/jobs
 schema: npx chokidar 'app/graphql/**/*.rb' -c 'bin/rails graphql:dump_schema && npm run codegen' --initial
-codegen: npx chokidar 'app/javascript/**/*.ts' 'app/javascript/**/*.tsx' --ignore 'app/javascript/graphql/generated/**' -c 'npm run codegen'
+codegen: npx chokidar 'web/src/operations/**/*.graphql' -c 'npm run codegen'
+sdk: npm run build:sdk:watch

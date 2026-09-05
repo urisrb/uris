@@ -1,0 +1,46 @@
+{
+  "name": "@things/client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A typed client for the things GraphQL API: transport, operations, and optional React bindings.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "default": "./dist/react/index.js"
+    },
+    "./actioncable": {
+      "types": "./dist/actioncable/index.d.ts",
+      "default": "./dist/actioncable/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@graphql-typed-document-node/core": "^3.2.0",
+    "@urql/core": "^6.0.1"
+  },
+  "peerDependencies": {
+    "@rails/actioncable": "^8.1.300",
+    "graphql": "^16.14.0",
+    "react": "^19.2.6"
+  },
+  "peerDependenciesMeta": {
+    "@rails/actioncable": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  }
+}

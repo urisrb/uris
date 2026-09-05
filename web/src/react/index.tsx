@@ -1,6 +1,37 @@
 import type { TypedDocumentNode } from '@graphql-typed-document-node/core'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { client } from '../graphql/client'
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import type { ThingsClient } from '../client.js'
+
+const ThingsContext = createContext<ThingsClient | null>(null)
+
+export function ThingsProvider({
+  client,
+  children,
+}: {
+  client: ThingsClient
+  children: ReactNode
+}) {
+  return (
+    <ThingsContext.Provider value={client}>{children}</ThingsContext.Provider>
+  )
+}
+
+export function useThings(): ThingsClient {
+  const client = useContext(ThingsContext)
+  if (!client) {
+    throw new Error('useThings must be used inside a ThingsProvider')
+  }
+  return client
+}
 
 interface QueryOptions {
   skip?: boolean
@@ -11,6 +42,7 @@ export function useQuery<TData, TVariables extends Record<string, unknown>>(
   variables?: TVariables,
   options?: QueryOptions,
 ) {
+  const client = useThings()
   const skip = options?.skip ?? false
   const [data, setData] = useState<TData | null>(null)
   const [loading, setLoading] = useState(!skip)
@@ -38,7 +70,7 @@ export function useQuery<TData, TVariables extends Record<string, unknown>>(
           setLoading(false)
         })
     },
-    [query],
+    [client, query],
   )
 
   useEffect(() => {
@@ -62,6 +94,7 @@ export function useSubscription<
   variables?: TVariables,
   options?: SubscriptionOptions,
 ) {
+  const client = useThings()
   const skip = options?.skip ?? false
   const [data, setData] = useState<TData | null>(null)
   const [error, setError] = useState<Error | null>(null)
@@ -85,7 +118,7 @@ export function useSubscription<
       })
 
     return () => unsubscribe()
-  }, [subscription, stableVariables, skip])
+  }, [client, subscription, stableVariables, skip])
 
   return { data, error }
 }
@@ -93,6 +126,7 @@ export function useSubscription<
 export function useMutation<TData, TVariables extends Record<string, unknown>>(
   mutation: TypedDocumentNode<TData, TVariables>,
 ) {
+  const client = useThings()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
@@ -111,7 +145,7 @@ export function useMutation<TData, TVariables extends Record<string, unknown>>(
         setLoading(false)
       }
     },
-    [mutation],
+    [client, mutation],
   )
 
   return { execute, loading, error }

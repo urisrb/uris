@@ -8,10 +8,11 @@
   "files": {
     "includes": [
       "app/javascript/**/*",
+      "web/src/**/*",
       "*.ts",
       "*.js",
       "*.json",
-      "!app/javascript/graphql/generated"
+      "!web/src/generated"
     ],
     "ignoreUnknown": true
   },

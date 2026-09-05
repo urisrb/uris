@@ -18,15 +18,15 @@ import {
   IconStar,
   IconStarFilled,
 } from '@tabler/icons-react'
-import { useState } from 'react'
 import {
-  CheckResourceMutation,
-  ResourcesQuery,
-  SetDefaultStorageMutation,
-  SetSyncIntervalMutation,
-  SyncResourceMutation,
-} from '../graphql/queries/catalog'
-import { useMutation, useQuery } from '../hooks/useGraphQL'
+  CheckResourceDocument,
+  ResourcesDocument,
+  SetDefaultStorageDocument,
+  SetSyncIntervalDocument,
+  SyncResourceDocument,
+} from '@things/client'
+import { useMutation, useQuery } from '@things/client/react'
+import { useState } from 'react'
 
 function Health({
   healthy,
@@ -57,11 +57,11 @@ function Health({
 }
 
 export function Resources() {
-  const { data, loading, error, refetch } = useQuery(ResourcesQuery)
-  const sync = useMutation(SyncResourceMutation)
-  const check = useMutation(CheckResourceMutation)
-  const setDefault = useMutation(SetDefaultStorageMutation)
-  const setInterval = useMutation(SetSyncIntervalMutation)
+  const { data, loading, error, refetch } = useQuery(ResourcesDocument)
+  const sync = useMutation(SyncResourceDocument)
+  const check = useMutation(CheckResourceDocument)
+  const setDefault = useMutation(SetDefaultStorageDocument)
+  const setInterval = useMutation(SetSyncIntervalDocument)
   const [minutes, setMinutes] = useState<Record<string, number | string>>({})
 
   if (loading && !data) return <Loader size="sm" />

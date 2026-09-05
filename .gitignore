@@ -39,8 +39,9 @@
 /public/vite-test
 
 # Generated from the Ruby schema by `npm run codegen` — never edited by hand.
-/app/javascript/graphql/generated
-/app/javascript/graphql/schema.graphql
+/web/schema.graphql
+/web/src/generated
+/web/dist
 
 # Ignore key files for decrypting credentials and more.
 /config/*.key

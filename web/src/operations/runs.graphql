@@ -1,0 +1,30 @@
+query Runs($status: String, $after: ID, $limit: Int) {
+  runs(status: $status, after: $after, limit: $limit) {
+    hasMore
+    nextCursor
+    nodes {
+      id
+      kind
+      status
+      processed
+      error
+      startedAt
+      finishedAt
+      createdAt
+      resource {
+        id
+        key
+      }
+    }
+  }
+}
+
+mutation CancelRun($id: ID!) {
+  cancelRun(input: { id: $id }) {
+    cancelled
+    run {
+      id
+      status
+    }
+  }
+}

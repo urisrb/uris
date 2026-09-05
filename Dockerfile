@@ -66,6 +66,7 @@ COPY --from=masks-web . /masks/web
 RUN npm --prefix /masks/web ci && npm --prefix /masks/web run build
 
 COPY package.json package-lock.json ./
+COPY web/package.json ./web/package.json
 RUN npm ci
 
 # Copy application code
@@ -74,7 +75,8 @@ COPY . .
 # schema.graphql and the generated TypeScript are build products, not source, so
 # a clean checkout has neither and the Vite build fails without them.
 RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails graphql:dump_schema && \
-    npx graphql-codegen --config codegen.ts
+    npx graphql-codegen --config codegen.ts && \
+    npm run build:sdk
 
 # Precompile bootsnap code for faster boot times.
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495

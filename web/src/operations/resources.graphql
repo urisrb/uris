@@ -1,0 +1,73 @@
+query Resources {
+  resources {
+    id
+    type
+    key
+    name
+    capabilities
+    thingsCount
+    defaultStorage
+    syncInterval
+    nextSyncAt
+    syncedAt
+    syncing
+    checkedAt
+    checkError
+    healthy
+  }
+}
+
+mutation SyncResource($id: ID!) {
+  syncResource(input: { id: $id }) {
+    run {
+      id
+      status
+    }
+    resource {
+      id
+      syncing
+    }
+  }
+}
+
+mutation CheckResource($id: ID!) {
+  checkResource(input: { id: $id }) {
+    ok
+    resource {
+      id
+      checkedAt
+      checkError
+      healthy
+    }
+  }
+}
+
+mutation SetDefaultStorage($id: ID!) {
+  setDefaultStorage(input: { id: $id }) {
+    resource {
+      id
+      defaultStorage
+    }
+  }
+}
+
+mutation SetSyncInterval($id: ID!, $seconds: Int) {
+  setSyncInterval(input: { id: $id, seconds: $seconds }) {
+    resource {
+      id
+      syncInterval
+      nextSyncAt
+    }
+  }
+}
+
+mutation ExportThings($destinationId: ID, $kind: String, $query: String) {
+  exportThings(
+    input: { destinationId: $destinationId, kind: $kind, query: $query }
+  ) {
+    run {
+      id
+      status
+    }
+  }
+}
