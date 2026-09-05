@@ -41,7 +41,8 @@ jobs:
 
       - name: Shell
         run: |
-          mapfile -t scripts < <(shfmt -f bin script)
+          scripts=()
+          while IFS= read -r s; do scripts+=("$s"); done < <(shfmt -f bin script)
           shfmt -d -i 2 -ci "${scripts[@]}"
           shellcheck "${scripts[@]}"
 

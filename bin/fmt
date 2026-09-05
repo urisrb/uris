@@ -12,7 +12,8 @@ npx --yes prettier --write --no-error-on-unmatched-pattern \
   "*.{yml,yaml,md}" ".github/**/*.{yml,yaml}" "config/**/*.{yml,yaml}" || status=$?
 
 if command -v shfmt >/dev/null; then
-  mapfile -t scripts < <(shfmt -f bin script 2>/dev/null)
+  scripts=()
+  while IFS= read -r script; do scripts+=("$script"); done < <(shfmt -f bin script 2>/dev/null)
   [ ${#scripts[@]} -gt 0 ] && { shfmt -w -i 2 -ci "${scripts[@]}" || status=$?; }
 fi
 
