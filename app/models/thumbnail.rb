@@ -51,9 +51,19 @@ class Thumbnail
     end
 
     def from_image(path, dir)
-      out = File.join(dir, "out.jpg")
-      run("vipsthumbnail", path, "--size", "#{width}x>", "-o", "#{out}[Q=80]")
-      File.binread(out)
+      viewable(path) do |ready|
+        out = File.join(dir, "out.jpg")
+        run("vipsthumbnail", ready, "--size", "#{width}x>", "-o", "#{out}[Q=80]")
+        File.binread(out)
+      end
+    end
+
+    def viewable(path, &block)
+      return yield(path) unless Kind.raw?(reference.locator_key)
+
+      Raw.preview(path, &block)
+    rescue Raw::Unreadable => e
+      raise Unavailable, e.message
     end
 
     def from_pdf(path, dir)

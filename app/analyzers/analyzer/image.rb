@@ -14,17 +14,19 @@ module Analyzer
     end
 
     def analyze
-      with_tempfile do |path|
-        step(:dimensions) do
-          {
-            "width" => run_command("vipsheader", "-f", "width", path).strip.to_i,
-            "height" => run_command("vipsheader", "-f", "height", path).strip.to_i
-          }
+      with_tempfile do |original|
+        viewable(original) do |path|
+          step(:dimensions) do
+            {
+              "width" => run_command("vipsheader", "-f", "width", path).strip.to_i,
+              "height" => run_command("vipsheader", "-f", "height", path).strip.to_i
+            }
+          end
+
+          step(:deviation) { run_command("vips", "deviate", path).strip.to_f }
+
+          step(:ocr) { read(path).strip.truncate(MAX_TEXT) }
         end
-
-        step(:deviation) { run_command("vips", "deviate", path).strip.to_f }
-
-        step(:ocr) { read(path).strip.truncate(MAX_TEXT) }
       end
     end
 
@@ -49,6 +51,14 @@ module Analyzer
     end
 
     private
+
+      def viewable(path, &block)
+        return yield(path) unless Kind.raw?(reference.locator_key)
+
+        Raw.preview(path, &block)
+      rescue Raw::Unreadable => e
+        raise Analyzer::Failed, e.message
+      end
 
       def read(path)
         run_command("tesseract", path, "stdout")

@@ -1,4 +1,5 @@
 brew "vips"
+brew "libraw"
 brew "poppler"
 brew "tesseract"
 brew "tesseract-lang"

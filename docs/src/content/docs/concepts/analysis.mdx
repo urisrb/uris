@@ -163,6 +163,14 @@ The same thumbnail is OCR's second attempt. `tesseract` cannot open an animated 
 of which vips reads happily, so a failed `tesseract` run is retried against the rendered preview
 rather than recorded as an error.
 
+A camera raw is normalized before any of that happens. `Raw.preview` runs `simple_dcraw -e` to pull
+out the JPEG the camera embedded — full size on most bodies — and every step downstream sees that
+file instead of the original; a preview narrower than 1024px is discarded for a full `-T` develop.
+Without it a raw is read by whichever loader claims it first, and the answer differs by machine: a
+NEF is a TIFF underneath, so the deployed image's vips reads the 160px thumbnail in its header and
+describes that, while a workstation with a newer libvips demosaics the actual photograph. `Kind::RAW`
+is the extension list, taken from the loader in libvips 8.17 that knows the format family.
+
 ### When a summary is recomputed
 
 `step(after:)` takes the later of the analyzer's `summary_after`, defaulting to
