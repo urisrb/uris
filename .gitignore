@@ -10,7 +10,7 @@
 /Gemfile.local.lock
 
 # Ignore all environment files — every host, domain, and credential arrives
-# through one of these, which is what keeps bin/check-boundary meaningful.
+# through one of these.
 /.env*
 !/.env.example
 
@@ -54,5 +54,3 @@
 
 
 .masks/
-
-.boundary-patterns

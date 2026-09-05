@@ -70,12 +70,3 @@ bin/rails test
 
 40 test files under `test/`. Isolation is asserted directly in
 `test/models/tenant_isolation_test.rb` and `test/integration/graphql_tenancy_test.rb`.
-
-## Before committing
-
-```sh
-bin/check-boundary
-```
-
-Nothing in the repository may name a host, a domain, or a secret. The script greps tracked and
-unignored files for a fixed pattern set, skipping `*.md` and `plans/`. It also runs in CI.

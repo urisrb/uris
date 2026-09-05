@@ -161,6 +161,3 @@ queue. Adapters translate their own vendor errors, so nothing above `Resource` n
 **Nothing in this repo may name a host, a domain, or a secret.** Those are facts about a deployment,
 and they belong in the private infrastructure repo that consumes this one. Everything arrives
 through the environment; `.env.example` documents what.
-
-Run `bin/check-boundary` before committing. It is wired into CI so that the rule is greppable rather
-than remembered.
