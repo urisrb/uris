@@ -4,10 +4,6 @@ module Analyzer
       thing.kind == "doc"
     end
 
-    # LibreOffice is the only thing that reads .docx and .odt faithfully, so a
-    # doc becomes a PDF first and then takes the PDF pipeline. Each conversion
-    # gets its own profile directory: soffice takes a lock on a shared one, and
-    # two analysis jobs would otherwise serialize on it or fail outright.
     def analyze
       as_pdf do |pdf|
         step(:info) { Pdf.parse_info(run_command("pdfinfo", pdf)) }

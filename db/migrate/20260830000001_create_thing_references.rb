@@ -18,9 +18,6 @@ class CreateThingReferences < ActiveRecord::Migration[8.1]
               name: "index_thing_references_on_locator"
     add_index :thing_references, [ :tenant_id, :analyzed_at ]
 
-    # things is FORCE ROW LEVEL SECURITY and this migration runs as its owner,
-    # so without lifting FORCE the backfill selects nothing, reports success,
-    # and silently drops every locator.
     without_row_level_security(:things) do
       execute <<~SQL
         INSERT INTO thing_references

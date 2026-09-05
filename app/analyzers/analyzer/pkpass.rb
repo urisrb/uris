@@ -9,8 +9,6 @@ module Analyzer
       thing.kind == "pkpass"
     end
 
-    # A signed zip holding pass.json. The signature is Apple's business, not
-    # ours: nothing here is trusted, it is only read.
     def analyze
       pass = step(:pass) { parse(read_pass_json) }
 

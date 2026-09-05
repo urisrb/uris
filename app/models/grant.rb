@@ -15,10 +15,6 @@ class Grant
 
   SCOPES = DESCRIBED.keys.freeze
 
-  # What signing in asks for. Everything else in SCOPES stays grantable and
-  # describable, but is not handed to every person who opens the app: an admin
-  # scope reaches settings that belong to the whole tenant, and it is the
-  # personal/server split in Setting that it would otherwise erase.
   ADMINISTRATIVE = %w[things:settings:admin].freeze
 
   SIGN_IN = (SCOPES - ADMINISTRATIVE).freeze

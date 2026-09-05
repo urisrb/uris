@@ -10,10 +10,6 @@ class CreateSettings < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    # A personal setting is owned by a subject; a server-wide one has none.
-    # NULLS NOT DISTINCT, or every server-wide row for a key inserts again:
-    # Postgres counts each NULL subject as its own value and the constraint
-    # never fires on exactly the rows that must stay unique.
     add_index :settings, [ :tenant_id, :subject, :key ],
               unique: true, nulls_not_distinct: true, name: "index_settings_on_scope"
 

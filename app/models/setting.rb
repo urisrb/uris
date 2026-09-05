@@ -35,9 +35,6 @@ class Setting < ApplicationRecord
     DEFINED.values.select { |definition| definition.level == level }
   end
 
-  # A personal setting belongs to whoever is asking; a server-wide one belongs
-  # to the tenant and ignores the subject entirely. Absence is not a value —
-  # a setting nobody has touched reads as what it says it defaults to.
   def self.read(key, subject:)
     definition = definition!(key)
 

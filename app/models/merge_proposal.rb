@@ -16,10 +16,6 @@ class MergeProposal < ApplicationRecord
     Thing.where(id: thing_ids).order(:created_at, :id)
   end
 
-  # A proposal is a reading of the catalog at a moment, and the catalog moves.
-  # Accepting one whose things have since been merged away would either fail
-  # loudly or merge the wrong pair, so it is checked first and retired if the
-  # ground has shifted.
   def current?
     things.count == thing_ids.length
   end

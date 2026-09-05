@@ -8,9 +8,6 @@ class ThingReference < ApplicationRecord
 
   scope :oldest_first, -> { order(:created_at, :id) }
 
-  # A folder is a prefix of the locator key, which is the only thing every
-  # type has in common — `s3` has no directories, `imap` has no path at all,
-  # and both still key on something a prefix means something in.
   scope :under, ->(prefix) {
     escaped = sanitize_sql_like(prefix.to_s.delete_prefix("/").chomp("/"))
 

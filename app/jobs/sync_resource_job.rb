@@ -28,10 +28,6 @@ class SyncResourceJob < ApplicationJob
     enumerator_builder.wrap(enumerator_builder, objects)
   end
 
-  # Resolved rather than memoized-if-lucky: the gate is read before the
-  # enumerator runs, so nothing else has loaded the resource yet, and a
-  # reference-scoped gate that cannot see its resource silently reads as open.
-  # Loading it here is also what lets release_sync hand the lock back.
   def gate_reference
     resource_for(arguments[0], arguments[1])
   rescue ActiveRecord::RecordNotFound

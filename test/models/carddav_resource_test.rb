@@ -2,7 +2,6 @@ require "test_helper"
 require_relative "../support/fake_dav_server"
 
 class CarddavResourceTest < ActiveSupport::TestCase
-  # Folded at the NOTE, and grouped at the EMAIL, which is what Apple exports.
   CARD = <<~'VCF'.gsub("\n", "\r\n").freeze
     BEGIN:VCARD
     VERSION:3.0

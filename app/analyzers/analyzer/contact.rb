@@ -70,14 +70,10 @@ module Analyzer
         end
       end
 
-      # item1.EMAIL;TYPE=work — Apple exports group properties with a prefix
-      # before the name, and the parameters sit after the semicolon. Neither is
-      # part of the property, and keeping either makes every one of them unique.
       def property(name)
         name.to_s.split(";").first.to_s.split(".").last.to_s.downcase
       end
 
-      # N and ADR are one value with semicolons inside it, not several values.
       def structured(value)
         value.split(/(?<!\\);/).map { |part| unescape(part).strip }.reject(&:empty?)
              .join(" ").truncate(CELL_LIMIT)

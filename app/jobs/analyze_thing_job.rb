@@ -15,19 +15,12 @@ class AnalyzeThingJob < ApplicationJob
     job.fail_run(error)
   end
 
-  # The run is started by whoever asks for the analysis rather than by the job,
-  # so a retry carries the same run in its arguments instead of opening a
-  # second one. Assumes a tenant is already switched in.
   def self.start!(tenant_id, thing_id)
     Run.start!(kind: "analyze", selector: { "id" => thing_id }).tap do |run|
       perform_later(tenant_id, thing_id, run.id)
     end
   end
 
-  # Tenant.switch opens a savepoint, so bookkeeping shares a fate with whatever
-  # else is inside it. Marking the run is therefore its own switch, and the
-  # analysis another: a read that raises rolls back its own writes and leaves
-  # the record of having tried it standing.
   def perform(tenant_id, thing_id, run_id = nil)
     tenant = Tenant.find(tenant_id)
 
@@ -48,9 +41,6 @@ class AnalyzeThingJob < ApplicationJob
     Tenant.switch(tenant) { wake_parent(tenant_id, thing) }
   end
 
-  # A run that already closed is not reopened to be failed. The thing was read;
-  # whatever went wrong afterwards — waking a parent that has since gone away —
-  # is the job's problem and not a retraction of the reading.
   def fail_run(error)
     return if run.nil?
 
@@ -69,9 +59,6 @@ class AnalyzeThingJob < ApplicationJob
       Tenant.switch(run.tenant) { run.finished! }
     end
 
-    # Reached from the rescue handlers, where arguments may be exactly what
-    # could not be deserialized. Finding no run is an answer; raising a second
-    # error out of the handler that is reporting the first is not.
     def run
       return @run if defined?(@run)
 
@@ -83,10 +70,6 @@ class AnalyzeThingJob < ApplicationJob
       @run = nil
     end
 
-    # A parent that found children returned without analyzing, because its body
-    # is the union with theirs and reading it early would index half of it. The
-    # last child to finish is what starts it again — a signal rather than a
-    # poll, so nothing re-enqueues itself in a loop.
     def wake_parent(tenant_id, thing)
       parent = thing.parent
       return if parent.nil? || thing.analyzed_at.nil?

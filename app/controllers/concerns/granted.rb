@@ -9,9 +9,6 @@ module Granted
 
   private
 
-    # A browser never attaches an Authorization header on its own, so a request
-    # that carries one is not a cross-site form post and has no CSRF token to
-    # send. Without this the bearer half of this concern is unreachable.
     def verified_request?
       request.authorization.present? || super
     end
@@ -76,9 +73,6 @@ module Granted
       masks_resource.authenticate(authorization)
     end
 
-    # The browser never holds a token: masks-rails keeps it in the encrypted
-    # session, and it is verified here exactly as a presented one would be, so
-    # a cookie and a bearer arrive at the same Grant by the same path.
     def credentials
       request.authorization.presence || session_authorization
     end

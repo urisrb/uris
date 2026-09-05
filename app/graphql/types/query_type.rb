@@ -10,8 +10,6 @@ module Types
 
     field :settings, [ Types::SettingType ], null: false, grants: "things:settings:read"
 
-    # What a caller cannot change it has no business reading, so the list is
-    # what this token's scopes reach — today that is the personal ones.
     def settings
       grant = context[:grant]
       subject = grant.subject

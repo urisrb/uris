@@ -39,8 +39,6 @@ class ContentController < ApplicationController
       ThingReference.find_by(id: params[:id])
     end
 
-    # The bytes are somewhere else and may be large, so hand them out as they
-    # arrive rather than holding a whole object in memory to serve one image.
     def stream(io)
       self.response_body = Enumerator.new do |yielder|
         while (chunk = io.read(CHUNK))

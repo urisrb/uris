@@ -19,9 +19,6 @@ class Gate < ApplicationRecord
     ENV[SHUT].present?
   end
 
-  # Most specific wins: a gate on this reference, then the key's own gate, then
-  # what the iterator declared. Absence is not "off" — an iterator that has
-  # never been configured behaves the way it says it should.
   def self.decide(key:, reference: nil, enabled: true, live: true)
     return Decision.new(enabled: false, live: false) if stopped_everywhere?
 

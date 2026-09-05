@@ -4,15 +4,11 @@ default: &default
       batch_size: 500
       concurrency_maintenance_interval: 300
   workers:
-    # Iterators and fan-out. These enqueue rather than compute, so an
-    # each_iteration that stalls here stalls a cursor, not a GPU.
     - queues: [sync, export, default]
       threads: 5
       processes: <%= ENV.fetch("BULK_CONCURRENCY", 1) %>
       polling_interval: 1
 
-    # Analysis gets its own pool, so a hundred-thousand-object sync cannot
-    # occupy the workers it needs, and a slow OCR cannot stall a cursor.
     - queues: analysis
       threads: <%= ENV.fetch("ANALYSIS_THREADS", 4) %>
       processes: <%= ENV.fetch("ANALYSIS_CONCURRENCY", 1) %>

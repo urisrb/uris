@@ -130,10 +130,6 @@ class Thing < ApplicationRecord
     end
   end
 
-  # A thing's searchable body is the union across its references, and across
-  # its children's — searching for a word that is only inside a PDF attached to
-  # an email has to find the email, which is the whole reason analysis waits
-  # for children at all.
   def body_text
     strings = []
     collect_strings(references.flat_map(&:extracted)) { |s| strings << s }

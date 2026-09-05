@@ -9,8 +9,6 @@ class Thumbnail
   CONTENT_TYPE = "image/jpeg"
   RETAIN = 30.days
 
-  # A derivative, not data: regenerable from the reference at any time, so it
-  # lives in the cache and never in a table anyone would have to migrate.
   def self.for(reference, size: DEFAULT_SIZE)
     new(reference, size).bytes
   end
@@ -58,7 +56,6 @@ class Thumbnail
       File.binread(out)
     end
 
-    # pdftoppm appends its own -1 for the page, so the prefix is not the file.
     def from_pdf(path, dir)
       prefix = File.join(dir, "page")
       run("pdftoppm", "-jpeg", "-r", "72", "-f", "1", "-l", "1",

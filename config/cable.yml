@@ -9,8 +9,6 @@ default: &default
 development:
   <<: *default
 
-# The test adapter, so a broadcast can be asserted rather than waited for. The
-# cable database is still declared in database.yml, so the schema is exercised.
 test:
   adapter: test
 

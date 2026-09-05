@@ -1,15 +1,4 @@
 module Blocking
-  # Comparing every thing to every other is quadratic, so nothing is compared
-  # until a cheap key says two things might be the same. Both keys here are
-  # computed from columns that already exist and are grouped by the database.
-  #
-  #   same-name   kind plus the basename of the locator key. A file copied
-  #               between two resources keeps its name and loses its path.
-  #   same-bytes  the version a resource reports for those bytes, scoped to
-  #               the resource type that minted it — an etag from S3 and an
-  #               etag from WebDAV mean different things and must not collide.
-  #
-  # Neither is proof. They are the blocking step; a person or an agent decides.
   KEYS = {
     "same-name" => <<~SQL.squish,
       concat('same-name:', things.kind, ':',

@@ -1,11 +1,6 @@
 module Gated
   extend ActiveSupport::Concern
 
-  # job-iteration skips a job whose build_enumerator returns nil, and skipping
-  # it means the completion callbacks never fire. A sync claimed its resource
-  # before it was enqueued, so that path strands the lock for
-  # SYNC_ABANDONED_AFTER. An empty enumerator iterates nothing and still
-  # completes, which is what gives the lock back.
   module Enumeration
     def build_enumerator(*args, cursor:, **rest)
       return refuse_gated_run if gate.closed?
@@ -75,9 +70,6 @@ module Gated
       Tenant.switch(run.tenant) { run.gated! }
     end
 
-    # Stopping mid-flight goes through throw(:abort) with the complete
-    # callbacks left to fire, for the same reason cancellation does: work
-    # holding a lock has to give it back.
     def halt_for_gate!
       mark_run_gated
 

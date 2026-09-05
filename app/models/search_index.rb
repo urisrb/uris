@@ -29,9 +29,6 @@ module SearchIndex
       @client ||= OpenSearch::Client.new(url: ENV.fetch("OPENSEARCH_URL", "http://127.0.0.1:9201"))
     end
 
-    # Every name here is an alias. The concrete index is versioned and nothing
-    # outside this file knows what it is called, which is what makes a rebuild
-    # something other than downtime.
     def alias_name
       [ "things", Rails.env, ENV["TEST_ENV_NUMBER"].presence ].compact.join("_")
     end
@@ -54,10 +51,6 @@ module SearchIndex
       live_indices.first || (alias_name if legacy_index?)
     end
 
-    # Before this file versioned them, the alias's name was a concrete index,
-    # and one exists on every machine that ran that shape. It is left serving
-    # until a rebuild replaces it, because an alias cannot be created while an
-    # index holds its name.
     def legacy_index?
       live_indices.empty? && client.indices.exists(index: alias_name)
     end
@@ -79,18 +72,12 @@ module SearchIndex
       end
     end
 
-    # The tenant filter lives on the alias, so it is applied by the engine and
-    # cannot be omitted by a caller. This is the search-side equivalent of RLS.
     def create_alias!(tenant, index: nil)
       client.indices.update_aliases(
         body: { actions: [ tenant_alias(tenant, index || create!) ] }
       )
     end
 
-    # Promotion is one call, so no query ever sees a moment with no index
-    # behind it or two. It refuses an index holding less than it was told to
-    # expect, because a half-built index that answers is worse than one that
-    # does not exist.
     def promote!(target, at_least:)
       refresh!(index: target)
       held = client.count(index: target)["count"]
@@ -116,10 +103,6 @@ module SearchIndex
       client.index(index: into, id: thing.id, body: document(thing))
     end
 
-    # One request per thing is fine for a callback and is not fine for a
-    # rebuild. `_bulk` is a newline-delimited body, and it answers 200 with
-    # per-item errors inside, so a caller that only checks the status
-    # believes a half-written page landed.
     def index_all(things, into: alias_name)
       things = things.to_a
       return 0 if things.empty?
@@ -182,8 +165,6 @@ module SearchIndex
       nil
     end
 
-    # Deletes by concrete name rather than by wildcard: `things_test*` also
-    # matches `things_test1`, which is another parallel worker's index.
     def reset!
       indices = live_indices
       indices.each { |name| client.indices.delete(index: name, ignore: 404) }

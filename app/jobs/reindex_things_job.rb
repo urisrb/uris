@@ -32,10 +32,6 @@ class ReindexThingsJob < ApplicationJob
     enumerator_builder.wrap(enumerator_builder, pages)
   end
 
-  # A page at a time rather than a thing at a time: one request per document
-  # is fine for a callback and is what made a rebuild of a large catalog a
-  # request storm. The cursor is still the last id of the page, so an
-  # interrupted run resumes at a page boundary rather than replaying the walk.
   def each_iteration(things, tenant_id, index = nil, _run_id = nil)
     return track_iteration(things.size) if dry_run?
 

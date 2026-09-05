@@ -80,8 +80,6 @@ jobs:
         with:
           bundler-cache: true
 
-      # The Ruby schema is the source of truth; the TypeScript is generated from
-      # it and committed nowhere, so it has to be produced before typechecking.
       - name: Generate the API layer
         run: |
           bin/rails graphql:dump_schema
@@ -121,15 +119,12 @@ jobs:
           --health-interval=10s --health-timeout=5s --health-retries=20
 
     steps:
-      # The analyzers shell out rather than binding, so the suite needs the same
-      # binaries a developer installs through the Brewfile.
       - name: Install packages
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
             libpq-dev libvips libvips-tools poppler-utils tesseract-ocr
 
-      # MinIO takes a command argument, which service containers cannot express.
       - name: Start MinIO
         run: |
           docker run -d --name minio -p 9000:9000 \
@@ -140,8 +135,6 @@ jobs:
             sleep 2
           done
 
-      # A superuser bypasses row-level security unconditionally, so connecting as
-      # one would make every isolation test pass without proving anything.
       - name: Create the non-superuser application role
         env:
           PGPASSWORD: postgres
@@ -174,8 +167,6 @@ jobs:
           ENCRYPTION_KEY_DERIVATION_SALT: ci_only_key_derivation_salt_not_for_real
         run: bin/rails db:test:prepare test
 
-  # A build is the cheapest deploy test there is, and it needs no services.
-  # Without it the image stayed broken for four commits.
   image:
     runs-on: ubuntu-latest
 

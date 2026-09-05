@@ -25,9 +25,6 @@ class Resource
       true
     end
 
-    # Unlike every other resource, this one's storage is behind the same RLS as
-    # the catalog, so each query has to carry the tenant. One short transaction
-    # per page rather than one held across the whole enumeration.
     def each_page(cursor: nil, prefix: nil)
       loop do
         batch = scoped do

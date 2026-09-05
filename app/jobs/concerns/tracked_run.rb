@@ -20,10 +20,6 @@ module TrackedRun
     nil
   end
 
-  # The only way to stop a run that holds no token: a flag the iteration reads,
-  # rather than a signal something delivers. Checked on the same beat progress
-  # is flushed, so a hundred thousand objects cost two thousand queries and not
-  # two hundred thousand.
   def track_iteration(records = 1)
     @seen = @seen.to_i + 1
     @pending_progress = @pending_progress.to_i + records

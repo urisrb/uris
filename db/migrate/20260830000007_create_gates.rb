@@ -13,9 +13,6 @@ class CreateGates < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    # NULLS NOT DISTINCT, or two key-wide gates for the same key both insert:
-    # Postgres treats each NULL reference as its own value and the constraint
-    # never fires on the rows that need it most.
     add_index :gates, [ :tenant_id, :key, :reference_type, :reference_id ],
               unique: true, nulls_not_distinct: true, name: "index_gates_on_scope"
 

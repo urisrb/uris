@@ -23,8 +23,6 @@ class Run < ApplicationRecord
     OPEN.include?(status)
   end
 
-  # Conditional on still being open, or a job picked up after its run was
-  # cancelled would resurrect it and then finish it as done.
   def running!
     Run.where(id: id, status: OPEN)
        .update_all(status: "running", started_at: started_at || Time.current)
@@ -46,8 +44,6 @@ class Run < ApplicationRecord
     )
   end
 
-  # A gate closing is not a failure and not a cancellation — nobody asked for
-  # it to stop, and it should read differently in a list of runs.
   def gated!
     return false unless open?
 
@@ -62,10 +58,6 @@ class Run < ApplicationRecord
     true
   end
 
-  # Cheap enough to run every few iterations, which is the only way a run with
-  # no token can be stopped: it is a flag the iteration checks, not a signal
-  # anything can deliver. A row that has gone away halts too — there is nothing
-  # left to report progress to.
   def halted?
     fresh = current_status
     return true if fresh.nil?

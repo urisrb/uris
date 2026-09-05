@@ -20,8 +20,6 @@ class McpController < ApplicationController
 
   private
 
-    # A connector is handed a URL and nothing else, so an unauthenticated call
-    # has to be answered with the challenge rather than sent to a login page.
     def presented?
       true
     end

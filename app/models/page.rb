@@ -1,7 +1,3 @@
-# Keyset pagination on the primary key, newest first. There is no offset and no
-# count: the cursor is the last id of the previous page, and one extra row is
-# fetched to answer "is there more" without asking the database to count a
-# million things.
 class Page
   DEFAULT = 50
   MAX = 200
