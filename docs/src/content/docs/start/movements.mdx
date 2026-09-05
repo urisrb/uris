@@ -17,7 +17,8 @@ All four are reachable over `/mcp` and over `/graphql`.
 `Resource#sync!` claims the resource, starts a `Run`, and enqueues `SyncResourceJob`.
 
 The job iterates `each_page` on the resource and records a `ThingReference` per object. No bytes
-move. Six of the nine types implement `each_page`; the rest cannot sync — see
+move. Eight of the ten types sync: six implement `each_page` and `Caldav` and `Carddav`
+inherit it from `Webdav`. See
 [Resources](/concepts/resources/).
 
 `app/models/resource.rb`, `app/jobs/sync_resource_job.rb` · [Sync a resource](/guides/sync/)
@@ -46,7 +47,8 @@ resource, recording the copy as another `ThingReference` on the same thing.
 
 ## Sync and export are one form
 
-The same shape with source and destination swapped. Cataloguing is a flag, not a destination.
+The same shape with source and destination swapped, and cataloguing as an independent flag. Four
+combinations follow:
 
 | source | destination | catalogued | is |
 | --- | --- | --- | --- |

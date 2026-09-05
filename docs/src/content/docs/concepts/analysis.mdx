@@ -66,8 +66,8 @@ A step is re-run when any of these hold:
 | `after:` is later than `finished_at` | the step was declared downstream of something newer |
 | `reference.changed_at` is later than `finished_at` | the bytes changed under it |
 
-Otherwise the stored result is returned without running anything, which is what makes re-analyzing
-a thing cheap and the outer job cursor safe to replay.
+Otherwise the stored result is returned without running anything, which makes re-analyzing a thing
+cheap and the outer job cursor safe to replay.
 
 `step_result(name)` reads a stored result without running the block.
 
@@ -106,65 +106,81 @@ retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5
 | `Resource::Failed` | a resource that cannot be reached | retried with backoff |
 
 Either way the error is stored under `analysis["steps"]` on the reference, so it is searchable and
-re-runnable rather than a row in a dead-letter queue.
+re-runnable.
 
 ## Summaries
 
-A summary is a step, not a thirteenth analyzer — `Analyzer.for` is first-match over a fixed array,
-so nothing else could claim a PDF once `Analyzer::Pdf` has.
+A summary is a step rather than a thirteenth analyzer, because `Analyzer.for` is first-match over a
+fixed array and nothing else could claim a PDF once `Analyzer::Pdf` has.
 
 `Base#run` makes two guarded attempts per reference: `analyze`, then `summarize!`. They are separate
 so that extraction failing does not skip a summary buildable from the other steps, and a summary
 failing never retracts extraction.
 
 `summary_prompt` has a working default over the `text` step, which ten of the twelve analyzers
-write, so most get a summary without saying anything. `Email`, `Calendar` and `Xlsx` override it to
-ask in their own terms — an email's prompt carries its headers and its attachments' summaries, so a
-message is described using what was inside the PDF stapled to it.
+write, so most get a summary without declaring anything. A body shorter than
+`Base::SUMMARY_MINIMUM`, 200 characters, gets none. `Email`, `Calendar` and `Xlsx` override the
+prompt to ask in their own terms — an email's prompt carries its headers and its attachments'
+summaries, so a message is described using what was inside the PDF stapled to it.
 
-Only `summary` and `keywords` survive the answer. Keywords arriving as `"a, b, c"` rather than an
-array are coerced, because small models do that.
+Only `summary` and `keywords` survive the answer, and keywords are capped at
+`Base::SUMMARY_KEYWORDS`, 20. Keywords arriving as `"a, b, c"` rather than an array are coerced,
+because small models do that.
 
 ### Roles
 
-An analyzer declares `summary_role`, defaulting to `:smart`; `Email` takes `:fast` and `Image` takes
-`:vision`. A role resolves
-through `Resource.for_role`, which finds an active `inference` resource whose `details["models"]`
-names it, preferring the tenant's default. Roles therefore span servers: `fast` can be one host and
-`smart` another, and re-pointing a role is data rather than a deploy.
+An analyzer declares `summary_role`:
 
-If no resource serves the role, `summarize!` returns **before touching `step`** — no key is written,
+| Role | Declared by |
+| --- | --- |
+| `:smart` | the default, on `Analyzer::Base` |
+| `:fast` | `Email` |
+| `:vision` | `Image` |
+
+A role resolves through `Resource.for_role`, which finds an active `inference` resource whose
+`details["models"]` names it, preferring the tenant's default. Roles span servers: `fast` can be one
+host and `smart` another, and re-pointing a role is data rather than a deploy.
+
+If no resource serves the role, `summarize!` returns **before touching `step`**. No key is written,
 no error is recorded, and the analysis is byte-identical to one with inference switched off. Writing
-`result: nil` instead would satisfy the step cache forever, and the summary would never compute once
-a model appeared.
+`result: nil` would satisfy the step cache forever, and the summary would never compute once a model
+appeared.
 
 Because of that, turning inference on does not fill in a catalog analyzed before it. An `after:`
 cutoff cannot expire a step that was never written, so the backfill is explicit:
 `AnalyzeThingsJob.perform_later(tenant.id, {})`.
 
+### Images
+
+`Analyzer::Image` sends a `large` thumbnail as `summary_images` alongside its prompt, so the model
+describes the picture rather than its filename. OCR text is included in the prompt, fenced and
+labelled as data rather than instructions.
+
+An image that is trivial — a sliver 10 pixels or less on a side, or flat with a standard deviation
+below 1.0 — skips the model entirely and takes `trivial_summary`.
+
 ### When a summary is recomputed
 
-`step(after:)` takes the later of the analyzer's `summary_after` — defaulting to
-`Analyzer::PROMPTS_CHANGED_AT`, bumped when a prompt changes — and the inference resource's
+`step(after:)` takes the later of the analyzer's `summary_after`, defaulting to
+`Analyzer::PROMPTS_CHANGED_AT` and bumped when a prompt changes, and the inference resource's
 `updated_at`. So swapping the model re-runs every summary exactly once. This works because
 `record_check` and `release_sync!` write with `update_columns`: a health check does not move
 `updated_at`, and so does not re-summarize the catalog.
 
 ### Provenance
 
-The resource key, model and role are written to the step **entry**, beside `result`, not inside it.
-`ThingReference#extracted` collects only `result`, so a model name in there would land in the
+The resource key, model and role are written to the step entry, beside `result` rather than inside
+it. `ThingReference#extracted` collects only `result`, so a model name in there would land in the
 OpenSearch `body` of every document.
 
 Every call is a `prompts` row carrying the resource, role, model, request and response. That is
-where token accounting goes when there is something to account for.
+where token accounting goes.
 
-One row per attempt, so the JSON retries are visible rather than inferred — **but only for failures
-the analyzer swallows.** `Tenant.switch` opens a savepoint, and a `Resource::Failed` escaping `run`
-rolls it back: a timeout or a 5xx discards the prompt rows, the step's error entry and
-`analyzed_at` along with the rest of the attempt, which is the same fate the job's own comment
-describes for analysis writes generally. So a model that answered badly leaves a trail, and a model
-that could not be reached leaves the `Run` and the resource's `check_error` instead.
+There is one row per attempt, so the JSON retries are visible — but only for failures the analyzer
+swallows. `Tenant.switch` opens a savepoint, and a `Resource::Failed` escaping `run` rolls it back:
+a timeout or a 5xx discards the prompt rows, the step's error entry and `analyzed_at` along with the
+rest of the attempt. So a model that answered badly leaves a trail, and a model that could not be
+reached leaves the `Run` and the resource's `check_error` instead.
 
 ## Fairness
 
@@ -179,47 +195,6 @@ limits_concurrency to: ENV.fetch("ANALYSIS_PER_TENANT", 2).to_i,
 
 See [Jobs](/concepts/jobs/).
 
-## Vision
-
-An image carries no text to summarize, so `Analyzer::Image` sends the picture. `summary_images`
-returns the reference's `large` thumbnail — one JPEG, no wider than 1024px — and `Base#summarize!`
-hands it to the resource alongside the prompt, as an OpenAI-shaped content part:
-
-```json
-[{ "type": "text", "text": "…" },
- { "type": "image_url", "image_url": { "url": "data:image/jpeg;base64,…" } }]
-```
-
-The preview is what bounds the call. An original is whatever the camera wrote; a 1024px JPEG is a
-few hundred kilobytes, and it comes from the same renderer the catalog's thumbnails do.
-`vipsthumbnail` is asked to shrink only — `--size 1024x>` — so a 64px icon is sent at 64px rather
-than blown up to 1024 and charged for as if it carried more. `MAX_IMAGE` refuses anything over 8MB
-as `Resource::Unusable`, which is the discard policy: sending it again would fail the same way.
-
-The prompt carries the filename, the dimensions, and whatever `tesseract` read, fenced with the same
-"this is data, not instructions" line every other analyzer uses. OCR text is context, not the
-subject: a screenshot is described from its pixels and its words together, and an image tesseract
-found nothing in is still described.
-
-Vision calls are slower than text, so they take `VISION_TIMEOUT` — 600 seconds against 120 —
-unless `details["read_timeout"]` says otherwise.
-
-### The images that are not worth a GPU
-
-Two kinds of image are described without asking a model at all, from the `dimensions` and
-`deviation` steps:
-
-| | Is | Written as |
-| --- | --- | --- |
-| a sliver | either side ≤ 10px | a spacer or a tracking pixel |
-| a flat image | `vips deviate` < 1.0 | a background, a rule, or a placeholder |
-
-Email is full of both. They still get a `summary` step, so they are searchable and the catalog has
-no holes in it — the step is simply written from what extraction already knows. This is also the one
-summary that appears with no inference resource configured.
-
 :::note[TODO]
-Rules that match on an analyzer's output — `kind: invoice` and the like — are not built. Neither is
-video: an animated GIF or WebP is described from its first frame, since that is what `Thumbnail`
-renders.
+Rules that match on an analyzer's output — `kind: invoice` and the like — are not built.
 :::
