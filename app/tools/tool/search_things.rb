@@ -1,7 +1,7 @@
 module Tool
   class SearchThings < Base
     tool_name "search_things"
-    scope "things:read"
+    scope "things:catalog:read"
 
     description <<~TEXT
       Search the whole catalog at once — every resource that has been synced, not one

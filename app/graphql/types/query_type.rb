@@ -2,13 +2,13 @@
 
 module Types
   class QueryType < Types::BaseObject
-    field :tenant, Types::TenantType, null: true, grants: "things:read"
+    field :tenant, Types::TenantType, null: true, grants: "things:catalog:read"
 
     def tenant
       context[:tenant]
     end
 
-    field :settings, [ Types::SettingType ], null: false, grants: "settings:read"
+    field :settings, [ Types::SettingType ], null: false, grants: "things:settings:read"
 
     # What a caller cannot change it has no business reading, so the list is
     # what this token's scopes reach — today that is the personal ones.
@@ -23,7 +23,7 @@ module Types
       end
     end
 
-    field :thing, Types::ThingType, null: true, grants: "things:read" do
+    field :thing, Types::ThingType, null: true, grants: "things:catalog:read" do
       argument :id, ID, required: true
     end
 
@@ -31,7 +31,7 @@ module Types
       Thing.find_by(id: id)
     end
 
-    field :things, Types::ThingPageType, null: false, grants: "things:read" do
+    field :things, Types::ThingPageType, null: false, grants: "things:catalog:read" do
       argument :kind, String, required: false
       argument :resource_id, ID, required: false
       argument :after, ID, required: false
@@ -46,7 +46,7 @@ module Types
       Page.of(scope, after: after, limit: limit)
     end
 
-    field :search, [ Types::ThingType ], null: false, grants: "things:read" do
+    field :search, [ Types::ThingType ], null: false, grants: "things:catalog:read" do
       argument :query, String, required: false
       argument :kind, String, required: false
       argument :limit, Integer, required: false
@@ -56,7 +56,7 @@ module Types
       Thing.search(query, kind: kind, limit: (limit || 50).to_i.clamp(1, 200))
     end
 
-    field :kinds, [ Types::KindCountType ], null: false, grants: "things:read"
+    field :kinds, [ Types::KindCountType ], null: false, grants: "things:catalog:read"
 
     def kinds
       Thing.group(:kind).order(count_all: :desc).count.map do |kind, count|
@@ -64,13 +64,13 @@ module Types
       end
     end
 
-    field :resources, [ Types::ResourceType ], null: false, grants: "resources:read"
+    field :resources, [ Types::ResourceType ], null: false, grants: "things:resources:read"
 
     def resources
       Resource.active.order(:type, :key)
     end
 
-    field :runs, Types::RunPageType, null: false, grants: "things:read" do
+    field :runs, Types::RunPageType, null: false, grants: "things:catalog:read" do
       argument :kind, String, required: false
       argument :status, String, required: false
       argument :after, ID, required: false
@@ -85,7 +85,7 @@ module Types
       Page.of(scope, after: after, limit: limit)
     end
 
-    field :merge_proposals, Types::MergeProposalPageType, null: false, grants: "things:read" do
+    field :merge_proposals, Types::MergeProposalPageType, null: false, grants: "things:catalog:read" do
       argument :status, String, required: false
       argument :after, ID, required: false
       argument :limit, Integer, required: false
@@ -97,7 +97,7 @@ module Types
       Page.of(scope, after: after, limit: limit)
     end
 
-    field :audit_events, Types::AuditEventPageType, null: false, grants: "things:read" do
+    field :audit_events, Types::AuditEventPageType, null: false, grants: "things:catalog:read" do
       argument :action, String, required: false
       argument :status, String, required: false
       argument :subject, String, required: false

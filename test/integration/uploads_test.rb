@@ -116,7 +116,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
   end
 
   test "a token that may read but not write cannot drop anything" do
-    upload "march.pdf", "contents", scopes: [ "things:read" ]
+    upload "march.pdf", "contents", scopes: [ "things:catalog:read" ]
 
     assert_response :unauthorized
     Tenant.switch(@tenant) { assert_equal 0, Thing.count }

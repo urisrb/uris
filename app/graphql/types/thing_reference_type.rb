@@ -2,7 +2,7 @@
 
 module Types
   class ThingReferenceType < Types::BaseObject
-    grants "things:read"
+    grants "things:catalog:read"
 
     field :id, ID, null: false
     field :resource, Types::ResourceType, null: false

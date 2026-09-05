@@ -34,7 +34,7 @@ class McpAuditTest < ActionDispatch::IntegrationTest
     assert_equal "mcp", event.channel
     assert_equal "search_things", event.action
     assert_equal "ok", event.status
-    assert_equal "things:read", event.scope
+    assert_equal "things:catalog:read", event.scope
     assert_equal "test", event.subject
     assert_equal({ "query" => "invoice", "kind" => nil, "limit" => 50 }, event.arguments)
     assert event.duration_ms >= 0
@@ -42,14 +42,14 @@ class McpAuditTest < ActionDispatch::IntegrationTest
   end
 
   test "a call the token does not carry the scope for is recorded as denied" do
-    call(@tenant, [ "things:read" ], "tools/call",
+    call(@tenant, [ "things:catalog:read" ], "tools/call",
          name: "search_things", arguments: { query: "invoice" })
 
     assert_equal "ok", events.first.status
 
     Tenant.switch(@tenant) { AuditEvent.delete_all }
 
-    call(@tenant, [ "things:read" ], "tools/call",
+    call(@tenant, [ "things:catalog:read" ], "tools/call",
          name: "sync_resource", arguments: { id: @resource.id.to_s })
 
     assert_empty events, "an ungranted tool is not registered, so no grant was exercised"

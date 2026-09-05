@@ -2,13 +2,16 @@ class Grant
   class Denied < StandardError; end
 
   DESCRIBED = {
-    "things:read" => "Search your catalog and read what is in it",
-    "things:write" => "Add to your catalog, and run analysis over it",
-    "resources:read" => "List the places your things live",
-    "resources:command" => "Act on those places — sync, fetch, and export",
-    "settings:read" => "Read how you have set things up for yourself",
-    "settings:write" => "Change how things behaves for you"
+    "things:catalog:read" => "Search your catalog and read what is in it",
+    "things:catalog:write" => "Add to your catalog, and run analysis over it",
+    "things:resources:read" => "List the places your things live",
+    "things:resources:command" => "Act on those places — sync, fetch, and export",
+    "things:settings:read" => "Read how you have set things up for yourself",
+    "things:settings:write" => "Change how things behaves for you",
+    "things:settings:admin" => "Change how things behaves for everyone here"
   }.freeze
+
+  NAMESPACE = "things:".freeze
 
   SCOPES = DESCRIBED.keys.freeze
 

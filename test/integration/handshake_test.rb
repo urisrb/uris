@@ -30,7 +30,7 @@ class HandshakeTest < ActionDispatch::IntegrationTest
     assert_equal "#{origin}/mcp", query["resource"]
     assert_equal "#{origin}/auth/handshake/callback", query["return_to"]
     assert_equal "#{origin}/auth/callback", query["redirect_uris"]
-    assert_includes query["scope"].split, "things:read"
+    assert_includes query["scope"].split, "things:catalog:read"
     assert query["state"].present?
   end
 

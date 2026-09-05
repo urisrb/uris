@@ -8,6 +8,7 @@ Rails.application.config.to_prepare do
     config.store = ->(request, registration) { Tenant.resolve!(request.host).connect!(registration) }
     config.forget = ->(request) { Tenant.resolve!(request.host).disconnect! }
     config.resource_scopes = Grant::DESCRIBED
+    config.namespace = Grant::NAMESPACE
     config.scope = Masks::Client::Session::DEFAULT_SCOPE + [ "offline_access" ] + Grant::SCOPES
     config.after_sign_in = "/"
     config.after_sign_out = "/"

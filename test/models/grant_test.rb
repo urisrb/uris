@@ -6,13 +6,13 @@ class GrantTest < ActiveSupport::TestCase
   end
 
   test "the granted scopes are the intersection with the ones this app defines" do
-    grant = build(scope: "openid things:read profile resources:command nonsense")
+    grant = build(scope: "openid things:catalog:read profile things:resources:command nonsense")
 
-    assert_equal [ "things:read", "resources:command" ], grant.scopes
+    assert_equal [ "things:catalog:read", "things:resources:command" ], grant.scopes
   end
 
   test "the tool list is the grant, so an ungranted tool is never registered" do
-    names = build(scope: "things:read").tools.map(&:tool_name)
+    names = build(scope: "things:catalog:read").tools.map(&:tool_name)
 
     assert_equal %w[search_things get_thing], names
     assert_empty build(scope: "openid").tools
@@ -20,20 +20,20 @@ class GrantTest < ActiveSupport::TestCase
 
   test "a token whose tenant claim names another tenant is refused" do
     error = assert_raises(Grant::Denied) do
-      build(scope: "things:read", tenant: { "subdomain" => "somebody-else" })
+      build(scope: "things:catalog:read", tenant: { "subdomain" => "somebody-else" })
     end
 
     assert_match(/issued for somebody-else/, error.message)
   end
 
   test "a token with a matching tenant claim is accepted" do
-    grant = build(scope: "things:read", tenant: { "subdomain" => @tenant.subdomain })
+    grant = build(scope: "things:catalog:read", tenant: { "subdomain" => @tenant.subdomain })
 
-    assert grant.permits?("things:read")
+    assert grant.permits?("things:catalog:read")
   end
 
   test "a token carrying no tenant claim is accepted, since the audience already bound it" do
-    assert build(scope: "things:read").permits?("things:read")
+    assert build(scope: "things:catalog:read").permits?("things:catalog:read")
   end
 
   private

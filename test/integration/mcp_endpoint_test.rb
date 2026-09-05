@@ -69,13 +69,13 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
   end
 
   test "the token decides which tools exist at all" do
-    names = call(@tenant, [ "things:read" ], "tools/list").dig("result", "tools").map { |t| t["name"] }
+    names = call(@tenant, [ "things:catalog:read" ], "tools/list").dig("result", "tools").map { |t| t["name"] }
 
     assert_equal %w[search_things get_thing], names
   end
 
   test "a tool outside the grant is not callable, not merely unlisted" do
-    reply = call(@tenant, [ "things:read" ], "tools/call",
+    reply = call(@tenant, [ "things:catalog:read" ], "tools/call",
                  name: "sync_resource", arguments: { id: @resource.id.to_s })
 
     assert_nil reply["result"]

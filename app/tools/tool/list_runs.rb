@@ -1,7 +1,7 @@
 module Tool
   class ListRuns < Base
     tool_name "list_runs"
-    scope "resources:read"
+    scope "things:resources:read"
 
     description <<~TEXT
       What the work you started is doing. Every tool that answers `queued` names a run,

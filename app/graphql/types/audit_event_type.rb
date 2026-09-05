@@ -2,7 +2,7 @@
 
 module Types
   class AuditEventType < Types::BaseObject
-    grants "things:read"
+    grants "things:catalog:read"
 
     field :id, ID, null: false
     field :channel, String, null: false

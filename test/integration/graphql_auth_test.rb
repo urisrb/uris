@@ -67,20 +67,20 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
   end
 
   test "a read scope does not carry the resource list" do
-    body = execute(RESOURCES, scopes: %w[things:read])
+    body = execute(RESOURCES, scopes: %w[things:catalog:read])
 
     assert_nil body.dig("data", "resources")
-    assert_match(/does not carry resources:read/, body.dig("errors", 0, "message"))
+    assert_match(/does not carry things:resources:read/, body.dig("errors", 0, "message"))
   end
 
   test "a read scope cannot drive a mutation" do
-    body = execute(ANALYZE, scopes: %w[things:read], variables: { id: @thing.id.to_s })
+    body = execute(ANALYZE, scopes: %w[things:catalog:read], variables: { id: @thing.id.to_s })
 
-    assert_match(/does not carry things:write/, body.dig("errors", 0, "message"))
+    assert_match(/does not carry things:catalog:write/, body.dig("errors", 0, "message"))
   end
 
   test "a write scope can" do
-    body = execute(ANALYZE, scopes: %w[things:read things:write],
+    body = execute(ANALYZE, scopes: %w[things:catalog:read things:catalog:write],
                             variables: { id: @thing.id.to_s })
 
     assert_nil body["errors"]
@@ -88,7 +88,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
   end
 
   test "resource commands want the resource scope, not the write scope" do
-    body = execute(RESOURCES, scopes: %w[things:write resources:read])
+    body = execute(RESOURCES, scopes: %w[things:catalog:write things:resources:read])
 
     assert_nil body["errors"]
   end
@@ -96,7 +96,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
   test "a read scope cannot walk from a thing to a resource" do
     query = "{ things { nodes { references { resource { key } } } } }"
 
-    body = execute(query, scopes: %w[things:read])
+    body = execute(query, scopes: %w[things:catalog:read])
 
     assert_nil body.dig("data", "things"),
                "nesting must not reach past the scope the entry point checked"
@@ -106,7 +106,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
   test "holding both scopes walks the whole way" do
     query = "{ things { nodes { references { resource { key } } } } }"
 
-    body = execute(query, scopes: %w[things:read resources:read])
+    body = execute(query, scopes: %w[things:catalog:read things:resources:read])
 
     assert_nil body["errors"]
     assert body.dig("data", "things", "nodes", 0, "references", 0, "resource", "key").present?
@@ -125,7 +125,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
     ActionController::Base.allow_forgery_protection = true
 
     post "/graphql", params: { query: CATALOG },
-                     headers: host_for(@tenant).merge(bearer(@tenant, scopes: [ "things:read" ]))
+                     headers: host_for(@tenant).merge(bearer(@tenant, scopes: [ "things:catalog:read" ]))
 
     assert_response :success
     assert_equal [ { "kind" => "pdf", "title" => "An invoice" } ],

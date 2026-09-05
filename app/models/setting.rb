@@ -9,8 +9,8 @@ class Setting < ApplicationRecord
     def personal? = level == :personal
     def server? = level == :server
     def permits?(value) = allowed.include?(value)
-    def reads = personal? ? "settings:read" : "settings:admin"
-    def writes = personal? ? "settings:write" : "settings:admin"
+    def reads = personal? ? "things:settings:read" : "things:settings:admin"
+    def writes = personal? ? "things:settings:write" : "things:settings:admin"
   end
 
   DEFINED = [

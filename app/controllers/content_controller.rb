@@ -30,7 +30,7 @@ class ContentController < ApplicationController
   private
 
     def authorize
-      super && grant.permit!("things:read")
+      super && grant.permit!("things:catalog:read")
     rescue Grant::Denied => e
       refuse(Masks::Client::Unauthorized.new(e.message))
     end

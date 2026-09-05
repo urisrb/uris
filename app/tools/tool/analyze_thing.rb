@@ -1,7 +1,7 @@
 module Tool
   class AnalyzeThing < Base
     tool_name "analyze_thing"
-    scope "things:write"
+    scope "things:catalog:write"
     starts_runs true
 
     description <<~TEXT

@@ -2,7 +2,7 @@
 
 module Types
   class ThingType < Types::BaseObject
-    grants "things:read"
+    grants "things:catalog:read"
 
     SUMMARY = 400
 

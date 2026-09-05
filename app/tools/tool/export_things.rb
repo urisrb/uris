@@ -1,7 +1,7 @@
 module Tool
   class ExportThings < Base
     tool_name "export_things"
-    scope "resources:command"
+    scope "things:resources:command"
     starts_runs true
 
     description <<~TEXT

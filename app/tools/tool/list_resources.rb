@@ -1,7 +1,7 @@
 module Tool
   class ListResources < Base
     tool_name "list_resources"
-    scope "resources:read"
+    scope "things:resources:read"
 
     description <<~TEXT
       The places things live and the capabilities they can be asked for. Each entry is an

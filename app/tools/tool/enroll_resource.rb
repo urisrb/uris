@@ -1,7 +1,7 @@
 module Tool
   class EnrollResource < Base
     tool_name "enroll_resource"
-    scope "resources:command"
+    scope "things:resources:command"
 
     description <<~TEXT
       Begin connecting a resource whose credential is held by the authorization server —

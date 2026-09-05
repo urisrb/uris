@@ -20,7 +20,7 @@ class SignInTest < ActionDispatch::IntegrationTest
     assert_equal "S256", query["code_challenge_method"]
     assert query["state"].present?
     assert query["nonce"].present?
-    assert_includes query["scope"].split, "things:read"
+    assert_includes query["scope"].split, "things:catalog:read"
     assert_equal "http://#{@tenant.subdomain}.things.test/mcp", query["resource"]
     assert_not_includes response.location, "code_verifier"
   end
@@ -45,7 +45,7 @@ class SignInTest < ActionDispatch::IntegrationTest
     assert_equal "owner", account["nickname"]
     assert_equal "owner@example.invalid", account["email"]
     assert_equal @tenant.subdomain, account.dig("tenant", "subdomain")
-    assert_includes account["scopes"], "things:read"
+    assert_includes account["scopes"], "things:catalog:read"
     assert_nil account["access_token"], "a token must never reach the browser"
   end
 
@@ -133,18 +133,18 @@ class SignInTest < ActionDispatch::IntegrationTest
   end
 
   test "the scopes the session carries are the ones the issuer granted" do
-    sign_in(scopes: %w[things:read])
+    sign_in(scopes: %w[things:catalog:read])
 
     get "/auth/session", headers: host
 
-    assert_equal [ "things:read" ], response.parsed_body["scopes"] & Grant::SCOPES
+    assert_equal [ "things:catalog:read" ], response.parsed_body["scopes"] & Grant::SCOPES
 
     post "/graphql",
          params: { query: "mutation($id: ID!) { analyzeThing(input: { id: $id }) { run { id } } }",
                    variables: { id: @thing.id.to_s } },
          headers: host
 
-    assert_match(/does not carry things:write/,
+    assert_match(/does not carry things:catalog:write/,
                  response.parsed_body.dig("errors", 0, "message"))
   end
 

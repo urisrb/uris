@@ -1,7 +1,7 @@
 module Tool
   class GetThing < Base
     tool_name "get_thing"
-    scope "things:read"
+    scope "things:catalog:read"
 
     EXCERPT = 8_000
 

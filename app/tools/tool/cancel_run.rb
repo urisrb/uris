@@ -1,7 +1,7 @@
 module Tool
   class CancelRun < Base
     tool_name "cancel_run"
-    scope "resources:command"
+    scope "things:resources:command"
 
     description <<~TEXT
       Stop a run that is still going. A bulk job holds no token that can be revoked, so
