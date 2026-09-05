@@ -3,15 +3,15 @@ import { defineConfig, passthroughImageService } from "astro/config";
 import starlight from "@astrojs/starlight";
 
 export default defineConfig({
-  site: process.env.DOCS_SITE || "https://thingies.pages.dev",
+  site: process.env.DOCS_SITE || "https://uris.pages.dev",
   image: { service: passthroughImageService() },
   integrations: [
     starlight({
-      title: "thingies",
+      title: "Uris",
       logo: {
         dark: "./src/assets/dark-logo.svg",
         light: "./src/assets/light-logo.svg",
-        alt: "thingies",
+        alt: "Uris",
       },
       description:
         "A data unifier — one searchable index across everything you own, wherever it lives, with a way back out.",

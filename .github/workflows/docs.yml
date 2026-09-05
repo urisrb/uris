@@ -17,8 +17,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PAGES_PROJECT: thingies
-  PAGES_DOMAIN: thingies.pages.dev
+  PAGES_PROJECT: uris
+  PAGES_DOMAIN: uris.pages.dev
 
 jobs:
   deploy:
