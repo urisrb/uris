@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 status=0
 
@@ -12,8 +12,8 @@ npx --yes prettier --write --no-error-on-unmatched-pattern \
   "*.{yml,yaml,md}" ".github/**/*.{yml,yaml}" "config/**/*.{yml,yaml}" || status=$?
 
 if command -v shfmt >/dev/null; then
-  scripts=$(shfmt -f bin 2>/dev/null)
-  [ -n "$scripts" ] && { shfmt -w -i 2 -ci $scripts || status=$?; }
+  mapfile -t scripts < <(shfmt -f bin script 2>/dev/null)
+  [ ${#scripts[@]} -gt 0 ] && { shfmt -w -i 2 -ci "${scripts[@]}" || status=$?; }
 fi
 
 exit $status

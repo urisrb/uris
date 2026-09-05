@@ -24,7 +24,6 @@ Everything that touches an unbounded number of things checkpoints through
 [job-iteration](https://github.com/Shopify/job-iteration), so a sync or an export survives a deploy
 and resumes at its cursor rather than starting over.
 
-
 ## Running it
 
 Rails runs on the host; Postgres, OpenSearch, MinIO, and Mailpit run in Docker. The analyzers shell
