@@ -35,3 +35,53 @@
 table code {
   white-space: nowrap;
 }
+
+/* ---- Layout ------------------------------------------------------------ */
+
+/* Most tables here are definition lists: two columns, no header row. Markdown
+   still emits a <thead> of empty cells, which renders as a blank ruled band. */
+.sl-markdown-content thead:not(:has(th:not(:empty))) {
+  display: none;
+}
+
+.sl-markdown-content table {
+  width: 100%;
+  font-size: var(--sl-text-sm);
+  line-height: 1.55;
+}
+
+.sl-markdown-content :is(th, td) {
+  vertical-align: baseline;
+  padding-block: 0.55rem;
+}
+
+.sl-markdown-content th {
+  font-size: var(--sl-text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sl-color-gray-3);
+}
+
+/* In a headerless table the first column is the term being defined. */
+.sl-markdown-content table:has(thead:not(:has(th:not(:empty)))) td:first-child {
+  color: var(--sl-color-white);
+  font-weight: 600;
+}
+
+table code {
+  white-space: nowrap;
+}
+
+/* Sections should read as groups: more air above a heading than below it. */
+.sl-markdown-content :is(h2, h3, h4) {
+  margin-block: 2.25em 0.65em;
+}
+
+/* Bare fences carry schematics — route tables, column lists — not code. */
+.sl-markdown-content .expressive-code {
+  margin-block: 1.4rem;
+}
+
+.sl-markdown-content :not(pre) > code {
+  font-size: 0.9em;
+}

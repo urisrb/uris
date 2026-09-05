@@ -159,6 +159,10 @@ labelled as data rather than instructions.
 An image that is trivial — a sliver 10 pixels or less on a side, or flat with a standard deviation
 below 1.0 — skips the model entirely and takes `trivial_summary`.
 
+The same thumbnail is OCR's second attempt. `tesseract` cannot open an animated GIF or a HEIC, both
+of which vips reads happily, so a failed `tesseract` run is retried against the rendered preview
+rather than recorded as an error.
+
 ### When a summary is recomputed
 
 `step(after:)` takes the later of the analyzer's `summary_after`, defaulting to
