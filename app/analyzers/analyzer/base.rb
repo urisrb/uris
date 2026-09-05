@@ -142,9 +142,22 @@ module Analyzer
       # One short transaction per step, rather than one held across an OCR run.
       def write_step!(name, entry)
         analysis = reference.analysis.deep_dup
-        analysis["steps"] = (analysis["steps"] || {}).merge(name.to_s => entry)
+        analysis["steps"] = (analysis["steps"] || {}).merge(name.to_s => storable(entry))
 
         Tenant.switch(reference.tenant) { reference.update!(analysis: analysis) }
+      end
+
+      def storable(value)
+        case value
+        when String
+          value.dup.force_encoding(Encoding::UTF_8).scrub.delete("\u0000")
+        when Array
+          value.map { |item| storable(item) }
+        when Hash
+          value.to_h { |key, item| [ storable(key), storable(item) ] }
+        else
+          value
+        end
       end
 
       def stamp_analyzed!
