@@ -4,10 +4,10 @@ class SearchIndexTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
-    @jons = Tenant.create!(subdomain: "jons-#{SecureRandom.hex(4)}", name: "Jon's things")
+    @demo = Tenant.create!(subdomain: "demo-#{SecureRandom.hex(4)}", name: "Demo things")
     @acme = Tenant.create!(subdomain: "acme-#{SecureRandom.hex(4)}", name: "Acme")
 
-    Tenant.switch(@jons) do
+    Tenant.switch(@demo) do
       create_thing(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf")
       create_thing(kind: "image", title: "Beach photo", locator_key: "photos/beach.jpg")
       create_thing(kind: "pdf", title: "file-1.pdf", locator_key: "docs/file-1.pdf")
@@ -22,19 +22,19 @@ class SearchIndexTest < ActiveSupport::TestCase
   end
 
   test "search finds things by title" do
-    Tenant.switch(@jons) do
+    Tenant.switch(@demo) do
       assert_equal [ "March invoice" ], Thing.search("March").pluck(:title)
     end
   end
 
   test "search finds things by locator" do
-    Tenant.switch(@jons) do
+    Tenant.switch(@demo) do
       assert_equal [ "Beach photo" ], Thing.search("beach").pluck(:title)
     end
   end
 
   test "a search never crosses tenants, even for a shared term" do
-    Tenant.switch(@jons) do
+    Tenant.switch(@demo) do
       assert_equal [ "March invoice" ], Thing.search("invoice").pluck(:title)
     end
 
@@ -45,21 +45,21 @@ class SearchIndexTest < ActiveSupport::TestCase
 
   test "the tenant filter is on the alias, so the engine applies it" do
     hits = SearchIndex.client.search(
-      index: SearchIndex.alias_for(@jons),
+      index: SearchIndex.alias_for(@demo),
       body: { query: { match_all: {} } }
     ).dig("hits", "hits")
 
-    assert_equal [ @jons.id ], hits.map { |h| h.dig("_source", "tenant_id") }.uniq
+    assert_equal [ @demo.id ], hits.map { |h| h.dig("_source", "tenant_id") }.uniq
   end
 
   test "digits in a path are searchable and distinguish siblings" do
-    Tenant.switch(@jons) do
+    Tenant.switch(@demo) do
       assert_equal [ "file-1.pdf" ], Thing.search("file-1").pluck(:title)
     end
   end
 
   test "kind narrows results" do
-    Tenant.switch(@jons) do
+    Tenant.switch(@demo) do
       assert_equal [ "Beach photo" ], Thing.search(nil, kind: "image").pluck(:title)
     end
   end
@@ -69,7 +69,7 @@ class SearchIndexTest < ActiveSupport::TestCase
   end
 
   test "a destroyed thing leaves the index" do
-    Tenant.switch(@jons) do
+    Tenant.switch(@demo) do
       Thing.find_by!(title: "March invoice").destroy!
       SearchIndex.refresh!
 
@@ -78,7 +78,7 @@ class SearchIndexTest < ActiveSupport::TestCase
   end
 
   test "a page is indexed in one request rather than one per document" do
-    things = Tenant.switch(@jons) do
+    things = Tenant.switch(@demo) do
       Array.new(3) { |n| Thing.create!(kind: "pdf", title: "bulk #{n}") }
     end
 
@@ -97,7 +97,7 @@ class SearchIndexTest < ActiveSupport::TestCase
   end
 
   test "documents written in bulk are the ones that come back" do
-    things = Tenant.switch(@jons) do
+    things = Tenant.switch(@demo) do
       Array.new(3) { |n| Thing.create!(kind: "data", title: "bulked-#{n}") }
     end
 
@@ -105,13 +105,13 @@ class SearchIndexTest < ActiveSupport::TestCase
 
     SearchIndex.refresh!
 
-    Tenant.switch(@jons) do
+    Tenant.switch(@demo) do
       assert_equal things.map(&:id).sort, SearchIndex.search("bulked", kind: "data").sort
     end
   end
 
   test "a bulk write the engine refused raises rather than reporting success" do
-    thing = Tenant.switch(@jons) { Thing.create!(kind: "pdf", title: "refused") }
+    thing = Tenant.switch(@demo) { Thing.create!(kind: "pdf", title: "refused") }
     refusal = { "items" => [ { "index" => { "error" => { "reason" => "mapper_parsing_exception" } } } ] }
 
     SearchIndex.client.define_singleton_method(:bulk) { |**| refusal }

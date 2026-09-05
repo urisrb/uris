@@ -40,10 +40,10 @@ bin/dev              # web, worker, vite, and the codegen watchers
 Tenants are addressed by subdomain, so add these to `/etc/hosts`:
 
 ```
-127.0.0.1 things.test jons.things.test acme.things.test
+127.0.0.1 things.test demo.things.test acme.things.test
 ```
 
-Then <http://jons.things.test:4242> and <http://acme.things.test:4242>.
+Then <http://demo.things.test:4242> and <http://acme.things.test:4242>.
 
 ## Two tenants, always
 
@@ -114,9 +114,9 @@ the web app, and the browser's session is a real token; for a raw `curl`, take o
 token endpoint.
 
 ```sh
-curl -sS http://jons.things.test:4242/.well-known/oauth-protected-resource
+curl -sS http://demo.things.test:4242/.well-known/oauth-protected-resource
 
-curl -sS -X POST http://jons.things.test:4242/mcp \
+curl -sS -X POST http://demo.things.test:4242/mcp \
   -H "authorization: Bearer $TOKEN" \
   -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'

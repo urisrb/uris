@@ -20,20 +20,20 @@ class TenantOriginTest < ActiveSupport::TestCase
 
   test "with no override the origin is whatever answered the request" do
     with_origin(nil) do
-      assert_equal "http://jons.things.test", Tenant.origin(request_for("jons.things.test"))
+      assert_equal "http://demo.things.test", Tenant.origin(request_for("demo.things.test"))
     end
   end
 
   test "an override without a placeholder is used as it stands" do
     with_origin("https://tunnel.example") do
-      assert_equal "https://tunnel.example", Tenant.origin(request_for("jons.things.test"))
+      assert_equal "https://tunnel.example", Tenant.origin(request_for("demo.things.test"))
     end
   end
 
   test "an override takes the subdomain, so each tenant names its own origin" do
     with_origin("http://%{subdomain}.things.localhost:8080") do
-      assert_equal "http://jons.things.localhost:8080",
-                   Tenant.origin(request_for("jons.things.localhost:8080"))
+      assert_equal "http://demo.things.localhost:8080",
+                   Tenant.origin(request_for("demo.things.localhost:8080"))
       assert_equal "http://acme.things.localhost:8080",
                    Tenant.origin(request_for("acme.things.localhost:8080"))
     end

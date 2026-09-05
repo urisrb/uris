@@ -2,27 +2,27 @@ require "test_helper"
 
 class TenantIsolationTest < ActiveSupport::TestCase
   setup do
-    @jons = Tenant.create!(subdomain: "jons-#{SecureRandom.hex(4)}", name: "Jon's things")
+    @demo = Tenant.create!(subdomain: "demo-#{SecureRandom.hex(4)}", name: "Demo things")
     @acme = Tenant.create!(subdomain: "acme-#{SecureRandom.hex(4)}", name: "Acme")
 
-    Tenant.switch(@jons) { @jons_thing = Thing.create!(kind: "pdf", title: "Jon's invoice") }
+    Tenant.switch(@demo) { @demo_thing = Thing.create!(kind: "pdf", title: "Demo invoice") }
     Tenant.switch(@acme) { @acme_thing = Thing.create!(kind: "pdf", title: "Acme's invoice") }
   end
 
   test "a tenant sees only its own things" do
-    Tenant.switch(@jons) { assert_equal [ @jons_thing.id ], Thing.pluck(:id) }
+    Tenant.switch(@demo) { assert_equal [ @demo_thing.id ], Thing.pluck(:id) }
     Tenant.switch(@acme) { assert_equal [ @acme_thing.id ], Thing.pluck(:id) }
   end
 
   test "row-level security holds when the application scope is gone" do
-    Tenant.switch(@jons) do
-      assert_equal [ @jons_thing.id ], Thing.unscoped.pluck(:id)
+    Tenant.switch(@demo) do
+      assert_equal [ @demo_thing.id ], Thing.unscoped.pluck(:id)
     end
   end
 
   test "a thing cannot be written into another tenant" do
     assert_raises ActiveRecord::StatementInvalid do
-      Tenant.switch(@jons) do
+      Tenant.switch(@demo) do
         Thing.unscoped.create!(tenant_id: @acme.id, kind: "pdf", title: "smuggled")
       end
     end
@@ -33,25 +33,25 @@ class TenantIsolationTest < ActiveSupport::TestCase
   end
 
   test "a nested switch restores the outer tenant rather than clearing it" do
-    Tenant.switch(@jons) do
+    Tenant.switch(@demo) do
       Tenant.switch(@acme) { assert_equal [ @acme_thing.id ], Thing.unscoped.pluck(:id) }
 
-      assert_equal [ @jons_thing.id ], Thing.unscoped.pluck(:id)
+      assert_equal [ @demo_thing.id ], Thing.unscoped.pluck(:id)
     end
   end
 
   test "resources are isolated the same way" do
-    Tenant.switch(@jons) { Resource::S3.create!(key: "jons-bucket", details: { "endpoint" => "http://x" }) }
+    Tenant.switch(@demo) { Resource::S3.create!(key: "demo-bucket", details: { "endpoint" => "http://x" }) }
     Tenant.switch(@acme) { Resource::S3.create!(key: "acme-bucket", details: { "endpoint" => "http://x" }) }
 
-    Tenant.switch(@jons) { assert_equal [ "jons-bucket" ], Resource.unscoped.pluck(:key) }
+    Tenant.switch(@demo) { assert_equal [ "demo-bucket" ], Resource.unscoped.pluck(:key) }
     Tenant.switch(@acme) { assert_equal [ "acme-bucket" ], Resource.unscoped.pluck(:key) }
   end
 
   test "an id from another tenant does not resolve" do
-    Tenant.switch(@jons) do
+    Tenant.switch(@demo) do
       assert_nil Thing.find_by(id: @acme_thing.id)
-      assert_equal @jons_thing, Thing.find_by(id: @jons_thing.id)
+      assert_equal @demo_thing, Thing.find_by(id: @demo_thing.id)
     end
   end
 end

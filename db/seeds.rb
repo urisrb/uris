@@ -1,5 +1,5 @@
 TENANTS = [
-  { subdomain: "jons",  name: "Jon's things" },
+  { subdomain: "demo",  name: "Demo things" },
   { subdomain: "acme",  name: "Acme" }
 ]
 

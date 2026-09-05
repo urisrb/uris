@@ -36,9 +36,9 @@ FileUtils.chdir APP_ROOT do
 
     Add these to /etc/hosts, then run bin/dev:
 
-      127.0.0.1 things.test jons.things.test acme.things.test
+      127.0.0.1 things.test demo.things.test acme.things.test
 
-      http://jons.things.test:4242
+      http://demo.things.test:4242
       http://acme.things.test:4242
 
   NEXT

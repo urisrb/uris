@@ -4,18 +4,18 @@ class GraphqlTenancyTest < ActionDispatch::IntegrationTest
   CATALOG = "{ tenant { name subdomain } things { nodes { kind title } } }".freeze
 
   setup do
-    @jons = Tenant.create!(subdomain: "jons", name: "Jon's things")
+    @demo = Tenant.create!(subdomain: "demo", name: "Demo things")
     @acme = Tenant.create!(subdomain: "acme", name: "Acme")
 
-    Tenant.switch(@jons) { @jons_thing = Thing.create!(kind: "pdf", title: "Jon's invoice") }
+    Tenant.switch(@demo) { @demo_thing = Thing.create!(kind: "pdf", title: "Demo invoice") }
     Tenant.switch(@acme) { @acme_thing = Thing.create!(kind: "pdf", title: "Acme's invoice") }
   end
 
   test "each tenant's catalog contains only its own things" do
     assert_equal(
-      { "tenant" => { "name" => "Jon's things", "subdomain" => "jons" },
-        "things" => { "nodes" => [ { "kind" => "pdf", "title" => "Jon's invoice" } ] } },
-      query_as("jons")
+      { "tenant" => { "name" => "Demo things", "subdomain" => "demo" },
+        "things" => { "nodes" => [ { "kind" => "pdf", "title" => "Demo invoice" } ] } },
+      query_as("demo")
     )
 
     assert_equal(
@@ -28,12 +28,12 @@ class GraphqlTenancyTest < ActionDispatch::IntegrationTest
   test "fetching a thing by id is bounded by the tenant that asked" do
     assert_equal(
       { "thing" => nil },
-      query_as("jons", "{ thing(id: #{@acme_thing.id}) { title } }")
+      query_as("demo", "{ thing(id: #{@acme_thing.id}) { title } }")
     )
 
     assert_equal(
-      { "thing" => { "title" => "Jon's invoice" } },
-      query_as("jons", "{ thing(id: #{@jons_thing.id}) { title } }")
+      { "thing" => { "title" => "Demo invoice" } },
+      query_as("demo", "{ thing(id: #{@demo_thing.id}) { title } }")
     )
   end
 
