@@ -8,11 +8,6 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "uris",
-      logo: {
-        dark: "./src/assets/dark-logo.svg",
-        light: "./src/assets/light-logo.svg",
-        alt: "uris",
-      },
       description:
         "A data unifier — one searchable index across everything you own, wherever it lives, with a way back out.",
       customCss: ["./src/styles/global.css"],

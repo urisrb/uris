@@ -78,12 +78,12 @@ encrypted session and is verified on the way in exactly as a presented bearer wo
 The TypeScript is generated from it and is not committed:
 
 ```sh
-bin/rails graphql:dump_schema   # writes schema.graphql
+bin/rails graphql:dump_schema   # writes web/schema.graphql
 npm run codegen                 # regenerates the TypeScript
 ```
 
 `bin/dev` runs both watchers (`Procfile.dev`, the `schema` and `codegen` processes). CI runs the
-same two commands before the typecheck, because `schema.graphql` and the generated types are build
+same two commands before the typecheck, because `web/schema.graphql` and the generated types are build
 products — a clean checkout has neither and the Vite build fails without them.
 
 ## The client
