@@ -54,7 +54,7 @@ class Resource
     def json_mode? = details.fetch("json_mode", true)
 
     def base_url
-      @base_url ||= permitted!(via.present? ? via.reach!(configured_url) : configured_url)
+      permitted!(via.present? ? via.reach!(configured_url) : configured_url)
     end
 
     def check!
@@ -97,11 +97,51 @@ class Resource
 
     def self.extract_json(text)
       body = text.to_s
-      candidate = body[/```(?:json)?\s*(\{.*\})\s*```/m, 1] || body[/(\{.*\})/m, 1] || body
+      fenced = body[/```(?:json)?\s*(\{.*?\})\s*```/m, 1]
 
-      JSON.parse(candidate)
-    rescue JSON::ParserError
+      ([ fenced ].compact + objects(body)).each do |candidate|
+        parsed = begin
+          JSON.parse(candidate)
+        rescue JSON::ParserError
+          nil
+        end
+
+        return parsed if parsed.is_a?(Hash)
+      end
+
       nil
+    end
+
+    def self.objects(body)
+      found = []
+      depth = 0
+      start = nil
+      quoted = false
+      escaped = false
+
+      body.each_char.with_index do |char, index|
+        if quoted
+          if escaped then escaped = false
+          elsif char == "\\" then escaped = true
+          elsif char == '"' then quoted = false
+          end
+          next
+        end
+
+        case char
+        when '"' then quoted = true
+        when "{"
+          start = index if depth.zero?
+          depth += 1
+        when "}"
+          next if depth.zero?
+
+          depth -= 1
+          found << body[start..index] if depth.zero?
+        end
+      end
+
+      found
     end
 
     private

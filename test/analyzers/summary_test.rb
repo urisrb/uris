@@ -200,6 +200,9 @@ class SummaryTest < ActiveSupport::TestCase
       assert_includes steps.dig("text", "result"), "NOTES-4820"
       assert steps.dig("summary", "error").present?
       assert reference("notes.txt").analyzed_at.present?
+
+      assert_equal "ollama", steps.dig("summary", "resource")
+      assert_equal "llama3.1:8b", steps.dig("summary", "model")
     end
   end
 

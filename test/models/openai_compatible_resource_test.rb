@@ -140,6 +140,39 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     assert_equal "a pelican", answer["summary"]
   end
 
+  test "prose containing braces before the answer does not defeat the parse" do
+    @server.answer('Use {curly} braces like this: {"summary": "a pelican"}')
+
+    answer = Tenant.switch(@tenant) { @resource.summarize("hello", role: :fast) }
+
+    assert_equal "a pelican", answer["summary"]
+    assert_equal 1, @server.count_for("/v1/chat/completions")
+  end
+
+  test "the first parseable object wins when several are present" do
+    assert_equal({ "a" => 1 }, Resource::OpenaiCompatible.extract_json('{"a":1} and {"b":2}'))
+  end
+
+  test "a brace inside a string does not unbalance the scan" do
+    assert_equal({ "summary" => "a { brace" },
+                 Resource::OpenaiCompatible.extract_json('here: {"summary": "a { brace"}'))
+  end
+
+  test "a nested object is kept whole" do
+    assert_equal({ "a" => { "b" => 2 } }, Resource::OpenaiCompatible.extract_json('x {"a":{"b":2}} y'))
+  end
+
+  test "re-pointing the base url is dialled, not remembered" do
+    Tenant.switch(@tenant) do
+      @resource.check!
+      @resource.update!(details: @resource.details.merge("base_url" => "http://127.0.0.1:9/v1"))
+
+      ENV["THINGS_INFERENCE_ORIGINS"] = "http://127.0.0.1:9"
+
+      assert_raises(Resource::Failed) { @resource.check! }
+    end
+  end
+
   test "a reasoning preamble is stripped before parsing" do
     @server.answer("<think>weighing it up</think>{\"summary\": \"a pelican\"}")
 

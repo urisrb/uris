@@ -132,6 +132,17 @@ class ViaTest < ActiveSupport::TestCase
     end
   end
 
+  test "a new record that is already archived is not blamed for existing resources" do
+    Tenant.switch(@tenant) do
+      Resource::Database.create!(key: "one")
+      Resource::Database.create!(key: "two")
+
+      fresh = Resource::Database.new(key: "three", archived_at: Time.current)
+
+      assert fresh.valid?, fresh.errors.full_messages.join(", ")
+    end
+  end
+
   test "a transport still in use cannot be archived" do
     Tenant.switch(@tenant) do
       brain = Resource::OpenaiCompatible.create!(

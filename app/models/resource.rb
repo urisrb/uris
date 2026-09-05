@@ -291,7 +291,7 @@ class Resource < ApplicationRecord
     end
 
     def a_transport_in_use_is_not_archived
-      return unless archived_at.present? && archived_at_changed?
+      return unless persisted? && archived_at.present? && archived_at_changed?
 
       dependents = Resource.active.where(via_id: id).where.not(id: id).pluck(:key)
       return if dependents.empty?

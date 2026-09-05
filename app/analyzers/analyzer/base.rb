@@ -157,7 +157,7 @@ module Analyzer
           "started_at" => started_at.iso8601(3),
           "finished_at" => Time.current.iso8601(3),
           "error" => { "class" => e.class.name, "message" => e.message.truncate(500) }
-        })
+        }.merge(about))
         raise
       end
     end

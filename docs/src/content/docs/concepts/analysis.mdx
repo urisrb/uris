@@ -155,9 +155,15 @@ The resource key, model and role are written to the step **entry**, beside `resu
 `ThingReference#extracted` collects only `result`, so a model name in there would land in the
 OpenSearch `body` of every document.
 
-Every call is a `prompts` row — one per attempt, so the JSON retries are visible rather than
-inferred — carrying the resource, role, model, request and response. That is where token accounting
-goes when there is something to account for.
+Every call is a `prompts` row carrying the resource, role, model, request and response. That is
+where token accounting goes when there is something to account for.
+
+One row per attempt, so the JSON retries are visible rather than inferred — **but only for failures
+the analyzer swallows.** `Tenant.switch` opens a savepoint, and a `Resource::Failed` escaping `run`
+rolls it back: a timeout or a 5xx discards the prompt rows, the step's error entry and
+`analyzed_at` along with the rest of the attempt, which is the same fate the job's own comment
+describes for analysis writes generally. So a model that answered badly leaves a trail, and a model
+that could not be reached leaves the `Run` and the resource's `check_error` instead.
 
 ## Fairness
 

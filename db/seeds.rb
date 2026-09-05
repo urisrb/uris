@@ -46,7 +46,9 @@ TENANTS.each do |attrs|
         }
       )
       brain.save!
-      brain.make_default_inference!
+
+      held = Resource.default_inference
+      brain.make_default_inference! if held.nil? || held == brain
 
       unless brain.check
         warn "  ollama unreachable at #{endpoint} — #{brain.check_error}"
