@@ -381,6 +381,121 @@ a.entry:hover {
   background: var(--tone);
 }
 
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s4);
+}
+
+.switcher {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--raised);
+  flex: none;
+}
+
+.switcher button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 26px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.switcher button:hover {
+  color: var(--text);
+}
+
+.switcher button[data-on="true"] {
+  background: var(--lifted);
+  color: var(--bright);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: var(--s4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+}
+
+.card:hover {
+  background: var(--lifted);
+  border-color: var(--edge);
+}
+
+.card-figure,
+.card-blank {
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  border-bottom: 1px solid var(--line);
+}
+
+.card-figure {
+  display: block;
+  object-fit: cover;
+  background: var(--void);
+}
+
+.card-blank {
+  display: grid;
+  place-items: center;
+  background: var(--lifted);
+  color: var(--tone);
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3);
+  min-width: 0;
+  flex: 1;
+}
+
+.card-title {
+  font-weight: 600;
+  font-size: var(--t-small);
+  line-height: 1.35;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-summary {
+  color: var(--muted);
+  font-size: var(--t-micro);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-foot {
+  margin-top: auto;
+  padding-top: var(--s1);
+}
+
 .entry-title {
   font-weight: 600;
   font-size: var(--t-body);

@@ -59,3 +59,17 @@ export function Thumb({ url, kind, alt, size }: Props) {
     </div>
   )
 }
+
+export function Cover({ url, kind, alt }: Omit<Props, 'size'>) {
+  if (url) {
+    return <img src={url} alt={alt} loading="lazy" className="card-figure" />
+  }
+
+  const Glyph = GLYPHS[kind] ?? IconFile
+
+  return (
+    <div className="card-blank" style={toned(kind)}>
+      <Glyph size={30} stroke={1.4} />
+    </div>
+  )
+}
