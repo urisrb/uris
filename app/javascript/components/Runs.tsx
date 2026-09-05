@@ -1,30 +1,17 @@
-import {
-  Alert,
-  Badge,
-  Box,
-  Button,
-  Center,
-  Chip,
-  Group,
-  Loader,
-  Progress,
-  Stack,
-  Table,
-  Text,
-  Title,
-} from '@mantine/core'
+import { Alert, Button, Group, Loader, Stack, Table, Text } from '@mantine/core'
 import { CancelRunDocument, RunsDocument } from '@thingies/client'
 import { useMutation, useQuery } from '@thingies/client/react'
-import { useEffect, useState } from 'react'
+import { type CSSProperties, useEffect, useState } from 'react'
 
-const STATUSES = ['queued', 'running', 'done', 'failed', 'cancelled']
+const STATUSES = ['queued', 'running', 'done', 'failed', 'cancelled', 'gated']
 
-const COLORS: Record<string, string> = {
-  queued: 'gray',
-  running: 'blue',
-  done: 'green',
-  failed: 'red',
-  cancelled: 'orange',
+const TONES: Record<string, string> = {
+  queued: 'var(--k-file)',
+  running: 'var(--k-text)',
+  done: 'var(--k-data)',
+  failed: 'var(--k-pdf)',
+  cancelled: 'var(--k-email)',
+  gated: 'var(--k-image)',
 }
 
 const OPEN = new Set(['queued', 'running'])
@@ -57,115 +44,143 @@ export function Runs() {
     if (!busy) return
 
     const timer = window.setInterval(() => refetch(), 2000)
+
     return () => window.clearInterval(timer)
   }, [busy, refetch])
 
   return (
-    <Stack gap="lg">
-      <Box>
-        <Title order={2}>Runs</Title>
-        <Text c="dimmed" size="sm">
-          Everything that was started and is not a single request. Open runs
-          refresh on their own.
-        </Text>
-      </Box>
+    <Stack gap={22}>
+      <div>
+        <h1
+          className="wordmark"
+          style={{ fontSize: 'clamp(1.9rem, 4vw, 2.6rem)', margin: 0 }}
+        >
+          Runs
+        </h1>
+        <div className="eyebrow" style={{ marginTop: 8 }}>
+          Work that outlives a single request. Anything still open refreshes
+          itself.
+        </div>
+      </div>
 
-      <Group gap="xs">
-        <Chip
-          checked={status === null}
+      <Group gap={8}>
+        <button
+          type="button"
+          className="tag"
+          style={
+            { '--tone': 'var(--edge)', cursor: 'pointer' } as CSSProperties
+          }
+          data-on={status === null}
           onClick={() => setStatus(null)}
-          size="sm"
         >
           all
-        </Chip>
+        </button>
         {STATUSES.map((value) => (
-          <Chip
+          <button
             key={value}
-            checked={status === value}
+            type="button"
+            className="tag"
+            style={
+              {
+                '--tone': TONES[value],
+                cursor: 'pointer',
+                opacity: status === null || status === value ? 1 : 0.45,
+              } as CSSProperties
+            }
             onClick={() => setStatus(status === value ? null : value)}
-            size="sm"
           >
             {value}
-          </Chip>
+          </button>
         ))}
       </Group>
 
       {error && <Alert color="red">{error.message}</Alert>}
 
-      <Table highlightOnHover verticalSpacing="sm">
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Kind</Table.Th>
-            <Table.Th>Status</Table.Th>
-            <Table.Th>Resource</Table.Th>
-            <Table.Th>Processed</Table.Th>
-            <Table.Th>Elapsed</Table.Th>
-            <Table.Th />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {rows.map((run) => (
-            <Table.Tr key={run.id}>
-              <Table.Td>
-                <Text fw={500}>{run.kind}</Text>
-                {run.error && (
-                  <Text size="xs" c="red">
-                    {run.error}
-                  </Text>
-                )}
-              </Table.Td>
-              <Table.Td>
-                <Badge
-                  color={COLORS[run.status] ?? 'gray'}
-                  variant="light"
-                  size="sm"
-                >
-                  {run.status}
-                </Badge>
-              </Table.Td>
-              <Table.Td>
-                <Text size="sm" c="dimmed">
-                  {run.resource?.key ?? '—'}
-                </Text>
-              </Table.Td>
-              <Table.Td>
-                <Text size="sm">{run.processed}</Text>
-                {run.status === 'running' && (
-                  <Progress value={100} animated size="xs" mt={4} w={80} />
-                )}
-              </Table.Td>
-              <Table.Td>
-                <Text size="sm" c="dimmed">
-                  {elapsed(run.startedAt, run.finishedAt)}
-                </Text>
-              </Table.Td>
-              <Table.Td>
-                {OPEN.has(run.status) && (
-                  <Button
-                    size="xs"
-                    variant="subtle"
-                    color="red"
-                    onClick={async () => {
-                      await cancel.execute({ id: run.id })
-                      refetch()
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                )}
-              </Table.Td>
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
-
-      {loading && !data && (
-        <Center py="md">
-          <Loader size="sm" />
-        </Center>
+      {rows.length > 0 && (
+        <div className="panel">
+          <Table verticalSpacing="sm" horizontalSpacing="lg">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Work</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Resource</Table.Th>
+                <Table.Th>Processed</Table.Th>
+                <Table.Th>Elapsed</Table.Th>
+                <Table.Th />
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {rows.map((run) => (
+                <Table.Tr key={run.id}>
+                  <Table.Td>
+                    <Text fw={600} size="sm">
+                      {run.kind}
+                    </Text>
+                    {run.error && (
+                      <Text size="xs" style={{ color: 'var(--k-pdf)' }}>
+                        {run.error}
+                      </Text>
+                    )}
+                  </Table.Td>
+                  <Table.Td>
+                    <span
+                      className="tag"
+                      style={
+                        {
+                          '--tone': TONES[run.status] ?? 'var(--k-file)',
+                        } as CSSProperties
+                      }
+                    >
+                      {run.status}
+                    </span>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed">
+                      {run.resource?.key ?? '—'}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <span className="figure">
+                      {run.processed.toLocaleString()}
+                    </span>
+                  </Table.Td>
+                  <Table.Td>
+                    <span className="figure" style={{ color: 'var(--muted)' }}>
+                      {elapsed(run.startedAt, run.finishedAt)}
+                    </span>
+                  </Table.Td>
+                  <Table.Td>
+                    {OPEN.has(run.status) && (
+                      <Button
+                        size="compact-xs"
+                        radius="xl"
+                        variant="subtle"
+                        color="red"
+                        onClick={async () => {
+                          await cancel.execute({ id: run.id })
+                          refetch()
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </div>
       )}
 
-      {!loading && rows.length === 0 && <Text c="dimmed">No runs yet.</Text>}
+      {loading && !data && <Loader size="sm" color="var(--brass)" />}
+
+      {!loading && rows.length === 0 && (
+        <Text c="dimmed" size="sm">
+          {status
+            ? `Nothing is ${status}.`
+            : 'Nothing has run yet. Sync a resource and it will show up here.'}
+        </Text>
+      )}
     </Stack>
   )
 }

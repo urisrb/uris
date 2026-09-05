@@ -1,15 +1,11 @@
 import {
   Alert,
-  Badge,
-  Box,
   Button,
-  Card,
   Group,
   Loader,
   NumberInput,
   Stack,
   Text,
-  Title,
   Tooltip,
 } from '@mantine/core'
 import {
@@ -26,34 +22,48 @@ import {
   SyncResourceDocument,
 } from '@thingies/client'
 import { useMutation, useQuery } from '@thingies/client/react'
-import { useState } from 'react'
+import { type CSSProperties, useState } from 'react'
 
-function Health({
-  healthy,
-  checkedAt,
-  checkError,
-}: {
+interface Resource {
+  id: string
+  type: string
+  key: string
+  name?: string | null
   healthy: boolean
   checkedAt?: string | null
   checkError?: string | null
-}) {
-  if (!checkedAt) {
-    return (
-      <Badge color="gray" variant="light" size="sm">
-        never checked
-      </Badge>
-    )
-  }
+  syncing: boolean
+  defaultStorage: boolean
+  thingsCount: number
+  capabilities: string[]
+  syncInterval?: number | null
+  syncedAt?: string | null
+  nextSyncAt?: string | null
+}
 
-  return (
-    <Tooltip
-      label={checkError ?? `checked ${new Date(checkedAt).toLocaleString()}`}
-    >
-      <Badge color={healthy ? 'green' : 'red'} variant="light" size="sm">
-        {healthy ? 'reachable' : 'failing'}
-      </Badge>
-    </Tooltip>
-  )
+function toneFor(resource: Resource) {
+  if (resource.syncing) return 'var(--k-text)'
+  if (!resource.checkedAt) return 'var(--k-file)'
+
+  return resource.healthy ? 'var(--k-data)' : 'var(--k-pdf)'
+}
+
+function standing(resource: Resource) {
+  if (resource.syncing) return 'syncing'
+  if (!resource.checkedAt) return 'never checked'
+
+  return resource.healthy ? 'reachable' : 'failing'
+}
+
+function schedule(resource: Resource) {
+  if (!resource.syncInterval) return 'on demand only'
+
+  const every = `every ${Math.round(resource.syncInterval / 60)} min`
+  const next = resource.nextSyncAt
+    ? new Date(resource.nextSyncAt).toLocaleTimeString()
+    : '—'
+
+  return `${every} · next ${next}`
 }
 
 export function Resources() {
@@ -64,70 +74,100 @@ export function Resources() {
   const setInterval = useMutation(SetSyncIntervalDocument)
   const [minutes, setMinutes] = useState<Record<string, number | string>>({})
 
-  if (loading && !data) return <Loader size="sm" />
+  if (loading && !data) return <Loader size="sm" color="var(--brass)" />
   if (error) return <Alert color="red">{error.message}</Alert>
 
-  return (
-    <Stack gap="lg">
-      <Box>
-        <Title order={2}>Resources</Title>
-        <Text c="dimmed" size="sm">
-          The places things live, and the capabilities they can be asked for.
-        </Text>
-      </Box>
+  const resources = (data?.resources ?? []) as Resource[]
 
-      {data?.resources.map((resource) => (
-        <Card key={resource.id} withBorder>
-          <Group justify="space-between" align="flex-start" wrap="nowrap">
-            <Box>
-              <Group gap="xs">
-                <Badge variant="outline">{resource.type}</Badge>
-                <Text fw={600}>{resource.key}</Text>
+  return (
+    <Stack gap={22}>
+      <div>
+        <h1
+          className="wordmark"
+          style={{ fontSize: 'clamp(1.9rem, 4vw, 2.6rem)', margin: 0 }}
+        >
+          Resources
+        </h1>
+        <div className="eyebrow" style={{ marginTop: 8 }}>
+          The places your things live, and what each one can be asked to do
+        </div>
+      </div>
+
+      <div className="panel">
+        {resources.map((resource) => (
+          <div
+            key={resource.id}
+            className="entry"
+            data-static="true"
+            style={
+              {
+                '--tone': toneFor(resource),
+                alignItems: 'flex-start',
+                gridTemplateColumns: '3px minmax(0, 1fr) auto',
+                padding: '16px 18px 16px 0',
+              } as CSSProperties
+            }
+          >
+            <div style={{ minWidth: 0 }}>
+              <Group gap={10} wrap="wrap">
+                <span className="entry-title">{resource.key}</span>
+                <span
+                  className="tag"
+                  style={{ '--tone': 'var(--edge)' } as CSSProperties}
+                >
+                  {resource.type}
+                </span>
+                <Tooltip
+                  label={
+                    resource.checkError ??
+                    (resource.checkedAt
+                      ? `checked ${new Date(resource.checkedAt).toLocaleString()}`
+                      : 'not checked yet')
+                  }
+                >
+                  <span
+                    className="tag"
+                    style={{ '--tone': toneFor(resource) } as CSSProperties}
+                  >
+                    {standing(resource)}
+                  </span>
+                </Tooltip>
                 {resource.defaultStorage && (
-                  <Badge color="yellow" variant="light" size="sm">
-                    default storage
-                  </Badge>
-                )}
-                <Health
-                  healthy={resource.healthy}
-                  checkedAt={resource.checkedAt}
-                  checkError={resource.checkError}
-                />
-                {resource.syncing && (
-                  <Badge color="blue" variant="light" size="sm">
-                    syncing
-                  </Badge>
+                  <span
+                    className="tag"
+                    style={{ '--tone': 'var(--brass)' } as CSSProperties}
+                  >
+                    drops land here
+                  </span>
                 )}
               </Group>
 
-              <Text size="sm" c="dimmed" mt={4}>
-                {resource.name ?? '—'} · {resource.thingsCount} things ·{' '}
-                {resource.capabilities.join(', ')}
+              <Text size="sm" c="dimmed" mt={6}>
+                {resource.name ?? '—'} ·{' '}
+                <span className="figure">
+                  {resource.thingsCount.toLocaleString()}
+                </span>{' '}
+                things · {resource.capabilities.join(', ')}
               </Text>
 
-              <Text size="xs" c="dimmed" mt={2}>
-                {resource.syncInterval
-                  ? `every ${Math.round(resource.syncInterval / 60)} min · next ${
-                      resource.nextSyncAt
-                        ? new Date(resource.nextSyncAt).toLocaleTimeString()
-                        : '—'
-                    }`
-                  : 'on demand only'}
+              <Text size="xs" c="dimmed" mt={3}>
+                {schedule(resource)}
                 {resource.syncedAt &&
                   ` · last ${new Date(resource.syncedAt).toLocaleString()}`}
               </Text>
 
               {resource.checkError && (
-                <Text size="xs" c="red" mt={4}>
+                <Text size="xs" mt={6} style={{ color: 'var(--k-pdf)' }}>
                   {resource.checkError}
                 </Text>
               )}
-            </Box>
+            </div>
 
-            <Stack gap="xs" align="flex-end">
-              <Group gap="xs" wrap="nowrap">
+            <Stack gap={8} align="flex-end">
+              <Group gap={8} wrap="nowrap">
                 <Button
                   size="xs"
+                  radius="xl"
                   variant="default"
                   leftSection={<IconCheck size={14} />}
                   onClick={async () => {
@@ -139,6 +179,8 @@ export function Resources() {
                 </Button>
                 <Button
                   size="xs"
+                  radius="xl"
+                  color="chalk"
                   leftSection={<IconRefresh size={14} />}
                   disabled={resource.syncing}
                   onClick={async () => {
@@ -151,7 +193,9 @@ export function Resources() {
                 {resource.capabilities.includes('storage') && (
                   <Button
                     size="xs"
+                    radius="xl"
                     variant="subtle"
+                    color="gray"
                     disabled={resource.defaultStorage}
                     leftSection={
                       resource.defaultStorage ? (
@@ -165,16 +209,17 @@ export function Resources() {
                       refetch()
                     }}
                   >
-                    Default
+                    Take drops
                   </Button>
                 )}
               </Group>
 
-              <Group gap="xs" wrap="nowrap">
+              <Group gap={8} wrap="nowrap">
                 <NumberInput
                   size="xs"
                   w={110}
                   min={1}
+                  radius="xl"
                   placeholder="minutes"
                   value={
                     minutes[resource.id] ??
@@ -189,6 +234,7 @@ export function Resources() {
                 />
                 <Button
                   size="xs"
+                  radius="xl"
                   variant="default"
                   onClick={async () => {
                     const value = Number(minutes[resource.id])
@@ -203,9 +249,16 @@ export function Resources() {
                 </Button>
               </Group>
             </Stack>
-          </Group>
-        </Card>
-      ))}
+          </div>
+        ))}
+      </div>
+
+      {resources.length === 0 && (
+        <Text c="dimmed" size="sm">
+          No resources are attached yet. Attach one and its contents become
+          things you can search.
+        </Text>
+      )}
 
       {setInterval.error && (
         <Alert color="red">{setInterval.error.message}</Alert>

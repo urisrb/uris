@@ -1,22 +1,9 @@
-import { Badge } from '@mantine/core'
-
-const COLORS: Record<string, string> = {
-  pdf: 'red',
-  image: 'grape',
-  text: 'blue',
-  data: 'teal',
-  email: 'orange',
-  xlsx: 'green',
-  doc: 'indigo',
-  calendar: 'cyan',
-  pkpass: 'yellow',
-  file: 'gray',
-}
+import { toned } from '../kinds'
 
 export function KindBadge({ kind }: { kind: string }) {
   return (
-    <Badge color={COLORS[kind] ?? 'gray'} variant="light" size="sm">
+    <span className="tag" style={toned(kind)}>
       {kind}
-    </Badge>
+    </span>
   )
 }
