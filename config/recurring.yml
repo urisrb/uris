@@ -7,6 +7,10 @@ shared: &shared
     class: SweepAuditEventsJob
     queue: sync
     schedule: every day at 4am
+  sweep_runs:
+    class: SweepRunsJob
+    queue: sync
+    schedule: every day at 4:20am
 
 development:
   <<: *shared

@@ -35,6 +35,7 @@ module Thingies
     config.thingies.mcp_limit = ENV.fetch("THINGS_MCP_LIMIT", 120).to_i
     config.thingies.run_budget = ENV.fetch("THINGS_RUN_BUDGET", 20).to_i
     config.thingies.audit_retention = ENV.fetch("THINGS_AUDIT_RETENTION_DAYS", 90).to_i.days
+    config.thingies.run_retention = ENV.fetch("THINGS_RUN_RETENTION_DAYS", 14).to_i.days
 
     config.active_record.encryption.primary_key = ENV["ENCRYPTION_PRIMARY_KEY"]
     config.active_record.encryption.deterministic_key = ENV["ENCRYPTION_DETERMINISTIC_KEY"]

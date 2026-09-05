@@ -20,12 +20,25 @@ import {
 import { useSession } from '../hooks/useSession'
 import { tone } from '../kinds'
 import { Catalog } from './Catalog'
+import { Cycle } from './Cycle'
 import { Resources } from './Resources'
 import { Runs } from './Runs'
 import { Settings } from './Settings'
 import { Spectrum } from './Spectrum'
 import { ThingDetail } from './ThingDetail'
 import { UploadsProvider, useUploads } from './Uploads'
+
+const VERBS: [string, string][] = [
+  ['make', 'doc'],
+  ['see', 'image'],
+  ['watch', 'calendar'],
+  ['read', 'pdf'],
+  ['write', 'text'],
+  ['send', 'email'],
+  ['buy', 'pkpass'],
+  ['share', 'contact'],
+  ['keep', 'file'],
+]
 
 const SECTIONS = [
   { to: '/', label: 'Catalog', icon: IconLayoutGrid },
@@ -82,10 +95,14 @@ function Gate({
           <Spectrum />
         </div>
 
+        <p className="gate-line">
+          Everything you <Cycle words={VERBS} />
+        </p>
+
         <p className="gate-tagline">
           {unconnected
-            ? 'No sign-in server is connected yet. Connect one and everything you own gets a single front door.'
-            : 'Every file, message and photo you own — wherever it lives — in one index you can search and get back out of.'}
+            ? 'Connect a sign-in server. It is the front door to all of it.'
+            : 'Your things, together. One index across every account you own — searchable, and yours to take back out.'}
         </p>
 
         <Button

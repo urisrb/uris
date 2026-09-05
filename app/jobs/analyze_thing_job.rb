@@ -41,18 +41,22 @@ class AnalyzeThingJob < ApplicationJob
 
     Tenant.switch(tenant) { Analyzer.for(thing).run }
 
-    Tenant.switch(tenant) do
-      run&.progressed!(1)
-      wake_parent(tenant_id, thing)
-    end
+    Tenant.switch(tenant) { run&.progressed!(1) }
 
     finish_run
+
+    Tenant.switch(tenant) { wake_parent(tenant_id, thing) }
   end
 
+  # A run that already closed is not reopened to be failed. The thing was read;
+  # whatever went wrong afterwards — waking a parent that has since gone away —
+  # is the job's problem and not a retraction of the reading.
   def fail_run(error)
     return if run.nil?
 
     Tenant.switch(run.tenant) do
+      next unless run.reload.open?
+
       run.finished!(error: "#{error.class}: #{error.message}")
     end
   end
@@ -65,6 +69,9 @@ class AnalyzeThingJob < ApplicationJob
       Tenant.switch(run.tenant) { run.finished! }
     end
 
+    # Reached from the rescue handlers, where arguments may be exactly what
+    # could not be deserialized. Finding no run is an answer; raising a second
+    # error out of the handler that is reporting the first is not.
     def run
       return @run if defined?(@run)
 
@@ -72,6 +79,8 @@ class AnalyzeThingJob < ApplicationJob
       return @run = nil if run_id.nil?
 
       @run = Tenant.switch(Tenant.find(tenant_id)) { Run.find_by(id: run_id) }
+    rescue StandardError
+      @run = nil
     end
 
     # A parent that found children returned without analyzing, because its body

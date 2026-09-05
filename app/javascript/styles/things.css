@@ -760,8 +760,50 @@ a.entry:hover {
   font-size: clamp(4rem, 15vw, 8.5rem);
 }
 
+.gate-line {
+  margin: var(--s5) 0 0;
+  font-size: clamp(1.75rem, 5vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: -0.028em;
+  line-height: 1.1;
+  color: var(--bright);
+}
+
+.cycle {
+  display: inline-grid;
+  align-items: baseline;
+}
+
+.offscreen {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.cycle > span:not(.offscreen) {
+  grid-area: 1 / 1;
+  color: var(--tone);
+  opacity: 0;
+  transform: translateY(0.22em);
+  transition:
+    opacity 320ms ease,
+    transform 320ms ease;
+}
+
+.cycle > span:not(.offscreen)[data-on="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+.cycle-still > span {
+  color: var(--tone);
+}
+
 .gate-tagline {
-  margin-top: var(--s5);
+  margin-top: var(--s4);
   font-size: var(--t-lead);
   line-height: 1.5;
   color: var(--soft);
