@@ -17,7 +17,7 @@ class AnalyzeThingsJob < ApplicationJob
   end
 
   def each_iteration(thing_id, tenant_id, _selector, _run_id = nil)
-    AnalyzeThingJob.perform_later(tenant_id, thing_id)
+    Tenant.switch(Tenant.find(tenant_id)) { AnalyzeThingJob.start!(tenant_id, thing_id) }
 
     track_iteration
   end

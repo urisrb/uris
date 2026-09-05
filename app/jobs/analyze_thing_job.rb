@@ -2,28 +2,77 @@ class AnalyzeThingJob < ApplicationJob
   queue_as :analysis
 
   limits_concurrency to: ENV.fetch("ANALYSIS_PER_TENANT", 2).to_i,
-                     key: ->(tenant_id, _thing_id) { "analysis/#{tenant_id}" },
+                     key: ->(tenant_id, *) { "analysis/#{tenant_id}" },
                      duration: 30.minutes
 
-  discard_on Analyzer::Failed
-  retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5
+  rescue_from(StandardError) do |error|
+    fail_run(error)
+    raise error
+  end
 
-  def perform(tenant_id, thing_id)
+  discard_on(Analyzer::Failed) { |job, error| job.fail_run(error) }
+  retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5 do |job, error|
+    job.fail_run(error)
+  end
+
+  # The run is started by whoever asks for the analysis rather than by the job,
+  # so a retry carries the same run in its arguments instead of opening a
+  # second one. Assumes a tenant is already switched in.
+  def self.start!(tenant_id, thing_id)
+    Run.start!(kind: "analyze", selector: { "id" => thing_id }).tap do |run|
+      perform_later(tenant_id, thing_id, run.id)
+    end
+  end
+
+  # Tenant.switch opens a savepoint, so bookkeeping shares a fate with whatever
+  # else is inside it. Marking the run is therefore its own switch, and the
+  # analysis another: a read that raises rolls back its own writes and leaves
+  # the record of having tried it standing.
+  def perform(tenant_id, thing_id, run_id = nil)
     tenant = Tenant.find(tenant_id)
+
+    Tenant.switch(tenant) { run&.running! }
+
     thing = Tenant.switch(tenant) do
       Thing.includes(references: :resource).find_by(id: thing_id)
     end
 
-    return if thing.nil?
+    return finish_run if thing.nil?
+
+    Tenant.switch(tenant) { Analyzer.for(thing).run }
 
     Tenant.switch(tenant) do
-      Analyzer.for(thing).run
-
+      run&.progressed!(1)
       wake_parent(tenant_id, thing)
+    end
+
+    finish_run
+  end
+
+  def fail_run(error)
+    return if run.nil?
+
+    Tenant.switch(run.tenant) do
+      run.finished!(error: "#{error.class}: #{error.message}")
     end
   end
 
   private
+
+    def finish_run
+      return if run.nil?
+
+      Tenant.switch(run.tenant) { run.finished! }
+    end
+
+    def run
+      return @run if defined?(@run)
+
+      tenant_id, _thing_id, run_id = arguments
+      return @run = nil if run_id.nil?
+
+      @run = Tenant.switch(Tenant.find(tenant_id)) { Run.find_by(id: run_id) }
+    end
 
     # A parent that found children returned without analyzing, because its body
     # is the union with theirs and reading it early would index half of it. The
@@ -34,6 +83,6 @@ class AnalyzeThingJob < ApplicationJob
       return if parent.nil? || thing.analyzed_at.nil?
       return unless parent.children_ready?
 
-      AnalyzeThingJob.perform_later(tenant_id, parent.id)
+      AnalyzeThingJob.start!(tenant_id, parent.id)
     end
 end

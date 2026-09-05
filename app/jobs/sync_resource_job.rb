@@ -54,7 +54,9 @@ class SyncResourceJob < ApplicationJob
       )
     end
 
-    AnalyzeThingJob.perform_later(tenant_id, reference.thing_id) if reference.analyzed_at.nil?
+    if reference.analyzed_at.nil?
+      Tenant.switch(resource.tenant) { AnalyzeThingJob.start!(tenant_id, reference.thing_id) }
+    end
 
     track_iteration
   end

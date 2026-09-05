@@ -68,7 +68,7 @@ module Analyzer
 
         made = thing.references.flat_map { |reference| catalogue_children(reference) }
 
-        made.each { |child| AnalyzeThingJob.perform_later(thing.tenant_id, child.id) }
+        made.each { |child| AnalyzeThingJob.start!(thing.tenant_id, child.id) }
         thing.children.reset
       end
 
