@@ -131,6 +131,8 @@ class FakeIssuer
       case path
       when %r{\A/([^/]+)/\.well-known/openid-configuration\z} then discovery($1)
       when %r{\A/([^/]+)/\.well-known/jwks\.json\z} then jwks($1)
+      when %r{\A/([^/]+)/register/([^/]+)\z}
+        { "client_id" => $2, "registration_client_uri" => "#{url_for($1)}/register/#{$2}" }
       end
     end
 
