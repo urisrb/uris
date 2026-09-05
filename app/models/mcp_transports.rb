@@ -70,8 +70,8 @@ module McpTransports
 
       def server(tenant, grant)
         MCP::Server.new(
-          name: "items",
-          title: "items",
+          name: "uris",
+          title: "uris",
           instructions: INSTRUCTIONS,
           tools: grant.tools,
           server_context: { tenant_id: tenant.id, scopes: grant.scopes }

@@ -233,7 +233,7 @@ class Resource
       end
 
       def headers
-        base = { "Content-Type" => "application/json", "User-Agent" => "items" }
+        base = { "Content-Type" => "application/json", "User-Agent" => "uris" }
         token = credentials["api_key"].presence
 
         token ? base.merge("Authorization" => "Bearer #{token}") : base

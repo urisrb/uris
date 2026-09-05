@@ -30,7 +30,7 @@ module SearchIndex
     end
 
     def alias_name
-      [ "items", Rails.env, ENV["TEST_ENV_NUMBER"].presence ].compact.join("_")
+      [ "uris", Rails.env, ENV["TEST_ENV_NUMBER"].presence ].compact.join("_")
     end
 
     def alias_for(tenant)
