@@ -12,7 +12,7 @@ class RssResourceTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
-    ENV["THINGS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
 
     @server = FakeFeedServer.current
     @server.reset!
@@ -28,17 +28,17 @@ class RssResourceTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("THINGS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
   end
 
   test "syncing a feed catalogues every entry, keyed on its guid" do
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 2, Thing.count
-      assert_equal %w[feed feed], Thing.pluck(:kind)
-      assert_equal [ "The first post", "The second post" ], Thing.pluck(:title).sort
-      assert_equal %w[urn:one urn:two], ThingReference.pluck(:locator_key).sort
+      assert_equal 2, Item.count
+      assert_equal %w[feed feed], Item.pluck(:kind)
+      assert_equal [ "The first post", "The second post" ], Item.pluck(:title).sort
+      assert_equal %w[urn:one urn:two], Reference.pluck(:locator_key).sort
     end
   end
 
@@ -58,7 +58,7 @@ class RssResourceTest < ActiveSupport::TestCase
       @resource.update!(details: { "url" => @server.serve_body("/atom.xml", @server.atom(ITEMS)) })
       sync
 
-      assert_equal 2, Thing.count
+      assert_equal 2, Item.count
       assert_equal "https://elsewhere.example/two", titled("The second post").references.first.locator["link"]
     end
   end
@@ -66,17 +66,17 @@ class RssResourceTest < ActiveSupport::TestCase
   test "syncing twice converges rather than accumulating" do
     2.times { sync }
 
-    Tenant.switch(@tenant) { assert_equal 2, Thing.count }
+    Tenant.switch(@tenant) { assert_equal 2, Item.count }
   end
 
   test "the analyzer indexes the entry body as text, tags stripped" do
     sync
 
     Tenant.switch(@tenant) do
-      thing = titled("The first post")
-      AnalyzeThingJob.perform_now(@tenant.id, thing.id)
+      item = titled("The first post")
+      AnalyzeItemJob.perform_now(@tenant.id, item.id)
 
-      analysis = thing.references.first.reload.analysis
+      analysis = item.references.first.reload.analysis
 
       assert_equal "https://elsewhere.example/one", analysis.dig("steps", "entry", "result", "link")
       assert_includes analysis.dig("steps", "text", "result"), "Something about pelicans."
@@ -96,7 +96,7 @@ class RssResourceTest < ActiveSupport::TestCase
   end
 
   test "a private address is refused unless fetching them is allowed" do
-    ENV.delete("THINGS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
 
     error = assert_raises(Resource::Rss::Blocked) { @resource.check! }
 
@@ -108,7 +108,7 @@ class RssResourceTest < ActiveSupport::TestCase
       @resource.update!(details: { "url" => @server.serve_redirect("/hop", @feed) })
       sync
 
-      assert_equal 2, Thing.count
+      assert_equal 2, Item.count
     end
   end
 
@@ -163,6 +163,6 @@ class RssResourceTest < ActiveSupport::TestCase
     end
 
     def titled(title)
-      Thing.find_by!(title: title)
+      Item.find_by!(title: title)
     end
 end

@@ -2,7 +2,7 @@
 
 module Types
   class MergeProposalType < Types::BaseObject
-    grants "things:catalog:read"
+    grants "items:catalog:read"
 
     field :id, ID, null: false
     field :blocking_key, String, null: false
@@ -10,7 +10,7 @@ module Types
     field :status, String, null: false
     field :settled_at, GraphQL::Types::ISO8601DateTime
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false
-    field :things, [ Types::ThingType ], null: false
+    field :items, [ Types::ItemType ], null: false
     field :current, Boolean, null: false
 
     def current

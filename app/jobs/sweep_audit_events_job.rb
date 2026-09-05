@@ -2,7 +2,7 @@ class SweepAuditEventsJob < ApplicationJob
   queue_as :sync
 
   def perform
-    retention = Rails.configuration.thingies.audit_retention
+    retention = Rails.configuration.uris.audit_retention
     return if retention.zero?
 
     cutoff = retention.ago

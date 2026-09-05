@@ -5,8 +5,8 @@ module Analyzer
     FLAT = 1.0
     OCR_CONTEXT = 4_000
 
-    def self.handles?(thing)
-      thing.kind == "image"
+    def self.handles?(item)
+      item.kind == "image"
     end
 
     def self.summary_role

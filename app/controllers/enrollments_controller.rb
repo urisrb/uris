@@ -20,7 +20,7 @@ class EnrollmentsController < ApplicationController
     resource = enrollment.claim!(params[:connection])
 
     AuditEvent.record(
-      channel: "enrollment", action: "claim", status: "ok", scope: "things:resources:command",
+      channel: "enrollment", action: "claim", status: "ok", scope: "items:resources:command",
       grant: Current.grant, context: Current.audit,
       arguments: { type: resource.class.sti_name, key: resource.key }
     )
@@ -31,7 +31,7 @@ class EnrollmentsController < ApplicationController
   private
 
     def authorize
-      super && grant.permit!("things:resources:command")
+      super && grant.permit!("items:resources:command")
     rescue Grant::Denied => e
       refuse(Masks::Client::Unauthorized.new(e.message))
     end

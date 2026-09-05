@@ -9,8 +9,8 @@ module Mutations
 
     private
 
-      def thing!(id)
-        Thing.find_by(id: id) || raise(GraphQL::ExecutionError, "no thing with id #{id}")
+      def item!(id)
+        Item.find_by(id: id) || raise(GraphQL::ExecutionError, "no item with id #{id}")
       end
 
       def resource!(id)

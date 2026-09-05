@@ -1,17 +1,17 @@
 module Blocking
   KEYS = {
     "same-name" => <<~SQL.squish,
-      concat('same-name:', things.kind, ':',
-             lower(regexp_replace(thing_references.locator_key, '^.*/', '')))
+      concat('same-name:', items.kind, ':',
+             lower(regexp_replace(item_references.locator_key, '^.*/', '')))
     SQL
     "same-bytes" => <<~SQL.squish
-      concat('same-bytes:', resources.type, ':', thing_references.version)
+      concat('same-bytes:', resources.type, ':', item_references.version)
     SQL
   }.freeze
 
   WHERE = {
-    "same-name" => "thing_references.locator_key IS NOT NULL AND thing_references.locator_key <> ''",
-    "same-bytes" => "thing_references.version IS NOT NULL AND thing_references.version <> ''"
+    "same-name" => "item_references.locator_key IS NOT NULL AND item_references.locator_key <> ''",
+    "same-bytes" => "item_references.version IS NOT NULL AND item_references.version <> ''"
   }.freeze
 
   class << self
@@ -26,13 +26,13 @@ module Blocking
       def query(reason, cursor, limit)
         sql = ActiveRecord::Base.sanitize_sql_array([ <<~SQL.squish, cursor.to_s, limit ])
           SELECT #{KEYS[reason]} AS blocking_key,
-                 array_agg(DISTINCT things.id) AS thing_ids
-          FROM things
-          JOIN thing_references ON thing_references.thing_id = things.id
-          JOIN resources ON resources.id = thing_references.resource_id
+                 array_agg(DISTINCT items.id) AS thing_ids
+          FROM items
+          JOIN item_references ON item_references.item_id = items.id
+          JOIN resources ON resources.id = item_references.resource_id
           WHERE #{WHERE[reason]}
           GROUP BY blocking_key
-          HAVING count(DISTINCT things.id) > 1 AND #{KEYS[reason]} > ?
+          HAVING count(DISTINCT items.id) > 1 AND #{KEYS[reason]} > ?
           ORDER BY blocking_key
           LIMIT ?
         SQL

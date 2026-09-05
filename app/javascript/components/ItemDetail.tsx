@@ -1,30 +1,30 @@
 import { Alert, Button, Code, Group, Loader, Stack, Text } from '@mantine/core'
 import { IconArrowLeft, IconCut, IconSparkles } from '@tabler/icons-react'
 import {
-  AnalyzeThingDocument,
+  AnalyzeItemDocument,
+  ItemDocument,
   SplitReferenceDocument,
-  ThingDocument,
-} from '@thingies/client'
-import { useMutation, useQuery } from '@thingies/client/react'
+} from '@uris/client'
+import { useMutation, useQuery } from '@uris/client/react'
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { KindBadge } from './KindBadge'
 import { Thumb } from './Thumb'
 
-export function ThingDetail() {
+export function ItemDetail() {
   const { id = '' } = useParams()
-  const { data, loading, error, refetch } = useQuery(ThingDocument, { id })
-  const analyze = useMutation(AnalyzeThingDocument)
+  const { data, loading, error, refetch } = useQuery(ItemDocument, { id })
+  const analyze = useMutation(AnalyzeItemDocument)
   const split = useMutation(SplitReferenceDocument)
 
   if (loading) return <Loader size="sm" color="var(--brass)" />
   if (error) return <Alert color="red">{error.message}</Alert>
 
-  const thing = data?.thing
+  const item = data?.item
 
-  if (!thing) return <Text c="dimmed">No such thing.</Text>
+  if (!item) return <Text c="dimmed">No such item.</Text>
 
-  const viewable = thing.references.filter((reference) =>
+  const viewable = item.references.filter((reference) =>
     /^(image|application\/pdf)/.test(reference.contentType),
   )
 
@@ -44,14 +44,14 @@ export function ThingDetail() {
 
       <Group justify="space-between" align="flex-start" wrap="nowrap">
         <div style={{ minWidth: 0 }}>
-          <h1 className="page-title">{thing.title ?? 'Untitled'}</h1>
+          <h1 className="page-title">{item.title ?? 'Untitled'}</h1>
           <Group gap="var(--s3)" mt="var(--s3)">
-            <KindBadge kind={thing.kind} />
+            <KindBadge kind={item.kind} />
             <span className="eyebrow">
-              <span className="figure">{thing.references.length}</span>{' '}
-              {thing.references.length === 1 ? 'place' : 'places'} it lives
-              {thing.analyzedAt
-                ? ` · analyzed ${new Date(thing.analyzedAt).toLocaleString()}`
+              <span className="figure">{item.references.length}</span>{' '}
+              {item.references.length === 1 ? 'place' : 'places'} it lives
+              {item.analyzedAt
+                ? ` · analyzed ${new Date(item.analyzedAt).toLocaleString()}`
                 : ' · never analyzed'}
             </span>
           </Group>
@@ -63,7 +63,7 @@ export function ThingDetail() {
           leftSection={<IconSparkles size={16} />}
           loading={analyze.loading}
           onClick={async () => {
-            await analyze.execute({ id: thing.id })
+            await analyze.execute({ id: item.id })
             refetch()
           }}
         >
@@ -82,7 +82,7 @@ export function ThingDetail() {
             >
               <Thumb
                 url={reference.thumbnailUrl}
-                kind={thing.kind}
+                kind={item.kind}
                 alt={reference.filename}
                 size={230}
               />
@@ -91,10 +91,10 @@ export function ThingDetail() {
         </Group>
       )}
 
-      {thing.summary && (
+      {item.summary && (
         <div className="panel" style={{ padding: 'var(--s4) var(--s5)' }}>
           <Text size="sm" style={{ lineHeight: 1.6, maxWidth: '72ch' }}>
-            {thing.summary}
+            {item.summary}
           </Text>
         </div>
       )}
@@ -103,7 +103,7 @@ export function ThingDetail() {
         <div className="label">Where it lives</div>
 
         <div className="panel">
-          {thing.references.map((reference) => (
+          {item.references.map((reference) => (
             <div
               key={reference.id}
               className="entry"
@@ -171,7 +171,7 @@ export function ThingDetail() {
                 >
                   Download
                 </Button>
-                {thing.references.length > 1 && (
+                {item.references.length > 1 && (
                   <Button
                     variant="subtle"
                     color="gray"

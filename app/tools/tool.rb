@@ -1,15 +1,15 @@
 module Tool
   def self.all
     [
-      Tool::SearchThings,
-      Tool::GetThing,
-      Tool::AnalyzeThing,
+      Tool::SearchItems,
+      Tool::GetItem,
+      Tool::AnalyzeItem,
       Tool::ListResources,
       Tool::DescribeResource,
       Tool::CheckResource,
       Tool::CommandResource,
       Tool::SyncResource,
-      Tool::ExportThings,
+      Tool::ExportItems,
       Tool::ListRuns,
       Tool::CancelRun
     ]

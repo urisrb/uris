@@ -1,4 +1,4 @@
-class AnalyzeThingJob < ApplicationJob
+class AnalyzeItemJob < ApplicationJob
   queue_as :analysis
 
   limits_concurrency to: ENV.fetch("ANALYSIS_PER_TENANT", 2).to_i,
@@ -15,30 +15,30 @@ class AnalyzeThingJob < ApplicationJob
     job.fail_run(error)
   end
 
-  def self.start!(tenant_id, thing_id)
-    Run.start!(kind: "analyze", selector: { "id" => thing_id }).tap do |run|
-      perform_later(tenant_id, thing_id, run.id)
+  def self.start!(tenant_id, item_id)
+    Run.start!(kind: "analyze", selector: { "id" => item_id }).tap do |run|
+      perform_later(tenant_id, item_id, run.id)
     end
   end
 
-  def perform(tenant_id, thing_id, run_id = nil)
+  def perform(tenant_id, item_id, run_id = nil)
     tenant = Tenant.find(tenant_id)
 
     Tenant.switch(tenant) { run&.running! }
 
-    thing = Tenant.switch(tenant) do
-      Thing.includes(references: :resource).find_by(id: thing_id)
+    item = Tenant.switch(tenant) do
+      Item.includes(references: :resource).find_by(id: item_id)
     end
 
-    return finish_run if thing.nil?
+    return finish_run if item.nil?
 
-    Tenant.switch(tenant) { Analyzer.for(thing).run }
+    Tenant.switch(tenant) { Analyzer.for(item).run }
 
     Tenant.switch(tenant) { run&.progressed!(1) }
 
     finish_run
 
-    Tenant.switch(tenant) { wake_parent(tenant_id, thing) }
+    Tenant.switch(tenant) { wake_parent(tenant_id, item) }
   end
 
   def fail_run(error)
@@ -70,11 +70,11 @@ class AnalyzeThingJob < ApplicationJob
       @run = nil
     end
 
-    def wake_parent(tenant_id, thing)
-      parent = thing.parent
-      return if parent.nil? || thing.analyzed_at.nil?
+    def wake_parent(tenant_id, item)
+      parent = item.parent
+      return if parent.nil? || item.analyzed_at.nil?
       return unless parent.children_ready?
 
-      AnalyzeThingJob.start!(tenant_id, parent.id)
+      AnalyzeItemJob.start!(tenant_id, parent.id)
     end
 end

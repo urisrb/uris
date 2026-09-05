@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
 module Types
-  class ThingType < Types::BaseObject
-    grants "things:catalog:read"
+  class ItemType < Types::BaseObject
+    grants "items:catalog:read"
 
     SUMMARY = 400
 
     field :id, ID, null: false
     field :kind, String, null: false
     field :title, String
-    field :references, [ Types::ThingReferenceType ], null: false
+    field :references, [ Types::ReferenceType ], null: false
     field :analyzed_at, GraphQL::Types::ISO8601DateTime
     field :summary, String
     field :thumbnail_url, String

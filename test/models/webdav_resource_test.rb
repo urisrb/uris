@@ -5,7 +5,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
-    ENV["THINGS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
 
     @server = FakeDavServer.current
     @server.reset!
@@ -26,14 +26,14 @@ class WebdavResourceTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("THINGS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
   end
 
   test "syncing walks collections and catalogues every file" do
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 3, Thing.count
+      assert_equal 3, Item.count
       assert_equal "pdf", thing_at("invoices/march.pdf").kind
       assert_equal "march.pdf", thing_at("invoices/march.pdf").title
       assert_equal "image", thing_at("photos/beach.jpg").kind
@@ -60,7 +60,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
   test "syncing twice converges rather than accumulating" do
     2.times { sync }
 
-    Tenant.switch(@tenant) { assert_equal 3, Thing.count }
+    Tenant.switch(@tenant) { assert_equal 3, Item.count }
   end
 
   test "a cursor resumes where the walk stopped" do
@@ -71,9 +71,9 @@ class WebdavResourceTest < ActiveSupport::TestCase
   end
 
   test "it is storage, and uploading creates the collections it needs" do
-    @resource.upload("backup/deep/notes.txt", "written by things")
+    @resource.upload("backup/deep/notes.txt", "written by items")
 
-    assert_equal "written by things", @server.read("backup/deep/notes.txt")
+    assert_equal "written by items", @server.read("backup/deep/notes.txt")
   end
 
   test "export writes into it and records the second reference" do
@@ -84,7 +84,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
         credentials: { "username" => "someone", "password" => "irrelevant" }
       )
       sync
-      ExportThingsJob.perform_now(@tenant.id, destination.id, { "kind" => "text" })
+      ExportItemsJob.perform_now(@tenant.id, destination.id, { "kind" => "text" })
 
       assert_equal "remember the milk", @server.read("#{@resource.key}/notes.txt")
       assert_equal 2, thing_at("notes.txt").references.count
@@ -100,7 +100,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
   end
 
   test "a private address is refused unless fetching them is allowed" do
-    ENV.delete("THINGS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
 
     assert_raises(PublicFetch::Blocked) { @resource.check! }
   end
@@ -112,6 +112,6 @@ class WebdavResourceTest < ActiveSupport::TestCase
     end
 
     def thing_at(locator_key)
-      Thing.joins(:references).find_by!(thing_references: { locator_key: locator_key })
+      Item.joins(:references).find_by!(item_references: { locator_key: locator_key })
     end
 end

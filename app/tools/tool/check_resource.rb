@@ -1,7 +1,7 @@
 module Tool
   class CheckResource < Base
     tool_name "check_resource"
-    scope "things:resources:read"
+    scope "items:resources:read"
 
     description <<~TEXT
       Ask a resource whether it still works — that its endpoint answers, its credentials

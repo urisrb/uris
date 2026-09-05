@@ -169,7 +169,7 @@ async function send(item: Dropped, csrf: string | null, signal: AbortSignal) {
   })
 
   if (response.status === 401)
-    throw new Unauthorized('sign in again to add things')
+    throw new Unauthorized('sign in again to add items')
   if (response.ok) return
 
   const body = await response.json().catch(() => null)

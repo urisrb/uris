@@ -110,6 +110,84 @@ ALTER SEQUENCE public.gates_id_seq OWNED BY public.gates.id;
 
 
 --
+-- Name: item_references; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.item_references (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    item_id bigint NOT NULL,
+    resource_id bigint NOT NULL,
+    locator jsonb DEFAULT '{}'::jsonb NOT NULL,
+    locator_key character varying,
+    analysis jsonb DEFAULT '{}'::jsonb NOT NULL,
+    analyzed_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    version character varying,
+    source_version character varying,
+    changed_at timestamp(6) without time zone
+);
+
+ALTER TABLE ONLY public.item_references FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: item_references_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.item_references_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: item_references_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.item_references_id_seq OWNED BY public.item_references.id;
+
+
+--
+-- Name: items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.items (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    kind character varying NOT NULL,
+    title character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL,
+    parent_id bigint
+);
+
+ALTER TABLE ONLY public.items FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.items_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.items_id_seq OWNED BY public.items.id;
+
+
+--
 -- Name: merge_proposals; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -400,84 +478,6 @@ ALTER SEQUENCE public.tenants_id_seq OWNED BY public.tenants.id;
 
 
 --
--- Name: thing_references; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.thing_references (
-    id bigint NOT NULL,
-    tenant_id bigint NOT NULL,
-    thing_id bigint NOT NULL,
-    resource_id bigint NOT NULL,
-    locator jsonb DEFAULT '{}'::jsonb NOT NULL,
-    locator_key character varying,
-    analysis jsonb DEFAULT '{}'::jsonb NOT NULL,
-    analyzed_at timestamp(6) without time zone,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
-    version character varying,
-    source_version character varying,
-    changed_at timestamp(6) without time zone
-);
-
-ALTER TABLE ONLY public.thing_references FORCE ROW LEVEL SECURITY;
-
-
---
--- Name: thing_references_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.thing_references_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: thing_references_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.thing_references_id_seq OWNED BY public.thing_references.id;
-
-
---
--- Name: things; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.things (
-    id bigint NOT NULL,
-    tenant_id bigint NOT NULL,
-    kind character varying NOT NULL,
-    title character varying,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
-    parent_id bigint
-);
-
-ALTER TABLE ONLY public.things FORCE ROW LEVEL SECURITY;
-
-
---
--- Name: things_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.things_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: things_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.things_id_seq OWNED BY public.things.id;
-
-
---
 -- Name: audit_events id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -489,6 +489,20 @@ ALTER TABLE ONLY public.audit_events ALTER COLUMN id SET DEFAULT nextval('public
 --
 
 ALTER TABLE ONLY public.gates ALTER COLUMN id SET DEFAULT nextval('public.gates_id_seq'::regclass);
+
+
+--
+-- Name: item_references id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.item_references ALTER COLUMN id SET DEFAULT nextval('public.item_references_id_seq'::regclass);
+
+
+--
+-- Name: items id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.items ALTER COLUMN id SET DEFAULT nextval('public.items_id_seq'::regclass);
 
 
 --
@@ -541,20 +555,6 @@ ALTER TABLE ONLY public.tenants ALTER COLUMN id SET DEFAULT nextval('public.tena
 
 
 --
--- Name: thing_references id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.thing_references ALTER COLUMN id SET DEFAULT nextval('public.thing_references_id_seq'::regclass);
-
-
---
--- Name: things id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.things ALTER COLUMN id SET DEFAULT nextval('public.things_id_seq'::regclass);
-
-
---
 -- Name: ar_internal_metadata ar_internal_metadata_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -576,6 +576,22 @@ ALTER TABLE ONLY public.audit_events
 
 ALTER TABLE ONLY public.gates
     ADD CONSTRAINT gates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: item_references item_references_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.item_references
+    ADD CONSTRAINT item_references_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: items items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.items
+    ADD CONSTRAINT items_pkey PRIMARY KEY (id);
 
 
 --
@@ -643,22 +659,6 @@ ALTER TABLE ONLY public.tenants
 
 
 --
--- Name: thing_references thing_references_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.thing_references
-    ADD CONSTRAINT thing_references_pkey PRIMARY KEY (id);
-
-
---
--- Name: things things_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.things
-    ADD CONSTRAINT things_pkey PRIMARY KEY (id);
-
-
---
 -- Name: index_audit_events_on_run_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -705,6 +705,69 @@ CREATE UNIQUE INDEX index_gates_on_scope ON public.gates USING btree (tenant_id,
 --
 
 CREATE INDEX index_gates_on_tenant_id ON public.gates USING btree (tenant_id);
+
+
+--
+-- Name: index_item_references_on_item_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_item_references_on_item_id ON public.item_references USING btree (item_id);
+
+
+--
+-- Name: index_item_references_on_resource_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_item_references_on_resource_id ON public.item_references USING btree (resource_id);
+
+
+--
+-- Name: index_item_references_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_item_references_on_tenant_id ON public.item_references USING btree (tenant_id);
+
+
+--
+-- Name: index_item_references_on_tenant_id_and_analyzed_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_item_references_on_tenant_id_and_analyzed_at ON public.item_references USING btree (tenant_id, analyzed_at);
+
+
+--
+-- Name: index_items_on_parent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_items_on_parent_id ON public.items USING btree (parent_id);
+
+
+--
+-- Name: index_items_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_items_on_tenant_id ON public.items USING btree (tenant_id);
+
+
+--
+-- Name: index_items_on_tenant_id_and_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_items_on_tenant_id_and_created_at ON public.items USING btree (tenant_id, created_at);
+
+
+--
+-- Name: index_items_on_tenant_id_and_kind; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_items_on_tenant_id_and_kind ON public.items USING btree (tenant_id, kind);
+
+
+--
+-- Name: index_items_on_tenant_id_and_parent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_items_on_tenant_id_and_parent_id ON public.items USING btree (tenant_id, parent_id);
 
 
 --
@@ -886,70 +949,7 @@ CREATE UNIQUE INDEX index_tenants_on_subdomain ON public.tenants USING btree (su
 -- Name: index_thing_references_on_locator; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_thing_references_on_locator ON public.thing_references USING btree (tenant_id, resource_id, locator_key) WHERE (locator_key IS NOT NULL);
-
-
---
--- Name: index_thing_references_on_resource_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_thing_references_on_resource_id ON public.thing_references USING btree (resource_id);
-
-
---
--- Name: index_thing_references_on_tenant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_thing_references_on_tenant_id ON public.thing_references USING btree (tenant_id);
-
-
---
--- Name: index_thing_references_on_tenant_id_and_analyzed_at; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_thing_references_on_tenant_id_and_analyzed_at ON public.thing_references USING btree (tenant_id, analyzed_at);
-
-
---
--- Name: index_thing_references_on_thing_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_thing_references_on_thing_id ON public.thing_references USING btree (thing_id);
-
-
---
--- Name: index_things_on_parent_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_things_on_parent_id ON public.things USING btree (parent_id);
-
-
---
--- Name: index_things_on_tenant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_things_on_tenant_id ON public.things USING btree (tenant_id);
-
-
---
--- Name: index_things_on_tenant_id_and_created_at; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_things_on_tenant_id_and_created_at ON public.things USING btree (tenant_id, created_at);
-
-
---
--- Name: index_things_on_tenant_id_and_kind; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_things_on_tenant_id_and_kind ON public.things USING btree (tenant_id, kind);
-
-
---
--- Name: index_things_on_tenant_id_and_parent_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_things_on_tenant_id_and_parent_id ON public.things USING btree (tenant_id, parent_id);
+CREATE UNIQUE INDEX index_thing_references_on_locator ON public.item_references USING btree (tenant_id, resource_id, locator_key) WHERE (locator_key IS NOT NULL);
 
 
 --
@@ -985,10 +985,10 @@ ALTER TABLE ONLY public.settings
 
 
 --
--- Name: thing_references fk_rails_3ba42c6c80; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: item_references fk_rails_3ba42c6c80; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.thing_references
+ALTER TABLE ONLY public.item_references
     ADD CONSTRAINT fk_rails_3ba42c6c80 FOREIGN KEY (resource_id) REFERENCES public.resources(id);
 
 
@@ -1001,18 +1001,18 @@ ALTER TABLE ONLY public.prompts
 
 
 --
--- Name: thing_references fk_rails_89e5ab95a5; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: item_references fk_rails_89e5ab95a5; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.thing_references
-    ADD CONSTRAINT fk_rails_89e5ab95a5 FOREIGN KEY (thing_id) REFERENCES public.things(id);
+ALTER TABLE ONLY public.item_references
+    ADD CONSTRAINT fk_rails_89e5ab95a5 FOREIGN KEY (item_id) REFERENCES public.items(id);
 
 
 --
--- Name: thing_references fk_rails_babac667d3; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: item_references fk_rails_babac667d3; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.thing_references
+ALTER TABLE ONLY public.item_references
     ADD CONSTRAINT fk_rails_babac667d3 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
@@ -1049,18 +1049,18 @@ ALTER TABLE ONLY public.resources
 
 
 --
--- Name: things fk_rails_e34bd51df4; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: items fk_rails_e34bd51df4; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.things
-    ADD CONSTRAINT fk_rails_e34bd51df4 FOREIGN KEY (parent_id) REFERENCES public.things(id);
+ALTER TABLE ONLY public.items
+    ADD CONSTRAINT fk_rails_e34bd51df4 FOREIGN KEY (parent_id) REFERENCES public.items(id);
 
 
 --
--- Name: things fk_rails_e34f2f4c48; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: items fk_rails_e34f2f4c48; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.things
+ALTER TABLE ONLY public.items
     ADD CONSTRAINT fk_rails_e34f2f4c48 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
@@ -1109,6 +1109,18 @@ ALTER TABLE public.audit_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gates ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: item_references; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.item_references ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: items; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.items ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: merge_proposals; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -1148,83 +1160,71 @@ ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 -- Name: audit_events tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.audit_events USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.audit_events USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: gates tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.gates USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.gates USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
+-- Name: item_references tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.item_references USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
+-- Name: items tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.items USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: merge_proposals tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.merge_proposals USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.merge_proposals USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: prompts tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.prompts USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.prompts USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: resource_blobs tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.resource_blobs USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.resource_blobs USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: resources tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.resources USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.resources USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: runs tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.runs USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.runs USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
 -- Name: settings tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
 
-
---
--- Name: thing_references tenant_isolation; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY tenant_isolation ON public.thing_references USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
-
-
---
--- Name: things tenant_isolation; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY tenant_isolation ON public.things USING ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('things.tenant_id'::text, true), ''::text))::bigint));
-
-
---
--- Name: thing_references; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.thing_references ENABLE ROW LEVEL SECURITY;
-
---
--- Name: things; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.things ENABLE ROW LEVEL SECURITY;
 
 --
 -- PostgreSQL database dump complete
@@ -1233,6 +1233,8 @@ ALTER TABLE public.things ENABLE ROW LEVEL SECURITY;
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260905230001'),
+('20260905230000'),
 ('20260905130002'),
 ('20260905130001'),
 ('20260905130000'),

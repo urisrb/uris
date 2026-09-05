@@ -17,8 +17,8 @@ class AnalyzerTest < ActiveSupport::TestCase
           "region" => ENV.fetch("S3_REGION", "us-east-1")
         },
         credentials: {
-          "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "things"),
-          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "thingsthings")
+          "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "items"),
+          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "urisuris")
         }
       )
     end
@@ -43,10 +43,10 @@ class AnalyzerTest < ActiveSupport::TestCase
 
   test "dispatch picks an analyzer by kind, first match wins" do
     Tenant.switch(@tenant) do
-      assert_instance_of Analyzer::Pdf, Analyzer.for(thing("invoice.pdf"))
-      assert_instance_of Analyzer::Image, Analyzer.for(thing("photo.png"))
-      assert_instance_of Analyzer::Text, Analyzer.for(thing("notes.txt"))
-      assert_instance_of Analyzer::Data, Analyzer.for(thing("rows.csv"))
+      assert_instance_of Analyzer::Pdf, Analyzer.for(item("invoice.pdf"))
+      assert_instance_of Analyzer::Image, Analyzer.for(item("photo.png"))
+      assert_instance_of Analyzer::Text, Analyzer.for(item("notes.txt"))
+      assert_instance_of Analyzer::Data, Analyzer.for(item("rows.csv"))
     end
   end
 
@@ -87,7 +87,7 @@ class AnalyzerTest < ActiveSupport::TestCase
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
-      subject = thing("notes.txt")
+      subject = item("notes.txt")
       first_finished = reference("notes.txt").analysis.dig("steps", "text", "finished_at")
 
       Analyzer.for(subject).run
@@ -100,7 +100,7 @@ class AnalyzerTest < ActiveSupport::TestCase
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
-      subject = thing("notes.txt")
+      subject = item("notes.txt")
       analyzer = Analyzer.for(subject)
       before = reference("notes.txt").analysis.dig("steps", "text", "finished_at")
 
@@ -148,12 +148,12 @@ class AnalyzerTest < ActiveSupport::TestCase
     end
   end
 
-  test "syncing enqueues analysis again for the thing whose bytes moved, and only that one" do
+  test "syncing enqueues analysis again for the item whose bytes moved, and only that one" do
     %w[invoice.pdf photo.png notes.txt rows.csv].each { |key| analyze key }
 
     @resource.client.put_object(bucket: @bucket, key: "notes.txt", body: "buy more milk")
 
-    assert_enqueued_jobs 1, only: AnalyzeThingJob do
+    assert_enqueued_jobs 1, only: AnalyzeItemJob do
       SyncResourceJob.perform_now(@tenant.id, @resource.id)
     end
   end
@@ -163,14 +163,14 @@ class AnalyzerTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      assert_equal [ "invoice.pdf" ], Thing.search("totalling").pluck(:title)
+      assert_equal [ "invoice.pdf" ], Item.search("totalling").pluck(:title)
     end
   end
 
-  test "syncing enqueues analysis for each new thing" do
-    Tenant.switch(@tenant) { Thing.destroy_all }
+  test "syncing enqueues analysis for each new item" do
+    Tenant.switch(@tenant) { Item.destroy_all }
 
-    assert_enqueued_jobs 4, only: AnalyzeThingJob do
+    assert_enqueued_jobs 4, only: AnalyzeItemJob do
       SyncResourceJob.perform_now(@tenant.id, @resource.id)
     end
   end
@@ -184,16 +184,16 @@ class AnalyzerTest < ActiveSupport::TestCase
       )
     end
 
-    def thing(key)
+    def item(key)
       thing_at(key)
     end
 
     def reference(key)
-      ThingReference.find_by!(locator_key: key).reload
+      Reference.find_by!(locator_key: key).reload
     end
 
     def analyze(key)
-      id = Tenant.switch(@tenant) { thing(key).id }
-      AnalyzeThingJob.perform_now(@tenant.id, id)
+      id = Tenant.switch(@tenant) { item(key).id }
+      AnalyzeItemJob.perform_now(@tenant.id, id)
     end
 end

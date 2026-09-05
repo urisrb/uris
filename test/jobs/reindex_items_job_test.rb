@@ -21,13 +21,13 @@ class ReindexThingsJobTest < ActiveSupport::TestCase
 
   def reindex(tenant = @tenant, index: nil)
     run = Tenant.switch(tenant) { Run.start!(kind: "reindex") }
-    ReindexThingsJob.perform_now(tenant.id, index, run.id)
+    ReindexItemsJob.perform_now(tenant.id, index, run.id)
     Tenant.switch(tenant) { run.reload }
   end
 
   def titles(tenant = @tenant, query = nil)
     SearchIndex.refresh!
-    Tenant.switch(tenant) { Thing.search(query).pluck(:title).sort }
+    Tenant.switch(tenant) { Item.search(query).pluck(:title).sort }
   end
 
   test "a catalog the index lost is put back" do
@@ -48,8 +48,8 @@ class ReindexThingsJobTest < ActiveSupport::TestCase
 
   test "a document whose body drifted is rewritten from the record" do
     Tenant.switch(@tenant) do
-      thing = Thing.find_by!(title: "March invoice")
-      Thing.where(id: thing.id).update_all(title: "April invoice")
+      item = Item.find_by!(title: "March invoice")
+      Item.where(id: item.id).update_all(title: "April invoice")
     end
 
     assert_equal [], titles(@tenant, "April")
@@ -96,7 +96,7 @@ class ReindexThingsJobTest < ActiveSupport::TestCase
 
   test "it walks in pages, so a catalog larger than one page is covered whole" do
     Tenant.switch(@tenant) do
-      (ReindexThingsJob::PAGE + 5).times do |n|
+      (ReindexItemsJob::PAGE + 5).times do |n|
         create_thing(kind: "pdf", title: "bulk-#{n}", locator_key: "bulk/#{n}.pdf")
       end
 
@@ -107,7 +107,7 @@ class ReindexThingsJobTest < ActiveSupport::TestCase
 
     run = reindex
 
-    assert_equal ReindexThingsJob::PAGE + 7, run.processed
+    assert_equal ReindexItemsJob::PAGE + 7, run.processed
   end
 
   test "a reindex into another index leaves the one being queried alone" do
@@ -174,7 +174,7 @@ class ReindexThingsJobTest < ActiveSupport::TestCase
     assert_equal [ "Late invoice" ], titles(late)
   end
 
-  test "a reindex spends one request per page, not one per thing" do
+  test "a reindex spends one request per page, not one per item" do
     Tenant.switch(@tenant) do
       Array.new(5) { |n| create_thing(kind: "pdf", title: "paged-#{n}") }
     end
@@ -186,7 +186,7 @@ class ReindexThingsJobTest < ActiveSupport::TestCase
     SearchIndex.client.define_singleton_method(:index) { |**| singles += 1; {} }
 
     begin
-      ReindexThingsJob.perform_now(@tenant.id)
+      ReindexItemsJob.perform_now(@tenant.id)
     ensure
       SearchIndex.client.singleton_class.remove_method(:bulk)
       SearchIndex.client.singleton_class.remove_method(:index)

@@ -17,13 +17,13 @@ class SelectorTest < ActiveSupport::TestCase
   end
 
   def place(key, kind: "pdf", at: Time.current)
-    thing = Thing.create!(kind: kind, title: File.basename(key), created_at: at)
-    ThingReference.create!(thing: thing, resource: @resource, locator_key: key, locator: {})
-    thing
+    item = Item.create!(kind: kind, title: File.basename(key), created_at: at)
+    Reference.create!(item: item, resource: @resource, locator_key: key, locator: {})
+    item
   end
 
   def matching(**selector)
-    Tenant.switch(@tenant) { Thing.matching(selector).order(:id).to_a }
+    Tenant.switch(@tenant) { Item.matching(selector).order(:id).to_a }
   end
 
   test "a folder is a prefix of the locator key, and it does not match a sibling by accident" do
@@ -43,7 +43,7 @@ class SelectorTest < ActiveSupport::TestCase
     assert_equal [ @note ], matching(folder: "2024", kind: "text")
   end
 
-  test "since and before bound the catalog by when a thing was catalogued" do
+  test "since and before bound the catalog by when a item was catalogued" do
     assert_equal [ @note, @root ], matching(since: 36.hours.ago.iso8601)
     assert_equal [ @march, @april ], matching(before: 36.hours.ago.iso8601)
     assert_equal [ @note ], matching(since: 36.hours.ago.iso8601, before: 90.minutes.ago.iso8601)

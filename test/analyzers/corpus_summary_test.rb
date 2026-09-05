@@ -14,7 +14,7 @@ class CorpusSummaryTest < ActiveSupport::TestCase
     @server = FakeModelServer.current
     @server.reset!.serves("llama3.1:8b")
 
-    ENV["THINGS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "cor-#{SecureRandom.hex(4)}", name: "Corpus")
 
@@ -31,7 +31,7 @@ class CorpusSummaryTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("THINGS_INFERENCE_ORIGINS")
+    ENV.delete("URIS_INFERENCE_ORIGINS")
   end
 
   SOURCES.each do |path|
@@ -47,9 +47,9 @@ class CorpusSummaryTest < ActiveSupport::TestCase
       @server.answer_json({ summary: "It concerns CORPUSECHO-7781.", keywords: [ "corpusecho" ] })
 
       id = Tenant.switch(@tenant) do
-        Thing.joins(:references).find_by!(thing_references: { locator_key: name }).id
+        Item.joins(:references).find_by!(item_references: { locator_key: name }).id
       end
-      AnalyzeThingJob.perform_now(@tenant.id, id)
+      AnalyzeItemJob.perform_now(@tenant.id, id)
 
       needle = needle_in(source)
       assert_includes @server.prompts.last, needle if needle
@@ -57,11 +57,11 @@ class CorpusSummaryTest < ActiveSupport::TestCase
       SearchIndex.refresh!
 
       Tenant.switch(@tenant) do
-        assert_includes ThingReference.find_by!(locator_key: name).analysis
+        assert_includes Reference.find_by!(locator_key: name).analysis
                                       .dig("steps", "summary", "result", "summary"),
                         "CORPUSECHO-7781"
 
-        assert_equal [ name ], Thing.search("CORPUSECHO-7781").pluck(:title)
+        assert_equal [ name ], Item.search("CORPUSECHO-7781").pluck(:title)
       end
     end
   end

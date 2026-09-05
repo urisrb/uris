@@ -5,7 +5,7 @@ class SignInTest < ActionDispatch::IntegrationTest
     @tenant = Tenant.create!(subdomain: "signin-#{SecureRandom.hex(4)}", name: "Sign in")
     connect!(@tenant)
 
-    Tenant.switch(@tenant) { @thing = create_thing(kind: "pdf", title: "An invoice") }
+    Tenant.switch(@tenant) { @item = create_thing(kind: "pdf", title: "An invoice") }
   end
 
   test "starting a sign-in redirects to this tenant's issuer with pkce" do
@@ -20,8 +20,8 @@ class SignInTest < ActionDispatch::IntegrationTest
     assert_equal "S256", query["code_challenge_method"]
     assert query["state"].present?
     assert query["nonce"].present?
-    assert_includes query["scope"].split, "things:catalog:read"
-    assert_equal "http://#{@tenant.subdomain}.things.test/mcp", query["resource"]
+    assert_includes query["scope"].split, "items:catalog:read"
+    assert_equal "http://#{@tenant.subdomain}.uris.test/mcp", query["resource"]
     assert_not_includes response.location, "code_verifier"
   end
 
@@ -29,7 +29,7 @@ class SignInTest < ActionDispatch::IntegrationTest
     sign_in
 
     assert_response :redirect
-    assert_equal "http://#{@tenant.subdomain}.things.test/", response.location
+    assert_equal "http://#{@tenant.subdomain}.uris.test/", response.location
   end
 
   test "the session endpoint answers who is signed in" do
@@ -45,7 +45,7 @@ class SignInTest < ActionDispatch::IntegrationTest
     assert_equal "owner", account["nickname"]
     assert_equal "owner@example.invalid", account["email"]
     assert_equal @tenant.subdomain, account.dig("tenant", "subdomain")
-    assert_includes account["scopes"], "things:catalog:read"
+    assert_includes account["scopes"], "items:catalog:read"
     assert_nil account["access_token"], "a token must never reach the browser"
   end
 
@@ -60,17 +60,17 @@ class SignInTest < ActionDispatch::IntegrationTest
   test "a signed-in browser queries graphql on the cookie alone" do
     sign_in
 
-    post "/graphql", params: { query: "{ things { nodes { title } } }" }, headers: host
+    post "/graphql", params: { query: "{ items { nodes { title } } }" }, headers: host
 
     assert_response :success
     assert_equal [ { "title" => "An invoice" } ],
-                 response.parsed_body.dig("data", "things", "nodes")
+                 response.parsed_body.dig("data", "items", "nodes")
   end
 
   test "the session fits in a cookie, because three JWTs do not" do
     sign_in
 
-    held = cookies["_thingies_session"].to_s
+    held = cookies["_uris_session"].to_s
 
     assert held.present?
     assert_operator held.bytesize, :<, 4096,
@@ -133,25 +133,25 @@ class SignInTest < ActionDispatch::IntegrationTest
   end
 
   test "the scopes the session carries are the ones the issuer granted" do
-    sign_in(scopes: %w[things:catalog:read])
+    sign_in(scopes: %w[items:catalog:read])
 
     get "/auth/session", headers: host
 
-    assert_equal [ "things:catalog:read" ], response.parsed_body["scopes"] & Grant::SCOPES
+    assert_equal [ "items:catalog:read" ], response.parsed_body["scopes"] & Grant::SCOPES
 
     post "/graphql",
-         params: { query: "mutation($id: ID!) { analyzeThing(input: { id: $id }) { run { id } } }",
-                   variables: { id: @thing.id.to_s } },
+         params: { query: "mutation($id: ID!) { analyzeItem(input: { id: $id }) { run { id } } }",
+                   variables: { id: @item.id.to_s } },
          headers: host
 
-    assert_match(/does not carry things:catalog:write/,
+    assert_match(/does not carry items:catalog:write/,
                  response.parsed_body.dig("errors", 0, "message"))
   end
 
   private
 
     def host
-      { "HOST" => "#{@tenant.subdomain}.things.test" }
+      { "HOST" => "#{@tenant.subdomain}.uris.test" }
     end
 
     def sign_in(scopes: Grant::SCOPES)

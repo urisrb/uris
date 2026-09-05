@@ -1,6 +1,6 @@
 import { Alert, Button, Group, Loader, Stack } from '@mantine/core'
-import { SetSettingDocument, SettingsDocument } from '@thingies/client'
-import { useMutation, useQuery } from '@thingies/client/react'
+import { SetSettingDocument, SettingsDocument } from '@uris/client'
+import { useMutation, useQuery } from '@uris/client/react'
 
 interface Props {
   who: string
@@ -21,7 +21,7 @@ export function Settings({ who, tenant, logout, logoutEverywhere }: Props) {
       <div>
         <h1 className="page-title">Settings</h1>
         <div className="eyebrow" style={{ marginTop: 'var(--s2)' }}>
-          Who you are signed in as, and how things behaves for you
+          Who you are signed in as, and how items behaves for you
         </div>
       </div>
 
@@ -31,9 +31,8 @@ export function Settings({ who, tenant, logout, logoutEverywhere }: Props) {
             color="yellow"
             title="This sign-in is older than these settings"
           >
-            Your token was minted before things asked for the settings scopes,
-            so it does not carry them. Sign out and back in and they will be
-            there.
+            Your token was minted before items asked for the settings scopes, so
+            it does not carry them. Sign out and back in and they will be there.
           </Alert>
         ) : (
           <Alert color="red">{error.message}</Alert>

@@ -24,7 +24,7 @@ class Resource
     end
 
     def self.permitted_origins
-      ENV.fetch("THINGS_INFERENCE_ORIGINS", "").split(",").filter_map do |entry|
+      ENV.fetch("URIS_INFERENCE_ORIGINS", "").split(",").filter_map do |entry|
         next if entry.strip.blank?
 
         begin
@@ -233,7 +233,7 @@ class Resource
       end
 
       def headers
-        base = { "Content-Type" => "application/json", "User-Agent" => "things" }
+        base = { "Content-Type" => "application/json", "User-Agent" => "items" }
         token = credentials["api_key"].presence
 
         token ? base.merge("Authorization" => "Bearer #{token}") : base
@@ -279,14 +279,14 @@ class Resource
 
         if allowed.empty?
           raise Resource::Unusable,
-                "#{key}: no inference origins are permitted — set THINGS_INFERENCE_ORIGINS"
+                "#{key}: no inference origins are permitted — set URIS_INFERENCE_ORIGINS"
         end
 
         uri = URI.parse(target.to_s)
         origin = "#{uri.scheme}://#{uri.host}:#{uri.port}"
         return target if allowed.include?(origin)
 
-        raise Resource::Unusable, "#{key}: #{origin} is not one of THINGS_INFERENCE_ORIGINS"
+        raise Resource::Unusable, "#{key}: #{origin} is not one of URIS_INFERENCE_ORIGINS"
       rescue URI::InvalidURIError
         raise Resource::Unusable, "#{key}: #{target} is not a url"
       end

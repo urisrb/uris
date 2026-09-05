@@ -7,7 +7,7 @@ class Resource < ApplicationRecord
   serialize :credentials, coder: JSON, type: Hash
   encrypts :credentials
 
-  has_many :things, dependent: :nullify
+  has_many :items, dependent: :nullify
   has_many :prompts, dependent: :destroy
 
   belongs_to :via, class_name: "Resource", optional: true

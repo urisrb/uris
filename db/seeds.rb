@@ -1,5 +1,5 @@
 TENANTS = [
-  { subdomain: "demo",  name: "Demo things" },
+  { subdomain: "demo",  name: "Demo items" },
   { subdomain: "acme",  name: "Acme" }
 ]
 
@@ -11,7 +11,7 @@ TENANTS.each do |attrs|
       resource.name = "Default storage"
     end.make_default_storage!
 
-    storage = Resource::S3.find_or_initialize_by(key: "things-#{tenant.subdomain}")
+    storage = Resource::S3.find_or_initialize_by(key: "items-#{tenant.subdomain}")
     storage.assign_attributes(
       name: "Object storage",
       details: {
@@ -19,8 +19,8 @@ TENANTS.each do |attrs|
         "region" => ENV.fetch("S3_REGION", "us-east-1")
       },
       credentials: {
-        "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "things"),
-        "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "thingsthings")
+        "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "items"),
+        "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "urisuris")
       }
     )
     storage.save!

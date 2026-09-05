@@ -2,7 +2,7 @@ require "test_helper"
 
 class SettingTest < ActiveSupport::TestCase
   setup do
-    @demo = Tenant.create!(subdomain: "demo-#{SecureRandom.hex(4)}", name: "Demo things")
+    @demo = Tenant.create!(subdomain: "demo-#{SecureRandom.hex(4)}", name: "Demo items")
     @acme = Tenant.create!(subdomain: "acme-#{SecureRandom.hex(4)}", name: "Acme")
   end
 
@@ -79,8 +79,8 @@ class SettingTest < ActiveSupport::TestCase
     definition = Setting.definition!("catalog_view")
 
     assert_predicate definition, :personal?
-    assert_equal "things:settings:read", definition.reads
-    assert_equal "things:settings:write", definition.writes
+    assert_equal "items:settings:read", definition.reads
+    assert_equal "items:settings:write", definition.writes
     assert_includes Grant::SCOPES, definition.reads
     assert_includes Grant::SCOPES, definition.writes
   end

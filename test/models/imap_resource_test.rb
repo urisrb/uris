@@ -22,13 +22,13 @@ class ImapResourceTest < ActiveSupport::TestCase
     end
   end
 
-  test "syncing a mailbox catalogues every message as an email thing" do
+  test "syncing a mailbox catalogues every message as an email item" do
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 2, Thing.count
-      assert_equal %w[email email], Thing.pluck(:kind)
-      assert_equal [ "Beach photos", "March invoice" ], Thing.pluck(:title).sort
+      assert_equal 2, Item.count
+      assert_equal %w[email email], Item.pluck(:kind)
+      assert_equal [ "Beach photos", "March invoice" ], Item.pluck(:title).sort
     end
   end
 
@@ -65,9 +65,9 @@ class ImapResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 4, Thing.count
+      assert_equal 4, Item.count
       assert_equal [ "INBOX/1/1", "INBOX/1/2", "INBOX/2/1", "INBOX/2/2" ],
-                   ThingReference.pluck(:locator_key).sort
+                   Reference.pluck(:locator_key).sort
     end
   end
 
@@ -97,10 +97,10 @@ class ImapResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      thing = titled("March invoice")
-      AnalyzeThingJob.perform_now(@tenant.id, thing.id)
+      item = titled("March invoice")
+      AnalyzeItemJob.perform_now(@tenant.id, item.id)
 
-      analysis = thing.references.first.reload.analysis
+      analysis = item.references.first.reload.analysis
 
       assert_equal "March invoice", analysis.dig("steps", "headers", "result", "subject")
       assert_includes analysis.dig("steps", "text", "result"), "42 pounds"
@@ -118,7 +118,7 @@ class ImapResourceTest < ActiveSupport::TestCase
   test "syncing twice converges rather than accumulating" do
     2.times { sync }
 
-    Tenant.switch(@tenant) { assert_equal 2, Thing.count }
+    Tenant.switch(@tenant) { assert_equal 2, Item.count }
   end
 
   test "a mailbox is not storage and cannot be an export destination" do
@@ -142,6 +142,6 @@ class ImapResourceTest < ActiveSupport::TestCase
     end
 
     def titled(title)
-      Thing.find_by!(title: title)
+      Item.find_by!(title: title)
     end
 end

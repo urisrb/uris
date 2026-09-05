@@ -1,7 +1,7 @@
 module Analyzer
   class Pdf < Base
-    def self.handles?(thing)
-      thing.kind == "pdf"
+    def self.handles?(item)
+      item.kind == "pdf"
     end
 
     def self.parse_info(output)

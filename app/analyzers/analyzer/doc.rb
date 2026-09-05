@@ -1,7 +1,7 @@
 module Analyzer
   class Doc < Base
-    def self.handles?(thing)
-      thing.kind == "doc"
+    def self.handles?(item)
+      item.kind == "doc"
     end
 
     def analyze

@@ -14,7 +14,7 @@ class EnrollmentTest < ActiveSupport::TestCase
     enrollment = open!
 
     assert_equal "google", enrollment.provider
-    assert_match %r{\Ahttps://things\.test/enroll/}, enrollment.url("https://things.test")
+    assert_match %r{\Ahttps://uris\.test/enroll/}, enrollment.url("https://uris.test")
   end
 
   test "a token redeems back to what it was opened with" do

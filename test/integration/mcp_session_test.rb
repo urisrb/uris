@@ -60,16 +60,16 @@ class McpSessionTest < ActionDispatch::IntegrationTest
   end
 
   test "the tool list is still the grant, not an allowlist checked at call time" do
-    narrow = call(@tenant, [ "things:catalog:read" ], "tools/list").dig("result", "tools").map { |t| t["name"] }
+    narrow = call(@tenant, [ "items:catalog:read" ], "tools/list").dig("result", "tools").map { |t| t["name"] }
     wide = call(@tenant, ALL, "tools/list").dig("result", "tools").map { |t| t["name"] }
 
-    assert_equal [ "search_things", "get_thing" ].sort, narrow.sort
+    assert_equal [ "search_items", "get_item" ].sort, narrow.sort
     assert_includes wide, "sync_resource"
     assert_not_includes narrow, "sync_resource"
   end
 
   test "two scope sets do not share a session" do
-    _read_held, read_session = session_for(@tenant, [ "things:catalog:read" ])
+    _read_held, read_session = session_for(@tenant, [ "items:catalog:read" ])
     wide_held = bearer(@tenant, ALL)
 
     send_rpc(@tenant, wide_held, "tools/list", nil, session: read_session)

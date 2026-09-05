@@ -2,8 +2,8 @@ require "csv"
 
 module Analyzer
   class Data < Base
-    def self.handles?(thing)
-      thing.kind == "data"
+    def self.handles?(item)
+      item.kind == "data"
     end
 
     def analyze

@@ -4,10 +4,10 @@ module Analyzer
   class Base
     MAX_TEXT = 200_000
 
-    attr_reader :thing, :reference
+    attr_reader :item, :reference
 
-    def initialize(thing)
-      @thing = thing
+    def initialize(item)
+      @item = item
     end
 
     def self.handles?(_thing)
@@ -19,11 +19,11 @@ module Analyzer
     end
 
     def run
-      extract_children! if thing.depth < Thing::DEPTH
+      extract_children! if item.depth < Item::DEPTH
 
-      return thing unless thing.children_ready?
+      return item unless item.children_ready?
 
-      thing.references.each do |reference|
+      item.references.each do |reference|
         @reference = reference
 
         begin
@@ -34,8 +34,8 @@ module Analyzer
         end
       end
 
-      thing.reload.announce_analyzed!
-      thing
+      item.reload.announce_analyzed!
+      item
     end
 
     def analyze
@@ -99,10 +99,10 @@ module Analyzer
       def extract_children!
         return unless has_children?
 
-        made = thing.references.flat_map { |reference| catalogue_children(reference) }
+        made = item.references.flat_map { |reference| catalogue_children(reference) }
 
-        made.each { |child| AnalyzeThingJob.start!(thing.tenant_id, child.id) }
-        thing.children.reset
+        made.each { |child| AnalyzeItemJob.start!(item.tenant_id, child.id) }
+        item.children.reset
       end
 
       def catalogue_children(reference)
@@ -111,7 +111,7 @@ module Analyzer
 
         children_of(reference).filter_map.with_index do |child, index|
           key = "#{reference.id}/#{index}/#{child.fetch(:filename)}"
-          next if ThingReference.exists?(resource: storage, locator_key: key)
+          next if Reference.exists?(resource: storage, locator_key: key)
 
           record_child(storage, key, child)
         end
@@ -122,14 +122,14 @@ module Analyzer
       def record_child(storage, key, child)
         storage.upload(key, child.fetch(:body))
 
-        held = Thing.create!(
+        held = Item.create!(
           kind: Kind.for_filename(child.fetch(:filename)) || "file",
           title: child.fetch(:filename),
-          parent: thing
+          parent: item
         )
 
-        ThingReference.record!(
-          thing: held, resource: storage, locator_key: key,
+        Reference.record!(
+          item: held, resource: storage, locator_key: key,
           locator: { "key" => key }
         )
 
@@ -215,7 +215,7 @@ module Analyzer
       end
 
       def children_summaries
-        thing.children.flat_map { |child|
+        item.children.flat_map { |child|
           child.references.filter_map { |ref| ref.analysis.dig("steps", "summary", "result", "summary") }
                .map { |line| "- #{child.title}: #{line}" }
         }.join("\n").presence
@@ -263,7 +263,7 @@ module Analyzer
       end
 
       def with_tempfile
-        Tempfile.create([ "thing", File.extname(reference.locator_key.to_s) ], binmode: true) do |file|
+        Tempfile.create([ "item", File.extname(reference.locator_key.to_s) ], binmode: true) do |file|
           IO.copy_stream(reference.download, file)
           file.flush
           yield file.path

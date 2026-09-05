@@ -4,7 +4,7 @@ require "rails/all"
 
 Bundler.require(*Rails.groups)
 
-module Thingies
+module Uris
   class Application < Rails::Application
     config.active_record.query_log_tags_enabled = true
     config.active_record.query_log_tags = [
@@ -22,11 +22,11 @@ module Thingies
     config.active_job.queue_adapter = :solid_queue
     config.solid_queue.connects_to = { database: { writing: :queue } }
 
-    config.thingies = ActiveSupport::OrderedOptions.new
-    config.thingies.mcp_limit = ENV.fetch("THINGS_MCP_LIMIT", 120).to_i
-    config.thingies.run_budget = ENV.fetch("THINGS_RUN_BUDGET", 20).to_i
-    config.thingies.audit_retention = ENV.fetch("THINGS_AUDIT_RETENTION_DAYS", 90).to_i.days
-    config.thingies.run_retention = ENV.fetch("THINGS_RUN_RETENTION_DAYS", 14).to_i.days
+    config.uris = ActiveSupport::OrderedOptions.new
+    config.uris.mcp_limit = ENV.fetch("URIS_MCP_LIMIT", 120).to_i
+    config.uris.run_budget = ENV.fetch("URIS_RUN_BUDGET", 20).to_i
+    config.uris.audit_retention = ENV.fetch("URIS_AUDIT_RETENTION_DAYS", 90).to_i.days
+    config.uris.run_retention = ENV.fetch("URIS_RUN_RETENTION_DAYS", 14).to_i.days
 
     config.active_record.encryption.primary_key = ENV["ENCRYPTION_PRIMARY_KEY"]
     config.active_record.encryption.deterministic_key = ENV["ENCRYPTION_DETERMINISTIC_KEY"]

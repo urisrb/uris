@@ -1,7 +1,7 @@
 module Tool
   class SyncResource < Base
     tool_name "sync_resource"
-    scope "things:resources:command"
+    scope "items:resources:command"
     starts_runs true
 
     description <<~TEXT

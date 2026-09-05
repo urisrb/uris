@@ -18,8 +18,8 @@ class FailurePolicyTest < ActiveSupport::TestCase
     @reachable.client.put_object(bucket: @bucket, key: "broken.pdf", body: "not a pdf")
 
     Tenant.switch(@tenant) do
-      @broken = ThingReference.discover!(resource: @reachable, locator: { "bucket" => @bucket, "key" => "broken.pdf" },
-                                         locator_key: "broken.pdf", kind: "pdf", title: "broken.pdf").thing
+      @broken = Reference.discover!(resource: @reachable, locator: { "bucket" => @bucket, "key" => "broken.pdf" },
+                                         locator_key: "broken.pdf", kind: "pdf", title: "broken.pdf").item
       @stranded = create_thing(kind: "text", title: "stranded.txt", locator_key: "stranded.txt",
                                resource: @unreachable, locator: { "bucket" => "gone", "key" => "stranded.txt" })
     end
@@ -34,7 +34,7 @@ class FailurePolicyTest < ActiveSupport::TestCase
 
   test "a file the analyzer cannot read is discarded, not retried forever" do
     assert_no_enqueued_jobs do
-      assert_nothing_raised { AnalyzeThingJob.perform_now(@tenant.id, @broken.id) }
+      assert_nothing_raised { AnalyzeItemJob.perform_now(@tenant.id, @broken.id) }
     end
 
     Tenant.switch(@tenant) do
@@ -46,8 +46,8 @@ class FailurePolicyTest < ActiveSupport::TestCase
   end
 
   test "the same failure point retries when the resource is what broke" do
-    assert_enqueued_jobs 1, only: AnalyzeThingJob do
-      AnalyzeThingJob.perform_now(@tenant.id, @stranded.id)
+    assert_enqueued_jobs 1, only: AnalyzeItemJob do
+      AnalyzeItemJob.perform_now(@tenant.id, @stranded.id)
     end
   end
 
@@ -65,15 +65,15 @@ class FailurePolicyTest < ActiveSupport::TestCase
   end
 
   test "analysis is capped per tenant, so one cannot occupy the pool" do
-    assert_equal 2, AnalyzeThingJob.concurrency_limit
-    assert_equal "AnalyzeThingJob/analysis/#{@tenant.id}",
-                 AnalyzeThingJob.new(@tenant.id, @broken.id).concurrency_key
+    assert_equal 2, AnalyzeItemJob.concurrency_limit
+    assert_equal "AnalyzeItemJob/analysis/#{@tenant.id}",
+                 AnalyzeItemJob.new(@tenant.id, @broken.id).concurrency_key
   end
 
   test "analysis and the iterators do not share a queue" do
-    assert_equal "analysis", AnalyzeThingJob.new.queue_name
+    assert_equal "analysis", AnalyzeItemJob.new.queue_name
     assert_equal "sync", SyncResourceJob.new.queue_name
-    assert_equal "export", ExportThingsJob.new.queue_name
+    assert_equal "export", ExportItemsJob.new.queue_name
   end
 
   private
@@ -84,7 +84,7 @@ class FailurePolicyTest < ActiveSupport::TestCase
     end
 
     def s3_credentials
-      { "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "things"),
-        "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "thingsthings") }
+      { "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "items"),
+        "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "urisuris") }
     end
 end

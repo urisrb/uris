@@ -1,12 +1,12 @@
-class Thing < ApplicationRecord
+class Item < ApplicationRecord
   include TenantScoped
 
-  has_many :references, -> { oldest_first }, class_name: "ThingReference", dependent: :destroy,
-                                             inverse_of: :thing
+  has_many :references, -> { oldest_first }, class_name: "Reference", dependent: :destroy,
+                                             inverse_of: :item
   has_many :resources, through: :references
 
-  belongs_to :parent, class_name: "Thing", optional: true
-  has_many :children, -> { order(:id) }, class_name: "Thing", foreign_key: :parent_id,
+  belongs_to :parent, class_name: "Item", optional: true
+  has_many :children, -> { order(:id) }, class_name: "Item", foreign_key: :parent_id,
                                          inverse_of: :parent, dependent: :destroy
 
   validates :kind, presence: true
@@ -22,11 +22,11 @@ class Thing < ApplicationRecord
   end
 
   def self.referencing(resource_id)
-    where(id: ThingReference.where(resource_id: resource_id).select(:thing_id))
+    where(id: Reference.where(resource_id: resource_id).select(:item_id))
   end
 
   def self.referenced
-    where(id: ThingReference.select(:thing_id))
+    where(id: Reference.select(:item_id))
   end
 
   SELECTOR = %w[id kind resource_id query folder since before].freeze
@@ -35,7 +35,7 @@ class Thing < ApplicationRecord
     prefix = folder.to_s.delete_prefix("/").chomp("/")
     return all if prefix.empty?
 
-    where(id: ThingReference.under(prefix).select(:thing_id))
+    where(id: Reference.under(prefix).select(:item_id))
   end
 
   def self.matching(selector)
@@ -60,7 +60,7 @@ class Thing < ApplicationRecord
   end
 
   def merge!(other)
-    raise ArgumentError, "a thing cannot merge into itself" if other.id == id
+    raise ArgumentError, "a item cannot merge into itself" if other.id == id
 
     transaction do
       other.references.to_a.each { |reference| reference.move_to!(self) }
@@ -118,14 +118,14 @@ class Thing < ApplicationRecord
 
   def analyze!
     Run.start!(kind: "analyze", selector: { "id" => id }).tap do |run|
-      AnalyzeThingsJob.perform_later(tenant_id, { "id" => id }, run.id)
+      AnalyzeItemsJob.perform_later(tenant_id, { "id" => id }, run.id)
     end
   end
 
   def announce_analyzed!
     Tenant.switch(tenant) do
-      ThingiesSchema.subscriptions.trigger(:thing_analyzed, {}, self, scope: tenant_id)
-      ThingiesSchema.subscriptions.trigger(:thing_analyzed, { id: to_gid_param }, self,
+      UrisSchema.subscriptions.trigger(:item_analyzed, {}, self, scope: tenant_id)
+      UrisSchema.subscriptions.trigger(:item_analyzed, { id: to_gid_param }, self,
                                          scope: tenant_id)
     end
   end

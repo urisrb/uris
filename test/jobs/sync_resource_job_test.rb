@@ -15,8 +15,8 @@ class SyncResourceJobTest < ActiveSupport::TestCase
           "region" => ENV.fetch("S3_REGION", "us-east-1")
         },
         credentials: {
-          "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "things"),
-          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "thingsthings")
+          "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "items"),
+          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "urisuris")
         }
       )
     end
@@ -39,7 +39,7 @@ class SyncResourceJobTest < ActiveSupport::TestCase
     SyncResourceJob.perform_now(@tenant.id, @resource.id)
 
     Tenant.switch(@tenant) do
-      assert_equal 3, Thing.count
+      assert_equal 3, Item.count
 
       pdf = thing_at("invoices/march.pdf")
       assert_equal "pdf", pdf.kind
@@ -55,22 +55,22 @@ class SyncResourceJobTest < ActiveSupport::TestCase
   test "syncing twice converges rather than accumulating" do
     2.times { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
-    Tenant.switch(@tenant) { assert_equal 3, Thing.count }
+    Tenant.switch(@tenant) { assert_equal 3, Item.count }
   end
 
   test "a sync writes into one tenant only" do
     SyncResourceJob.perform_now(@tenant.id, @resource.id)
 
-    Tenant.switch(@other) { assert_equal 0, Thing.count }
+    Tenant.switch(@other) { assert_equal 0, Item.count }
   end
 
-  test "the bytes are still in the resource, not in things" do
+  test "the bytes are still in the resource, not in items" do
     SyncResourceJob.perform_now(@tenant.id, @resource.id)
 
     Tenant.switch(@tenant) do
-      thing = thing_at("notes.txt")
+      item = thing_at("notes.txt")
 
-      assert_equal "contents of notes.txt", @resource.download(thing.locator).read
+      assert_equal "contents of notes.txt", @resource.download(item.locator).read
     end
   end
 
@@ -136,6 +136,6 @@ class SyncResourceJobTest < ActiveSupport::TestCase
     end
 
     def reference_at(locator_key)
-      ThingReference.find_by!(resource_id: @resource.id, locator_key: locator_key)
+      Reference.find_by!(resource_id: @resource.id, locator_key: locator_key)
     end
 end

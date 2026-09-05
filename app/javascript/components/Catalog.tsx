@@ -7,12 +7,12 @@ import {
 } from '@tabler/icons-react'
 import {
   CatalogDocument,
+  ItemAnalyzedDocument,
   SearchDocument,
   SetSettingDocument,
   SettingsDocument,
-  ThingAnalyzedDocument,
-} from '@thingies/client'
-import { useMutation, useQuery, useSubscription } from '@thingies/client/react'
+} from '@uris/client'
+import { useMutation, useQuery, useSubscription } from '@uris/client/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { KindBadge } from './KindBadge'
@@ -98,10 +98,10 @@ function Listing({
     { query: term, kind },
     { skip: !searching },
   )
-  const { data: analyzed } = useSubscription(ThingAnalyzedDocument)
+  const { data: analyzed } = useSubscription(ItemAnalyzedDocument)
 
   useEffect(() => {
-    const page = catalog.data?.things
+    const page = catalog.data?.items
     if (!page) return
 
     setPages((existing) =>
@@ -121,7 +121,7 @@ function Listing({
   }, [settledAt, searching, catalog.refetch])
 
   const rows: Row[] = searching ? (found.data?.search ?? []) : pages
-  const page = catalog.data?.things
+  const page = catalog.data?.items
   const loading = searching ? found.loading : catalog.loading
   const error = searching ? found.error : catalog.error
 
@@ -142,7 +142,7 @@ function Listing({
             ) : (
               <>
                 <span className="figure">{rows.length.toLocaleString()}</span>{' '}
-                {kind ? kind : 'things'}
+                {kind ? kind : 'items'}
                 {page?.hasMore ? ' so far' : ''}
               </>
             )}
@@ -157,24 +157,24 @@ function Listing({
       {rows.length > 0 &&
         (view === 'cards' ? (
           <div className="grid">
-            {rows.map((thing) => (
-              <Link key={thing.id} to={`/things/${thing.id}`} className="card">
+            {rows.map((item) => (
+              <Link key={item.id} to={`/items/${item.id}`} className="card">
                 <Cover
-                  url={thing.thumbnailUrl}
-                  kind={thing.kind}
-                  alt={thing.title ?? ''}
+                  url={item.thumbnailUrl}
+                  kind={item.kind}
+                  alt={item.title ?? ''}
                 />
                 <div className="card-body">
-                  <div className="card-title">{thing.title ?? 'Untitled'}</div>
-                  {thing.summary ? (
-                    <div className="card-summary">{thing.summary}</div>
+                  <div className="card-title">{item.title ?? 'Untitled'}</div>
+                  {item.summary ? (
+                    <div className="card-summary">{item.summary}</div>
                   ) : (
-                    !thing.analyzedAt && (
+                    !item.analyzedAt && (
                       <div className="card-summary">Not analyzed yet</div>
                     )
                   )}
                   <div className="card-foot">
-                    <KindBadge kind={thing.kind} />
+                    <KindBadge kind={item.kind} />
                   </div>
                 </div>
               </Link>
@@ -182,25 +182,25 @@ function Listing({
           </div>
         ) : (
           <div className="panel">
-            {rows.map((thing) => (
-              <Link key={thing.id} to={`/things/${thing.id}`} className="entry">
+            {rows.map((item) => (
+              <Link key={item.id} to={`/items/${item.id}`} className="entry">
                 <Thumb
-                  url={thing.thumbnailUrl}
-                  kind={thing.kind}
-                  alt={thing.title ?? ''}
+                  url={item.thumbnailUrl}
+                  kind={item.kind}
+                  alt={item.title ?? ''}
                   size={48}
                 />
                 <div style={{ minWidth: 0 }}>
-                  <div className="entry-title">{thing.title ?? 'Untitled'}</div>
-                  {thing.summary ? (
-                    <div className="entry-summary">{thing.summary}</div>
+                  <div className="entry-title">{item.title ?? 'Untitled'}</div>
+                  {item.summary ? (
+                    <div className="entry-summary">{item.summary}</div>
                   ) : (
-                    !thing.analyzedAt && (
+                    !item.analyzedAt && (
                       <div className="entry-summary">Not analyzed yet</div>
                     )
                   )}
                 </div>
-                <KindBadge kind={thing.kind} />
+                <KindBadge kind={item.kind} />
               </Link>
             ))}
           </div>
@@ -273,7 +273,7 @@ function Empty({
   if (searching) {
     return (
       <Text c="dimmed" size="sm">
-        Nothing matches that yet. Analysis is what makes a thing searchable, so
+        Nothing matches that yet. Analysis is what makes a item searchable, so
         anything still waiting on it will not turn up here.
       </Text>
     )

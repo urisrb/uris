@@ -17,7 +17,7 @@ class SummaryTest < ActiveSupport::TestCase
     @server = FakeModelServer.current
     @server.reset!.serves("gemma3:4b", "llama3.1:8b")
 
-    ENV["THINGS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "sum-#{SecureRandom.hex(4)}", name: "Summaries")
 
@@ -32,7 +32,7 @@ class SummaryTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("THINGS_INFERENCE_ORIGINS")
+    ENV.delete("URIS_INFERENCE_ORIGINS")
   end
 
   test "with no inference resource the summary step is absent, and analysis still finishes" do
@@ -83,7 +83,7 @@ class SummaryTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      assert_equal [ "notes.txt" ], Thing.search("estuary").pluck(:title)
+      assert_equal [ "notes.txt" ], Item.search("estuary").pluck(:title)
     end
   end
 
@@ -94,7 +94,7 @@ class SummaryTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       assert_equal "A pelican census.",
-                   Tool::GetThing.steps(reference("notes.txt")).dig("summary", "summary")
+                   Tool::GetItem.steps(reference("notes.txt")).dig("summary", "summary")
     end
 
     @server.refuse(404, body: "no such model")
@@ -102,7 +102,7 @@ class SummaryTest < ActiveSupport::TestCase
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
-      assert_match(/404/, Tool::GetThing.steps(reference("notes.txt")).dig("summary", "error"))
+      assert_match(/404/, Tool::GetItem.steps(reference("notes.txt")).dig("summary", "error"))
     end
   end
 
@@ -118,8 +118,8 @@ class SummaryTest < ActiveSupport::TestCase
       assert_equal "llama3.1:8b", step["model"]
       assert_equal "smart", step["role"]
 
-      assert_not_includes thing("notes.txt").body_text, "llama3.1:8b"
-      assert_not_includes thing("notes.txt").body_text, "ollama"
+      assert_not_includes item("notes.txt").body_text, "llama3.1:8b"
+      assert_not_includes item("notes.txt").body_text, "ollama"
     end
   end
 
@@ -210,10 +210,10 @@ class SummaryTest < ActiveSupport::TestCase
     inference!
     @server.refuse(500)
 
-    id = Tenant.switch(@tenant) { thing("notes.txt").id }
+    id = Tenant.switch(@tenant) { item("notes.txt").id }
 
-    assert_enqueued_jobs 1, only: AnalyzeThingJob do
-      AnalyzeThingJob.perform_now(@tenant.id, id)
+    assert_enqueued_jobs 1, only: AnalyzeItemJob do
+      AnalyzeItemJob.perform_now(@tenant.id, id)
     end
   end
 
@@ -221,10 +221,10 @@ class SummaryTest < ActiveSupport::TestCase
     inference!
     @server.refuse(404, body: "no such model")
 
-    id = Tenant.switch(@tenant) { thing("notes.txt").id }
+    id = Tenant.switch(@tenant) { item("notes.txt").id }
 
     assert_no_enqueued_jobs do
-      assert_nothing_raised { AnalyzeThingJob.perform_now(@tenant.id, id) }
+      assert_nothing_raised { AnalyzeItemJob.perform_now(@tenant.id, id) }
     end
   end
 
@@ -275,15 +275,15 @@ class SummaryTest < ActiveSupport::TestCase
     end
 
     def analyze(key)
-      id = Tenant.switch(@tenant) { thing(key).id }
-      AnalyzeThingJob.perform_now(@tenant.id, id)
+      id = Tenant.switch(@tenant) { item(key).id }
+      AnalyzeItemJob.perform_now(@tenant.id, id)
     end
 
-    def thing(key)
-      Thing.joins(:references).find_by!(thing_references: { locator_key: key })
+    def item(key)
+      Item.joins(:references).find_by!(item_references: { locator_key: key })
     end
 
     def reference(key)
-      ThingReference.find_by!(locator_key: key).reload
+      Reference.find_by!(locator_key: key).reload
     end
 end

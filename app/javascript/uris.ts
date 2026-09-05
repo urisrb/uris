@@ -1,8 +1,8 @@
-import { createThings, metaCSRFToken } from '@thingies/client'
-import { actionCableExchange } from '@thingies/client/actioncable'
+import { createUris, metaCSRFToken } from '@uris/client'
+import { actionCableExchange } from '@uris/client/actioncable'
 import { session } from './hooks/useSession'
 
-export const things = createThings({
+export const client = createUris({
   url: '/graphql',
   csrfToken: metaCSRFToken,
   onUnauthorized: () => session.login(),

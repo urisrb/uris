@@ -20,7 +20,7 @@ class CarddavResourceTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
-    ENV["THINGS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
 
     @server = FakeDavServer.current
     @server.reset!
@@ -40,16 +40,16 @@ class CarddavResourceTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("THINGS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
   end
 
   test "only vcards are catalogued, and they are contacts" do
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 1, Thing.count
-      assert_equal "contact", Thing.first.kind
-      assert_equal "contacts/jane.vcf", ThingReference.first.locator_key
+      assert_equal 1, Item.count
+      assert_equal "contact", Item.first.kind
+      assert_equal "contacts/jane.vcf", Reference.first.locator_key
     end
   end
 
@@ -59,17 +59,17 @@ class CarddavResourceTest < ActiveSupport::TestCase
 
     sync
 
-    Tenant.switch(@tenant) { assert_equal 3, Thing.count }
+    Tenant.switch(@tenant) { assert_equal 3, Item.count }
   end
 
   test "the analyzer reads the card, unfolding and ungrouping as it goes" do
     sync
 
     Tenant.switch(@tenant) do
-      thing = Thing.first
-      AnalyzeThingJob.perform_now(@tenant.id, thing.id)
+      item = Item.first
+      AnalyzeItemJob.perform_now(@tenant.id, item.id)
 
-      contact = thing.references.first.reload.analysis.dig("steps", "contacts", "result").first
+      contact = item.references.first.reload.analysis.dig("steps", "contacts", "result").first
 
       assert_equal "Jane Pelican", contact["fn"]
       assert_equal "Pelican Jane", contact["name"]
@@ -84,10 +84,10 @@ class CarddavResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      thing = Thing.first
-      AnalyzeThingJob.perform_now(@tenant.id, thing.id)
+      item = Item.first
+      AnalyzeItemJob.perform_now(@tenant.id, item.id)
 
-      analysis = thing.references.first.reload.analysis
+      analysis = item.references.first.reload.analysis
 
       assert_includes analysis.dig("steps", "contacts", "result").first["note"], "especially in winter."
       assert_includes analysis.dig("steps", "text", "result"), "jane@estuary.example"

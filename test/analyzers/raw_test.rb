@@ -24,7 +24,7 @@ class RawTest < ActiveSupport::TestCase
 
     server = FakeModelServer.current
     server.reset!.serves("gemma3:4b")
-    ENV["THINGS_INFERENCE_ORIGINS"] = server.origin
+    ENV["URIS_INFERENCE_ORIGINS"] = server.origin
 
     tenant = Tenant.create!(subdomain: "raw-#{SecureRandom.hex(4)}", name: "Raw")
 
@@ -44,12 +44,12 @@ class RawTest < ActiveSupport::TestCase
     server.answer_json({ summary: "A photograph off a Nikon.", keywords: [ "photograph" ] })
 
     id = Tenant.switch(tenant) do
-      Thing.joins(:references).find_by!(thing_references: { locator_key: "photo.nef" }).id
+      Item.joins(:references).find_by!(item_references: { locator_key: "photo.nef" }).id
     end
-    AnalyzeThingJob.perform_now(tenant.id, id)
+    AnalyzeItemJob.perform_now(tenant.id, id)
 
     Tenant.switch(tenant) do
-      reference = ThingReference.find_by!(locator_key: "photo.nef").reload
+      reference = Reference.find_by!(locator_key: "photo.nef").reload
       dimensions = reference.analysis.dig("steps", "dimensions", "result")
 
       assert_equal "image", reference.kind
@@ -65,6 +65,6 @@ class RawTest < ActiveSupport::TestCase
     assert_equal Thumbnail::SIZES.fetch("large").to_s,
                  Open3.capture2("vipsheader", "-f", "width", path).first.strip
   ensure
-    ENV.delete("THINGS_INFERENCE_ORIGINS")
+    ENV.delete("URIS_INFERENCE_ORIGINS")
   end
 end

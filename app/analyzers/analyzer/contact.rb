@@ -6,8 +6,8 @@ module Analyzer
     SINGLE = %w[fn title org note bday nickname role].freeze
     REPEATED = %w[email tel url impp].freeze
 
-    def self.handles?(thing)
-      thing.kind == "contact"
+    def self.handles?(item)
+      item.kind == "contact"
     end
 
     def analyze

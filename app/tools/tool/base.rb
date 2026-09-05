@@ -3,15 +3,15 @@ module Tool
 
   class Base < MCP::Tool
     SELECTOR_SCHEMA = {
-      query: { type: "string", description: "Words to match, as in search_things." },
+      query: { type: "string", description: "Words to match, as in search_items." },
       kind: { type: "string", description: "Restrict to one kind." },
-      resource_id: { type: "string", description: "Restrict to things from one resource." },
+      resource_id: { type: "string", description: "Restrict to items from one resource." },
       folder: {
         type: "string",
         description: "Restrict to a prefix of the locator key, as a folder: 2024/invoices."
       },
-      since: { type: "string", description: "Only things catalogued at or after this time." },
-      before: { type: "string", description: "Only things catalogued before this time." }
+      since: { type: "string", description: "Only items catalogued at or after this time." },
+      before: { type: "string", description: "Only items catalogued before this time." }
     }.freeze
 
     EXPECTED = [
@@ -56,7 +56,7 @@ module Tool
       def within_budget!(grant)
         return unless starts_runs
 
-        limit = Rails.configuration.thingies.run_budget
+        limit = Rails.configuration.uris.run_budget
         return if limit.zero?
 
         key = [ "mcp:runs", Current.tenant.id, grant.subject, Time.current.to_i / 3600 ].join(":")
@@ -81,21 +81,21 @@ module Tool
         MCP::Tool::Response.new([ { type: "text", text: body } ], error: error)
       end
 
-      def thing!(id)
-        Thing.find_by(id: id) || raise(ArgumentError, "no thing with id #{id}")
+      def item!(id)
+        Item.find_by(id: id) || raise(ArgumentError, "no item with id #{id}")
       end
 
       def resource!(id)
         Resource.active.find_by(id: id) || raise(ArgumentError, "no resource with id #{id}")
       end
 
-      def summarize(thing)
+      def summarize(item)
         {
-          id: thing.id.to_s,
-          kind: thing.kind,
-          title: thing.title,
-          analyzed_at: thing.analyzed_at,
-          references: thing.references.map { |reference| describe_reference(reference) }
+          id: item.id.to_s,
+          kind: item.kind,
+          title: item.title,
+          analyzed_at: item.analyzed_at,
+          references: item.references.map { |reference| describe_reference(reference) }
         }
       end
 

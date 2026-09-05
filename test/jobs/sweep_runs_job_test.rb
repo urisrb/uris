@@ -65,10 +65,10 @@ class SweepRunsJobTest < ActiveSupport::TestCase
   private
 
     def with_retention(days)
-      previous = Rails.configuration.thingies.run_retention
-      Rails.configuration.thingies.run_retention = days.days
+      previous = Rails.configuration.uris.run_retention
+      Rails.configuration.uris.run_retention = days.days
       yield
     ensure
-      Rails.configuration.thingies.run_retention = previous
+      Rails.configuration.uris.run_retention = previous
     end
 end

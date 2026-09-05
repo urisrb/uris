@@ -14,7 +14,7 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) do
       @resource = Resource::S3.create!(key: "endpoint-bucket", name: "Bucket",
                                        details: { "endpoint" => "http://127.0.0.1:1" })
-      @thing = create_thing(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf",
+      @item = create_thing(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf",
                             resource: @resource, locator: { "bucket" => "endpoint-bucket" })
     end
 
@@ -69,31 +69,31 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
   end
 
   test "the token decides which tools exist at all" do
-    names = call(@tenant, [ "things:catalog:read" ], "tools/list").dig("result", "tools").map { |t| t["name"] }
+    names = call(@tenant, [ "items:catalog:read" ], "tools/list").dig("result", "tools").map { |t| t["name"] }
 
-    assert_equal %w[search_things get_thing], names
+    assert_equal %w[search_items get_item], names
   end
 
   test "a tool outside the grant is not callable, not merely unlisted" do
-    reply = call(@tenant, [ "things:catalog:read" ], "tools/call",
+    reply = call(@tenant, [ "items:catalog:read" ], "tools/call",
                  name: "sync_resource", arguments: { id: @resource.id.to_s })
 
     assert_nil reply["result"]
     assert_match(/Tool not found/, reply.dig("error", "data"))
   end
 
-  test "search returns this tenant's things and never another's" do
-    result = tool(@tenant, ALL, "search_things", query: "invoice")
+  test "search returns this tenant's items and never another's" do
+    result = tool(@tenant, ALL, "search_items", query: "invoice")
 
-    assert_equal [ @thing.id.to_s ], result["things"].map { |t| t["id"] }
+    assert_equal [ @item.id.to_s ], result["items"].map { |t| t["id"] }
   end
 
-  test "a thing belonging to another tenant cannot be fetched by id" do
+  test "a item belonging to another tenant cannot be fetched by id" do
     reply = call(@tenant, ALL, "tools/call",
-                 name: "get_thing", arguments: { id: @theirs.id.to_s })
+                 name: "get_item", arguments: { id: @theirs.id.to_s })
 
     assert reply.dig("result", "isError")
-    assert_match(/no thing/, reply.dig("result", "content", 0, "text"))
+    assert_match(/no item/, reply.dig("result", "content", 0, "text"))
   end
 
   test "describe_resource advertises the vocabulary command_resource accepts" do
@@ -196,7 +196,7 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
   end
 
   test "export refuses a destination that is not storage" do
-    reply = call(@tenant, ALL, "tools/call", name: "export_things",
+    reply = call(@tenant, ALL, "tools/call", name: "export_items",
                  arguments: { destination_id: "0" })
 
     assert reply.dig("result", "isError")
@@ -207,14 +207,14 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
       Resource::Database.create!(key: "database", name: "Storage").make_default_storage!
     end
 
-    assert_enqueued_with(job: ExportThingsJob,
+    assert_enqueued_with(job: ExportItemsJob,
                          args: ->(args) { args.first(3) == [ @tenant.id, storage.id, {} ] }) do
-      assert tool(@tenant, ALL, "export_things")["queued"]
+      assert tool(@tenant, ALL, "export_items")["queued"]
     end
   end
 
   test "export says so when the tenant has named no default storage" do
-    reply = call(@tenant, ALL, "tools/call", name: "export_things", arguments: {})
+    reply = call(@tenant, ALL, "tools/call", name: "export_items", arguments: {})
 
     assert reply.dig("result", "isError")
     assert_match(/no default storage/, reply.dig("result", "content", 0, "text"))

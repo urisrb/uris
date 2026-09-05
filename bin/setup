@@ -36,10 +36,10 @@ FileUtils.chdir APP_ROOT do
 
     Add these to /etc/hosts, then run bin/dev:
 
-      127.0.0.1 things.test demo.things.test acme.things.test
+      127.0.0.1 uris.test demo.uris.test acme.uris.test
 
-      http://demo.things.test:4242
-      http://acme.things.test:4242
+      http://demo.uris.test:4242
+      http://acme.uris.test:4242
 
   NEXT
 end

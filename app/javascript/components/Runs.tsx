@@ -1,6 +1,6 @@
 import { Alert, Button, Group, Loader, Stack, Table, Text } from '@mantine/core'
-import { CancelRunDocument, RunsDocument } from '@thingies/client'
-import { useMutation, useQuery } from '@thingies/client/react'
+import { CancelRunDocument, RunsDocument } from '@uris/client'
+import { useMutation, useQuery } from '@uris/client/react'
 import { type CSSProperties, useEffect, useState } from 'react'
 
 const STATUSES = ['queued', 'running', 'done', 'failed', 'cancelled', 'gated']

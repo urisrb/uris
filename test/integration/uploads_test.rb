@@ -8,7 +8,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
     @root = @allowed + "drop"
     @root.mkpath
 
-    ENV["THINGS_FILESYSTEM_ROOTS"] = @allowed.to_s
+    ENV["URIS_FILESYSTEM_ROOTS"] = @allowed.to_s
 
     @tenant = Tenant.create!(subdomain: "up-#{SecureRandom.hex(4)}", name: "Uploads")
     @other = Tenant.create!(subdomain: "up-#{SecureRandom.hex(4)}", name: "Elsewhere")
@@ -25,7 +25,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
   end
 
   teardown do
-    ENV.delete("THINGS_FILESYSTEM_ROOTS")
+    ENV.delete("URIS_FILESYSTEM_ROOTS")
     FileUtils.remove_entry(@allowed) if @allowed.exist?
   end
 
@@ -42,16 +42,16 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_equal "contents of march", (@root + "march.pdf").read
 
     Tenant.switch(@tenant) do
-      thing = thing_at("march.pdf")
+      item = thing_at("march.pdf")
 
-      assert_equal "pdf", thing.kind
-      assert_equal "march.pdf", thing.title
-      assert_equal @storage.id, thing.resource.id
+      assert_equal "pdf", item.kind
+      assert_equal "march.pdf", item.title
+      assert_equal @storage.id, item.resource.id
     end
   end
 
   test "a dropped file is queued for analysis, with a run to watch it by" do
-    assert_enqueued_jobs 1, only: AnalyzeThingJob do
+    assert_enqueued_jobs 1, only: AnalyzeItemJob do
       upload "march.pdf", "contents of march"
     end
 
@@ -92,7 +92,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_match(/not a usable path/, response.parsed_body["error"])
   end
 
-  test "dropping the same path twice updates one thing rather than making two" do
+  test "dropping the same path twice updates one item rather than making two" do
     upload "notes.txt", "first"
     upload "notes.txt", "second"
 
@@ -100,8 +100,8 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_equal "second", (@root + "notes.txt").read
 
     Tenant.switch(@tenant) do
-      assert_equal 1, Thing.count
-      assert_equal 1, ThingReference.where(locator_key: "notes.txt").count
+      assert_equal 1, Item.count
+      assert_equal 1, Reference.where(locator_key: "notes.txt").count
     end
   end
 
@@ -112,14 +112,14 @@ class UploadsTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     assert_match(/no default storage/, response.parsed_body["error"])
-    Tenant.switch(@tenant) { assert_equal 0, Thing.count }
+    Tenant.switch(@tenant) { assert_equal 0, Item.count }
   end
 
   test "a token that may read but not write cannot drop anything" do
-    upload "march.pdf", "contents", scopes: [ "things:catalog:read" ]
+    upload "march.pdf", "contents", scopes: [ "items:catalog:read" ]
 
     assert_response :unauthorized
-    Tenant.switch(@tenant) { assert_equal 0, Thing.count }
+    Tenant.switch(@tenant) { assert_equal 0, Item.count }
   end
 
   test "a token minted for another tenant cannot drop into this one" do
@@ -128,7 +128,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
          headers: host_for(@tenant).merge(bearer(@other))
 
     assert_response :unauthorized
-    Tenant.switch(@tenant) { assert_equal 0, Thing.count }
+    Tenant.switch(@tenant) { assert_equal 0, Item.count }
   end
 
   private
@@ -149,13 +149,13 @@ class UploadsTest < ActionDispatch::IntegrationTest
     end
 
     def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.things.test" }
+      { "HOST" => "#{tenant.subdomain}.uris.test" }
     end
 
     def bearer(tenant, scopes: Grant::SCOPES)
       token = issuer.mint(
         subdomain: tenant.subdomain, scopes: scopes,
-        audience: "http://#{tenant.subdomain}.things.test/mcp"
+        audience: "http://#{tenant.subdomain}.uris.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

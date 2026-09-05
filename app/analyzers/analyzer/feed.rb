@@ -1,7 +1,7 @@
 module Analyzer
   class Feed < Base
-    def self.handles?(thing)
-      thing.kind == "feed"
+    def self.handles?(item)
+      item.kind == "feed"
     end
 
     def analyze
@@ -18,7 +18,7 @@ module Analyzer
       def body_of(reference)
         content = reference.download.read.force_encoding("UTF-8").scrub
 
-        [ reference.thing.title, strip_tags(content) ].compact_blank.join("\n\n").strip
+        [ reference.item.title, strip_tags(content) ].compact_blank.join("\n\n").strip
       end
 
       def strip_tags(html)

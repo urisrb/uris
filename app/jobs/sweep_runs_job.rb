@@ -2,7 +2,7 @@ class SweepRunsJob < ApplicationJob
   queue_as :sync
 
   def perform
-    retention = Rails.configuration.thingies.run_retention
+    retention = Rails.configuration.uris.run_retention
     return if retention.zero?
 
     cutoff = retention.ago

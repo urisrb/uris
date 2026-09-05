@@ -30,13 +30,13 @@ class ContentController < ApplicationController
   private
 
     def authorize
-      super && grant.permit!("things:catalog:read")
+      super && grant.permit!("items:catalog:read")
     rescue Grant::Denied => e
       refuse(Masks::Client::Unauthorized.new(e.message))
     end
 
     def find_reference
-      ThingReference.find_by(id: params[:id])
+      Reference.find_by(id: params[:id])
     end
 
     def stream(io)

@@ -39,8 +39,8 @@ services:
     image: minio/minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: things
-      MINIO_ROOT_PASSWORD: thingsthings
+      MINIO_ROOT_USER: uris
+      MINIO_ROOT_PASSWORD: urisuris
     ports:
       - "9000:9000"
       - "9001:9001"

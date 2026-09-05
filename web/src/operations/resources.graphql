@@ -5,7 +5,7 @@ query Resources {
     key
     name
     capabilities
-    thingsCount
+    itemsCount
     defaultStorage
     syncInterval
     nextSyncAt
@@ -61,8 +61,8 @@ mutation SetSyncInterval($id: ID!, $seconds: Int) {
   }
 }
 
-mutation ExportThings($destinationId: ID, $kind: String, $query: String) {
-  exportThings(
+mutation ExportItems($destinationId: ID, $kind: String, $query: String) {
+  exportItems(
     input: { destinationId: $destinationId, kind: $kind, query: $query }
   ) {
     run {

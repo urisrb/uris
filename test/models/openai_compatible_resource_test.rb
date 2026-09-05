@@ -8,7 +8,7 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     @server = FakeModelServer.current
     @server.reset!.serves(MODELS.values)
 
-    ENV["THINGS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "inf-#{SecureRandom.hex(4)}", name: "Inference")
 
@@ -21,7 +21,7 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("THINGS_INFERENCE_ORIGINS")
+    ENV.delete("URIS_INFERENCE_ORIGINS")
   end
 
   test "the stored type is openai-compatible and it loads back as the class" do
@@ -73,7 +73,7 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
         key: "gone", details: { "base_url" => "http://127.0.0.1:1/v1", "models" => MODELS }
       )
 
-      ENV["THINGS_INFERENCE_ORIGINS"] = "http://127.0.0.1:1"
+      ENV["URIS_INFERENCE_ORIGINS"] = "http://127.0.0.1:1"
 
       assert_not gone.check
       assert gone.check_error.present?
@@ -167,7 +167,7 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
       @resource.check!
       @resource.update!(details: @resource.details.merge("base_url" => "http://127.0.0.1:9/v1"))
 
-      ENV["THINGS_INFERENCE_ORIGINS"] = "http://127.0.0.1:9"
+      ENV["URIS_INFERENCE_ORIGINS"] = "http://127.0.0.1:9"
 
       assert_raises(Resource::Failed) { @resource.check! }
     end
@@ -223,7 +223,7 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     assert_nil @server.authorizations_for("/v1/chat/completions").last
 
     @server.reset!.serves(MODELS.values).answer_json({ summary: "ok" })
-    ENV["THINGS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
 
     Tenant.switch(@tenant) do
       @resource.update!(details: @resource.details.merge("base_url" => @server.base_url),
@@ -245,16 +245,16 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
   end
 
   test "an origin outside the allowlist is refused, and the message names the variable" do
-    ENV["THINGS_INFERENCE_ORIGINS"] = "http://127.0.0.1:9"
+    ENV["URIS_INFERENCE_ORIGINS"] = "http://127.0.0.1:9"
 
     Tenant.switch(@tenant) do
-      assert_match(/THINGS_INFERENCE_ORIGINS/,
+      assert_match(/URIS_INFERENCE_ORIGINS/,
                    assert_raises(Resource::Unusable) { @resource.check! }.message)
     end
   end
 
   test "with no allowlist at all nothing is reachable" do
-    ENV.delete("THINGS_INFERENCE_ORIGINS")
+    ENV.delete("URIS_INFERENCE_ORIGINS")
 
     Tenant.switch(@tenant) do
       assert_match(/no inference origins are permitted/,

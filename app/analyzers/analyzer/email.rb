@@ -4,8 +4,8 @@ module Analyzer
   class Email < Base
     HEADERS = %w[from to cc subject date message_id].freeze
 
-    def self.handles?(thing)
-      thing.kind == "email"
+    def self.handles?(item)
+      item.kind == "email"
     end
 
     def has_children?

@@ -1,8 +1,8 @@
 {
-  "name": "@thingies/client",
+  "name": "@uris/client",
   "version": "0.1.0",
   "private": true,
-  "description": "A typed client for the things GraphQL API: transport, operations, and optional React bindings.",
+  "description": "A typed client for the items GraphQL API: transport, operations, and optional React bindings.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",

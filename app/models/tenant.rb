@@ -4,7 +4,7 @@ class Tenant < ApplicationRecord
   encrypts :client_secret
   encrypts :registration_access_token
 
-  has_many :things, dependent: :destroy
+  has_many :items, dependent: :destroy
   has_many :resources, dependent: :destroy
 
   validates :subdomain, presence: true, uniqueness: true,
@@ -60,7 +60,7 @@ class Tenant < ApplicationRecord
     end
 
     def origin(request)
-      override = ENV["THINGS_PUBLIC_ORIGIN"].presence
+      override = ENV["URIS_PUBLIC_ORIGIN"].presence
       return request.base_url if override.nil?
 
       format(override, subdomain: subdomain_in(request.host))
@@ -103,12 +103,12 @@ class Tenant < ApplicationRecord
     private
 
       def tenant_setting
-        connection.select_value("SELECT current_setting('things.tenant_id', true)")
+        connection.select_value("SELECT current_setting('uris.tenant_id', true)")
       end
 
       def assign_tenant_setting(id)
         connection.exec_query(
-          "SELECT set_config('things.tenant_id', $1, true)", "tenant", [ id.to_s ]
+          "SELECT set_config('uris.tenant_id', $1, true)", "tenant", [ id.to_s ]
         )
       rescue ActiveRecord::StatementInvalid
         nil

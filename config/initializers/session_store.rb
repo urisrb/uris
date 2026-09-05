@@ -1,3 +1,3 @@
 Rails.application.config.session_store :cache_store,
-                                       key: "_thingies_session",
+                                       key: "_uris_session",
                                        expire_after: 30.days

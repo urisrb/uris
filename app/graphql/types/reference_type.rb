@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 module Types
-  class ThingReferenceType < Types::BaseObject
-    grants "things:catalog:read"
+  class ReferenceType < Types::BaseObject
+    grants "items:catalog:read"
 
     field :id, ID, null: false
     field :resource, Types::ResourceType, null: false

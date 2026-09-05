@@ -9,8 +9,8 @@ class Setting < ApplicationRecord
     def personal? = level == :personal
     def server? = level == :server
     def permits?(value) = allowed.include?(value)
-    def reads = personal? ? "things:settings:read" : "things:settings:admin"
-    def writes = personal? ? "things:settings:write" : "things:settings:admin"
+    def reads = personal? ? "items:settings:read" : "items:settings:admin"
+    def writes = personal? ? "items:settings:write" : "items:settings:admin"
   end
 
   DEFINED = [
@@ -20,7 +20,7 @@ class Setting < ApplicationRecord
       default: "list",
       allowed: %w[list cards],
       label: "How the catalog opens",
-      note: "A list reads names quickly. Cards show you what a thing looks like."
+      note: "A list reads names quickly. Cards show you what a item looks like."
     )
   ].index_by(&:key).freeze
 

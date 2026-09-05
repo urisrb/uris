@@ -20,8 +20,8 @@ import {
   SetDefaultStorageDocument,
   SetSyncIntervalDocument,
   SyncResourceDocument,
-} from '@thingies/client'
-import { useMutation, useQuery } from '@thingies/client/react'
+} from '@uris/client'
+import { useMutation, useQuery } from '@uris/client/react'
 import { type CSSProperties, useState } from 'react'
 
 interface Resource {
@@ -34,7 +34,7 @@ interface Resource {
   checkError?: string | null
   syncing: boolean
   defaultStorage: boolean
-  thingsCount: number
+  itemsCount: number
   capabilities: string[]
   syncInterval?: number | null
   syncedAt?: string | null
@@ -84,7 +84,7 @@ export function Resources() {
       <div>
         <h1 className="page-title">Resources</h1>
         <div className="eyebrow" style={{ marginTop: 'var(--s2)' }}>
-          The places your things live, and what each one can be asked to do
+          The places your items live, and what each one can be asked to do
         </div>
       </div>
 
@@ -130,9 +130,9 @@ export function Resources() {
               <Text size="sm" c="dimmed" mt="var(--s2)">
                 {resource.name ?? '—'} ·{' '}
                 <span className="figure">
-                  {resource.thingsCount.toLocaleString()}
+                  {resource.itemsCount.toLocaleString()}
                 </span>{' '}
-                things · {resource.capabilities.join(', ')}
+                items · {resource.capabilities.join(', ')}
               </Text>
 
               <Text size="xs" c="dimmed" mt="var(--s1)">
@@ -241,7 +241,7 @@ export function Resources() {
       {resources.length === 0 && (
         <Text c="dimmed" size="sm">
           No resources are attached yet. Attach one and its contents become
-          things you can search.
+          items you can search.
         </Text>
       )}
 

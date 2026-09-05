@@ -20,7 +20,7 @@ class Resource
     end
 
     def self.permitted_roots
-      ENV.fetch("THINGS_FILESYSTEM_ROOTS", "").split(":").filter_map do |entry|
+      ENV.fetch("URIS_FILESYSTEM_ROOTS", "").split(":").filter_map do |entry|
         Pathname.new(entry.strip).expand_path if entry.strip.present?
       end
     end
@@ -124,7 +124,7 @@ class Resource
 
         if allowed.empty?
           raise Resource::Failed,
-                "#{key}: no filesystem roots are permitted — set THINGS_FILESYSTEM_ROOTS"
+                "#{key}: no filesystem roots are permitted — set URIS_FILESYSTEM_ROOTS"
         end
 
         return true if allowed.any? { |permitted| under?(root, permitted) }

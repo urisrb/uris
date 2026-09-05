@@ -37,8 +37,8 @@ Rails.application.configure do
 
   config.active_record.attributes_for_inspect = [ :id ]
 
-  if ENV["THINGS_HOST_SUFFIX"].present?
-    config.hosts << ".#{ENV['THINGS_HOST_SUFFIX']}"
+  if ENV["URIS_HOST_SUFFIX"].present?
+    config.hosts << ".#{ENV['URIS_HOST_SUFFIX']}"
     config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
   end
 end

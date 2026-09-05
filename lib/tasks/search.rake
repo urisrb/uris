@@ -10,11 +10,11 @@ namespace :search do
     Tenant.switch(tenant) { Run.start!(kind: "reindex", selector: { "index" => index }) }
   end
 
-  desc "Re-index every thing into the live index, resumably, one run per tenant"
+  desc "Re-index every item into the live index, resumably, one run per tenant"
   task reindex: :environment do
     tenants.find_each do |tenant|
       run = start_run(tenant, SearchIndex.alias_name)
-      ReindexThingsJob.perform_later(tenant.id, nil, run.id)
+      ReindexItemsJob.perform_later(tenant.id, nil, run.id)
 
       puts "#{tenant.subdomain}: run #{run.id}"
     end
@@ -29,12 +29,12 @@ namespace :search do
 
     tenants.find_each do |tenant|
       run = start_run(tenant, target)
-      ReindexThingsJob.perform_now(tenant.id, target, run.id)
+      ReindexItemsJob.perform_now(tenant.id, target, run.id)
 
-      held = Tenant.switch(tenant) { Thing.count }
+      held = Tenant.switch(tenant) { Item.count }
       expected += held
 
-      puts "#{tenant.subdomain}: #{held} things, run #{run.id}"
+      puts "#{tenant.subdomain}: #{held} items, run #{run.id}"
     end
 
     begin

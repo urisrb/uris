@@ -2,8 +2,8 @@ module Analyzer
   class Calendar < Base
     MAX_EVENTS = 200
 
-    def self.handles?(thing)
-      thing.kind == "calendar"
+    def self.handles?(item)
+      item.kind == "calendar"
     end
 
     def analyze

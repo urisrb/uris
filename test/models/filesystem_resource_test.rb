@@ -12,7 +12,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     write "photos/beach.jpg", "contents of beach"
     write "notes.txt", "remember the milk"
 
-    ENV["THINGS_FILESYSTEM_ROOTS"] = @allowed.to_s
+    ENV["URIS_FILESYSTEM_ROOTS"] = @allowed.to_s
 
     @tenant = Tenant.create!(subdomain: "fs-#{SecureRandom.hex(4)}", name: "Files")
 
@@ -26,7 +26,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("THINGS_FILESYSTEM_ROOTS")
+    ENV.delete("URIS_FILESYSTEM_ROOTS")
     FileUtils.remove_entry(@allowed) if @allowed.exist?
   end
 
@@ -34,7 +34,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 3, Thing.count
+      assert_equal 3, Item.count
       assert_equal "pdf", thing_at("invoices/march.pdf").kind
       assert_equal "march.pdf", thing_at("invoices/march.pdf").title
       assert_equal "image", thing_at("photos/beach.jpg").kind
@@ -53,7 +53,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
   test "syncing twice converges rather than accumulating" do
     2.times { sync }
 
-    Tenant.switch(@tenant) { assert_equal 3, Thing.count }
+    Tenant.switch(@tenant) { assert_equal 3, Item.count }
   end
 
   test "the walk is deterministic, so a cursor resumes where it stopped" do
@@ -89,10 +89,10 @@ class FilesystemResourceTest < ActiveSupport::TestCase
   end
 
   test "no permitted roots at all means the type is unusable" do
-    ENV.delete("THINGS_FILESYSTEM_ROOTS")
+    ENV.delete("URIS_FILESYSTEM_ROOTS")
 
     error = assert_raises(Resource::Failed) { @resource.check! }
-    assert_match(/THINGS_FILESYSTEM_ROOTS/, error.message)
+    assert_match(/URIS_FILESYSTEM_ROOTS/, error.message)
   end
 
   test "a locator climbing out of the root is refused" do
@@ -118,7 +118,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
 
     sync
 
-    Tenant.switch(@tenant) { assert_equal 3, Thing.count }
+    Tenant.switch(@tenant) { assert_equal 3, Item.count }
     assert_raises(Resource::Filesystem::Escaped) { @resource.download("path" => "escape.txt") }
   end
 
@@ -132,7 +132,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       destination = Resource::Filesystem.create!(key: "backup", details: { "root" => backup_root.to_s })
       sync
-      ExportThingsJob.perform_now(@tenant.id, destination.id, {})
+      ExportItemsJob.perform_now(@tenant.id, destination.id, {})
 
       assert_equal "remember the milk", (backup_root + @resource.key + "notes.txt").read
       assert_equal 2, thing_at("notes.txt").references.count
@@ -156,6 +156,6 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     end
 
     def thing_at(locator_key)
-      Thing.joins(:references).find_by!(thing_references: { locator_key: locator_key })
+      Item.joins(:references).find_by!(item_references: { locator_key: locator_key })
     end
 end

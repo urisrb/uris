@@ -16,7 +16,7 @@ class UploadsController < ApplicationController
 
     key = storage_key(params[:path].presence || file.original_filename)
     locator = destination.upload(key, file.tempfile)
-    reference = ThingReference.discover!(
+    reference = Reference.discover!(
       resource: destination,
       locator: locator,
       locator_key: key,
@@ -24,11 +24,11 @@ class UploadsController < ApplicationController
       title: File.basename(key)
     )
 
-    run = AnalyzeThingJob.start!(current_tenant.id, reference.thing_id)
+    run = AnalyzeItemJob.start!(current_tenant.id, reference.item_id)
 
     render json: {
-      thing_id: reference.thing_id,
-      kind: reference.thing.kind,
+      item_id: reference.item_id,
+      kind: reference.item.kind,
       resource: destination.key,
       path: key,
       run_id: run.id
@@ -42,7 +42,7 @@ class UploadsController < ApplicationController
   private
 
     def authorize
-      super && grant.permit!("things:catalog:write")
+      super && grant.permit!("items:catalog:write")
     rescue Grant::Denied => e
       refuse(Masks::Client::Unauthorized.new(e.message))
     end

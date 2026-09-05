@@ -30,7 +30,7 @@ module SearchIndex
     end
 
     def alias_name
-      [ "things", Rails.env, ENV["TEST_ENV_NUMBER"].presence ].compact.join("_")
+      [ "items", Rails.env, ENV["TEST_ENV_NUMBER"].presence ].compact.join("_")
     end
 
     def alias_for(tenant)
@@ -99,44 +99,44 @@ module SearchIndex
       target
     end
 
-    def index(thing, into: alias_name)
-      client.index(index: into, id: thing.id, body: document(thing))
+    def index(item, into: alias_name)
+      client.index(index: into, id: item.id, body: document(item))
     end
 
-    def index_all(things, into: alias_name)
-      things = things.to_a
-      return 0 if things.empty?
+    def index_all(items, into: alias_name)
+      items = items.to_a
+      return 0 if items.empty?
 
-      body = things.flat_map do |thing|
-        [ { index: { _index: into, _id: thing.id } }, document(thing) ]
+      body = items.flat_map do |item|
+        [ { index: { _index: into, _id: item.id } }, document(item) ]
       end
 
       response = client.bulk(body: body)
       refused = Array(response["items"]).filter_map { |item| item.dig("index", "error") }
 
       if refused.any?
-        raise Failed, "#{refused.length} of #{things.length} documents were refused: " \
+        raise Failed, "#{refused.length} of #{items.length} documents were refused: " \
                       "#{refused.first['reason']}"
       end
 
-      things.length
+      items.length
     end
 
-    def delete(thing, from: alias_name)
-      client.delete(index: from, id: thing.id)
+    def delete(item, from: alias_name)
+      client.delete(index: from, id: item.id)
     rescue OpenSearch::Transport::Transport::Errors::NotFound
       nil
     end
 
-    def document(thing)
+    def document(item)
       {
-        tenant_id: thing.tenant_id,
-        kind: thing.kind,
-        title: thing.title,
-        locator_key: thing.references.map(&:locator_key).compact.join(" "),
-        body: thing.body_text,
-        resource_ids: thing.references.map(&:resource_id),
-        created_at: thing.created_at
+        tenant_id: item.tenant_id,
+        kind: item.kind,
+        title: item.title,
+        locator_key: item.references.map(&:locator_key).compact.join(" "),
+        body: item.body_text,
+        resource_ids: item.references.map(&:resource_id),
+        created_at: item.created_at
       }
     end
 

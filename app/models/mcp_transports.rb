@@ -1,12 +1,12 @@
 module McpTransports
   INSTRUCTIONS = <<~TEXT.freeze
-    things is one searchable index across everything its owner keeps, wherever it lives.
+    items is one searchable index across everything its owner keeps, wherever it lives.
 
-    A thing is a reference, not the bytes: the catalog holds where something lives and what
+    A item is a reference, not the bytes: the catalog holds where something lives and what
     analysis understood about it, while the original stays in the resource it came from.
     So searching is cheap and reading the bytes back means exporting them.
 
-    Start with search_things. Use list_resources to see where things come from, and
+    Start with search_items. Use list_resources to see where items come from, and
     describe_resource before command_resource — each resource type has its own vocabulary.
 
     Credentials never travel through a tool call. Connecting a resource happens in the
@@ -70,8 +70,8 @@ module McpTransports
 
       def server(tenant, grant)
         MCP::Server.new(
-          name: "things",
-          title: "things",
+          name: "items",
+          title: "items",
           instructions: INSTRUCTIONS,
           tools: grant.tools,
           server_context: { tenant_id: tenant.id, scopes: grant.scopes }

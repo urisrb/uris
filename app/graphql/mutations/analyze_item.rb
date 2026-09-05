@@ -1,16 +1,16 @@
 # frozen_string_literal: true
 
 module Mutations
-  class AnalyzeThing < BaseMutation
+  class AnalyzeItem < BaseMutation
     argument :id, ID, required: true
 
     field :run, Types::RunType, null: false
-    field :thing, Types::ThingType, null: false
+    field :item, Types::ItemType, null: false
 
     def resolve(id:)
-      thing = thing!(id)
+      item = item!(id)
 
-      { run: thing.analyze!, thing: thing }
+      { run: item.analyze!, item: item }
     end
   end
 end

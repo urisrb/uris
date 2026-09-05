@@ -12,7 +12,7 @@ class MergeTest < ActiveSupport::TestCase
     end
   end
 
-  test "one document in two places is one thing with two references" do
+  test "one document in two places is one item with two references" do
     Tenant.switch(@tenant) do
       pdf = create_thing(kind: "pdf", title: "Contract", resource: @s3, locator_key: "contract.pdf")
       link = create_thing(kind: "pdf", title: "Contract", resource: @drive, locator_key: "Contract")
@@ -21,11 +21,11 @@ class MergeTest < ActiveSupport::TestCase
 
       assert_equal 2, pdf.references.count
       assert_equal [ "drive", "bucket" ].sort, pdf.references.map { |r| r.resource.key }.sort
-      assert_nil Thing.find_by(id: link.id)
+      assert_nil Item.find_by(id: link.id)
     end
   end
 
-  test "a merge is a move, so nothing is left pointing at the other thing" do
+  test "a merge is a move, so nothing is left pointing at the other item" do
     Tenant.switch(@tenant) do
       keep = create_thing(kind: "pdf", title: "Keep", resource: @s3, locator_key: "a.pdf")
       gone = create_thing(kind: "pdf", title: "Gone", resource: @drive, locator_key: "b.pdf")
@@ -33,13 +33,13 @@ class MergeTest < ActiveSupport::TestCase
 
       keep.merge!(gone)
 
-      assert_equal keep.id, moved.reload.thing_id
-      assert_empty Thing.where(id: gone.id)
-      assert_equal 0, ThingReference.where(thing_id: gone.id).count
+      assert_equal keep.id, moved.reload.item_id
+      assert_empty Item.where(id: gone.id)
+      assert_equal 0, Reference.where(item_id: gone.id).count
     end
   end
 
-  test "a reference can move to any thing, which is all a merge is" do
+  test "a reference can move to any item, which is all a merge is" do
     Tenant.switch(@tenant) do
       one = create_thing(kind: "pdf", title: "One", resource: @s3, locator_key: "one.pdf")
       two = create_thing(kind: "pdf", title: "Two", resource: @drive, locator_key: "two.pdf")
@@ -47,11 +47,11 @@ class MergeTest < ActiveSupport::TestCase
       two.references.first.move_to!(one)
 
       assert_equal 2, one.references.reset.count
-      assert_nil Thing.find_by(id: two.id), "a thing with no references is not a thing"
+      assert_nil Item.find_by(id: two.id), "a item with no references is not a item"
     end
   end
 
-  test "splitting a reference off gives it a thing of its own" do
+  test "splitting a reference off gives it a item of its own" do
     Tenant.switch(@tenant) do
       grouped = create_thing(kind: "pdf", title: "Grouped", resource: @s3, locator_key: "a.pdf")
       grouped.references.create!(resource: @drive, locator_key: "b.pdf")
@@ -59,16 +59,16 @@ class MergeTest < ActiveSupport::TestCase
 
       split = grouped.references.last.split!
 
-      assert_not_equal grouped.id, split.thing_id
+      assert_not_equal grouped.id, split.item_id
       assert_equal 1, grouped.references.reset.count
-      assert_equal 1, split.thing.references.count
+      assert_equal 1, split.item.references.count
     end
   end
 
   test "merging the same place twice keeps one reference, not a duplicate" do
     Tenant.switch(@tenant) do
       keep = create_thing(kind: "pdf", title: "Keep", resource: @s3, locator_key: "same.pdf")
-      other = Thing.create!(kind: "pdf", title: "Other")
+      other = Item.create!(kind: "pdf", title: "Other")
       other.references.create!(resource: @drive, locator_key: "same.pdf")
 
       keep.merge!(other)
@@ -77,7 +77,7 @@ class MergeTest < ActiveSupport::TestCase
     end
   end
 
-  test "a merged thing carries the analysis of every reference into search" do
+  test "a merged item carries the analysis of every reference into search" do
     kept = nil
 
     Tenant.switch(@tenant) do
@@ -93,18 +93,18 @@ class MergeTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      assert_equal [ kept.id ], Thing.search("kingfisher").ids
-      assert_equal [ kept.id ], Thing.search("salamander").ids,
+      assert_equal [ kept.id ], Item.search("kingfisher").ids
+      assert_equal [ kept.id ], Item.search("salamander").ids,
                    "extraction from the merged-in reference survived the merge"
     end
   end
 
-  test "destroying a thing takes its references with it" do
+  test "destroying a item takes its references with it" do
     Tenant.switch(@tenant) do
-      thing = create_thing(kind: "pdf", title: "Doomed", resource: @s3, locator_key: "x.pdf")
+      item = create_thing(kind: "pdf", title: "Doomed", resource: @s3, locator_key: "x.pdf")
 
-      assert_difference -> { ThingReference.count }, -1 do
-        thing.destroy!
+      assert_difference -> { Reference.count }, -1 do
+        item.destroy!
       end
     end
   end

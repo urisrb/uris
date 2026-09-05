@@ -1,15 +1,15 @@
 require "test_helper"
 
 class GraphqlAuthTest < ActionDispatch::IntegrationTest
-  CATALOG = "{ things { nodes { kind title } } }".freeze
+  CATALOG = "{ items { nodes { kind title } } }".freeze
   RESOURCES = "{ resources { key } }".freeze
-  ANALYZE = "mutation($id: ID!) { analyzeThing(input: { id: $id }) { run { id } } }".freeze
+  ANALYZE = "mutation($id: ID!) { analyzeItem(input: { id: $id }) { run { id } } }".freeze
 
   setup do
     @tenant = Tenant.create!(subdomain: "auth-#{SecureRandom.hex(4)}", name: "Auth")
     @other = Tenant.create!(subdomain: "auth-#{SecureRandom.hex(4)}", name: "Elsewhere")
 
-    Tenant.switch(@tenant) { @thing = create_thing(kind: "pdf", title: "An invoice") }
+    Tenant.switch(@tenant) { @item = create_thing(kind: "pdf", title: "An invoice") }
 
     connect!(@tenant)
   end
@@ -63,57 +63,57 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal [ { "kind" => "pdf", "title" => "An invoice" } ],
-                 response.parsed_body.dig("data", "things", "nodes")
+                 response.parsed_body.dig("data", "items", "nodes")
   end
 
   test "a read scope does not carry the resource list" do
-    body = execute(RESOURCES, scopes: %w[things:catalog:read])
+    body = execute(RESOURCES, scopes: %w[items:catalog:read])
 
     assert_nil body.dig("data", "resources")
-    assert_match(/does not carry things:resources:read/, body.dig("errors", 0, "message"))
+    assert_match(/does not carry items:resources:read/, body.dig("errors", 0, "message"))
   end
 
   test "a read scope cannot drive a mutation" do
-    body = execute(ANALYZE, scopes: %w[things:catalog:read], variables: { id: @thing.id.to_s })
+    body = execute(ANALYZE, scopes: %w[items:catalog:read], variables: { id: @item.id.to_s })
 
-    assert_match(/does not carry things:catalog:write/, body.dig("errors", 0, "message"))
+    assert_match(/does not carry items:catalog:write/, body.dig("errors", 0, "message"))
   end
 
   test "a write scope can" do
-    body = execute(ANALYZE, scopes: %w[things:catalog:read things:catalog:write],
-                            variables: { id: @thing.id.to_s })
+    body = execute(ANALYZE, scopes: %w[items:catalog:read items:catalog:write],
+                            variables: { id: @item.id.to_s })
 
     assert_nil body["errors"]
-    assert body.dig("data", "analyzeThing", "run", "id").present?
+    assert body.dig("data", "analyzeItem", "run", "id").present?
   end
 
   test "resource commands want the resource scope, not the write scope" do
-    body = execute(RESOURCES, scopes: %w[things:catalog:write things:resources:read])
+    body = execute(RESOURCES, scopes: %w[items:catalog:write items:resources:read])
 
     assert_nil body["errors"]
   end
 
-  test "a read scope cannot walk from a thing to a resource" do
-    query = "{ things { nodes { references { resource { key } } } } }"
+  test "a read scope cannot walk from a item to a resource" do
+    query = "{ items { nodes { references { resource { key } } } } }"
 
-    body = execute(query, scopes: %w[things:catalog:read])
+    body = execute(query, scopes: %w[items:catalog:read])
 
-    assert_nil body.dig("data", "things"),
+    assert_nil body.dig("data", "items"),
                "nesting must not reach past the scope the entry point checked"
     assert body["errors"].present?
   end
 
   test "holding both scopes walks the whole way" do
-    query = "{ things { nodes { references { resource { key } } } } }"
+    query = "{ items { nodes { references { resource { key } } } } }"
 
-    body = execute(query, scopes: %w[things:catalog:read things:resources:read])
+    body = execute(query, scopes: %w[items:catalog:read items:resources:read])
 
     assert_nil body["errors"]
-    assert body.dig("data", "things", "nodes", 0, "references", 0, "resource", "key").present?
+    assert body.dig("data", "items", "nodes", 0, "references", 0, "resource", "key").present?
   end
 
   test "streaming a reference out needs a grant too" do
-    reference = @thing.references.first
+    reference = @item.references.first
 
     get "/references/#{reference.id}/thumbnail", headers: host_for(@tenant)
 
@@ -125,11 +125,11 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
     ActionController::Base.allow_forgery_protection = true
 
     post "/graphql", params: { query: CATALOG },
-                     headers: host_for(@tenant).merge(bearer(@tenant, scopes: [ "things:catalog:read" ]))
+                     headers: host_for(@tenant).merge(bearer(@tenant, scopes: [ "items:catalog:read" ]))
 
     assert_response :success
     assert_equal [ { "kind" => "pdf", "title" => "An invoice" } ],
-                 response.parsed_body.dig("data", "things", "nodes")
+                 response.parsed_body.dig("data", "items", "nodes")
   ensure
     ActionController::Base.allow_forgery_protection = false
   end
@@ -147,13 +147,13 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
   private
 
     def host_for(tenant)
-      { "HOST" => "#{tenant.subdomain}.things.test" }
+      { "HOST" => "#{tenant.subdomain}.uris.test" }
     end
 
     def bearer(tenant, scopes: Grant::SCOPES)
       token = issuer.mint(
         subdomain: tenant.subdomain, scopes: scopes,
-        audience: "http://#{tenant.subdomain}.things.test/mcp"
+        audience: "http://#{tenant.subdomain}.uris.test/mcp"
       )
 
       { "Authorization" => "Bearer #{token}" }

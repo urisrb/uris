@@ -1,7 +1,7 @@
 require "active_support/core_ext/integer/time"
 
 Rails.application.configure do
-  config.hosts << ".#{ENV.fetch('THINGS_HOST_SUFFIX', 'things.test')}"
+  config.hosts << ".#{ENV.fetch('URIS_HOST_SUFFIX', 'uris.test')}"
 
   config.enable_reloading = true
 

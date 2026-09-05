@@ -17,7 +17,7 @@ class CaldavResourceTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
-    ENV["THINGS_ALLOW_PRIVATE_FETCH"] = "1"
+    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
 
     @server = FakeDavServer.current
     @server.reset!
@@ -37,16 +37,16 @@ class CaldavResourceTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("THINGS_ALLOW_PRIVATE_FETCH")
+    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
   end
 
   test "only calendar objects are catalogued, and they are calendars" do
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 1, Thing.count
-      assert_equal "calendar", Thing.first.kind
-      assert_equal "calendar/lunch.ics", ThingReference.first.locator_key
+      assert_equal 1, Item.count
+      assert_equal "calendar", Item.first.kind
+      assert_equal "calendar/lunch.ics", Reference.first.locator_key
     end
   end
 
@@ -54,10 +54,10 @@ class CaldavResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      thing = Thing.first
-      AnalyzeThingJob.perform_now(@tenant.id, thing.id)
+      item = Item.first
+      AnalyzeItemJob.perform_now(@tenant.id, item.id)
 
-      analysis = thing.references.first.reload.analysis
+      analysis = item.references.first.reload.analysis
 
       assert_includes analysis.dig("steps", "text", "result"), "Lunch with the pelicans"
     end
@@ -67,10 +67,10 @@ class CaldavResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      thing = Thing.first
-      AnalyzeThingJob.perform_now(@tenant.id, thing.id)
+      item = Item.first
+      AnalyzeItemJob.perform_now(@tenant.id, item.id)
 
-      summary = thing.references.first.reload.analysis.dig("steps", "events", "result").first["summary"]
+      summary = item.references.first.reload.analysis.dig("steps", "events", "result").first["summary"]
 
       assert_equal "Lunch with the pelicans, then the tide tables; briefly", summary
     end
@@ -88,7 +88,7 @@ class CaldavResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal %w[calendar/lunch.ics shared/team/standup.ics], ThingReference.pluck(:locator_key).sort
+      assert_equal %w[calendar/lunch.ics shared/team/standup.ics], Reference.pluck(:locator_key).sort
     end
   end
 

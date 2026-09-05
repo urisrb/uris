@@ -1,7 +1,7 @@
 class McpController < ApplicationController
   include ActionController::Live
 
-  rate_limit to: Rails.configuration.thingies.mcp_limit, within: 1.minute,
+  rate_limit to: Rails.configuration.uris.mcp_limit, within: 1.minute,
              by: -> { caller_key }, with: -> { too_many }
 
   include Granted

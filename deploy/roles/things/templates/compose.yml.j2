@@ -1,7 +1,7 @@
-name: things
+name: items
 
 services:
-  things:
+  items:
     image: "{{ things_image }}{{ '@' + things_image_digest if things_image_digest else ':' + things_image_tag }}"
     restart: unless-stopped
     environment:
@@ -9,14 +9,14 @@ services:
       POSTGRES_PORT: "{{ things_postgres_port }}"
       POSTGRES_USER: "{{ things_postgres_user }}"
       POSTGRES_PASSWORD: "{{ things_postgres_password }}"
-      THINGS_DATABASE_PASSWORD: "{{ things_postgres_password }}"
+      URIS_DATABASE_PASSWORD: "{{ things_postgres_password }}"
       OPENSEARCH_URL: http://opensearch:9200
       S3_ENDPOINT: http://minio:9000
       S3_REGION: "{{ things_s3_region }}"
       S3_ACCESS_KEY_ID: "{{ things_s3_access_key_id }}"
       S3_SECRET_ACCESS_KEY: "{{ things_s3_secret_access_key }}"
       MASKS_ISSUER_TEMPLATE: "{{ things_masks_issuer_template }}"
-      THINGS_PUBLIC_ORIGIN: "{{ things_public_origin }}"
+      URIS_PUBLIC_ORIGIN: "{{ things_public_origin }}"
       SECRET_KEY_BASE: "{{ things_secret_key_base }}"
       ENCRYPTION_PRIMARY_KEY: "{{ things_encryption_primary_key }}"
       ENCRYPTION_DETERMINISTIC_KEY: "{{ things_encryption_deterministic_key }}"

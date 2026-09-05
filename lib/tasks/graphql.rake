@@ -3,7 +3,7 @@ namespace :graphql do
   task dump_schema: :environment do
     path = Rails.root.join("web/schema.graphql")
     FileUtils.mkdir_p(path.dirname)
-    File.write(path, ThingiesSchema.to_definition)
+    File.write(path, UrisSchema.to_definition)
     puts "wrote #{path.relative_path_from(Rails.root)}"
   end
 end

@@ -12,7 +12,7 @@ class VisionTest < ActiveSupport::TestCase
     @server = FakeModelServer.current
     @server.reset!.serves("gemma3:4b", "llama3.1:8b")
 
-    ENV["THINGS_INFERENCE_ORIGINS"] = @server.origin
+    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
 
     @tenant = Tenant.create!(subdomain: "vis-#{SecureRandom.hex(4)}", name: "Vision")
 
@@ -31,7 +31,7 @@ class VisionTest < ActiveSupport::TestCase
   end
 
   teardown do
-    ENV.delete("THINGS_INFERENCE_ORIGINS")
+    ENV.delete("URIS_INFERENCE_ORIGINS")
   end
 
   test "an image is described from its pixels, and the preview travels with the prompt" do
@@ -130,7 +130,7 @@ class VisionTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      assert_equal [ "poster.png" ], Thing.search("estuary").pluck(:title)
+      assert_equal [ "poster.png" ], Item.search("estuary").pluck(:title)
     end
   end
 
@@ -245,15 +245,15 @@ class VisionTest < ActiveSupport::TestCase
     end
 
     def analyze(key)
-      id = Tenant.switch(@tenant) { thing(key).id }
-      AnalyzeThingJob.perform_now(@tenant.id, id)
+      id = Tenant.switch(@tenant) { item(key).id }
+      AnalyzeItemJob.perform_now(@tenant.id, id)
     end
 
-    def thing(key)
-      Thing.joins(:references).find_by!(thing_references: { locator_key: key })
+    def item(key)
+      Item.joins(:references).find_by!(item_references: { locator_key: key })
     end
 
     def reference(key)
-      ThingReference.find_by!(locator_key: key).reload
+      Reference.find_by!(locator_key: key).reload
     end
 end

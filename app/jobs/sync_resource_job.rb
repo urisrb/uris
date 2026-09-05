@@ -41,7 +41,7 @@ class SyncResourceJob < ApplicationJob
     return track_iteration if dry_run?
 
     reference = Tenant.switch(resource.tenant) do
-      ThingReference.discover!(
+      Reference.discover!(
         resource: resource,
         locator: resource.locator_for(object),
         locator_key: locator_key,
@@ -51,7 +51,7 @@ class SyncResourceJob < ApplicationJob
     end
 
     if reference.analyzed_at.nil?
-      Tenant.switch(resource.tenant) { AnalyzeThingJob.start!(tenant_id, reference.thing_id) }
+      Tenant.switch(resource.tenant) { AnalyzeItemJob.start!(tenant_id, reference.item_id) }
     end
 
     track_iteration

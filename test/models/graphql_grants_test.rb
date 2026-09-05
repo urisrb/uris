@@ -3,7 +3,7 @@ require "test_helper"
 class GraphqlGrantsTest < ActiveSupport::TestCase
   ROOTS = [ Types::QueryType, Types::MutationType, Types::SubscriptionType ].freeze
 
-  REACHABLE = [ Types::ThingType, Types::ThingReferenceType,
+  REACHABLE = [ Types::ItemType, Types::ReferenceType,
                 Types::ResourceType, Types::RunType ].freeze
 
   def scopes_on(field)

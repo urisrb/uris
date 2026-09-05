@@ -56,24 +56,24 @@ class DatabaseResourceTest < ActiveSupport::TestCase
     SyncResourceJob.perform_now(@tenant.id, @storage.id)
 
     Tenant.switch(@tenant) do
-      assert_equal 2, Thing.referencing(@storage.id).count
+      assert_equal 2, Item.referencing(@storage.id).count
       assert_equal "how to work on this repo", thing_at("AGENTS.md").download.read
     end
   end
 
-  test "a thing can hold the raw file and a generated document side by side" do
+  test "a item can hold the raw file and a generated document side by side" do
     Tenant.switch(@tenant) do
       source = Resource::S3.create!(key: "bucket", details: { "endpoint" => "http://127.0.0.1:1" })
-      thing = create_thing(kind: "pdf", title: "Contract", resource: source, locator_key: "contract.pdf")
+      item = create_thing(kind: "pdf", title: "Contract", resource: source, locator_key: "contract.pdf")
 
       @storage.upload("contract.AGENTS.md", "what this contract says")
-      thing.references.create!(resource: @storage, locator_key: "contract.AGENTS.md",
+      item.references.create!(resource: @storage, locator_key: "contract.AGENTS.md",
                                locator: { "key" => "contract.AGENTS.md" })
 
-      places = thing.references.reset.map { |reference| reference.resource.class.sti_name }
+      places = item.references.reset.map { |reference| reference.resource.class.sti_name }
 
       assert_equal %w[s3 database], places
-      assert_equal "what this contract says", thing.references.last.download.read
+      assert_equal "what this contract says", item.references.last.download.read
     end
   end
 

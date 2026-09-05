@@ -6,8 +6,8 @@ import {
   IconSearch,
   IconSettings,
 } from '@tabler/icons-react'
-import { CatalogDocument } from '@thingies/client'
-import { useQuery } from '@thingies/client/react'
+import { CatalogDocument } from '@uris/client'
+import { useQuery } from '@uris/client/react'
 import { type CSSProperties, useEffect, useState } from 'react'
 import {
   Link,
@@ -21,11 +21,11 @@ import { useSession } from '../hooks/useSession'
 import { tone } from '../kinds'
 import { Catalog } from './Catalog'
 import { Cycle } from './Cycle'
+import { ItemDetail } from './ItemDetail'
 import { Resources } from './Resources'
 import { Runs } from './Runs'
 import { Settings } from './Settings'
 import { Spectrum } from './Spectrum'
-import { ThingDetail } from './ThingDetail'
 import { UploadsProvider, useUploads } from './Uploads'
 
 const VERBS: [string, string][] = [
@@ -90,7 +90,7 @@ function Gate({
   return (
     <div className="gate">
       <div className="gate-inner">
-        <div className="wordmark gate-word">things</div>
+        <div className="wordmark gate-word">items</div>
         <div style={{ marginTop: 'var(--s5)' }}>
           <Spectrum />
         </div>
@@ -102,7 +102,7 @@ function Gate({
         <p className="gate-tagline">
           {unconnected
             ? 'Connect a sign-in server. It is the front door to all of it.'
-            : 'Your things, together. One index across every account you own — searchable, and yours to take back out.'}
+            : 'Your items, together. One index across every account you own — searchable, and yours to take back out.'}
         </p>
 
         <Button
@@ -149,7 +149,7 @@ function Shell({
           className="wordmark"
           style={{ fontSize: 'var(--t-title)', textDecoration: 'none' }}
         >
-          things
+          items
         </Link>
 
         <Hunt />
@@ -180,7 +180,7 @@ function Shell({
       <main className="shell-main">
         <Routes>
           <Route path="/" element={<Catalog />} />
-          <Route path="/things/:id" element={<ThingDetail />} />
+          <Route path="/items/:id" element={<ItemDetail />} />
           <Route path="/resources" element={<Resources />} />
           <Route path="/runs" element={<Runs />} />
           <Route
@@ -332,7 +332,7 @@ function Rail({ onGo }: { onGo: () => void }) {
       </div>
 
       <div className="rail-group">
-        <div className="rail-label">Adding things</div>
+        <div className="rail-label">Adding items</div>
         <Text size="xs" c="dimmed" px="var(--s3)" style={{ lineHeight: 1.5 }}>
           Drop files or a whole folder anywhere on this page. They are written
           to your default storage, then indexed.

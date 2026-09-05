@@ -1,7 +1,10 @@
-class ThingReference < ApplicationRecord
+class Reference < ApplicationRecord
+  # "references" is a reserved word in Postgres.
+  self.table_name = "item_references"
+
   include TenantScoped
 
-  belongs_to :thing
+  belongs_to :item
   belongs_to :resource
 
   validates :locator_key, uniqueness: { scope: [ :tenant_id, :resource_id ] }, allow_nil: true
@@ -17,13 +20,13 @@ class ThingReference < ApplicationRecord
 
   after_commit :reindex_thing
 
-  delegate :kind, to: :thing
+  delegate :kind, to: :item
 
   def self.discover!(resource:, locator:, locator_key:, kind:, title: nil)
     reference = find_or_initialize_by(resource: resource, locator_key: locator_key)
 
-    if reference.thing.nil?
-      reference.thing = Thing.create!(kind: kind, title: title)
+    if reference.item.nil?
+      reference.item = Item.create!(kind: kind, title: title)
     end
 
     reference.locator = locator
@@ -32,13 +35,13 @@ class ThingReference < ApplicationRecord
     reference
   end
 
-  def self.record!(thing:, resource:, locator:, locator_key:, source_version: nil)
+  def self.record!(item:, resource:, locator:, locator_key:, source_version: nil)
     reference = find_or_initialize_by(resource: resource, locator_key: locator_key)
 
-    if reference.persisted? && reference.thing_id != thing.id
-      reference.move_to!(thing)
+    if reference.persisted? && reference.item_id != item.id
+      reference.move_to!(item)
     else
-      reference.thing = thing
+      reference.item = item
     end
 
     reference.locator = locator
@@ -65,15 +68,15 @@ class ThingReference < ApplicationRecord
   end
 
   def move_to!(destination)
-    return self if destination.id == thing_id
+    return self if destination.id == item_id
 
-    previous = thing
+    previous = item
 
     transaction do
       if destination.references.exists?(resource_id: resource_id, locator_key: locator_key)
         destroy!
       else
-        update!(thing: destination)
+        update!(item: destination)
       end
 
       previous.reload.destroy_if_empty!
@@ -83,7 +86,7 @@ class ThingReference < ApplicationRecord
   end
 
   def split!
-    move_to!(Thing.create!(kind: thing.kind, title: thing.title))
+    move_to!(Item.create!(kind: item.kind, title: item.title))
   end
 
   def download
@@ -95,7 +98,7 @@ class ThingReference < ApplicationRecord
   end
 
   def filename
-    File.basename(locator_key.to_s).presence || "thing-#{thing_id}"
+    File.basename(locator_key.to_s).presence || "item-#{item_id}"
   end
 
   def content_type
@@ -114,7 +117,7 @@ class ThingReference < ApplicationRecord
 
     def reindex_thing
       Tenant.switch(Tenant.find(tenant_id)) do
-        subject = Thing.find_by(id: thing_id)
+        subject = Item.find_by(id: item_id)
         SearchIndex.index(subject) if subject
       end
     end

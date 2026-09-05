@@ -106,8 +106,8 @@ class ResourceCheckTest < ActiveSupport::TestCase
 
     def s3_credentials
       {
-        "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "things"),
-        "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "thingsthings")
+        "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "items"),
+        "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "urisuris")
       }
     end
 end

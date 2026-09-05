@@ -2,11 +2,11 @@ module McpClient
   PROTOCOL = "2025-06-18".freeze
 
   def origin_for(tenant)
-    "http://#{tenant.subdomain}.things.test"
+    "http://#{tenant.subdomain}.uris.test"
   end
 
   def host_for(tenant)
-    { "HOST" => "#{tenant.subdomain}.things.test",
+    { "HOST" => "#{tenant.subdomain}.uris.test",
       "HTTP_ACCEPT" => "application/json, text/event-stream" }
   end
 

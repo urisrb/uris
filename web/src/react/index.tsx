@@ -9,15 +9,15 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { ThingsClient } from '../client.js'
+import type { UrisClient } from '../client.js'
 
-const ThingsContext = createContext<ThingsClient | null>(null)
+const ThingsContext = createContext<UrisClient | null>(null)
 
-export function ThingsProvider({
+export function UrisProvider({
   client,
   children,
 }: {
-  client: ThingsClient
+  client: UrisClient
   children: ReactNode
 }) {
   return (
@@ -25,10 +25,10 @@ export function ThingsProvider({
   )
 }
 
-export function useThings(): ThingsClient {
+export function useThings(): UrisClient {
   const client = useContext(ThingsContext)
   if (!client) {
-    throw new Error('useThings must be used inside a ThingsProvider')
+    throw new Error('useThings must be used inside a UrisProvider')
   }
   return client
 }

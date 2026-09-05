@@ -24,14 +24,14 @@ class HandshakeTest < ActionDispatch::IntegrationTest
     assert_response :redirect
 
     query = Rack::Utils.parse_query(URI.parse(response.location).query)
-    origin = "http://#{@tenant.subdomain}.things.test"
+    origin = "http://#{@tenant.subdomain}.uris.test"
 
     assert response.location.start_with?("#{issuer.url_for(@tenant.subdomain)}/handshake")
     assert_equal "#{origin}/mcp", query["resource"]
     assert_equal "#{origin}/auth/handshake/callback", query["return_to"]
     assert_equal "#{origin}/auth/callback", query["redirect_uris"]
     assert_includes query["scope"].split, Grant::NAMESPACE
-    assert_not_includes query["scope"].split, "things:catalog:read",
+    assert_not_includes query["scope"].split, "items:catalog:read",
                         "the handshake asks for the namespace; sign-in asks for the scopes"
     assert_includes query["scope"].split, "offline_access"
     assert query["state"].present?
@@ -57,8 +57,8 @@ class HandshakeTest < ActionDispatch::IntegrationTest
       "SELECT client_secret, registration_access_token FROM tenants WHERE id = #{@tenant.id}"
     )
 
-    assert_not_equal "things-test-secret", stored["client_secret"]
-    assert_no_match(/things-test-secret/, stored.values.join)
+    assert_not_equal "items-test-secret", stored["client_secret"]
+    assert_no_match(/items-test-secret/, stored.values.join)
   end
 
   test "a callback whose state does not match this browser redeems nothing" do
@@ -196,7 +196,7 @@ class HandshakeTest < ActionDispatch::IntegrationTest
   private
 
     def host
-      { "HOST" => "#{@tenant.subdomain}.things.test" }
+      { "HOST" => "#{@tenant.subdomain}.uris.test" }
     end
 
     def start!

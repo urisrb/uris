@@ -14,10 +14,10 @@ class MergeProposalTest < ActiveSupport::TestCase
 
   def thing_on(resource, key, kind: "pdf", version: nil, title: nil)
     Tenant.switch(@tenant) do
-      thing = Thing.create!(kind: kind, title: title || File.basename(key))
-      ThingReference.create!(thing: thing, resource: resource, locator_key: key,
+      item = Item.create!(kind: kind, title: title || File.basename(key))
+      Reference.create!(item: item, resource: resource, locator_key: key,
                              locator: {}, version: version)
-      thing
+      item
     end
   end
 
@@ -39,7 +39,7 @@ class MergeProposalTest < ActiveSupport::TestCase
     assert_equal [ a.id, b.id ].sort, proposals.first.thing_ids
   end
 
-  test "the same name of a different kind is not the same thing" do
+  test "the same name of a different kind is not the same item" do
     thing_on(@drive, "notes/report.pdf", kind: "pdf")
     thing_on(@backup, "notes/report.pdf", kind: "text")
 
@@ -67,11 +67,11 @@ class MergeProposalTest < ActiveSupport::TestCase
     assert_empty propose!.select { |held| held.reason == "same-bytes" }
   end
 
-  test "a thing is never proposed against itself" do
-    thing = thing_on(@drive, "one.pdf")
+  test "a item is never proposed against itself" do
+    item = thing_on(@drive, "one.pdf")
 
     Tenant.switch(@tenant) do
-      ThingReference.create!(thing: thing, resource: @backup, locator_key: "one.pdf", locator: {})
+      Reference.create!(item: item, resource: @backup, locator_key: "one.pdf", locator: {})
     end
 
     assert_empty propose!
@@ -98,7 +98,7 @@ class MergeProposalTest < ActiveSupport::TestCase
 
       assert_equal a.id, kept.id
       assert_equal 2, kept.references.count
-      assert_nil Thing.find_by(id: b.id)
+      assert_nil Item.find_by(id: b.id)
       assert_equal "accepted", proposal.reload.status
       assert proposal.settled_at.present?
     end
@@ -114,19 +114,19 @@ class MergeProposalTest < ActiveSupport::TestCase
       proposal.reject!
 
       assert_equal "rejected", proposal.reload.status
-      assert_equal 1, Thing.find(a.id).references.count
-      assert Thing.find_by(id: b.id).present?
+      assert_equal 1, Item.find(a.id).references.count
+      assert Item.find_by(id: b.id).present?
     end
   end
 
-  test "a proposal whose things have moved on is refused rather than acted on" do
+  test "a proposal whose items have moved on is refused rather than acted on" do
     thing_on(@drive, "march.pdf")
     b = thing_on(@backup, "march.pdf")
 
     proposal = propose!.first
 
     Tenant.switch(@tenant) do
-      Thing.find(b.id).destroy!
+      Item.find(b.id).destroy!
 
       assert_not proposal.current?
       assert_raises(MergeProposal::Stale) { proposal.accept! }

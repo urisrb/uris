@@ -2,41 +2,41 @@ require "test_helper"
 
 class TenantIsolationTest < ActiveSupport::TestCase
   setup do
-    @demo = Tenant.create!(subdomain: "demo-#{SecureRandom.hex(4)}", name: "Demo things")
+    @demo = Tenant.create!(subdomain: "demo-#{SecureRandom.hex(4)}", name: "Demo items")
     @acme = Tenant.create!(subdomain: "acme-#{SecureRandom.hex(4)}", name: "Acme")
 
-    Tenant.switch(@demo) { @demo_thing = Thing.create!(kind: "pdf", title: "Demo invoice") }
-    Tenant.switch(@acme) { @acme_thing = Thing.create!(kind: "pdf", title: "Acme's invoice") }
+    Tenant.switch(@demo) { @demo_thing = Item.create!(kind: "pdf", title: "Demo invoice") }
+    Tenant.switch(@acme) { @acme_thing = Item.create!(kind: "pdf", title: "Acme's invoice") }
   end
 
-  test "a tenant sees only its own things" do
-    Tenant.switch(@demo) { assert_equal [ @demo_thing.id ], Thing.pluck(:id) }
-    Tenant.switch(@acme) { assert_equal [ @acme_thing.id ], Thing.pluck(:id) }
+  test "a tenant sees only its own items" do
+    Tenant.switch(@demo) { assert_equal [ @demo_thing.id ], Item.pluck(:id) }
+    Tenant.switch(@acme) { assert_equal [ @acme_thing.id ], Item.pluck(:id) }
   end
 
   test "row-level security holds when the application scope is gone" do
     Tenant.switch(@demo) do
-      assert_equal [ @demo_thing.id ], Thing.unscoped.pluck(:id)
+      assert_equal [ @demo_thing.id ], Item.unscoped.pluck(:id)
     end
   end
 
-  test "a thing cannot be written into another tenant" do
+  test "a item cannot be written into another tenant" do
     assert_raises ActiveRecord::StatementInvalid do
       Tenant.switch(@demo) do
-        Thing.unscoped.create!(tenant_id: @acme.id, kind: "pdf", title: "smuggled")
+        Item.unscoped.create!(tenant_id: @acme.id, kind: "pdf", title: "smuggled")
       end
     end
   end
 
   test "no tenant in scope reads nothing at all" do
-    assert_equal [], Thing.unscoped.pluck(:id)
+    assert_equal [], Item.unscoped.pluck(:id)
   end
 
   test "a nested switch restores the outer tenant rather than clearing it" do
     Tenant.switch(@demo) do
-      Tenant.switch(@acme) { assert_equal [ @acme_thing.id ], Thing.unscoped.pluck(:id) }
+      Tenant.switch(@acme) { assert_equal [ @acme_thing.id ], Item.unscoped.pluck(:id) }
 
-      assert_equal [ @demo_thing.id ], Thing.unscoped.pluck(:id)
+      assert_equal [ @demo_thing.id ], Item.unscoped.pluck(:id)
     end
   end
 
@@ -50,8 +50,8 @@ class TenantIsolationTest < ActiveSupport::TestCase
 
   test "an id from another tenant does not resolve" do
     Tenant.switch(@demo) do
-      assert_nil Thing.find_by(id: @acme_thing.id)
-      assert_equal @demo_thing, Thing.find_by(id: @demo_thing.id)
+      assert_nil Item.find_by(id: @acme_thing.id)
+      assert_equal @demo_thing, Item.find_by(id: @demo_thing.id)
     end
   end
 end

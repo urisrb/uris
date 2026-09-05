@@ -1,7 +1,7 @@
 export {
-  createThings,
+  createUris,
   metaCSRFToken,
-  type ThingsClient,
-  type ThingsOptions,
+  type UrisClient,
+  type UrisOptions,
 } from './client.js'
 export * from './generated/graphql.js'

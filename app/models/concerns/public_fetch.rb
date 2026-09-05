@@ -14,7 +14,7 @@ module PublicFetch
 
   class_methods do
     def private_fetches_allowed?
-      ENV["THINGS_ALLOW_PRIVATE_FETCH"].present?
+      ENV["URIS_ALLOW_PRIVATE_FETCH"].present?
     end
   end
 

@@ -28,18 +28,18 @@ namespace :inference do
         key = "corpus/#{file.parent.basename}/#{file.basename}"
         storage.upload(key, file.binread)
 
-        reference = ThingReference.discover!(
+        reference = Reference.discover!(
           resource: storage, locator: { "key" => key }, locator_key: key,
           kind: Kind.for_filename(key), title: file.basename.to_s
         )
 
-        thing = reference.thing
+        item = reference.item
         started = Time.current
 
         begin
-          Analyzer.for(thing).run
+          Analyzer.for(item).run
         rescue StandardError => e
-          puts format("%-28s %-9s %8s  %s", file.basename, thing.kind, "-", "#{e.class}: #{e.message.truncate(60)}")
+          puts format("%-28s %-9s %8s  %s", file.basename, item.kind, "-", "#{e.class}: #{e.message.truncate(60)}")
           next
         end
 
@@ -52,7 +52,7 @@ namespace :inference do
           else step.dig("result", "summary").to_s.truncate(64)
           end
 
-        puts format("%-28s %-9s %8s  %s", file.basename.to_s.truncate(28), thing.kind, elapsed, line)
+        puts format("%-28s %-9s %8s  %s", file.basename.to_s.truncate(28), item.kind, elapsed, line)
       end
 
       puts

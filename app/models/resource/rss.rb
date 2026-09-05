@@ -132,7 +132,7 @@ class Resource
       end
 
       def fetch(target)
-        bounded(over_http(target) { |uri| Net::HTTP::Get.new(uri, "User-Agent" => "things") })
+        bounded(over_http(target) { |uri| Net::HTTP::Get.new(uri, "User-Agent" => "items") })
       end
   end
 end

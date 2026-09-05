@@ -43,7 +43,7 @@ class ExportThingsJobTest < ActiveSupport::TestCase
   end
 
   test "everything in the catalog reaches the destination resource" do
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     assert_equal [
       "#{@source_bucket}/invoices/march.pdf",
@@ -52,7 +52,7 @@ class ExportThingsJobTest < ActiveSupport::TestCase
   end
 
   test "the bytes arrive intact" do
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     body = @destination.client.get_object(
       bucket: @destination_bucket, key: "#{@source_bucket}/invoices/march.pdf"
@@ -62,13 +62,13 @@ class ExportThingsJobTest < ActiveSupport::TestCase
   end
 
   test "a selector narrows what is exported" do
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, { "kind" => "image" })
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, { "kind" => "image" })
 
     assert_equal [ "#{@source_bucket}/photos/beach.jpg" ], exported_keys
   end
 
   test "a search query is a selector too" do
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, { "query" => "march" })
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, { "query" => "march" })
 
     assert_equal [ "#{@source_bucket}/invoices/march.pdf" ], exported_keys
   end
@@ -77,14 +77,14 @@ class ExportThingsJobTest < ActiveSupport::TestCase
     compute = Tenant.switch(@tenant) { Resource::Compute.create!(key: "gpu-box", name: "GPU") }
 
     error = assert_raises(ArgumentError) do
-      ExportThingsJob.perform_now(@tenant.id, compute.id, {})
+      ExportItemsJob.perform_now(@tenant.id, compute.id, {})
     end
 
     assert_match(/is not storage/, error.message)
     assert_empty exported_keys
   end
 
-  test "a thing already referenced on the destination is not exported into it" do
+  test "a item already referenced on the destination is not exported into it" do
     put @destination, "invoices/march.pdf"
     SyncResourceJob.perform_now(@tenant.id, @destination.id)
     SearchIndex.refresh!
@@ -93,7 +93,7 @@ class ExportThingsJobTest < ActiveSupport::TestCase
       thing_at(@source, "invoices/march.pdf").merge!(thing_at(@destination, "invoices/march.pdf"))
     end
 
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     assert_equal [
       "invoices/march.pdf",
@@ -101,26 +101,26 @@ class ExportThingsJobTest < ActiveSupport::TestCase
     ].sort, exported_keys
   end
 
-  test "the copy is catalogued as another reference to the same thing" do
-    assert_no_difference -> { Tenant.switch(@tenant) { Thing.count } } do
-      assert_difference -> { Tenant.switch(@tenant) { ThingReference.count } }, 2 do
-        ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+  test "the copy is catalogued as another reference to the same item" do
+    assert_no_difference -> { Tenant.switch(@tenant) { Item.count } } do
+      assert_difference -> { Tenant.switch(@tenant) { Reference.count } }, 2 do
+        ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
       end
     end
 
     Tenant.switch(@tenant) do
-      thing = thing_at(@source, "invoices/march.pdf")
-      copy = thing.references.find_by(resource_id: @destination.id)
+      item = thing_at(@source, "invoices/march.pdf")
+      copy = item.references.find_by(resource_id: @destination.id)
 
       assert_equal "#{@source_bucket}/invoices/march.pdf", copy.locator_key
       assert_equal "contents of invoices/march.pdf", copy.download.read
     end
   end
 
-  test "a thing already exported is not exported again" do
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+  test "a item already exported is not exported again" do
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
     put @destination, "#{@source_bucket}/invoices/march.pdf", body: "written by someone else"
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     body = @destination.client.get_object(
       bucket: @destination_bucket, key: "#{@source_bucket}/invoices/march.pdf"
@@ -130,21 +130,21 @@ class ExportThingsJobTest < ActiveSupport::TestCase
   end
 
   test "syncing the destination afterwards discovers nothing new" do
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
-    assert_no_difference [ -> { Tenant.switch(@tenant) { Thing.count } },
-                           -> { Tenant.switch(@tenant) { ThingReference.count } } ] do
+    assert_no_difference [ -> { Tenant.switch(@tenant) { Item.count } },
+                           -> { Tenant.switch(@tenant) { Reference.count } } ] do
       SyncResourceJob.perform_now(@tenant.id, @destination.id)
     end
   end
 
   test "the copy records the version of the bytes it was made from" do
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     Tenant.switch(@tenant) do
-      thing = thing_at(@source, "invoices/march.pdf")
-      source = thing.source_for(@destination)
-      copy = thing.copy_at(@destination)
+      item = thing_at(@source, "invoices/march.pdf")
+      source = item.source_for(@destination)
+      copy = item.copy_at(@destination)
 
       assert copy.source_version.present?
       assert_equal source.version, copy.source_version
@@ -153,12 +153,12 @@ class ExportThingsJobTest < ActiveSupport::TestCase
   end
 
   test "a source that changed is exported again, over the copy that is now wrong" do
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     put @source, "invoices/march.pdf", body: "a corrected invoice"
     SyncResourceJob.perform_now(@tenant.id, @source.id)
 
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     body = @destination.client.get_object(
       bucket: @destination_bucket, key: "#{@source_bucket}/invoices/march.pdf"
@@ -168,13 +168,13 @@ class ExportThingsJobTest < ActiveSupport::TestCase
   end
 
   test "re-exporting overwrites the copy rather than leaving two" do
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     put @source, "invoices/march.pdf", body: "a corrected invoice"
     SyncResourceJob.perform_now(@tenant.id, @source.id)
 
-    assert_no_difference -> { Tenant.switch(@tenant) { ThingReference.count } } do
-      ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    assert_no_difference -> { Tenant.switch(@tenant) { Reference.count } } do
+      ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
     end
 
     assert_equal [
@@ -184,14 +184,14 @@ class ExportThingsJobTest < ActiveSupport::TestCase
   end
 
   test "a re-export leaves the copy matching its source again, so a third does nothing" do
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     put @source, "invoices/march.pdf", body: "a corrected invoice"
     SyncResourceJob.perform_now(@tenant.id, @source.id)
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     put @destination, "#{@source_bucket}/invoices/march.pdf", body: "written by someone else"
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     body = @destination.client.get_object(
       bucket: @destination_bucket, key: "#{@source_bucket}/invoices/march.pdf"
@@ -212,7 +212,7 @@ class ExportThingsJobTest < ActiveSupport::TestCase
     put @source, "invoices/march.pdf", body: "a corrected invoice"
     SyncResourceJob.perform_now(@tenant.id, @source.id)
 
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     body = @destination.client.get_object(
       bucket: @destination_bucket, key: "invoices/march.pdf"
@@ -221,19 +221,19 @@ class ExportThingsJobTest < ActiveSupport::TestCase
     assert_equal "contents of invoices/march.pdf", body
   end
 
-  test "a copy landing where another thing already lives takes that reference over" do
+  test "a copy landing where another item already lives takes that reference over" do
     put @destination, "#{@source_bucket}/invoices/march.pdf"
     SyncResourceJob.perform_now(@tenant.id, @destination.id)
 
     squatter = Tenant.switch(@tenant) { thing_at(@destination, "#{@source_bucket}/invoices/march.pdf") }
 
-    ExportThingsJob.perform_now(@tenant.id, @destination.id, {})
+    ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
 
     Tenant.switch(@tenant) do
-      assert_nil Thing.find_by(id: squatter.id)
+      assert_nil Item.find_by(id: squatter.id)
       assert_equal thing_at(@source, "invoices/march.pdf").id,
-                   ThingReference.find_by(resource_id: @destination.id,
-                                          locator_key: "#{@source_bucket}/invoices/march.pdf").thing_id
+                   Reference.find_by(resource_id: @destination.id,
+                                          locator_key: "#{@source_bucket}/invoices/march.pdf").item_id
     end
   end
 
@@ -248,8 +248,8 @@ class ExportThingsJobTest < ActiveSupport::TestCase
           "region" => ENV.fetch("S3_REGION", "us-east-1")
         },
         credentials: {
-          "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "things"),
-          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "thingsthings")
+          "access_key_id" => ENV.fetch("S3_ACCESS_KEY_ID", "items"),
+          "secret_access_key" => ENV.fetch("S3_SECRET_ACCESS_KEY", "urisuris")
         }
       )
     end
@@ -259,8 +259,8 @@ class ExportThingsJobTest < ActiveSupport::TestCase
     end
 
     def thing_at(resource, locator_key)
-      Thing.joins(:references)
-           .find_by(thing_references: { resource_id: resource.id, locator_key: locator_key })
+      Item.joins(:references)
+           .find_by(item_references: { resource_id: resource.id, locator_key: locator_key })
     end
 
     def exported_keys

@@ -1,4 +1,4 @@
-class ExportThingsJob < ApplicationJob
+class ExportItemsJob < ApplicationJob
   include JobIteration::Iteration
   include TrackedRun
 
@@ -23,25 +23,25 @@ class ExportThingsJob < ApplicationJob
     enumerator_builder.build_array_enumerator(ids, cursor: cursor)
   end
 
-  def each_iteration(thing_id, tenant_id, destination_id, _selector, _run_id = nil)
+  def each_iteration(item_id, tenant_id, destination_id, _selector, _run_id = nil)
     tenant = Tenant.find(tenant_id)
 
     Tenant.switch(tenant) do
       destination = Resource.find(destination_id)
-      thing = Thing.find_by(id: thing_id)
-      source = thing&.source_for(destination)
+      item = Item.find_by(id: item_id)
+      source = item&.source_for(destination)
 
       next if source.nil?
 
-      copy = thing.copy_at(destination)
+      copy = item.copy_at(destination)
 
       next if copy && !copy.stale_against?(source)
 
       path = copy&.locator_key || source.path
       locator = destination.upload(path, source.download)
 
-      ThingReference.record!(
-        thing: thing, resource: destination, locator: locator, locator_key: path,
+      Reference.record!(
+        item: item, resource: destination, locator: locator, locator_key: path,
         source_version: source.version
       )
     end
@@ -52,6 +52,6 @@ class ExportThingsJob < ApplicationJob
   private
 
     def select(selector)
-      Thing.referenced.matching(selector)
+      Item.referenced.matching(selector)
     end
 end

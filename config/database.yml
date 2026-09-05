@@ -10,8 +10,8 @@ development:
     database: things_development
     host: <%= ENV.fetch("POSTGRES_HOST", "localhost") %>
     port: <%= ENV.fetch("POSTGRES_PORT", 5432) %>
-    username: <%= ENV.fetch("POSTGRES_USER", "things") %>
-    password: <%= ENV.fetch("POSTGRES_PASSWORD", "things") %>
+    username: <%= ENV.fetch("POSTGRES_USER", "uris") %>
+    password: <%= ENV.fetch("POSTGRES_PASSWORD", "uris") %>
   cache:
     <<: *primary_development
     database: things_development_cache
@@ -48,8 +48,8 @@ production:
     database: things_production
     host: <%= ENV.fetch("POSTGRES_HOST", "localhost") %>
     port: <%= ENV.fetch("POSTGRES_PORT", 5432) %>
-    username: things
-    password: <%= ENV["THINGS_DATABASE_PASSWORD"] %>
+    username: uris
+    password: <%= ENV["URIS_DATABASE_PASSWORD"] %>
   cache:
     <<: *primary_production
     database: things_production_cache

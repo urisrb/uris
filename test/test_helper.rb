@@ -5,7 +5,7 @@ require "rails/test_help"
 require_relative "support/fake_issuer"
 require_relative "support/mcp_client"
 
-ENV["THINGS_PUBLIC_ORIGIN"] = nil
+ENV["URIS_PUBLIC_ORIGIN"] = nil
 
 module ActiveSupport
   class TestCase
@@ -22,11 +22,11 @@ module ActiveSupport
       FakeIssuer.current
     end
 
-    def connect!(tenant, client_id: "things-test-client", client_secret: "things-test-secret")
+    def connect!(tenant, client_id: "items-test-client", client_secret: "items-test-secret")
       tenant.update!(
         client_id: client_id,
         client_secret: client_secret,
-        registration_access_token: "things-test-registration-token",
+        registration_access_token: "items-test-registration-token",
         registration_client_uri: "#{issuer.url_for(tenant.subdomain)}/register/#{client_id}",
         connected_at: Time.current
       )
@@ -35,11 +35,11 @@ module ActiveSupport
     fixtures :all
 
     def create_thing(kind:, title: nil, resource: nil, locator_key: nil, locator: {})
-      thing = Thing.create!(kind: kind, title: title)
-      thing.references.create!(resource: resource || scratch_resource,
+      item = Item.create!(kind: kind, title: title)
+      item.references.create!(resource: resource || scratch_resource,
                                locator_key: locator_key, locator: locator)
-      thing.references.reset
-      thing
+      item.references.reset
+      item
     end
 
     def scratch_resource
@@ -52,7 +52,7 @@ module ActiveSupport
     end
 
     def thing_at(locator_key)
-      Thing.joins(:references).find_by!(thing_references: { locator_key: locator_key })
+      Item.joins(:references).find_by!(item_references: { locator_key: locator_key })
     end
   end
 end

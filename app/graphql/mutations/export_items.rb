@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Mutations
-  class ExportThings < BaseMutation
+  class ExportItems < BaseMutation
     argument :destination_id, ID, required: false,
              description: "Where to write. Left off, this tenant's default storage."
     argument :query, String, required: false
@@ -17,7 +17,7 @@ module Mutations
 
       selector = { "query" => query, "kind" => kind, "resource_id" => resource_id }.compact
       run = Run.start!(kind: "export", resource: destination, selector: selector)
-      ExportThingsJob.perform_later(destination.tenant_id, destination.id, selector, run.id)
+      ExportItemsJob.perform_later(destination.tenant_id, destination.id, selector, run.id)
 
       { run: run }
     end

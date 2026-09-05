@@ -6,7 +6,7 @@ class Gate < ApplicationRecord
     def closed? = !enabled
   end
 
-  SHUT = "THINGS_ITERATORS_DISABLED".freeze
+  SHUT = "URIS_ITERATORS_DISABLED".freeze
 
   belongs_to :reference, polymorphic: true, optional: true
 

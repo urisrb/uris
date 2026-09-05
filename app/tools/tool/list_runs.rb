@@ -1,11 +1,11 @@
 module Tool
   class ListRuns < Base
     tool_name "list_runs"
-    scope "things:resources:read"
+    scope "items:resources:read"
 
     description <<~TEXT
       What the work you started is doing. Every tool that answers `queued` names a run,
-      and this is where that run says whether it is still going, how many things it has
+      and this is where that run says whether it is still going, how many items it has
       got through, and what stopped it if something did. Newest first.
     TEXT
 

@@ -1,4 +1,4 @@
-class ReindexThingsJob < ApplicationJob
+class ReindexItemsJob < ApplicationJob
   include JobIteration::Iteration
   include TrackedRun
 
@@ -32,22 +32,22 @@ class ReindexThingsJob < ApplicationJob
     enumerator_builder.wrap(enumerator_builder, pages)
   end
 
-  def each_iteration(things, tenant_id, index = nil, _run_id = nil)
-    return track_iteration(things.size) if dry_run?
+  def each_iteration(items, tenant_id, index = nil, _run_id = nil)
+    return track_iteration(items.size) if dry_run?
 
     Tenant.switch(tenant_for(tenant_id)) do
-      SearchIndex.index_all(things, into: index.presence || SearchIndex.alias_name)
+      SearchIndex.index_all(items, into: index.presence || SearchIndex.alias_name)
     end
 
-    track_iteration(things.size)
+    track_iteration(items.size)
   end
 
   private
 
     def page_after(tenant, after)
       Tenant.switch(tenant) do
-        scope = Thing.includes(:references).order(:id).limit(PAGE)
-        scope = scope.where("things.id > ?", after.to_i) if after.present?
+        scope = Item.includes(:references).order(:id).limit(PAGE)
+        scope = scope.where("items.id > ?", after.to_i) if after.present?
         scope.to_a
       end
     end

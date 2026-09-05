@@ -2,14 +2,14 @@
 
 module Types
   class ResourceType < Types::BaseObject
-    grants "things:resources:read"
+    grants "items:resources:read"
 
     field :id, ID, null: false
     field :type, String, null: false, method: :type
     field :key, String, null: false
     field :name, String
     field :capabilities, [ String ], null: false
-    field :things_count, Integer, null: false
+    field :items_count, Integer, null: false
     field :default_storage, Boolean, null: false
     field :default_inference, Boolean, null: false
     field :sync_interval, Integer
@@ -24,8 +24,8 @@ module Types
       object.capabilities.map(&:to_s)
     end
 
-    def things_count
-      ThingReference.where(resource_id: object.id).distinct.count(:thing_id)
+    def items_count
+      Reference.where(resource_id: object.id).distinct.count(:item_id)
     end
   end
 end

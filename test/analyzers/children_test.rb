@@ -11,8 +11,8 @@ class ChildrenTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       @mail = Resource::Database.create!(key: "mailbox")
       @mail.upload("march.eml", eml)
-      @thing = Thing.create!(kind: "email", title: "March invoice")
-      ThingReference.record!(thing: @thing, resource: @mail,
+      @item = Item.create!(kind: "email", title: "March invoice")
+      Reference.record!(item: @item, resource: @mail,
                              locator_key: "march.eml", locator: { "key" => "march.eml" })
     end
   end
@@ -31,14 +31,14 @@ class ChildrenTest < ActiveSupport::TestCase
   end
 
   def analyze!
-    Tenant.switch(@tenant) { Analyzer.for(@thing.reload).run }
+    Tenant.switch(@tenant) { Analyzer.for(@item.reload).run }
   end
 
   def children
-    Tenant.switch(@tenant) { @thing.reload.children.to_a }
+    Tenant.switch(@tenant) { @item.reload.children.to_a }
   end
 
-  test "an attachment is catalogued as a thing of its own, under the message" do
+  test "an attachment is catalogued as a item of its own, under the message" do
     analyze!
 
     held = children
@@ -46,7 +46,7 @@ class ChildrenTest < ActiveSupport::TestCase
     assert_equal 1, held.length
     assert_equal "invoice.txt", held.first.title
     assert_equal "text", held.first.kind
-    assert_equal @thing.id, held.first.parent_id
+    assert_equal @item.id, held.first.parent_id
     assert_equal "the numbers are in the attachment",
                  Tenant.switch(@tenant) { held.first.reference.download.read }
   end
@@ -55,8 +55,8 @@ class ChildrenTest < ActiveSupport::TestCase
     analyze!
 
     Tenant.switch(@tenant) do
-      assert_nil @thing.reload.analyzed_at, "a message with unread attachments is not read yet"
-      assert_not @thing.children_ready?
+      assert_nil @item.reload.analyzed_at, "a message with unread attachments is not read yet"
+      assert_not @item.children_ready?
     end
   end
 
@@ -68,7 +68,7 @@ class ChildrenTest < ActiveSupport::TestCase
     analyze!
 
     Tenant.switch(@tenant) do
-      held = @thing.reload
+      held = @item.reload
 
       assert held.analyzed_at.present?
       assert held.children_ready?
@@ -82,11 +82,11 @@ class ChildrenTest < ActiveSupport::TestCase
 
     child = children.first
 
-    perform_enqueued_jobs(only: AnalyzeThingJob) do
-      AnalyzeThingJob.perform_now(@tenant.id, child.id)
+    perform_enqueued_jobs(only: AnalyzeItemJob) do
+      AnalyzeItemJob.perform_now(@tenant.id, child.id)
     end
 
-    Tenant.switch(@tenant) { assert @thing.reload.analyzed_at.present? }
+    Tenant.switch(@tenant) { assert @item.reload.analyzed_at.present? }
   end
 
   test "extraction is idempotent, so re-analysis finds its children rather than copying them" do
@@ -123,8 +123,8 @@ class ChildrenTest < ActiveSupport::TestCase
   test "an analyzer that declares no children extracts none" do
     Tenant.switch(@tenant) do
       @mail.upload("plain.txt", "nothing inside this")
-      plain = Thing.create!(kind: "text", title: "plain.txt")
-      ThingReference.record!(thing: plain, resource: @mail,
+      plain = Item.create!(kind: "text", title: "plain.txt")
+      Reference.record!(item: plain, resource: @mail,
                              locator_key: "plain.txt", locator: { "key" => "plain.txt" })
 
       Analyzer.for(plain).run
@@ -137,8 +137,8 @@ class ChildrenTest < ActiveSupport::TestCase
   test "a message whose attachment is unreadable still reads itself" do
     Tenant.switch(@tenant) do
       @mail.upload("broken.eml", "this is not a message")
-      broken = Thing.create!(kind: "email", title: "broken")
-      ThingReference.record!(thing: broken, resource: @mail,
+      broken = Item.create!(kind: "email", title: "broken")
+      Reference.record!(item: broken, resource: @mail,
                              locator_key: "broken.eml", locator: { "key" => "broken.eml" })
 
       Analyzer.for(broken).run
@@ -156,18 +156,18 @@ class ChildrenTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      found = Thing.search("numbers").to_a
+      found = Item.search("numbers").to_a
 
-      assert_includes found.map(&:id), @thing.id
+      assert_includes found.map(&:id), @item.id
     end
   end
 
   test "nesting stops at a depth rather than following a message into itself" do
     Tenant.switch(@tenant) do
-      deep = @thing
-      Thing::DEPTH.times { deep = Thing.create!(kind: "email", title: "nested", parent: deep) }
+      deep = @item
+      Item::DEPTH.times { deep = Item.create!(kind: "email", title: "nested", parent: deep) }
 
-      assert_equal Thing::DEPTH, deep.depth
+      assert_equal Item::DEPTH, deep.depth
     end
   end
 end

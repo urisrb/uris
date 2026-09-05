@@ -6,8 +6,8 @@ module Analyzer
     MAX_COLUMNS = 30
     CELL = 200
 
-    def self.handles?(thing)
-      thing.kind == "xlsx"
+    def self.handles?(item)
+      item.kind == "xlsx"
     end
 
     def analyze

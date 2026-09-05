@@ -171,7 +171,7 @@ class ViaTest < ActiveSupport::TestCase
   end
 
   test "an inference resource dials through its transport, with no allowlist needed" do
-    ENV.delete("THINGS_INFERENCE_ORIGINS")
+    ENV.delete("URIS_INFERENCE_ORIGINS")
     @server.answer_json({ summary: "reached" })
 
     Tenant.switch(@tenant) do
