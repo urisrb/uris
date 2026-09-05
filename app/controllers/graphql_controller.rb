@@ -4,7 +4,7 @@ class GraphqlController < ApplicationController
   include Granted
 
   def execute
-    result = ThingsSchema.execute(
+    result = ThingiesSchema.execute(
       params[:query],
       variables: prepare_variables(params[:variables]),
       operation_name: params[:operationName],

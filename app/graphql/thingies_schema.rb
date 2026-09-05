@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class ThingsSchema < GraphQL::Schema
+class ThingiesSchema < GraphQL::Schema
   query(Types::QueryType)
   mutation(Types::MutationType)
   subscription(Types::SubscriptionType)

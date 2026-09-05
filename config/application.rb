@@ -6,7 +6,7 @@ require "rails/all"
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
 
-module Things
+module Thingies
   class Application < Rails::Application
     config.active_record.query_log_tags_enabled = true
     config.active_record.query_log_tags = [
@@ -31,10 +31,10 @@ module Things
     config.active_job.queue_adapter = :solid_queue
     config.solid_queue.connects_to = { database: { writing: :queue } }
 
-    config.things = ActiveSupport::OrderedOptions.new
-    config.things.mcp_limit = ENV.fetch("THINGS_MCP_LIMIT", 120).to_i
-    config.things.run_budget = ENV.fetch("THINGS_RUN_BUDGET", 20).to_i
-    config.things.audit_retention = ENV.fetch("THINGS_AUDIT_RETENTION_DAYS", 90).to_i.days
+    config.thingies = ActiveSupport::OrderedOptions.new
+    config.thingies.mcp_limit = ENV.fetch("THINGS_MCP_LIMIT", 120).to_i
+    config.thingies.run_budget = ENV.fetch("THINGS_RUN_BUDGET", 20).to_i
+    config.thingies.audit_retention = ENV.fetch("THINGS_AUDIT_RETENTION_DAYS", 90).to_i.days
 
     config.active_record.encryption.primary_key = ENV["ENCRYPTION_PRIMARY_KEY"]
     config.active_record.encryption.deterministic_key = ENV["ENCRYPTION_DETERMINISTIC_KEY"]

@@ -56,7 +56,7 @@ module Tool
       def within_budget!(grant)
         return unless starts_runs
 
-        limit = Rails.configuration.things.run_budget
+        limit = Rails.configuration.thingies.run_budget
         return if limit.zero?
 
         key = [ "mcp:runs", Current.tenant.id, grant.subject, Time.current.to_i / 3600 ].join(":")

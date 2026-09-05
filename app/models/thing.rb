@@ -124,8 +124,8 @@ class Thing < ApplicationRecord
 
   def announce_analyzed!
     Tenant.switch(tenant) do
-      ThingsSchema.subscriptions.trigger(:thing_analyzed, {}, self, scope: tenant_id)
-      ThingsSchema.subscriptions.trigger(:thing_analyzed, { id: to_gid_param }, self,
+      ThingiesSchema.subscriptions.trigger(:thing_analyzed, {}, self, scope: tenant_id)
+      ThingiesSchema.subscriptions.trigger(:thing_analyzed, { id: to_gid_param }, self,
                                          scope: tenant_id)
     end
   end

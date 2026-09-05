@@ -1,9 +1,9 @@
-# things
+# thingies
 
 A data unifier — one searchable index across everything you own, wherever it lives, with a way back
 out.
 
-Drive search only searches Drive. Gmail search only searches Gmail. things searches across all of
+Drive search only searches Drive. Gmail search only searches Gmail. thingies searches across all of
 them, with analysis attached, and can hand the bytes back as an export or a local copy.
 
 ```
@@ -24,8 +24,6 @@ Everything that touches an unbounded number of things checkpoints through
 [job-iteration](https://github.com/Shopify/job-iteration), so a sync or an export survives a deploy
 and resumes at its cursor rather than starting over.
 
-[CHECKLIST.md](CHECKLIST.md) tracks every feature against what is actually built, and is honest
-about which checked boxes have been executed rather than merely written.
 
 ## Running it
 

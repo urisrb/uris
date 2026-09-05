@@ -7,7 +7,7 @@ export default defineConfig({
   image: { service: passthroughImageService() },
   integrations: [
     starlight({
-      title: "things",
+      title: "thingies",
       description:
         "A data unifier — one searchable index across everything you own, wherever it lives, with a way back out.",
       customCss: ["./src/styles/global.css"],

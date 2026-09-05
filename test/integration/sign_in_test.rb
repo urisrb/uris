@@ -70,7 +70,7 @@ class SignInTest < ActionDispatch::IntegrationTest
   test "the session fits in a cookie, because three JWTs do not" do
     sign_in
 
-    held = cookies["_things_session"].to_s
+    held = cookies["_thingies_session"].to_s
 
     assert held.present?
     assert_operator held.bytesize, :<, 4096,

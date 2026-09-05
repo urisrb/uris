@@ -19,11 +19,11 @@ class McpLimitsTest < ActionDispatch::IntegrationTest
   end
 
   def limit
-    Rails.configuration.things.mcp_limit
+    Rails.configuration.thingies.mcp_limit
   end
 
   def budget
-    Rails.configuration.things.run_budget
+    Rails.configuration.thingies.run_budget
   end
 
   def flood(tenant, held, times, session: nil)
