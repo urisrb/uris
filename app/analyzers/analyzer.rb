@@ -1,6 +1,8 @@
 module Analyzer
   class Failed < StandardError; end
 
+  PROMPTS_CHANGED_AT = Time.utc(2026, 9, 5).freeze
+
   def self.all
     [
       Analyzer::Pdf, Analyzer::Image, Analyzer::Doc, Analyzer::Xlsx,

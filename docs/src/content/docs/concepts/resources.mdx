@@ -24,6 +24,7 @@ dasherizes the class name, so `Resource::OauthGoogle` stores and reports as `oau
 | `caldav` | `Resource::Caldav` | — | ✓ |
 | `carddav` | `Resource::Carddav` | — | ✓ |
 | `oauth-google` | `Resource::OauthGoogle` | integration | — |
+| `openai-compatible` | `Resource::OpenaiCompatible` | inference | — |
 
 `Caldav` and `Carddav` subclass `Webdav` and inherit its `each_page`, narrowing what they walk with
 a `wanted?` predicate.
@@ -35,14 +36,28 @@ One class serves every vendor speaking its dialect: `s3` covers AWS, R2, B2, Was
 Garage.
 
 :::note[TODO]
-`compute`, `inference`, `browser` and `media` capabilities are named in the plan and have no
-implementation. Neither do the `docker`, `ssh-exec` and `openai-compatible` types, nor the `node`
-attach class.
+`compute`, `browser` and `media` capabilities have no implementation, nor do the `docker` and
+`ssh-exec` types or the `node` attach class. `transport` has a contract — `reach!` — and one edge,
+`via_id`, but no type implements it yet: the `tailscale` type is not written, so every resource is
+reached directly.
 :::
 
 ## Capability
 
-`self.capabilities` returns an array of symbols. Only `storage` and `integration` are in use.
+`self.capabilities` returns an array of symbols. `storage`, `integration` and `inference` are in
+use; `transport` is defined and unimplemented.
+
+## Reaching a resource
+
+`via_id` is a nullable self-reference: *this resource is reached through that one*. Null means
+reached directly. A resource named as `via` must declare the `transport` capability and implement
+`reach!(url)`, which rewrites the URL its dependent would otherwise dial.
+
+The edge is validated both ways. A `via` must be this tenant's, must not be the resource itself,
+must not close a loop, and must not sit more than `MAX_HOPS` away. A transport that something still
+rides on cannot be archived, and the database refuses to delete it or to point a `via` at another
+tenant — the foreign key carries `tenant_id`, so a cross-tenant transport is unrepresentable rather
+than merely refused.
 
 `storage?` gates two things: being an export destination (`Resource#storage!`) and being the
 tenant's `default_storage`, which `Resource#make_default_storage!` sets exclusively.

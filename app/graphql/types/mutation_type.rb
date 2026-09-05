@@ -11,6 +11,7 @@ module Types
     field :sync_resource, mutation: Mutations::SyncResource, grants: "things:resources:command"
     field :check_resource, mutation: Mutations::CheckResource, grants: "things:resources:command"
     field :set_default_storage, mutation: Mutations::SetDefaultStorage, grants: "things:resources:command"
+    field :set_default_inference, mutation: Mutations::SetDefaultInference, grants: "things:resources:command"
     field :set_sync_interval, mutation: Mutations::SetSyncInterval, grants: "things:resources:command"
 
     field :set_setting, mutation: Mutations::SetSetting, grants: "things:settings:write"

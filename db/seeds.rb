@@ -33,6 +33,27 @@ TENANTS.each do |attrs|
       warn "  storage unreachable (#{e.class}) — is docker compose running?"
     end
 
+    if (endpoint = ENV["OLLAMA_URL"]).present?
+      brain = Resource::OpenaiCompatible.find_or_initialize_by(key: "ollama")
+      brain.assign_attributes(
+        name: "Local models",
+        details: {
+          "base_url" => endpoint,
+          "models" => {
+            "fast" => ENV.fetch("OLLAMA_FAST_MODEL", "gemma3:4b"),
+            "smart" => ENV.fetch("OLLAMA_SMART_MODEL", "llama3.1:8b")
+          }
+        }
+      )
+      brain.save!
+      brain.make_default_inference!
+
+      unless brain.check
+        warn "  ollama unreachable at #{endpoint} — #{brain.check_error}"
+        warn "  summaries will be skipped until it answers"
+      end
+    end
+
     puts "seeded #{tenant.subdomain}: #{Resource.active.count} resource(s)"
   end
 end

@@ -1,0 +1,268 @@
+require "test_helper"
+require_relative "../support/fake_model_server"
+
+class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
+  MODELS = { "fast" => "gemma3:4b", "smart" => "llama3.1:8b" }.freeze
+
+  setup do
+    @server = FakeModelServer.current
+    @server.reset!.serves(MODELS.values)
+
+    ENV["THINGS_INFERENCE_ORIGINS"] = @server.origin
+
+    @tenant = Tenant.create!(subdomain: "inf-#{SecureRandom.hex(4)}", name: "Inference")
+
+    Tenant.switch(@tenant) do
+      @resource = Resource::OpenaiCompatible.create!(
+        key: "ollama", name: "Local models",
+        details: { "base_url" => @server.base_url, "models" => MODELS }
+      )
+    end
+  end
+
+  teardown do
+    ENV.delete("THINGS_INFERENCE_ORIGINS")
+  end
+
+  test "the stored type is openai-compatible and it loads back as the class" do
+    assert_equal "openai-compatible", @resource.type
+
+    Tenant.switch(@tenant) { assert_instance_of Resource::OpenaiCompatible, Resource.find(@resource.id) }
+  end
+
+  test "it declares inference and is not storage" do
+    assert @resource.inference?
+    assert_not @resource.storage?
+    assert_raises(ArgumentError) { @resource.storage! }
+  end
+
+  test "it cannot sync, and refuses a schedule" do
+    assert_not @resource.syncable?
+
+    Tenant.switch(@tenant) do
+      assert_not @resource.update(sync_interval: 300)
+      assert_includes @resource.errors[:sync_interval].join, "cannot sync"
+    end
+  end
+
+  test "check passes when every declared model is served" do
+    Tenant.switch(@tenant) { assert @resource.check! }
+  end
+
+  test "check names the model that was never pulled" do
+    @server.serves("gemma3:4b")
+
+    error = Tenant.switch(@tenant) { assert_raises(Resource::Unusable) { @resource.check! } }
+
+    assert_match(/llama3\.1:8b/, error.message)
+  end
+
+  test "a resource declaring nothing is unusable rather than vacuously healthy" do
+    Tenant.switch(@tenant) do
+      bare = Resource::OpenaiCompatible.create!(
+        key: "bare", details: { "base_url" => @server.base_url }
+      )
+
+      assert_match(/no models are declared/, assert_raises(Resource::Unusable) { bare.check! }.message)
+    end
+  end
+
+  test "an unreachable endpoint records the failure rather than raising out of check" do
+    Tenant.switch(@tenant) do
+      gone = Resource::OpenaiCompatible.create!(
+        key: "gone", details: { "base_url" => "http://127.0.0.1:1/v1", "models" => MODELS }
+      )
+
+      ENV["THINGS_INFERENCE_ORIGINS"] = "http://127.0.0.1:1"
+
+      assert_not gone.check
+      assert gone.check_error.present?
+      assert_not gone.healthy?
+    end
+  end
+
+  test "a server error is retryable, and not merely unusable" do
+    @server.refuse(500, body: "upstream is unwell")
+
+    error = Tenant.switch(@tenant) do
+      assert_raises(Resource::Failed) { @resource.summarize("hello", role: :fast) }
+    end
+
+    assert_not_kind_of Resource::Unusable, error
+  end
+
+  test "a rate limit is retryable" do
+    @server.refuse(429)
+
+    error = Tenant.switch(@tenant) do
+      assert_raises(Resource::Failed) { @resource.summarize("hello", role: :fast) }
+    end
+
+    assert_not_kind_of Resource::Unusable, error
+  end
+
+  test "a bad request is unusable, so the job discards rather than retrying" do
+    @server.refuse(404, body: "no such model")
+
+    Tenant.switch(@tenant) do
+      assert_raises(Resource::Unusable) { @resource.summarize("hello", role: :fast) }
+    end
+  end
+
+  test "a read timeout is retryable" do
+    @server.hang(2)
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: @resource.details.merge("read_timeout" => 1))
+
+      error = assert_raises(Resource::Failed) { @resource.summarize("hello", role: :fast) }
+
+      assert_not_kind_of Resource::Unusable, error
+      assert_match(/did not answer in 1s/, error.message)
+    end
+  end
+
+  test "prose is retried, and gives up as unusable rather than as an empty result" do
+    3.times { @server.answer("I think the document is about pelicans.") }
+
+    Tenant.switch(@tenant) do
+      assert_raises(Resource::Unusable) { @resource.summarize("hello", role: :fast) }
+    end
+
+    assert_equal 3, @server.count_for("/v1/chat/completions")
+  end
+
+  test "json inside a fence is parsed" do
+    @server.answer("Here you go:\n```json\n{\"summary\": \"a pelican\"}\n```\n")
+
+    answer = Tenant.switch(@tenant) { @resource.summarize("hello", role: :fast) }
+
+    assert_equal "a pelican", answer["summary"]
+  end
+
+  test "a reasoning preamble is stripped before parsing" do
+    @server.answer("<think>weighing it up</think>{\"summary\": \"a pelican\"}")
+
+    answer = Tenant.switch(@tenant) { @resource.summarize("hello", role: :fast) }
+
+    assert_equal "a pelican", answer["summary"]
+  end
+
+  test "an empty answer is unusable" do
+    @server.answer("")
+
+    Tenant.switch(@tenant) do
+      assert_match(/answered with nothing/,
+                   assert_raises(Resource::Unusable) { @resource.summarize("x", role: :fast) }.message)
+    end
+  end
+
+  test "a role picks the model declared for it, and records it on the prompt" do
+    @server.answer_json({ summary: "ok" })
+
+    assert_equal "llama3.1:8b", @resource.model_for(:smart)
+    assert_equal "gemma3:4b", @resource.model_for(:fast)
+
+    Tenant.switch(@tenant) do
+      @resource.summarize("hello", role: :smart)
+
+      assert_equal [ "llama3.1:8b" ], Prompt.pluck(:model)
+      assert_equal [ "smart" ], Prompt.pluck(:role)
+    end
+  end
+
+  test "an unknown role falls back only when a default model is declared" do
+    Tenant.switch(@tenant) do
+      assert_not @resource.serves_role?(:vision)
+      assert_raises(Resource::Unusable) { @resource.model_for(:vision) }
+
+      @resource.update!(details: @resource.details.merge("models" => MODELS.merge("default" => "gemma3:4b")))
+
+      assert @resource.serves_role?(:vision)
+      assert_equal "gemma3:4b", @resource.model_for(:vision)
+    end
+  end
+
+  test "an api key travels as a bearer token, and is absent when unset" do
+    @server.answer_json({ summary: "ok" })
+    Tenant.switch(@tenant) { @resource.summarize("hello", role: :fast) }
+
+    assert_nil @server.authorizations_for("/v1/chat/completions").last
+
+    @server.reset!.serves(MODELS.values).answer_json({ summary: "ok" })
+    ENV["THINGS_INFERENCE_ORIGINS"] = @server.origin
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: @resource.details.merge("base_url" => @server.base_url),
+                        credentials: { "api_key" => "sk-secret" })
+      @resource.summarize("hello", role: :fast)
+    end
+
+    assert_equal "Bearer sk-secret", @server.authorizations_for("/v1/chat/completions").last
+  end
+
+  test "credentials are encrypted at rest" do
+    Tenant.switch(@tenant) { @resource.update!(credentials: { "api_key" => "sk-secret" }) }
+
+    stored = Resource.connection.select_value(
+      "SELECT credentials FROM resources WHERE id = #{@resource.id}"
+    )
+
+    assert_not_includes stored.to_s, "sk-secret"
+  end
+
+  test "an origin outside the allowlist is refused, and the message names the variable" do
+    ENV["THINGS_INFERENCE_ORIGINS"] = "http://127.0.0.1:9"
+
+    Tenant.switch(@tenant) do
+      assert_match(/THINGS_INFERENCE_ORIGINS/,
+                   assert_raises(Resource::Unusable) { @resource.check! }.message)
+    end
+  end
+
+  test "with no allowlist at all nothing is reachable" do
+    ENV.delete("THINGS_INFERENCE_ORIGINS")
+
+    Tenant.switch(@tenant) do
+      assert_match(/no inference origins are permitted/,
+                   assert_raises(Resource::Unusable) { @resource.check! }.message)
+    end
+  end
+
+  test "a prompt is scrubbed of invalid bytes and capped before it is sent" do
+    @server.answer_json({ summary: "ok" })
+
+    Tenant.switch(@tenant) do
+      @resource.summarize("caf\xE9 #{'x' * 60_000}", role: :fast)
+    end
+
+    sent = @server.prompts.last
+
+    assert sent.valid_encoding?
+    assert_operator sent.length, :<=, Resource::OpenaiCompatible::MAX_PROMPT
+  end
+
+  test "the only command is models, and there is deliberately no complete" do
+    assert_equal [ :models ], Resource::OpenaiCompatible.command_schema.keys
+
+    Tenant.switch(@tenant) do
+      assert_raises(ArgumentError) { @resource.command("complete", prompt: "hello") }
+    end
+  end
+
+  test "the models command reports what is declared against what is served" do
+    answer = Tenant.switch(@tenant) { @resource.command("models") }
+
+    assert_equal MODELS, answer["declared"]
+    assert_equal MODELS.values.sort, answer["available"].sort
+  end
+
+  test "a base_url is required" do
+    Tenant.switch(@tenant) do
+      resource = Resource::OpenaiCompatible.new(key: "empty", details: {})
+
+      assert_not resource.valid?
+      assert_includes resource.errors[:details].join, "base_url"
+    end
+  end
+end

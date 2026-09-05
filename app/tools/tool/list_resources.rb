@@ -21,6 +21,7 @@ module Tool
             name: resource.name,
             capabilities: resource.capabilities,
             default_storage: resource.default_storage?,
+            default_inference: resource.default_inference?,
             syncable: resource.syncable?,
             sync_interval: resource.sync_interval,
             next_sync_at: resource.next_sync_at,

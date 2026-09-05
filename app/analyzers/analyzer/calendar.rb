@@ -14,11 +14,35 @@ module Analyzer
       step(:text) { flatten(events).truncate(MAX_TEXT) }
     end
 
+    SUMMARY_EVENTS = 20
+
+    def summary_prompt
+      events = step_result(:events) || []
+      return nil if events.empty?
+
+      lines = events.first(SUMMARY_EVENTS).map do |event|
+        "- #{[ event['dtstart'], event['summary'], event['location'] ].compact_blank.join(' — ')}"
+      end
+
+      <<~PROMPT
+        Summarize the calendar below.
+
+        Filename: #{reference.filename}
+        Events: #{events.size}
+
+        First #{lines.size}:
+        #{lines.join("\n")}
+
+        Return ONLY valid JSON, no markdown and no explanation:
+        {"summary": "...", "keywords": ["...", "..."]}
+
+        - summary: one or two sentences on what is on this calendar and over what period
+        - keywords: up to #{SUMMARY_KEYWORDS} search terms, as an array of strings
+      PROMPT
+    end
+
     private
 
-      # RFC 5545 folds long lines by inserting a break and one space or tab, so
-      # unfolding has to happen before anything is split on a colon — otherwise
-      # every long SUMMARY is silently truncated at the fold.
       def unfold(body)
         body.gsub(/\r?\n[ \t]/, "")
       end
@@ -52,9 +76,6 @@ module Analyzer
         events
       end
 
-      # DTSTART;TZID=Europe/London:20260830T090000 — the parameters after the
-      # semicolon are not part of the name, and keeping them would make every
-      # zoned property a field of its own.
       def assign(event, line)
         name, value = line.split(":", 2)
         return if value.nil?

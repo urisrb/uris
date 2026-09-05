@@ -108,6 +108,57 @@ retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5
 Either way the error is stored under `analysis["steps"]` on the reference, so it is searchable and
 re-runnable rather than a row in a dead-letter queue.
 
+## Summaries
+
+A summary is a step, not a thirteenth analyzer — `Analyzer.for` is first-match over a fixed array,
+so nothing else could claim a PDF once `Analyzer::Pdf` has.
+
+`Base#run` makes two guarded attempts per reference: `analyze`, then `summarize!`. They are separate
+so that extraction failing does not skip a summary buildable from the other steps, and a summary
+failing never retracts extraction.
+
+`summary_prompt` has a working default over the `text` step, which ten of the twelve analyzers
+write, so most get a summary without saying anything. `Email`, `Calendar` and `Xlsx` override it to
+ask in their own terms — an email's prompt carries its headers and its attachments' summaries, so a
+message is described using what was inside the PDF stapled to it.
+
+Only `summary` and `keywords` survive the answer. Keywords arriving as `"a, b, c"` rather than an
+array are coerced, because small models do that.
+
+### Roles
+
+An analyzer declares `summary_role`, defaulting to `:smart`; `Email` takes `:fast`. A role resolves
+through `Resource.for_role`, which finds an active `inference` resource whose `details["models"]`
+names it, preferring the tenant's default. Roles therefore span servers: `fast` can be one host and
+`smart` another, and re-pointing a role is data rather than a deploy.
+
+If no resource serves the role, `summarize!` returns **before touching `step`** — no key is written,
+no error is recorded, and the analysis is byte-identical to one with inference switched off. Writing
+`result: nil` instead would satisfy the step cache forever, and the summary would never compute once
+a model appeared.
+
+Because of that, turning inference on does not fill in a catalog analyzed before it. An `after:`
+cutoff cannot expire a step that was never written, so the backfill is explicit:
+`AnalyzeThingsJob.perform_later(tenant.id, {})`.
+
+### When a summary is recomputed
+
+`step(after:)` takes the later of the analyzer's `summary_after` — defaulting to
+`Analyzer::PROMPTS_CHANGED_AT`, bumped when a prompt changes — and the inference resource's
+`updated_at`. So swapping the model re-runs every summary exactly once. This works because
+`record_check` and `release_sync!` write with `update_columns`: a health check does not move
+`updated_at`, and so does not re-summarize the catalog.
+
+### Provenance
+
+The resource key, model and role are written to the step **entry**, beside `result`, not inside it.
+`ThingReference#extracted` collects only `result`, so a model name in there would land in the
+OpenSearch `body` of every document.
+
+Every call is a `prompts` row — one per attempt, so the JSON retries are visible rather than
+inferred — carrying the resource, role, model, request and response. That is where token accounting
+goes when there is something to account for.
+
 ## Fairness
 
 `AnalyzeThingJob` runs on the `analysis` queue with its own worker pool, and caps concurrent jobs
@@ -122,6 +173,6 @@ limits_concurrency to: ENV.fetch("ANALYSIS_PER_TENANT", 2).to_i,
 See [Jobs](/concepts/jobs/).
 
 :::note[TODO]
-No model-backed analysis exists yet. Every analyzer currently ships is extraction, OCR or parsing.
-Rules that match on an analyzer's output — `kind: invoice` and the like — are not built.
+Vision is not built: `Analyzer::Image` writes no `text` step, so an image gets no summary. Rules
+that match on an analyzer's output — `kind: invoice` and the like — are not built either.
 :::
