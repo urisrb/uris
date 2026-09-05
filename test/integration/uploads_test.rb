@@ -50,6 +50,22 @@ class UploadsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a dropped file is queued for analysis, with a run to watch it by" do
+    assert_enqueued_jobs 1, only: AnalyzeThingJob do
+      upload "march.pdf", "contents of march"
+    end
+
+    assert_response :success
+
+    Tenant.switch(@tenant) do
+      run = Run.find(response.parsed_body["run_id"])
+
+      assert_equal "analyze", run.kind
+      assert_equal "queued", run.status
+      assert_equal({ "id" => thing_at("march.pdf").id }, run.selector)
+    end
+  end
+
   test "a dropped folder keeps its shape as the locator key" do
     upload "beach.jpg", "jpeg bytes", path: "photos/2024/beach.jpg"
 

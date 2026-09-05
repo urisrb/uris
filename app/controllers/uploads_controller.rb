@@ -24,11 +24,14 @@ class UploadsController < ApplicationController
       title: File.basename(key)
     )
 
+    run = AnalyzeThingJob.start!(current_tenant.id, reference.thing_id)
+
     render json: {
       thing_id: reference.thing_id,
       kind: reference.thing.kind,
       resource: destination.key,
-      path: key
+      path: key,
+      run_id: run.id
     }
   rescue Unusable => e
     unusable(e.message)
