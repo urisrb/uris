@@ -20,7 +20,7 @@ export default defineConfig({
         {
           icon: "github",
           label: "GitHub",
-          href: "https://github.com/things-host/things",
+          href: "https://github.com/urisrb/uris",
         },
       ],
       sidebar: [

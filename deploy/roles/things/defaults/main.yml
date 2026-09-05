@@ -1,4 +1,4 @@
-things_image: ghcr.io/things-host/things
+things_image: ghcr.io/urisrb/uris
 things_image_tag: latest
 things_image_digest: ""
 
