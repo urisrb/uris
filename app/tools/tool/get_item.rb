@@ -7,7 +7,7 @@ module Tool
 
     description <<~TEXT
       Everything known about one item: every place it lives, what analysis extracted from
-      each of them, and an excerpt of its text. A item groups references; the bytes stay in
+      each of them, and an excerpt of its text. An item groups references; the bytes stay in
       the resources they came from, so use export_items to get those back out.
     TEXT
 

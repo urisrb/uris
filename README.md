@@ -152,7 +152,7 @@ different and the error class is what distinguishes them:
 | `Analyzer::Failed` | a file that cannot be read        | **discarded** — retrying a malformed PDF produces a malformed PDF |
 | `Resource::Failed` | a resource that cannot be reached | **retried** with backoff — the bytes are probably still there     |
 
-The analysis of a item is recorded on that item either way: the step machine stores the error
+The analysis of an item is recorded on that item either way: the step machine stores the error
 under `analysis.steps`, so a failure is data you can search and re-run, not a row in a dead-letter
 queue. Adapters translate their own vendor errors, so nothing above `Resource` names an SDK.
 

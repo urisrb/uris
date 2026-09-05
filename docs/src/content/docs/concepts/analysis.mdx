@@ -66,7 +66,7 @@ A step is re-run when any of these hold:
 | `after:` is later than `finished_at` | the step was declared downstream of something newer |
 | `reference.changed_at` is later than `finished_at` | the bytes changed under it |
 
-Otherwise the stored result is returned without running anything, which makes re-analyzing a item
+Otherwise the stored result is returned without running anything, which makes re-analyzing an item
 cheap and the outer job cursor safe to replay.
 
 `step_result(name)` reads a stored result without running the block.
@@ -76,7 +76,7 @@ cheap and the outer job cursor safe to replay.
 | | Scope | Mechanism |
 | --- | --- | --- |
 | across items | which item am I on | job-iteration cursor |
-| within a item | which step am I on | `analysis["steps"]` |
+| within an item | which step am I on | `analysis["steps"]` |
 
 ## Children
 
@@ -86,7 +86,7 @@ keyed `<reference_id>/<index>/<filename>`, and enqueues an `AnalyzeItemJob` for 
 
 The key is deterministic, so re-analysis finds last time's children rather than making a second set.
 
-A item with children returns from `run` without analyzing itself until `children_ready?`. The last
+An item with children returns from `run` without analyzing itself until `children_ready?`. The last
 child to finish wakes the parent (`AnalyzeItemJob#wake_parent`).
 
 `Item::DEPTH` caps the chain at 4 levels.

@@ -43,7 +43,7 @@ class SelectorTest < ActiveSupport::TestCase
     assert_equal [ @note ], matching(folder: "2024", kind: "text")
   end
 
-  test "since and before bound the catalog by when a item was catalogued" do
+  test "since and before bound the catalog by when an item was catalogued" do
     assert_equal [ @note, @root ], matching(since: 36.hours.ago.iso8601)
     assert_equal [ @march, @april ], matching(before: 36.hours.ago.iso8601)
     assert_equal [ @note ], matching(since: 36.hours.ago.iso8601, before: 90.minutes.ago.iso8601)

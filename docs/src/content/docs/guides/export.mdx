@@ -48,7 +48,7 @@ records the copy with `Reference.record!` — another reference on the same item
 
 Two consequences:
 
-- A item already copied is skipped unless `copy.stale_against?(source)`, so re-running an export
+- An item already copied is skipped unless `copy.stale_against?(source)`, so re-running an export
   resumes rather than duplicates.
 - The copy is findable. It is the same item, now living in one more place.
 

@@ -20,7 +20,7 @@ class Setting < ApplicationRecord
       default: "list",
       allowed: %w[list cards],
       label: "How the catalog opens",
-      note: "A list reads names quickly. Cards show you what a item looks like."
+      note: "A list reads names quickly. Cards show you what an item looks like."
     )
   ].index_by(&:key).freeze
 

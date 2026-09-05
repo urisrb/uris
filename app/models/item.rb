@@ -60,7 +60,7 @@ class Item < ApplicationRecord
   end
 
   def merge!(other)
-    raise ArgumentError, "a item cannot merge into itself" if other.id == id
+    raise ArgumentError, "an item cannot merge into itself" if other.id == id
 
     transaction do
       other.references.to_a.each { |reference| reference.move_to!(self) }

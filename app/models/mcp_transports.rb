@@ -2,7 +2,7 @@ module McpTransports
   INSTRUCTIONS = <<~TEXT.freeze
     items is one searchable index across everything its owner keeps, wherever it lives.
 
-    A item is a reference, not the bytes: the catalog holds where something lives and what
+    An item is a reference, not the bytes: the catalog holds where something lives and what
     analysis understood about it, while the original stays in the resource it came from.
     So searching is cheap and reading the bytes back means exporting them.
 

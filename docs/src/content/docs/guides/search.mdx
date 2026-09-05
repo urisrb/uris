@@ -32,9 +32,9 @@ Omit `query` and the search becomes a `match_all` — the most recent items, opt
 The `path` analyzer tokenizes on `/ \ - _ .` and whitespace, so `2024/invoices/acme-jan.pdf` matches
 on `acme` and on `invoices`.
 
-`body` is the union of every string extracted by analysis across a item's references *and* its
+`body` is the union of every string extracted by analysis across an item's references *and* its
 children's, so a scanned PDF matches on its OCR and an email matches on a word that only appears in
-its attachment. Search quality is downstream of [analysis](/concepts/analysis/) — a item synced but
+its attachment. Search quality is downstream of [analysis](/concepts/analysis/) — an item synced but
 not yet analyzed matches on its path and title alone.
 
 `Item.search` asks the index for ids and reloads them from Postgres with `in_order_of`, so results
@@ -49,7 +49,7 @@ keep their relevance order while every column comes from the system of record.
 Returns every reference, its locator, the per-step analysis results, and `body_text` truncated to
 8,000 characters (`Tool::GetItem::EXCERPT`).
 
-A item groups references. The same document in a bucket and in Drive is one item with two, not two
+An item groups references. The same document in a bucket and in Drive is one item with two, not two
 items.
 
 ## Getting the bytes

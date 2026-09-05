@@ -91,7 +91,7 @@ before any scope applies:
 `Grant#verify_tenant!` then compares the token's `tenant` claim subdomain against the tenant that
 was resolved, and raises `Grant::Denied` on a mismatch.
 
-`test/integration/graphql_tenancy_test.rb` asserts that a item id from another tenant resolves to
+`test/integration/graphql_tenancy_test.rb` asserts that an item id from another tenant resolves to
 `nil`, and that an unknown subdomain is a 404.
 
 :::note[TODO]

@@ -9,7 +9,7 @@ module Tool
       The selector is the same grammar search_items uses; every argument you leave off
       widens it, and no arguments at all means the whole catalog into this tenant's
       default storage. Each copy is catalogued as another reference to the item it
-      came from, so a item already written to the destination is left alone.
+      came from, so an item already written to the destination is left alone.
     TEXT
 
     input_schema(

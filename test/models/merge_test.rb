@@ -47,11 +47,11 @@ class MergeTest < ActiveSupport::TestCase
       two.references.first.move_to!(one)
 
       assert_equal 2, one.references.reset.count
-      assert_nil Item.find_by(id: two.id), "a item with no references is not a item"
+      assert_nil Item.find_by(id: two.id), "an item with no references is not an item"
     end
   end
 
-  test "splitting a reference off gives it a item of its own" do
+  test "splitting a reference off gives it an item of its own" do
     Tenant.switch(@tenant) do
       grouped = create_item(kind: "pdf", title: "Grouped", resource: @s3, locator_key: "a.pdf")
       grouped.references.create!(resource: @drive, locator_key: "b.pdf")
@@ -99,7 +99,7 @@ class MergeTest < ActiveSupport::TestCase
     end
   end
 
-  test "destroying a item takes its references with it" do
+  test "destroying an item takes its references with it" do
     Tenant.switch(@tenant) do
       item = create_item(kind: "pdf", title: "Doomed", resource: @s3, locator_key: "x.pdf")
 

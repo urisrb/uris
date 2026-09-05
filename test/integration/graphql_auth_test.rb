@@ -93,7 +93,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
     assert_nil body["errors"]
   end
 
-  test "a read scope cannot walk from a item to a resource" do
+  test "a read scope cannot walk from an item to a resource" do
     query = "{ items { nodes { references { resource { key } } } } }"
 
     body = execute(query, scopes: %w[uris:catalog:read])

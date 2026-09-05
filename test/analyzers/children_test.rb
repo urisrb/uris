@@ -38,7 +38,7 @@ class ChildrenTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { @item.reload.children.to_a }
   end
 
-  test "an attachment is catalogued as a item of its own, under the message" do
+  test "an attachment is catalogued as an item of its own, under the message" do
     analyze!
 
     held = children

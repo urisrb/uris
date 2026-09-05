@@ -25,7 +25,7 @@ class GraphqlTenancyTest < ActionDispatch::IntegrationTest
     )
   end
 
-  test "fetching a item by id is bounded by the tenant that asked" do
+  test "fetching an item by id is bounded by the tenant that asked" do
     assert_equal(
       { "item" => nil },
       query_as("demo", "{ item(id: #{@acme_item.id}) { title } }")

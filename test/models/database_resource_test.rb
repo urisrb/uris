@@ -61,7 +61,7 @@ class DatabaseResourceTest < ActiveSupport::TestCase
     end
   end
 
-  test "a item can hold the raw file and a generated document side by side" do
+  test "an item can hold the raw file and a generated document side by side" do
     Tenant.switch(@tenant) do
       source = Resource::S3.create!(key: "bucket", details: { "endpoint" => "http://127.0.0.1:1" })
       item = create_item(kind: "pdf", title: "Contract", resource: source, locator_key: "contract.pdf")

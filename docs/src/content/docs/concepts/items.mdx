@@ -3,7 +3,7 @@ title: Items
 description: One item row, one reference per place the bytes live, and the kind that decides how it is analyzed.
 ---
 
-A item is a row in `items` with one `item_references` row per place its bytes live. The bytes
+An item is a row in `items` with one `item_references` row per place its bytes live. The bytes
 themselves stay in the resource they came from.
 
 `app/models/item.rb` · `app/models/reference.rb`
@@ -14,7 +14,7 @@ themselves stay in the resource they came from.
 | --- | --- |
 | `kind` | what it is — `pdf`, `email`, `image`… Required |
 | `title` | display name, usually the basename of the locator key |
-| `parent_id` | set on a item extracted from another, such as an email attachment |
+| `parent_id` | set on an item extracted from another, such as an email attachment |
 
 `Item#analyzed_at` is the maximum `analyzed_at` across its references, not a column.
 
@@ -29,10 +29,10 @@ themselves stay in the resource they came from.
 | `changed_at` | set when `version` changes, which also clears `analyzed_at` |
 | `analysis` | the step machine's record — see [Analysis](/concepts/analysis/) |
 
-`Reference.discover!` is the sync path: it finds or creates the reference, creates a item if
+`Reference.discover!` is the sync path: it finds or creates the reference, creates an item if
 there is not one yet, and calls `note_version!`. A changed version re-opens analysis.
 
-`Reference.record!` is the export path: it attaches a reference to a item you already have,
+`Reference.record!` is the export path: it attaches a reference to an item you already have,
 and records `source_version` so `stale_against?` can tell whether the copy has fallen behind.
 
 ## Kind
@@ -62,7 +62,7 @@ An analyzer that declares `has_children?` returns child bodies from `children_of
 `Analyzer::Base` writes them into a `Resource::Database` resource keyed `children` before analyzing
 the parent. `Item::DEPTH` caps the chain at 4.
 
-`Item#body_text` is the union of the strings extracted from a item's own references and its
+`Item#body_text` is the union of the strings extracted from an item's own references and its
 children's, so an email matches on a word that only appears in an attached PDF.
 
 `Item#children_ready?` is true when every child has an `analyzed_at`. A parent that found children
@@ -80,7 +80,7 @@ Merging is reachable over GraphQL only. There is no MCP tool for it.
 
 ## Deletion
 
-Deleting a item and deleting the bytes it points at are separate operations.
+Deleting an item and deleting the bytes it points at are separate operations.
 
 | | Does | Reversible by |
 | --- | --- | --- |

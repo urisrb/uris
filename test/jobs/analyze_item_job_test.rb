@@ -76,7 +76,7 @@ class AnalyzeItemJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert run.reload.open?, "a run being retried is not finished" }
   end
 
-  test "giving up on a item closes its run with the reason" do
+  test "giving up on an item closes its run with the reason" do
     run = Tenant.switch(@tenant) { AnalyzeItemJob.start!(@tenant.id, @item.id) }
 
     job = AnalyzeItemJob.new(@tenant.id, @item.id, run.id)

@@ -10,7 +10,7 @@ module Mutations
     def resolve(id:, other_id:)
       target = item!(id)
       other = item!(other_id)
-      refused("a item cannot merge into itself") if target.id == other.id
+      refused("an item cannot merge into itself") if target.id == other.id
 
       { item: target.merge!(other) }
     end

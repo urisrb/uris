@@ -84,7 +84,7 @@ class ExportItemsJobTest < ActiveSupport::TestCase
     assert_empty exported_keys
   end
 
-  test "a item already referenced on the destination is not exported into it" do
+  test "an item already referenced on the destination is not exported into it" do
     put @destination, "invoices/march.pdf"
     SyncResourceJob.perform_now(@tenant.id, @destination.id)
     SearchIndex.refresh!
@@ -117,7 +117,7 @@ class ExportItemsJobTest < ActiveSupport::TestCase
     end
   end
 
-  test "a item already exported is not exported again" do
+  test "an item already exported is not exported again" do
     ExportItemsJob.perform_now(@tenant.id, @destination.id, {})
     put @destination, "#{@source_bucket}/invoices/march.pdf", body: "written by someone else"
     ExportItemsJob.perform_now(@tenant.id, @destination.id, {})

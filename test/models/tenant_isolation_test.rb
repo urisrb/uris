@@ -20,7 +20,7 @@ class TenantIsolationTest < ActiveSupport::TestCase
     end
   end
 
-  test "a item cannot be written into another tenant" do
+  test "an item cannot be written into another tenant" do
     assert_raises ActiveRecord::StatementInvalid do
       Tenant.switch(@demo) do
         Item.unscoped.create!(tenant_id: @acme.id, kind: "pdf", title: "smuggled")

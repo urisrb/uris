@@ -67,7 +67,7 @@ class MergeProposalTest < ActiveSupport::TestCase
     assert_empty propose!.select { |held| held.reason == "same-bytes" }
   end
 
-  test "a item is never proposed against itself" do
+  test "an item is never proposed against itself" do
     item = item_on(@drive, "one.pdf")
 
     Tenant.switch(@tenant) do

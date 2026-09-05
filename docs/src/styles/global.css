@@ -197,3 +197,53 @@ table code {
   letter-spacing: -0.035em;
   font-weight: 700;
 }
+
+/* The eleven kinds, drawn as one bar — the same spectrum the app puts on its
+   Gate. It is the product's signature, so the docs wear it too rather than
+   leaving brass to carry every accent alone. */
+:root {
+  --spectrum: linear-gradient(
+    to right,
+    var(--k-pdf) 0 9.09%,
+    var(--k-email) 9.09% 18.18%,
+    var(--k-xlsx) 18.18% 27.27%,
+    var(--k-contact) 27.27% 36.36%,
+    var(--k-data) 36.36% 45.45%,
+    var(--k-calendar) 45.45% 54.54%,
+    var(--k-text) 54.54% 63.63%,
+    var(--k-doc) 63.63% 72.72%,
+    var(--k-image) 72.72% 81.81%,
+    var(--k-pkpass) 81.81% 90.9%,
+    var(--k-file) 90.9% 100%
+  );
+}
+
+header.header::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2px;
+  background: var(--spectrum);
+}
+
+/* Each section of the sidebar takes the next kind in KIND_ORDER, so the
+   rainbow reads down the nav rather than sitting in one bar. */
+.sidebar-content summary .large {
+  color: var(--tone, var(--sl-color-white));
+}
+
+ul.top-level > li:nth-of-type(1) summary .large { --tone: var(--k-pdf); }
+ul.top-level > li:nth-of-type(2) summary .large { --tone: var(--k-data); }
+ul.top-level > li:nth-of-type(3) summary .large { --tone: var(--k-text); }
+ul.top-level > li:nth-of-type(4) summary .large { --tone: var(--k-image); }
+ul.top-level > li:nth-of-type(5) summary .large { --tone: var(--k-contact); }
+
+/* The app marks the current nav item with a raised background, not a filled
+   accent. Match it, so brass stays a highlight rather than the loudest thing
+   on the page. */
+.sidebar-content a[aria-current="page"],
+.sidebar-content a[aria-current="page"]:hover {
+  background: var(--lifted);
+  color: var(--bright);
+  font-weight: 500;
+}

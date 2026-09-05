@@ -88,7 +88,7 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     assert_equal [ @item.id.to_s ], result["items"].map { |t| t["id"] }
   end
 
-  test "a item belonging to another tenant cannot be fetched by id" do
+  test "an item belonging to another tenant cannot be fetched by id" do
     reply = call(@tenant, ALL, "tools/call",
                  name: "get_item", arguments: { id: @theirs.id.to_s })
 

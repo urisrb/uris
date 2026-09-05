@@ -6,7 +6,7 @@ module Tool
 
     description <<~TEXT
       Queue one item for analysis. Analysis is incremental — steps that already hold a
-      result are skipped — so re-running a item costs almost nothing and repairs one
+      result are skipped — so re-running an item costs almost nothing and repairs one
       whose earlier run errored.
     TEXT
 

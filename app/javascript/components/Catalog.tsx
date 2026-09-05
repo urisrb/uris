@@ -273,7 +273,7 @@ function Empty({
   if (searching) {
     return (
       <Text c="dimmed" size="sm">
-        Nothing matches that yet. Analysis is what makes a item searchable, so
+        Nothing matches that yet. Analysis is what makes an item searchable, so
         anything still waiting on it will not turn up here.
       </Text>
     )
