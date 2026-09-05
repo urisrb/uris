@@ -229,7 +229,7 @@ function DropField({ pending }: { pending: number }) {
     <div className="drop">
       <div className="drop-inner">
         <div className="drop-word">Add to the catalog</div>
-        <div style={{ marginTop: 18 }}>
+        <div style={{ marginTop: 'var(--s5)' }}>
           <Spectrum />
         </div>
         <div className="drop-note">
@@ -270,7 +270,7 @@ function Tray() {
               : `Adding ${counted(done)} of ${counted(found)}`
             : `Added ${counted(done)}`}
         </Text>
-        <Group gap={4} ml="auto" wrap="nowrap">
+        <Group gap="var(--s1)" ml="auto" wrap="nowrap">
           {running ? (
             <Button
               size="compact-xs"
@@ -299,18 +299,18 @@ function Tray() {
 
       <div className="tray-body">
         {current && running && (
-          <div className="tray-path" style={{ marginTop: 10 }}>
+          <div className="tray-path" style={{ marginTop: 'var(--s3)' }}>
             {current}
           </div>
         )}
 
         {!running && failures.length === 0 && (
-          <div style={{ marginTop: 10 }}>Everything landed.</div>
+          <div style={{ marginTop: 'var(--s3)' }}>Everything landed.</div>
         )}
 
         {failures.length > 0 && (
           <div className="tray-fails">
-            <div style={{ marginBottom: 6 }}>
+            <div style={{ marginBottom: 'var(--s2)' }}>
               {counted(failures.length)} did not land
             </div>
             {failures.slice(-8).map((failure) => (

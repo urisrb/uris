@@ -8,7 +8,6 @@ import {
 import { useMutation, useQuery } from '@thingies/client/react'
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { toned } from '../kinds'
 import { KindBadge } from './KindBadge'
 import { Thumb } from './Thumb'
 
@@ -30,7 +29,7 @@ export function ThingDetail() {
   )
 
   return (
-    <Stack gap={24}>
+    <Stack gap="var(--s5)">
       <Button
         component={Link}
         to="/"
@@ -45,13 +44,8 @@ export function ThingDetail() {
 
       <Group justify="space-between" align="flex-start" wrap="nowrap">
         <div style={{ minWidth: 0 }}>
-          <h1
-            className="wordmark"
-            style={{ fontSize: 'clamp(1.7rem, 3.6vw, 2.4rem)', margin: 0 }}
-          >
-            {thing.title ?? 'Untitled'}
-          </h1>
-          <Group gap={10} mt={12}>
+          <h1 className="page-title">{thing.title ?? 'Untitled'}</h1>
+          <Group gap="var(--s3)" mt="var(--s3)">
             <KindBadge kind={thing.kind} />
             <span className="eyebrow">
               <span className="figure">{thing.references.length}</span>{' '}
@@ -78,7 +72,7 @@ export function ThingDetail() {
       </Group>
 
       {viewable.length > 0 && (
-        <Group align="flex-start" gap={14}>
+        <Group align="flex-start" gap="var(--s4)">
           {viewable.map((reference) => (
             <a
               key={reference.id}
@@ -98,57 +92,42 @@ export function ThingDetail() {
       )}
 
       {thing.summary && (
-        <div
-          className="panel"
-          style={{ padding: '18px 20px', ...toned(thing.kind) }}
-        >
+        <div className="panel" style={{ padding: 'var(--s4) var(--s5)' }}>
           <Text size="sm" style={{ lineHeight: 1.6, maxWidth: '72ch' }}>
             {thing.summary}
           </Text>
         </div>
       )}
 
-      <Stack gap={12}>
-        <div className="rail-label" style={{ padding: 0 }}>
-          Where it lives
-        </div>
+      <Stack gap="var(--s3)">
+        <div className="label">Where it lives</div>
 
         <div className="panel">
           {thing.references.map((reference) => (
             <div
               key={reference.id}
               className="entry"
-              data-static="true"
-              style={
-                {
-                  '--tone': 'var(--edge)',
-                  gridTemplateColumns: '3px minmax(0, 1fr) auto',
-                  alignItems: 'flex-start',
-                  padding: '16px 18px 16px 0',
-                } as CSSProperties
-              }
+              data-spine="true"
+              style={{ '--tone': 'var(--edge)' } as CSSProperties}
             >
               <div style={{ minWidth: 0 }}>
-                <Group gap={10}>
+                <Group gap="var(--s2)">
                   <span className="entry-title">{reference.resource.key}</span>
-                  <span
-                    className="tag"
-                    style={{ '--tone': 'var(--edge)' } as CSSProperties}
-                  >
+                  <span className="tag" data-dot="false">
                     {reference.resource.type}
                   </span>
                 </Group>
 
                 <Text
                   size="xs"
-                  mt={6}
+                  mt="var(--s2)"
                   className="mono"
                   style={{ color: 'var(--soft)', wordBreak: 'break-all' }}
                 >
                   {reference.locatorKey ?? '—'}
                 </Text>
 
-                <Text size="xs" c="dimmed" mt={4}>
+                <Text size="xs" c="dimmed" mt="var(--s1)">
                   {reference.contentType}
                   {reference.analyzedAt
                     ? ` · analyzed ${new Date(reference.analyzedAt).toLocaleString()}`
@@ -158,7 +137,7 @@ export function ThingDetail() {
                 {Object.keys(reference.analysis ?? {}).length > 0 && (
                   <Code
                     block
-                    mt={12}
+                    mt="var(--s3)"
                     style={{
                       maxHeight: 220,
                       overflow: 'auto',
@@ -171,7 +150,7 @@ export function ThingDetail() {
                 )}
               </div>
 
-              <Group gap={8} wrap="nowrap">
+              <Group gap="var(--s2)" wrap="nowrap">
                 <Button
                   component="a"
                   href={reference.contentUrl}

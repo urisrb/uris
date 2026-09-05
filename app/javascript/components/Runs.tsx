@@ -6,12 +6,12 @@ import { type CSSProperties, useEffect, useState } from 'react'
 const STATUSES = ['queued', 'running', 'done', 'failed', 'cancelled', 'gated']
 
 const TONES: Record<string, string> = {
-  queued: 'var(--k-file)',
-  running: 'var(--k-text)',
-  done: 'var(--k-data)',
-  failed: 'var(--k-pdf)',
-  cancelled: 'var(--k-email)',
-  gated: 'var(--k-image)',
+  queued: 'var(--edge)',
+  running: 'var(--busy)',
+  done: 'var(--ok)',
+  failed: 'var(--bad)',
+  cancelled: 'var(--edge)',
+  gated: 'var(--brass)',
 }
 
 const OPEN = new Set(['queued', 'running'])
@@ -49,28 +49,22 @@ export function Runs() {
   }, [busy, refetch])
 
   return (
-    <Stack gap={22}>
+    <Stack gap="var(--s5)">
       <div>
-        <h1
-          className="wordmark"
-          style={{ fontSize: 'clamp(1.9rem, 4vw, 2.6rem)', margin: 0 }}
-        >
-          Runs
-        </h1>
-        <div className="eyebrow" style={{ marginTop: 8 }}>
+        <h1 className="page-title">Runs</h1>
+        <div className="eyebrow" style={{ marginTop: 'var(--s2)' }}>
           Work that outlives a single request. Anything still open refreshes
           itself.
         </div>
       </div>
 
-      <Group gap={8}>
+      <Group gap="var(--s2)">
         <button
           type="button"
           className="tag"
-          style={
-            { '--tone': 'var(--edge)', cursor: 'pointer' } as CSSProperties
-          }
+          data-dot="false"
           data-on={status === null}
+          style={{ cursor: 'pointer' }}
           onClick={() => setStatus(null)}
         >
           all
@@ -81,12 +75,10 @@ export function Runs() {
             type="button"
             className="tag"
             style={
-              {
-                '--tone': TONES[value],
-                cursor: 'pointer',
-                opacity: status === null || status === value ? 1 : 0.45,
-              } as CSSProperties
+              { '--tone': TONES[value], cursor: 'pointer' } as CSSProperties
             }
+            data-on={status === value}
+            data-off={status !== null && status !== value}
             onClick={() => setStatus(status === value ? null : value)}
           >
             {value}
@@ -117,7 +109,7 @@ export function Runs() {
                       {run.kind}
                     </Text>
                     {run.error && (
-                      <Text size="xs" style={{ color: 'var(--k-pdf)' }}>
+                      <Text size="xs" style={{ color: 'var(--bad)' }}>
                         {run.error}
                       </Text>
                     )}
@@ -127,7 +119,7 @@ export function Runs() {
                       className="tag"
                       style={
                         {
-                          '--tone': TONES[run.status] ?? 'var(--k-file)',
+                          '--tone': TONES[run.status] ?? 'var(--edge)',
                         } as CSSProperties
                       }
                     >

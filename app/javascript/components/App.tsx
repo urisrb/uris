@@ -75,7 +75,7 @@ function Gate({
     <div className="gate">
       <div className="gate-inner">
         <div className="wordmark gate-word">things</div>
-        <div style={{ marginTop: 18 }}>
+        <div style={{ marginTop: 'var(--s5)' }}>
           <Spectrum />
         </div>
 
@@ -86,12 +86,12 @@ function Gate({
         </p>
 
         <Button
-          mt="xl"
+          mt="var(--s6)"
           size="md"
           radius="xl"
           color="chalk"
           onClick={enter}
-          styles={{ root: { fontWeight: 600, paddingInline: 26 } }}
+          styles={{ root: { fontWeight: 600, paddingInline: 'var(--s5)' } }}
         >
           {unconnected ? 'Connect a sign-in server' : 'Sign in'}
         </Button>
@@ -127,7 +127,7 @@ function Shell({
         <Link
           to="/"
           className="wordmark"
-          style={{ fontSize: '1.5rem', textDecoration: 'none' }}
+          style={{ fontSize: 'var(--t-title)', textDecoration: 'none' }}
         >
           things
         </Link>
@@ -299,7 +299,7 @@ function Rail({ onGo }: { onGo: () => void }) {
 
       <div className="rail-group">
         <div className="rail-label">Adding things</div>
-        <Text size="xs" c="dimmed" px={10} style={{ lineHeight: 1.5 }}>
+        <Text size="xs" c="dimmed" px="var(--s3)" style={{ lineHeight: 1.5 }}>
           Drop files or a whole folder anywhere on this page. They are written
           to your default storage, then indexed.
         </Text>

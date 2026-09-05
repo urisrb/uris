@@ -42,10 +42,10 @@ interface Resource {
 }
 
 function toneFor(resource: Resource) {
-  if (resource.syncing) return 'var(--k-text)'
-  if (!resource.checkedAt) return 'var(--k-file)'
+  if (resource.syncing) return 'var(--busy)'
+  if (!resource.checkedAt) return 'var(--edge)'
 
-  return resource.healthy ? 'var(--k-data)' : 'var(--k-pdf)'
+  return resource.healthy ? 'var(--ok)' : 'var(--bad)'
 }
 
 function standing(resource: Resource) {
@@ -80,15 +80,10 @@ export function Resources() {
   const resources = (data?.resources ?? []) as Resource[]
 
   return (
-    <Stack gap={22}>
+    <Stack gap="var(--s5)">
       <div>
-        <h1
-          className="wordmark"
-          style={{ fontSize: 'clamp(1.9rem, 4vw, 2.6rem)', margin: 0 }}
-        >
-          Resources
-        </h1>
-        <div className="eyebrow" style={{ marginTop: 8 }}>
+        <h1 className="page-title">Resources</h1>
+        <div className="eyebrow" style={{ marginTop: 'var(--s2)' }}>
           The places your things live, and what each one can be asked to do
         </div>
       </div>
@@ -98,23 +93,13 @@ export function Resources() {
           <div
             key={resource.id}
             className="entry"
-            data-static="true"
-            style={
-              {
-                '--tone': toneFor(resource),
-                alignItems: 'flex-start',
-                gridTemplateColumns: '3px minmax(0, 1fr) auto',
-                padding: '16px 18px 16px 0',
-              } as CSSProperties
-            }
+            data-spine="true"
+            style={{ '--tone': toneFor(resource) } as CSSProperties}
           >
             <div style={{ minWidth: 0 }}>
-              <Group gap={10} wrap="wrap">
+              <Group gap="var(--s2)" wrap="wrap">
                 <span className="entry-title">{resource.key}</span>
-                <span
-                  className="tag"
-                  style={{ '--tone': 'var(--edge)' } as CSSProperties}
-                >
+                <span className="tag" data-dot="false">
                   {resource.type}
                 </span>
                 <Tooltip
@@ -142,7 +127,7 @@ export function Resources() {
                 )}
               </Group>
 
-              <Text size="sm" c="dimmed" mt={6}>
+              <Text size="sm" c="dimmed" mt="var(--s2)">
                 {resource.name ?? '—'} ·{' '}
                 <span className="figure">
                   {resource.thingsCount.toLocaleString()}
@@ -150,21 +135,21 @@ export function Resources() {
                 things · {resource.capabilities.join(', ')}
               </Text>
 
-              <Text size="xs" c="dimmed" mt={3}>
+              <Text size="xs" c="dimmed" mt="var(--s1)">
                 {schedule(resource)}
                 {resource.syncedAt &&
                   ` · last ${new Date(resource.syncedAt).toLocaleString()}`}
               </Text>
 
               {resource.checkError && (
-                <Text size="xs" mt={6} style={{ color: 'var(--k-pdf)' }}>
+                <Text size="xs" mt="var(--s2)" style={{ color: 'var(--bad)' }}>
                   {resource.checkError}
                 </Text>
               )}
             </div>
 
-            <Stack gap={8} align="flex-end">
-              <Group gap={8} wrap="nowrap">
+            <Stack gap="var(--s2)" align="flex-end">
+              <Group gap="var(--s2)" wrap="nowrap">
                 <Button
                   size="xs"
                   radius="xl"
@@ -214,7 +199,7 @@ export function Resources() {
                 )}
               </Group>
 
-              <Group gap={8} wrap="nowrap">
+              <Group gap="var(--s2)" wrap="nowrap">
                 <NumberInput
                   size="xs"
                   w={110}
