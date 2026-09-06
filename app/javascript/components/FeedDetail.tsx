@@ -4,17 +4,9 @@ import { useMutation, useQuery } from '@uris-to/client/react'
 import { type CSSProperties, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { tone } from '../kinds'
+import { RunTrail } from './RunTrail'
 
 const OPEN = new Set(['queued', 'running'])
-
-const STATUS: Record<string, string> = {
-  queued: 'var(--edge)',
-  running: 'var(--busy)',
-  done: 'var(--ok)',
-  failed: 'var(--bad)',
-  cancelled: 'var(--edge)',
-  gated: 'var(--brass)',
-}
 
 function when(at?: string | null) {
   if (!at) return '—'
@@ -144,43 +136,12 @@ export function FeedDetail() {
         </div>
       )}
 
-      {runs.length > 0 && (
-        <div>
-          <div className="eyebrow" style={{ marginBottom: 'var(--s3)' }}>
-            Runs
-          </div>
-          <div className="panel">
-            <Table verticalSpacing="xs" horizontalSpacing="lg">
-              <Table.Tbody>
-                {runs.map((run) => (
-                  <Table.Tr key={run.id}>
-                    <Table.Td>
-                      <span
-                        className="tag"
-                        style={
-                          { '--tone': STATUS[run.status] } as CSSProperties
-                        }
-                      >
-                        {run.status}
-                      </span>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="xs" c="dimmed">
-                        {when(run.createdAt)}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="xs" c="dimmed">
-                        {run.error}
-                      </Text>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </div>
+      <div>
+        <div className="eyebrow" style={{ marginBottom: 'var(--s3)' }}>
+          Runs
         </div>
-      )}
+        <RunTrail feedId={feed.id} empty="This feed has not run yet." />
+      </div>
     </Stack>
   )
 }

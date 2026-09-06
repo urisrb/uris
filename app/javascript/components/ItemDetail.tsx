@@ -9,6 +9,7 @@ import { useMutation, useQuery } from '@uris-to/client/react'
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { KindBadge } from './KindBadge'
+import { RunTrail } from './RunTrail'
 import { Thumb } from './Thumb'
 
 export function ItemDetail() {
@@ -189,6 +190,16 @@ export function ItemDetail() {
               </Group>
             </div>
           ))}
+        </div>
+
+        <div>
+          <div className="eyebrow" style={{ marginBottom: 'var(--s3)' }}>
+            Analysis
+          </div>
+          <RunTrail
+            itemId={item.id}
+            empty="This item has not been analyzed yet."
+          />
         </div>
       </Stack>
     </Stack>

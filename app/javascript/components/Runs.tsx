@@ -1,25 +1,14 @@
 import { Alert, Button, Group, Loader, Stack, Table, Text } from '@mantine/core'
 import {
   CancelRunDocument,
-  RunLogDocument,
   RunProgressedDocument,
   RunsDocument,
 } from '@uris-to/client'
 import { useMutation, useQuery, useSubscription } from '@uris-to/client/react'
-import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useState } from 'react'
+import { RUN_OPEN, RUN_TONES, RunLog } from './RunTrail'
 
 const STATUSES = ['queued', 'running', 'done', 'failed', 'cancelled', 'gated']
-
-const TONES: Record<string, string> = {
-  queued: 'var(--edge)',
-  running: 'var(--busy)',
-  done: 'var(--ok)',
-  failed: 'var(--bad)',
-  cancelled: 'var(--edge)',
-  gated: 'var(--brass)',
-}
-
-const OPEN = new Set(['queued', 'running'])
 
 function elapsed(startedAt?: string | null, finishedAt?: string | null) {
   if (!startedAt) return '—'
@@ -31,52 +20,6 @@ function elapsed(startedAt?: string | null, finishedAt?: string | null) {
   return seconds < 60
     ? `${seconds}s`
     : `${Math.floor(seconds / 60)}m ${seconds % 60}s`
-}
-
-const TONE_FOR_LINE: Record<string, string> = {
-  '[x]': 'var(--bad)',
-  '[✓]': 'var(--ok)',
-  '[-]': 'var(--muted)',
-}
-
-function RunLog({ id, live }: { id: string; live: string | null }) {
-  const { data, loading } = useQuery(RunLogDocument, { id })
-  const bottom = useRef<HTMLDivElement | null>(null)
-  const logs = live ?? data?.run?.logs ?? ''
-  const lines = logs.split('\n').filter(Boolean)
-
-  const written = lines.length
-
-  useEffect(() => {
-    if (written === 0) return
-
-    bottom.current?.scrollIntoView({ block: 'nearest' })
-  }, [written])
-
-  if (loading && !data) return <Loader size="xs" color="var(--brass)" />
-
-  if (lines.length === 0) {
-    return (
-      <Text c="dimmed" size="xs">
-        This kind of work does not log.
-      </Text>
-    )
-  }
-
-  return (
-    <div className="run-log">
-      {lines.map((line, index) => (
-        <div
-          // biome-ignore lint/suspicious/noArrayIndexKey: position is the identity
-          key={index}
-          style={{ color: TONE_FOR_LINE[line.slice(0, 3)] ?? 'var(--soft)' }}
-        >
-          {line}
-        </div>
-      ))}
-      <div ref={bottom} />
-    </div>
-  )
 }
 
 export function Runs() {
@@ -91,7 +34,7 @@ export function Runs() {
   const { data: progressed } = useSubscription(RunProgressedDocument)
 
   const rows = data?.runs.nodes ?? []
-  const busy = rows.some((run) => OPEN.has(run.status))
+  const busy = rows.some((run) => RUN_OPEN.has(run.status))
 
   const streamed = progressed?.runProgressed.run
   const live = streamed?.id === open ? (streamed?.logs ?? null) : null
@@ -131,7 +74,7 @@ export function Runs() {
             type="button"
             className="tag"
             style={
-              { '--tone': TONES[value], cursor: 'pointer' } as CSSProperties
+              { '--tone': RUN_TONES[value], cursor: 'pointer' } as CSSProperties
             }
             data-on={status === value}
             data-off={status !== null && status !== value}
@@ -191,7 +134,7 @@ export function Runs() {
                       className="tag"
                       style={
                         {
-                          '--tone': TONES[run.status] ?? 'var(--edge)',
+                          '--tone': RUN_TONES[run.status] ?? 'var(--edge)',
                         } as CSSProperties
                       }
                     >
@@ -214,7 +157,7 @@ export function Runs() {
                     </span>
                   </Table.Td>
                   <Table.Td>
-                    {OPEN.has(run.status) && (
+                    {RUN_OPEN.has(run.status) && (
                       <Button
                         size="compact-xs"
                         radius="xl"

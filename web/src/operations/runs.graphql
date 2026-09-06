@@ -20,6 +20,22 @@ query Runs($status: String, $after: ID, $limit: Int) {
   }
 }
 
+query ContextRuns($feedId: ID, $itemId: ID, $limit: Int) {
+  runs(feedId: $feedId, itemId: $itemId, limit: $limit) {
+    nodes {
+      id
+      kind
+      status
+      processed
+      lines
+      error
+      startedAt
+      finishedAt
+      createdAt
+    }
+  }
+}
+
 query RunLog($id: ID!) {
   run(id: $id) {
     id
