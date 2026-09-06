@@ -22,13 +22,19 @@ Background and the measurements behind the model choice: `docs/src/content/docs/
 Everything after this assumes we can tell whether a declared model actually works. This
 would have caught `glm4` on its own.
 
-- [ ] `Resource::OpenaiCompatible#check!` probes the declared `agent` model with one
-      tool-call round trip, not just `GET /v1/models`
-- [ ] `check_resource` reports the endpoint answers **and** the model chains
-- [ ] A resource whose `agent` model cannot chain is `check_error`, not silently fine
-- [ ] Seed the three local backends as commented examples: ollama `:11434`,
-      LM Studio `:1234`, mlx `:8082`
-- [ ] `bin/probe-agent` stays a hand-run diagnostic; nothing in the app calls it
+- [x] `Resource::OpenaiCompatible#check!` probes the declared `agent` model over two turns,
+      not just `GET /v1/models`
+- [x] `check_resource` reports the endpoint answers **and** the model chains
+- [x] A resource whose `agent` model cannot chain is `check_error`, not silently fine
+- [x] Measured: refuses `glm4`, passes `qwen3:8b`, `llama3.1:8b` and `gpt-oss-20b`. It is a
+      floor, not a ceiling — one synthetic tool catches a model that cannot call tools at
+      all, and misses one that degrades against the real eleven. `bin/probe-agent` stays
+      the acceptance test
+- [x] Seed declares an `agent` role, and documents LM Studio `:1234` and mlx `:8082` as the
+      other backends, each a row with its own `base_url`
+- [x] `bin/probe-agent` stays a hand-run diagnostic; nothing in the app calls it
+
+**Phase 0 landed 2026-09-06.** 479 runs, 0 failures.
 
 ## Phase 1 — the loop, with no Feed anywhere
 

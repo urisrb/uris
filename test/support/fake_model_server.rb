@@ -59,6 +59,15 @@ class FakeModelServer
     answer(JSON.generate(payload))
   end
 
+  def answer_tool_call(name, arguments = {})
+    @lock.synchronize do
+      @answers << { tool_calls: [ { "id" => "call_#{@answers.size}", "type" => "function",
+                                    "function" => { "name" => name.to_s,
+                                                    "arguments" => JSON.generate(arguments) } } ] }
+    end
+    self
+  end
+
   def refuse(status, body: "")
     @lock.synchronize { @answers << { status: status, body: body } }
     self
@@ -142,12 +151,18 @@ class FakeModelServer
 
       return rendered(200, JSON.generate(completion_payload(""))) if queued.nil?
       return rendered(queued[:status], queued[:body]) if queued.key?(:status)
+      return rendered(200, JSON.generate(tool_call_payload(queued[:tool_calls]))) if queued[:tool_calls]
 
       rendered(200, JSON.generate(completion_payload(queued[:content])))
     end
 
     def completion_payload(content)
       { "choices" => [ { "message" => { "role" => "assistant", "content" => content } } ] }
+    end
+
+    def tool_call_payload(calls)
+      { "choices" => [ { "message" => { "role" => "assistant", "content" => nil,
+                                        "tool_calls" => calls } } ] }
     end
 
     def record_prompt(body)

@@ -14,6 +14,23 @@ class Resource
     MAX_IMAGE = 8.megabytes
     IMAGE_TYPE = "image/jpeg"
     JSON_SYSTEM = "Respond with valid JSON only. No markdown, no explanation."
+    AGENT_ROLE = "agent"
+    CHAIN_TIMEOUT = 120
+    CHAIN_SYSTEM = "You have tools. Call one rather than answering from memory."
+    CHAIN_ASK = "Search the catalog for invoices, then tell me what you found."
+    CHAIN_RESULT = { count: 1, items: [ { id: "itm_1", title: "acme.pdf" } ] }.to_json
+    CHAIN_TOOL = {
+      type: "function",
+      function: {
+        name: "search_items",
+        description: "Search the catalog.",
+        parameters: {
+          type: "object",
+          properties: { query: { type: "string", description: "Words to match." } },
+          required: [ "query" ]
+        }
+      }
+    }.freeze
 
     def self.capabilities
       [ :inference ]
@@ -75,7 +92,45 @@ class Resource
               "#{key}: #{base_url} does not serve #{missing.join(', ')} — it serves #{served.first(8).join(', ').presence || 'nothing'}"
       end
 
+      chains! if models.key?(AGENT_ROLE)
+
       true
+    end
+
+    # Serving a model is not the same as being able to drive a tool loop. Two turns,
+    # because one proves nothing: a model can answer the first call correctly and then
+    # break the moment a tool result is in the history, which is every turn after it.
+    #
+    # A floor rather than a ceiling. One synthetic tool catches a model that cannot call
+    # tools at all, which is the categorical failure. It will not catch one that degrades
+    # against the real eleven — bin/probe-agent measures that, and the adapter stays out
+    # of the tool registry.
+    def chains!
+      model = model_for(AGENT_ROLE)
+      messages = [ { role: "system", content: CHAIN_SYSTEM }, { role: "user", content: CHAIN_ASK } ]
+
+      first = turn(model, messages)
+      call = first["tool_calls"]&.first
+
+      unless call
+        raise Resource::Unusable,
+              "#{key}: #{model} serves the #{AGENT_ROLE} role but answered without a tool call — " \
+              "#{first['content'].to_s.squish.truncate(120)}"
+      end
+
+      messages << first
+      messages << { role: "tool", tool_call_id: call["id"].to_s, name: CHAIN_TOOL.dig(:function, :name),
+                    content: CHAIN_RESULT }
+
+      second = turn(model, messages)
+      return true if second["tool_calls"].present?
+
+      said = second["content"].to_s.squish
+      return true unless said.include?('"name"') || said.start_with?("[{", "{\"")
+
+      raise Resource::Unusable,
+            "#{key}: #{model} wrote its second call as text instead of a tool call, so it " \
+            "cannot drive a loop — #{said.truncate(120)}"
     end
 
     def summarize(prompt, role:, promptable: nil, images: [])
@@ -222,6 +277,15 @@ class Resource
 
       def get(path)
         answer(dial(path), read_timeout) { |uri| Net::HTTP::Get.new(uri, headers) }
+      end
+
+      def turn(model, messages)
+        answered = post("/chat/completions", {
+          model: model, stream: false, max_tokens: max_tokens, temperature: temperature,
+          messages: messages, tools: [ CHAIN_TOOL ]
+        }, timeout: CHAIN_TIMEOUT)
+
+        answered.dig("choices", 0, "message") || {}
       end
 
       def post(path, body, timeout: read_timeout)

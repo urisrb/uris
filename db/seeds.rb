@@ -42,7 +42,8 @@ TENANTS.each do |attrs|
           "models" => {
             "fast" => ENV.fetch("OLLAMA_FAST_MODEL", "gemma3:4b"),
             "smart" => ENV.fetch("OLLAMA_SMART_MODEL", "llama3.1:8b"),
-            "vision" => ENV.fetch("OLLAMA_VISION_MODEL", "gemma3:4b")
+            "vision" => ENV.fetch("OLLAMA_VISION_MODEL", "gemma3:4b"),
+            "agent" => ENV.fetch("OLLAMA_AGENT_MODEL", "qwen3:8b")
           }
         }
       )
@@ -56,6 +57,23 @@ TENANTS.each do |attrs|
         warn "  summaries will be skipped until it answers"
       end
     end
+
+    # Any OpenAI-compatible server is another row, reached by its own base_url. Nothing is
+    # discovered: a backend exists here because it was declared, with its models named per
+    # role. LM Studio and mlx both serve models ollama's library does not carry.
+    #
+    #   Resource::OpenaiCompatible.create!(
+    #     key: "lmstudio", name: "LM Studio",
+    #     details: { "base_url" => "http://localhost:1234/v1",
+    #                "models" => { "agent" => "openai/gpt-oss-20b" } })
+    #
+    #   Resource::OpenaiCompatible.create!(
+    #     key: "mlx", name: "mlx",
+    #     details: { "base_url" => "http://127.0.0.1:8082/v1",
+    #                "models" => { "fast" => "mlx-community/Qwen3-8B-4bit" } })
+    #
+    # Each needs its origin in URIS_INFERENCE_ORIGINS. A hosted one takes an api_key in
+    # credentials; one behind a transport takes a via.
 
     puts "seeded #{tenant.subdomain}: #{Resource.active.count} resource(s)"
   end
