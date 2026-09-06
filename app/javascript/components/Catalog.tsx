@@ -4,6 +4,7 @@ import {
   IconFolderPlus,
   IconLayoutGrid,
   IconLayoutList,
+  IconLink,
 } from '@tabler/icons-react'
 import {
   CatalogDocument,
@@ -15,6 +16,7 @@ import {
 import { useMutation, useQuery, useSubscription } from '@uris-to/client/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useAdd } from './Add'
 import { KindBadge } from './KindBadge'
 import { Cover, Thumb } from './Thumb'
 import { useUploads } from './Uploads'
@@ -87,6 +89,7 @@ function Listing({
   const [cursor, setCursor] = useState<string | null>(null)
   const [pages, setPages] = useState<Row[]>([])
   const { settledAt } = useUploads()
+  const { addedAt } = useAdd()
 
   const catalog = useQuery(
     CatalogDocument,
@@ -114,11 +117,11 @@ function Listing({
   }, [analyzed, searching, catalog.refetch])
 
   useEffect(() => {
-    if (settledAt && !searching) {
+    if ((settledAt || addedAt) && !searching) {
       setCursor(null)
       catalog.refetch()
     }
-  }, [settledAt, searching, catalog.refetch])
+  }, [settledAt, addedAt, searching, catalog.refetch])
 
   const rows: Row[] = searching ? (found.data?.search ?? []) : pages
   const page = catalog.data?.items
@@ -267,6 +270,7 @@ function Empty({
   kind: string | null
 }) {
   const { add } = useUploads()
+  const { open } = useAdd()
   const picker = useRef<HTMLInputElement>(null)
   const folders = useRef<HTMLInputElement>(null)
 
@@ -295,8 +299,8 @@ function Empty({
         {kind ? `Nothing of kind ${kind} yet` : 'Nothing indexed yet'}
       </div>
       <Text c="dimmed" size="sm" mt="var(--s3)" mx="auto" maw="46ch">
-        Drop a file or a whole folder anywhere on this page, or sync a resource
-        and it will fill up on its own.
+        Drop a file or a whole folder anywhere on this page, paste an address or
+        a screenshot, or sync a resource and it will fill up on its own.
       </Text>
 
       <input
@@ -338,6 +342,14 @@ function Empty({
           onClick={() => folders.current?.click()}
         >
           Choose a folder
+        </Button>
+        <Button
+          radius="xl"
+          variant="default"
+          leftSection={<IconLink size={16} />}
+          onClick={() => open()}
+        >
+          Add a link or a note
         </Button>
       </Group>
     </div>

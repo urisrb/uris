@@ -273,6 +273,7 @@ pre,
 }
 
 .hunt {
+  position: relative;
   flex: 1;
   min-width: 0;
   max-width: 620px;
@@ -306,6 +307,120 @@ pre,
   color: var(--muted);
 }
 
+.hunt-drop {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s2);
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--raised);
+  box-shadow: 0 20px 44px rgb(0 0 0 / 55%);
+}
+
+.hunt-said {
+  padding: var(--s3) var(--s4);
+  color: var(--soft);
+  font-size: var(--t-small);
+}
+
+.hunt-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  width: 100%;
+  padding: var(--s2) var(--s3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--soft);
+  font: inherit;
+  font-size: var(--t-small);
+  text-align: left;
+  cursor: pointer;
+}
+
+.hunt-row:hover,
+.hunt-row[data-on="true"] {
+  background: var(--lifted);
+}
+
+.hunt-row:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.hunt-what {
+  flex: none;
+  font-weight: 500;
+}
+
+.hunt-row[data-on="true"] .hunt-what {
+  color: var(--bright);
+}
+
+.hunt-address {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--brass);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+}
+
+.hunt-where {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--t-micro);
+}
+
+.head-add {
+  flex: none;
+}
+
+.added {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.added-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  padding: var(--s3) var(--s2);
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+  font-size: var(--t-small);
+}
+
+.added-row:hover {
+  background: var(--raised);
+  color: var(--bright);
+}
+
+.added-row .added-what {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.added-row .added-where {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--t-micro);
+}
+
 @media (max-width: 880px) {
   .head-nav {
     display: none;
@@ -332,6 +447,14 @@ pre,
     order: 10;
     flex: 1 0 100%;
     max-width: none;
+  }
+
+  .head-add-word {
+    display: none;
+  }
+
+  .head-add [data-position="left"] {
+    margin-right: 0;
   }
 
   .shell-main {

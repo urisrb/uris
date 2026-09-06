@@ -3,6 +3,7 @@ import type { Account } from '@masks/client'
 import {
   IconDatabase,
   IconLayoutGrid,
+  IconLink,
   IconProgressCheck,
   IconRss,
   IconSearch,
@@ -19,8 +20,10 @@ import {
   useNavigate,
   useSearchParams,
 } from 'react-router-dom'
+import { asUrl, type Intent, intentFor, shortly } from '../add'
 import { useSession } from '../hooks/useSession'
 import { tone } from '../kinds'
+import { AddButton, AddProvider, useAdd } from './Add'
 import { Catalog } from './Catalog'
 import { Cycle } from './Cycle'
 import { Face } from './Face'
@@ -76,13 +79,15 @@ export function App() {
 
   return (
     <UploadsProvider>
-      <Shell
-        account={account}
-        who={account.nickname ?? account.name ?? account.email ?? 'you'}
-        tenant={account.tenant?.name}
-        logout={logout}
-        logoutEverywhere={logoutEverywhere}
-      />
+      <AddProvider>
+        <Shell
+          account={account}
+          who={account.nickname ?? account.name ?? account.email ?? 'you'}
+          tenant={account.tenant?.name}
+          logout={logout}
+          logoutEverywhere={logoutEverywhere}
+        />
+      </AddProvider>
     </UploadsProvider>
   )
 }
@@ -146,6 +151,8 @@ function Shell({
         <Nav />
 
         <Hunt />
+
+        <AddButton />
 
         <Kinds />
 
@@ -251,6 +258,7 @@ function Kinds() {
   const location = useLocation()
   const [params] = useSearchParams()
   const { settledAt } = useUploads()
+  const { addedAt } = useAdd()
   const { data, refetch } = useQuery(CatalogDocument, {
     kind: null,
     after: null,
@@ -258,8 +266,8 @@ function Kinds() {
   })
 
   useEffect(() => {
-    if (settledAt) refetch()
-  }, [settledAt, refetch])
+    if (settledAt || addedAt) refetch()
+  }, [settledAt, addedAt, refetch])
 
   if (location.pathname !== '/') return null
 
@@ -331,13 +339,52 @@ function Kinds() {
   )
 }
 
+const OFFERS: { intent: Intent; what: string; where: string }[] = [
+  { intent: 'snapshot', what: 'Keep the page', where: 'as it looks now' },
+  { intent: 'fetch', what: 'Keep the file', where: 'at that address' },
+]
+
+// The same box searches and adds. Anything with a space in it is a search and
+// nothing else; the moment what is typed reads as an address, the two ways of
+// keeping it are offered under the bar and Enter takes the likelier one.
 function Hunt() {
   const [params, setParams] = useSearchParams()
   const navigate = useNavigate()
+  const { keepUrl, busy } = useAdd()
   const term = params.get('q') ?? ''
   const [draft, setDraft] = useState(term)
+  const [wanted, setWanted] = useState<Intent | null>(null)
+  const [said, setSaid] = useState<string | null>(null)
 
   useEffect(() => setDraft(term), [term])
+
+  const found = asUrl(draft)
+  const intent = wanted ?? (found ? intentFor(found) : 'snapshot')
+  const offering = found !== null && said === null
+
+  const search = () => {
+    const next = new URLSearchParams(params)
+
+    if (draft.trim()) next.set('q', draft.trim())
+    else next.delete('q')
+
+    if (window.location.pathname === '/') setParams(next)
+    else navigate(`/?${next.toString()}`)
+  }
+
+  const keep = async (taking: Intent) => {
+    const outcome = await keepUrl(draft, taking)
+
+    setSaid(
+      outcome.ok
+        ? `${outcome.added.label} — ${outcome.added.detail}`
+        : outcome.refused,
+    )
+
+    if (outcome.ok) setDraft('')
+
+    window.setTimeout(() => setSaid(null), 4000)
+  }
 
   return (
     <form
@@ -345,23 +392,38 @@ function Hunt() {
       onSubmit={(event) => {
         event.preventDefault()
 
-        const next = new URLSearchParams(params)
-
-        if (draft.trim()) next.set('q', draft.trim())
-        else next.delete('q')
-
-        if (window.location.pathname === '/') setParams(next)
-        else navigate(`/?${next.toString()}`)
+        if (found) keep(intent)
+        else search()
       }}
     >
-      <IconSearch size={16} stroke={1.8} color="var(--muted)" />
+      {found ? (
+        <IconLink size={16} stroke={1.8} color="var(--brass)" />
+      ) : (
+        <IconSearch size={16} stroke={1.8} color="var(--muted)" />
+      )}
+
       <input
         value={draft}
-        onChange={(event) => setDraft(event.currentTarget.value)}
-        placeholder="Search everything you own"
-        aria-label="Search everything you own"
+        onChange={(event) => {
+          setDraft(event.currentTarget.value)
+          setWanted(null)
+          setSaid(null)
+        }}
+        onKeyDown={(event) => {
+          if (!offering) return
+
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault()
+            setWanted(intent === 'snapshot' ? 'fetch' : 'snapshot')
+          }
+
+          if (event.key === 'Escape') setDraft('')
+        }}
+        placeholder="Search everything you own, or paste an address"
+        aria-label="Search everything you own, or paste an address"
       />
-      {term && (
+
+      {term && !found && (
         <Button
           variant="subtle"
           color="gray"
@@ -375,6 +437,28 @@ function Hunt() {
         >
           Clear
         </Button>
+      )}
+
+      {said && <div className="hunt-drop hunt-said">{said}</div>}
+
+      {offering && (
+        <div className="hunt-drop">
+          {OFFERS.map((offer) => (
+            <button
+              key={offer.intent}
+              type="button"
+              className="hunt-row"
+              data-on={intent === offer.intent}
+              disabled={busy}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => keep(offer.intent)}
+            >
+              <span className="hunt-what">{offer.what}</span>
+              <span className="hunt-address">{shortly(found)}</span>
+              <span className="hunt-where">{offer.where}</span>
+            </button>
+          ))}
+        </div>
       )}
     </form>
   )
