@@ -2,9 +2,22 @@
 import { defineConfig, passthroughImageService } from "astro/config";
 import starlight from "@astrojs/starlight";
 
+const clientPort = Number(process.env.DEV_CLIENT_PORT) || undefined;
+const allowedHosts = process.env.DEV_ALLOWED_HOSTS?.split(",").filter(Boolean);
+
 export default defineConfig({
   site: process.env.DOCS_SITE || "https://uris.pages.dev",
   image: { service: passthroughImageService() },
+  server: allowedHosts ? { host: true, allowedHosts } : {},
+  vite: clientPort
+    ? {
+        server: {
+          allowedHosts,
+          ws: { clientPort },
+          watch: { usePolling: true, interval: 300 },
+        },
+      }
+    : {},
   integrations: [
     starlight({
       title: "uris",

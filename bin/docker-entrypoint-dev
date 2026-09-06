@@ -1,0 +1,16 @@
+#!/bin/bash -e
+
+cmp -s package-lock.json node_modules/.lock-stamp || {
+  npm ci
+  cp package-lock.json node_modules/.lock-stamp
+}
+
+bundle check >/dev/null 2>&1 || bundle install
+
+rm -f tmp/pids/server.pid
+
+if [ "${*: -2:1}" == "./bin/rails" ] && [ "${*: -1:1}" == "server" ]; then
+  ./bin/rails db:prepare
+fi
+
+exec "${@}"
