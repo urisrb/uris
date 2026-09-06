@@ -1,34 +1,15 @@
-import {
-  Alert,
-  Button,
-  Group,
-  Loader,
-  Modal,
-  NumberInput,
-  Stack,
-  Table,
-  Text,
-  Textarea,
-  TextInput,
-} from '@mantine/core'
+import { Alert, Button, Group, Loader, Stack, Table, Text } from '@mantine/core'
 import {
   FeedsDocument,
   PauseFeedDocument,
   RunFeedDocument,
-  SaveFeedDocument,
 } from '@uris-to/client'
-import { useMutation, useQuery } from '@uris-to/client/react'
-import { useEffect, useState } from 'react'
+import { useQuery } from '@uris-to/client/react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
+import { EVERY, FeedForm } from './FeedForm'
 import { useAloud, useSay } from './Say'
-
-const EVERY = [
-  { label: 'by hand', seconds: 0 },
-  { label: 'hourly', seconds: 3600 },
-  { label: 'daily', seconds: 86400 },
-  { label: 'weekly', seconds: 604800 },
-]
 
 function cadence(interval?: number | null, pausedAt?: string | null) {
   if (pausedAt) return 'paused'
@@ -56,39 +37,12 @@ export function Feeds() {
 
   const say = useSay()
   const { data, loading, error, refetch } = useQuery(FeedsDocument, {})
-  const save = useMutation(SaveFeedDocument)
   const start = useAloud(RunFeedDocument, 'That feed could not be run.')
   const pause = useAloud(PauseFeedDocument, 'That feed could not be paused.')
 
   const [open, setOpen] = useState(false)
-  const [slug, setSlug] = useState('')
-  const [prompt, setPrompt] = useState('')
-  const [interval, setInterval] = useState<number>(0)
-  const [refused, setRefused] = useState<string | null>(null)
 
   const feeds = data?.feeds ?? []
-
-  useEffect(() => {
-    if (!open) return
-
-    setSlug('')
-    setPrompt('')
-    setInterval(0)
-    setRefused(null)
-  }, [open])
-
-  async function create() {
-    const answered = await save.execute({ slug, prompt, interval })
-
-    if (!answered) {
-      setRefused(save.error?.message ?? 'That feed could not be saved.')
-      return
-    }
-
-    setOpen(false)
-    say({ text: `/${slug} is yours. Run it and it will start looking.` })
-    refetch()
-  }
 
   return (
     <Stack gap="var(--s5)">
@@ -207,68 +161,14 @@ export function Feeds() {
         </div>
       )}
 
-      <Modal opened={open} onClose={() => setOpen(false)} title="New feed">
-        <Stack gap="var(--s4)">
-          <TextInput
-            label="Address"
-            description="It becomes a path. Letters, numbers and dashes."
-            placeholder="buy"
-            value={slug}
-            onChange={(event) => setSlug(event.currentTarget.value)}
-          />
-
-          <Textarea
-            label="Prompt"
-            description="What it should go and find, in a sentence."
-            placeholder="Find things worth buying from my stores."
-            autosize
-            minRows={3}
-            value={prompt}
-            onChange={(event) => setPrompt(event.currentTarget.value)}
-          />
-
-          <div>
-            <Text size="sm" fw={500}>
-              Runs
-            </Text>
-            <Group gap="var(--s2)" mt="var(--s2)">
-              {EVERY.map((option) => (
-                <button
-                  key={option.label}
-                  type="button"
-                  className="tag"
-                  data-dot="false"
-                  data-on={interval === option.seconds}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setInterval(option.seconds)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </Group>
-          </div>
-
-          {interval > 0 && (
-            <NumberInput
-              label="Seconds between runs"
-              min={60}
-              value={interval}
-              onChange={(value) => setInterval(Number(value) || 0)}
-            />
-          )}
-
-          {refused && <Alert color="red">{refused}</Alert>}
-
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={create} disabled={!slug || !prompt}>
-              Create
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+      <FeedForm
+        opened={open}
+        onClose={() => setOpen(false)}
+        onSaved={(slug) => {
+          say({ text: `/${slug} is yours. Run it and it will start looking.` })
+          refetch()
+        }}
+      />
     </Stack>
   )
 }

@@ -1,5 +1,6 @@
 import { Alert, Button, Group, Loader, Stack, Table, Text } from '@mantine/core'
 import {
+  IconPencil,
   IconPlayerPause,
   IconPlayerPlay,
   IconRefresh,
@@ -13,9 +14,10 @@ import {
 } from '@uris-to/client'
 import { useQuery, useSubscription } from '@uris-to/client/react'
 import { type CSSProperties, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 import { tone } from '../kinds'
+import { FeedForm } from './FeedForm'
 import { RunTrail } from './RunTrail'
 import { useAloud, useSay } from './Say'
 
@@ -40,7 +42,9 @@ function when(at?: string | null) {
 
 export function FeedDetail() {
   const { slug } = useParams<{ slug: string }>()
+  const navigate = useNavigate()
   const say = useSay()
+  const [editing, setEditing] = useState(false)
   const { data, loading, error, refetch } = useQuery(FeedDocument, {
     slug: slug ?? '',
   })
@@ -85,6 +89,16 @@ export function FeedDetail() {
 
         <Group gap="var(--s2)">
           {open && <Loader size="xs" />}
+
+          <Button
+            variant="subtle"
+            color="gray"
+            radius="xl"
+            leftSection={<IconPencil size={15} />}
+            onClick={() => setEditing(true)}
+          >
+            Edit
+          </Button>
 
           {feed.interval ? (
             <Button
@@ -158,6 +172,18 @@ export function FeedDetail() {
           <Text fw={600}>{feed.turns ?? 'the default'}</Text>
         </div>
       </Group>
+
+      <FeedForm
+        opened={editing}
+        onClose={() => setEditing(false)}
+        feed={feed}
+        onSaved={(saved) => {
+          say({ text: `/${saved} is saved.` })
+
+          if (saved === feed.slug) refetch()
+          else navigate(`/feeds/${saved}`, { replace: true })
+        }}
+      />
 
       {open && <Thinking key={open.id} id={open.id} cap={feed.turns} />}
 
