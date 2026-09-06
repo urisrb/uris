@@ -1,9 +1,15 @@
 {
   "name": "@uris-to/client",
   "version": "0.1.0",
-  "private": true,
-  "description": "A typed client for the items GraphQL API: transport, operations, and optional React bindings.",
+  "description": "A GraphQL and Action Cable client for uris.",
   "license": "MIT",
+  "homepage": "https://uris.pages.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/urisrb/uris.git",
+    "directory": "web"
+  },
+  "bugs": "https://github.com/urisrb/uris/issues",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -26,6 +32,9 @@
     "README.md"
   ],
   "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@graphql-typed-document-node/core": "^3.2.0",
     "@urql/core": "^6.0.1"

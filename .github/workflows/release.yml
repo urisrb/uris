@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      package:
+        description: Publish a package without cutting a release
+        required: true
+        type: choice
+        options: [client]
+
+permissions: {}
+
+jobs:
+  release-please:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      client: ${{ steps.release.outputs['web--release_created'] }}
+      client_tag: ${{ steps.release.outputs['web--tag_name'] }}
+
+    steps:
+      - name: Maintain the release pull request
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  client:
+    needs: release-please
+    if: >-
+      !cancelled() &&
+      needs.release-please.result != 'failure' &&
+      (needs.release-please.outputs.client == 'true' || inputs.package == 'client')
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release-please.outputs.client_tag }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Trusted publishing needs a newer npm than the runner ships
+        run: npm install -g npm@latest
+
+      - name: Install
+        run: npm ci
+
+      # The schema is dumped from the Ruby app and the operations are generated
+      # against it, so the package cannot be built from the checkout alone.
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Generate the API layer
+        run: |
+          bin/rails graphql:dump_schema
+          npm run codegen
+          npm run build:sdk
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Publish
+        working-directory: web
+        run: npm publish --access public
