@@ -11,7 +11,7 @@ module Analyzer
     ]
   end
 
-  def self.for(item)
-    all.find { |analyzer| analyzer.handles?(item) }.new(item)
+  def self.for(item, run: nil)
+    all.find { |analyzer| analyzer.handles?(item) }.new(item, run: run)
   end
 end

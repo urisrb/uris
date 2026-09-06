@@ -32,7 +32,7 @@ class AnalyzeItemJob < ApplicationJob
 
     return finish_run if item.nil?
 
-    Tenant.switch(tenant) { Analyzer.for(item).run }
+    Tenant.switch(tenant) { Analyzer.for(item, run: run).run }
 
     Tenant.switch(tenant) { run&.progressed!(1) }
 

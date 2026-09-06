@@ -452,7 +452,9 @@ CREATE TABLE public.runs (
     error character varying,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    feed_id bigint
+    feed_id bigint,
+    logs text,
+    lines integer DEFAULT 0 NOT NULL
 );
 
 ALTER TABLE ONLY public.runs FORCE ROW LEVEL SECURITY;
@@ -1512,6 +1514,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260906120000'),
 ('20260906024000'),
 ('20260906023001'),
 ('20260906023000'),

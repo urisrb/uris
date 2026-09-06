@@ -85,7 +85,60 @@ class Run < ApplicationRecord
     true
   end
 
+  LOG_LIMIT = 256_000
+  LINE_LIMIT = 2_000
+
+  def log_info(*parts) = line("[i]", *parts)
+  def log_done(*parts) = line("[✓]", *parts)
+  def log_skip(*parts) = line("[-]", *parts)
+  def log_fail(*parts) = line("[x]", *parts)
+
+  # Appends in SQL rather than read-modify-write so the returned index is the
+  # authoritative position of this line, and a second writer cannot lose one.
+  #
+  # Tenant.switch opens a savepoint every call, so a run that is already in its
+  # own tenant — which is every call from an analyzer — writes without one.
+  # A log line is not worth a nested transaction per step.
+  def line(*parts)
+    text = parts.compact.map { |part| part.to_s.tr("\n", " ") }.join(" : ").truncate(LINE_LIMIT)
+
+    return emit(text) if Current.tenant&.id == tenant_id
+
+    Tenant.switch(tenant) { emit(text) }
+  end
+
   private
+
+    def emit(text)
+      index = append(text)
+      return if index.nil?
+
+      self.lines = index
+      clear_attribute_changes([ :lines ])
+
+      UrisSchema.subscriptions.trigger(:run_progressed, { id: to_gid_param }, self,
+                                       scope: tenant_id)
+      index
+    end
+
+    def append(text)
+      Run.with_connection do |connection|
+        connection.select_value(
+          Run.sanitize_sql_array([ <<~SQL.squish, { line: "#{text}\n", limit: LOG_LIMIT, id: id } ])
+            UPDATE runs
+               SET logs = CASE WHEN length(coalesce(logs, '')) > :limit
+                               THEN logs
+                               ELSE coalesce(logs, '') || :line
+                          END,
+                   lines = lines + 1,
+                   updated_at = now()
+             WHERE id = :id
+            RETURNING lines
+          SQL
+        )
+      end
+    end
+
 
     def current_status
       Run.where(id: id).pick(:status)

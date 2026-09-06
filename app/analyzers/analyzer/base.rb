@@ -4,10 +4,11 @@ module Analyzer
   class Base
     MAX_TEXT = 200_000
 
-    attr_reader :item, :reference
+    attr_reader :item, :reference, :tracked_run
 
-    def initialize(item)
+    def initialize(item, run: nil)
       @item = item
+      @tracked_run = run
     end
 
     def self.handles?(_item)
@@ -143,10 +144,12 @@ module Analyzer
       stored = reference.analysis.dig("steps", name) || {}
 
       if stored.key?("result") && !force && fresh?(stored, after) && !superseded?(stored)
+        tracked_run&.log_skip(log_context, name, "cached")
         return stored["result"]
       end
 
       started_at = Time.current
+      tracked_run&.log_info(log_context, name)
 
       begin
         result = yield
@@ -155,6 +158,7 @@ module Analyzer
           "finished_at" => Time.current.iso8601(3),
           "result" => result
         }.merge(about))
+        tracked_run&.log_done(log_context, name, "#{((Time.current - started_at) * 1000).round}ms")
         result
       rescue StandardError => e
         write_step!(name, {
@@ -162,8 +166,13 @@ module Analyzer
           "finished_at" => Time.current.iso8601(3),
           "error" => { "class" => e.class.name, "message" => e.message.truncate(500) }
         }.merge(about))
+        tracked_run&.log_fail(log_context, name, e.class.name, e.message)
         raise
       end
+    end
+
+    def log_context
+      [ self.class.kind, reference&.filename ].compact.join(" ")
     end
 
     def step_result(name)
