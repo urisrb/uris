@@ -15,9 +15,17 @@ class Run < ApplicationRecord
 
   scope :open, -> { where(status: OPEN) }
   scope :newest_first, -> { order(id: :desc) }
+  scope :past_deadline, -> { open.where(deadline: ...Time.current) }
 
   def self.start!(kind:, resource: nil, feed: nil, selector: {}, deadline: nil)
-    create!(kind: kind, resource: resource, feed: feed, selector: selector.to_h, deadline: deadline)
+    create!(kind: kind, resource: resource, feed: feed, selector: selector.to_h,
+            deadline: deadline || default_deadline)
+  end
+
+  def self.default_deadline
+    budget = Rails.configuration.uris.run_deadline
+
+    budget.to_i.zero? ? nil : budget.from_now
   end
 
   def open?
