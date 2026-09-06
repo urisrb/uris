@@ -1,9 +1,27 @@
 class Item < ApplicationRecord
+  # Where an item came from. Synced items were found in a resource you connected; minted
+  # ones were written by a feed. Both are searchable and they are not the same claim, so
+  # a list can say which is which.
+  ORIGINS = %w[resource feed].freeze
+
   include TenantScoped
 
   has_many :references, -> { oldest_first }, class_name: "Reference", dependent: :destroy,
                                              inverse_of: :item
   has_many :resources, through: :references
+  has_many :feed_items, dependent: :destroy
+  has_many :feeds, through: :feed_items
+
+  belongs_to :feed, optional: true
+  belongs_to :run, optional: true
+
+  validates :origin, inclusion: { in: ORIGINS }
+  validate :the_origin_does_not_change, on: :update
+
+  scope :synced, -> { where(origin: "resource") }
+  scope :minted, -> { where(origin: "feed") }
+
+  def minted? = origin == "feed"
 
   belongs_to :parent, class_name: "Item", optional: true
   has_many :children, -> { order(:id) }, class_name: "Item", foreign_key: :parent_id,
@@ -170,5 +188,13 @@ class Item < ApplicationRecord
       when Array then value.each { |v| collect_strings(v, &block) }
       when Hash then value.each_value { |v| collect_strings(v, &block) }
       end
+    end
+
+  private
+
+    def the_origin_does_not_change
+      return unless origin_changed? && origin_was == "resource"
+
+      errors.add(:origin, "cannot be changed — a synced item was not minted by a feed")
     end
 end

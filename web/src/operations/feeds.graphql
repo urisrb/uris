@@ -1,0 +1,103 @@
+query Feeds {
+  feeds {
+    id
+    slug
+    name
+    prompt
+    interval
+    scheduled
+    pausedAt
+    nextRunAt
+    ranAt
+    itemsCount
+  }
+}
+
+query Feed($slug: String!) {
+  feed(slug: $slug) {
+    id
+    slug
+    name
+    prompt
+    turns
+    interval
+    scheduled
+    pausedAt
+    nextRunAt
+    ranAt
+    itemsCount
+    items {
+      id
+      title
+      kind
+      origin
+      analyzedAt
+    }
+    runs {
+      id
+      status
+      error
+      createdAt
+      finishedAt
+    }
+  }
+}
+
+mutation SaveFeed(
+  $id: ID
+  $slug: String
+  $name: String
+  $prompt: String
+  $interval: Int
+  $turns: Int
+) {
+  saveFeed(
+    input: {
+      id: $id
+      slug: $slug
+      name: $name
+      prompt: $prompt
+      interval: $interval
+      turns: $turns
+    }
+  ) {
+    feed {
+      id
+      slug
+      name
+      prompt
+      interval
+      scheduled
+      nextRunAt
+      itemsCount
+    }
+  }
+}
+
+mutation RunFeed($id: ID!) {
+  runFeed(input: { id: $id }) {
+    run {
+      id
+      status
+    }
+  }
+}
+
+mutation PauseFeed($id: ID!, $paused: Boolean!) {
+  pauseFeed(input: { id: $id, paused: $paused }) {
+    feed {
+      id
+      pausedAt
+      scheduled
+      nextRunAt
+    }
+  }
+}
+
+subscription AgentTurned($id: ID!) {
+  agentTurned(id: $id) {
+    turn
+    calls
+    said
+  }
+}

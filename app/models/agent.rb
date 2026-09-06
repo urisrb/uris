@@ -12,7 +12,7 @@ class Agent
 
   Turn = Struct.new(:number, :calls, :said, keyword_init: true)
 
-  attr_reader :turns_taken
+  attr_reader :turns_taken, :looked_at
 
   def initialize(grant:, inference: nil, tools: nil, promptable: nil, turns: TURNS, halted: nil)
     @grant = grant
@@ -22,6 +22,7 @@ class Agent
     @turns = turns
     @halted = halted
     @turns_taken = 0
+    @looked_at = []
   end
 
   def call(prompt)
@@ -78,14 +79,23 @@ class Agent
       name = call.dig("function", "name")
       tool = @offered.find { |candidate| candidate.tool_name == name }
 
+      args = arguments(call)
       content =
         if tool.nil?
           { error: "no tool named #{name}" }.to_json
         else
-          said(tool.call(server_context: context, **arguments(call)))
+          noted(name, args, said(tool.call(server_context: context, **args)))
         end
 
       { role: "tool", tool_call_id: call["id"].to_s, name: name, content: content }
+    end
+
+    # What the agent fetched is what it decided was worth looking at, and the feed keeps
+    # that rather than a list the model reports separately.
+    def noted(name, args, content)
+      @looked_at << args[:id].to_s if name == "get_item" && args[:id].present?
+
+      content
     end
 
     def arguments(call)

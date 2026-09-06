@@ -10,8 +10,8 @@ Background and the measurements behind the model choice: `docs/src/content/docs/
 
 ## Decisions still open
 
-- [ ] **Are feeds ever public?** Changes whether the catch-all serves anonymous requests, and
-      collides with using `uris.to/<code>` for short links.
+- [x] **Feeds are never public.** The catch-all serves signed-in requests only, and anonymous
+      traffic falls through. `uris.to/<code>` stays free for short links. Decided 2026-09-06.
 - [ ] **Default `agent` model.** `openai/gpt-oss-20b` on LM Studio was cleanest of the six that
       passed; `qwen3:8b` on ollama is one less runtime to keep alive.
 - [x] **The write phase is ours.** The model is offered read tools only. Decided 2026-09-06.

@@ -8,6 +8,9 @@ module Types
 
     field :id, ID, null: false
     field :kind, String, null: false
+    field :origin, String, null: false,
+          description: "resource when synced from one, feed when a feed minted it."
+    field :feed, Types::FeedType, description: "The feed that minted it, when it was minted."
     field :title, String
     field :references, [ Types::ReferenceType ], null: false
     field :analyzed_at, GraphQL::Types::ISO8601DateTime

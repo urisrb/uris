@@ -3,6 +3,7 @@ import {
   IconDatabase,
   IconLayoutGrid,
   IconProgressCheck,
+  IconRss,
   IconSearch,
   IconSettings,
 } from '@tabler/icons-react'
@@ -21,6 +22,8 @@ import { useSession } from '../hooks/useSession'
 import { tone } from '../kinds'
 import { Catalog } from './Catalog'
 import { Cycle } from './Cycle'
+import { FeedDetail } from './FeedDetail'
+import { Feeds } from './Feeds'
 import { ItemDetail } from './ItemDetail'
 import { Resources } from './Resources'
 import { Runs } from './Runs'
@@ -42,6 +45,7 @@ const VERBS: [string, string][] = [
 
 const SECTIONS = [
   { to: '/', label: 'Catalog', icon: IconLayoutGrid },
+  { to: '/feeds', label: 'Feeds', icon: IconRss },
   { to: '/resources', label: 'Resources', icon: IconDatabase },
   { to: '/runs', label: 'Runs', icon: IconProgressCheck },
   { to: '/settings', label: 'Settings', icon: IconSettings },
@@ -181,6 +185,8 @@ function Shell({
         <Routes>
           <Route path="/" element={<Catalog />} />
           <Route path="/items/:id" element={<ItemDetail />} />
+          <Route path="/feeds" element={<Feeds />} />
+          <Route path="/feeds/:slug" element={<FeedDetail />} />
           <Route path="/resources" element={<Resources />} />
           <Route path="/runs" element={<Runs />} />
           <Route

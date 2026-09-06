@@ -17,10 +17,14 @@ class RunFeedJob < ApplicationJob
       run&.running!
       Current.grant = feed.grant
 
-      answered = Agent.new(
+      agent = Agent.new(
         grant: Current.grant, promptable: run, turns: feed.turns_allowed,
         halted: -> { halted?(run) }
-      ).call(feed.prompt)
+      )
+      answered = agent.call(feed.prompt)
+
+      # The read phase is over. Writing is ours.
+      Feed::Harvest.new(feed: feed, run: run).call(agent.looked_at)
 
       feed.update!(ran_at: Time.current)
       settle(run, answered)

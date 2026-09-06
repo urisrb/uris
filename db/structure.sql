@@ -71,6 +71,42 @@ ALTER SEQUENCE public.audit_events_id_seq OWNED BY public.audit_events.id;
 
 
 --
+-- Name: feed_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.feed_items (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    feed_id bigint NOT NULL,
+    item_id bigint NOT NULL,
+    run_id bigint,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.feed_items FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: feed_items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.feed_items_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: feed_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.feed_items_id_seq OWNED BY public.feed_items.id;
+
+
+--
 -- Name: feeds; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -84,7 +120,10 @@ CREATE TABLE public.feeds (
     turns integer,
     ran_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    "interval" integer,
+    next_run_at timestamp(6) without time zone,
+    paused_at timestamp(6) without time zone
 );
 
 ALTER TABLE ONLY public.feeds FORCE ROW LEVEL SECURITY;
@@ -201,7 +240,10 @@ CREATE TABLE public.items (
     title character varying,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    parent_id bigint
+    parent_id bigint,
+    origin character varying DEFAULT 'resource'::character varying NOT NULL,
+    feed_id bigint,
+    run_id bigint
 );
 
 ALTER TABLE ONLY public.items FORCE ROW LEVEL SECURITY;
@@ -525,6 +567,13 @@ ALTER TABLE ONLY public.audit_events ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
+-- Name: feed_items id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feed_items ALTER COLUMN id SET DEFAULT nextval('public.feed_items_id_seq'::regclass);
+
+
+--
 -- Name: feeds id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -615,6 +664,14 @@ ALTER TABLE ONLY public.ar_internal_metadata
 
 ALTER TABLE ONLY public.audit_events
     ADD CONSTRAINT audit_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: feed_items feed_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feed_items
+    ADD CONSTRAINT feed_items_pkey PRIMARY KEY (id);
 
 
 --
@@ -749,10 +806,52 @@ CREATE INDEX index_audit_events_on_tenant_id_and_status_and_id ON public.audit_e
 
 
 --
+-- Name: index_feed_items_on_feed_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feed_items_on_feed_id ON public.feed_items USING btree (feed_id);
+
+
+--
+-- Name: index_feed_items_on_item_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feed_items_on_item_id ON public.feed_items USING btree (item_id);
+
+
+--
+-- Name: index_feed_items_on_run_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feed_items_on_run_id ON public.feed_items USING btree (run_id);
+
+
+--
+-- Name: index_feed_items_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feed_items_on_tenant_id ON public.feed_items USING btree (tenant_id);
+
+
+--
+-- Name: index_feed_items_on_tenant_id_and_feed_id_and_item_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_feed_items_on_tenant_id_and_feed_id_and_item_id ON public.feed_items USING btree (tenant_id, feed_id, item_id);
+
+
+--
 -- Name: index_feeds_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX index_feeds_on_tenant_id ON public.feeds USING btree (tenant_id);
+
+
+--
+-- Name: index_feeds_on_tenant_id_and_next_run_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feeds_on_tenant_id_and_next_run_at ON public.feeds USING btree (tenant_id, next_run_at) WHERE ((next_run_at IS NOT NULL) AND (paused_at IS NULL));
 
 
 --
@@ -833,10 +932,24 @@ CREATE INDEX index_items_on_tenant_id_and_created_at ON public.items USING btree
 
 
 --
+-- Name: index_items_on_tenant_id_and_feed_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_items_on_tenant_id_and_feed_id ON public.items USING btree (tenant_id, feed_id) WHERE (feed_id IS NOT NULL);
+
+
+--
 -- Name: index_items_on_tenant_id_and_kind; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX index_items_on_tenant_id_and_kind ON public.items USING btree (tenant_id, kind);
+
+
+--
+-- Name: index_items_on_tenant_id_and_origin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_items_on_tenant_id_and_origin ON public.items USING btree (tenant_id, origin);
 
 
 --
@@ -1037,6 +1150,14 @@ ALTER TABLE ONLY public.resource_blobs
 
 
 --
+-- Name: feed_items fk_rails_0b1095a1ad; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feed_items
+    ADD CONSTRAINT fk_rails_0b1095a1ad FOREIGN KEY (feed_id) REFERENCES public.feeds(id);
+
+
+--
 -- Name: runs fk_rails_0b416d37a1; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1058,6 +1179,14 @@ ALTER TABLE ONLY public.gates
 
 ALTER TABLE ONLY public.runs
     ADD CONSTRAINT fk_rails_1e6c1e0ed1 FOREIGN KEY (feed_id) REFERENCES public.feeds(id);
+
+
+--
+-- Name: feed_items fk_rails_23992f96b3; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feed_items
+    ADD CONSTRAINT fk_rails_23992f96b3 FOREIGN KEY (run_id) REFERENCES public.runs(id);
 
 
 --
@@ -1085,6 +1214,14 @@ ALTER TABLE ONLY public.prompts
 
 
 --
+-- Name: items fk_rails_7e424238f4; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.items
+    ADD CONSTRAINT fk_rails_7e424238f4 FOREIGN KEY (feed_id) REFERENCES public.feeds(id);
+
+
+--
 -- Name: item_references fk_rails_89e5ab95a5; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1093,11 +1230,27 @@ ALTER TABLE ONLY public.item_references
 
 
 --
+-- Name: feed_items fk_rails_a493424eab; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feed_items
+    ADD CONSTRAINT fk_rails_a493424eab FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: item_references fk_rails_babac667d3; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.item_references
     ADD CONSTRAINT fk_rails_babac667d3 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: items fk_rails_c04ed73952; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.items
+    ADD CONSTRAINT fk_rails_c04ed73952 FOREIGN KEY (run_id) REFERENCES public.runs(id);
 
 
 --
@@ -1149,6 +1302,14 @@ ALTER TABLE ONLY public.items
 
 
 --
+-- Name: feed_items fk_rails_e363adfb8f; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feed_items
+    ADD CONSTRAINT fk_rails_e363adfb8f FOREIGN KEY (item_id) REFERENCES public.items(id);
+
+
+--
 -- Name: audit_events fk_rails_e392adc554; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1193,6 +1354,12 @@ ALTER TABLE ONLY public.resources
 --
 
 ALTER TABLE public.audit_events ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: feed_items; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.feed_items ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: feeds; Type: ROW SECURITY; Schema: public; Owner: -
@@ -1259,6 +1426,13 @@ ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY tenant_isolation ON public.audit_events USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
+-- Name: feed_items tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.feed_items USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
@@ -1338,6 +1512,9 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260906024000'),
+('20260906023001'),
+('20260906023000'),
 ('20260906021000'),
 ('20260906020000'),
 ('20260905233000'),

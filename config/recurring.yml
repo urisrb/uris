@@ -3,6 +3,11 @@ shared: &shared
     class: ScheduleSyncsJob
     queue: sync
     schedule: every minute
+
+  schedule_feeds:
+    class: ScheduleFeedsJob
+    queue: sync
+    schedule: every minute
   sweep_audit_events:
     class: SweepAuditEventsJob
     queue: sync
