@@ -15,6 +15,17 @@ class Resource
       []
     end
 
+    def self.attaching
+      {
+        label: "A feed",
+        blurb: "An RSS or Atom feed. Each entry becomes an item.",
+        names: "A name for it",
+        fields: [
+          field("url", "Feed URL", required: true, placeholder: "https://example.com/feed.xml")
+        ]
+      }
+    end
+
     def self.command_schema
       {
         list: { limit: "integer?" },

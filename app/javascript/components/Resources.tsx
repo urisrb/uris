@@ -10,6 +10,7 @@ import {
 } from '@mantine/core'
 import {
   IconCheck,
+  IconPlus,
   IconRefresh,
   IconStar,
   IconStarFilled,
@@ -23,6 +24,7 @@ import {
 } from '@uris-to/client'
 import { useMutation, useQuery } from '@uris-to/client/react'
 import { type CSSProperties, useState } from 'react'
+import { Attach } from './Attach'
 
 interface Resource {
   id: string
@@ -73,6 +75,7 @@ export function Resources() {
   const setDefault = useMutation(SetDefaultStorageDocument)
   const setInterval = useMutation(SetSyncIntervalDocument)
   const [minutes, setMinutes] = useState<Record<string, number | string>>({})
+  const [attaching, setAttaching] = useState(false)
 
   if (loading && !data) return <Loader size="sm" color="var(--brass)" />
   if (error) return <Alert color="red">{error.message}</Alert>
@@ -81,12 +84,26 @@ export function Resources() {
 
   return (
     <Stack gap="var(--s5)">
-      <div>
-        <h1 className="page-title">Resources</h1>
-        <div className="eyebrow" style={{ marginTop: 'var(--s2)' }}>
-          The places your items live, and what each one can be asked to do
+      <Group justify="space-between" align="flex-end">
+        <div>
+          <h1 className="page-title">Resources</h1>
+          <div className="eyebrow" style={{ marginTop: 'var(--s2)' }}>
+            The places your items live, and what each one can be asked to do
+          </div>
         </div>
-      </div>
+        <Button
+          leftSection={<IconPlus size={16} stroke={2} />}
+          onClick={() => setAttaching(true)}
+        >
+          Attach one
+        </Button>
+      </Group>
+
+      <Attach
+        opened={attaching}
+        onClose={() => setAttaching(false)}
+        onAttached={refetch}
+      />
 
       <div className="panel">
         {resources.map((resource) => (

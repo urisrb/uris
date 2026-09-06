@@ -13,6 +13,16 @@ class Resource
       [ :integration ]
     end
 
+    def self.attaching
+      {
+        label: "Google Drive",
+        blurb: "Connected in the browser rather than here — the credential is captured by the " \
+               "sign-in server, so no secret is ever typed into uris.",
+        names: "A name for it",
+        fields: []
+      }
+    end
+
     def self.broker_provider
       "google"
     end

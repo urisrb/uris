@@ -12,6 +12,8 @@ module Types
     field :propose_merges, mutation: Mutations::ProposeMerges, grants: "uris:catalog:write"
     field :settle_merge_proposal, mutation: Mutations::SettleMergeProposal, grants: "uris:catalog:write"
 
+    field :attach_resource, mutation: Mutations::AttachResource, grants: "uris:resources:command"
+    field :enroll_resource, mutation: Mutations::EnrollResource, grants: "uris:resources:command"
     field :sync_resource, mutation: Mutations::SyncResource, grants: "uris:resources:command"
     field :check_resource, mutation: Mutations::CheckResource, grants: "uris:resources:command"
     field :set_default_storage, mutation: Mutations::SetDefaultStorage, grants: "uris:resources:command"

@@ -19,6 +19,10 @@ class Resource < ApplicationRecord
   MAX_HOPS = 4
   DEFAULTABLE = { storage: :default_storage, inference: :default_inference }.freeze
 
+  TYPES = %w[
+    s3 filesystem webdav caldav carddav imap rss web openai-compatible oauth-google database
+  ].freeze
+
   validates :key, presence: true,
                   uniqueness: { scope: [ :tenant_id, :type ], case_sensitive: true }
   validates :sync_interval, numericality: {
@@ -59,6 +63,34 @@ class Resource < ApplicationRecord
 
     def command_schema
       {}
+    end
+
+    # What a type needs before it can answer, declared rather than written down,
+    # so a form is rendered from the type instead of kept in step with it. Nil
+    # means a type nobody attaches by hand.
+    def attaching
+      nil
+    end
+
+    def attachable
+      TYPES.filter_map do |name|
+        held = find_sti_class(name)
+
+        held if held.attaching.present?
+      end
+    end
+
+    def brokered?
+      false
+    end
+
+    def field(name, label, kind: "string", required: false, secret: false, held: nil,
+              value: nil, help: nil, placeholder: nil)
+      {
+        name: name, label: label, kind: kind, required: required, secret: secret,
+        held: held || (secret ? :credentials : :details),
+        value: value, help: help, placeholder: placeholder
+      }
     end
 
     def capable_of(capability)

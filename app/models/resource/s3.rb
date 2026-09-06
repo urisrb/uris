@@ -6,6 +6,23 @@ class Resource
       [ :storage ]
     end
 
+    def self.attaching
+      {
+        label: "Object storage",
+        blurb: "One bucket over the S3 API. AWS, R2, B2, Wasabi, MinIO and Garage all answer it.",
+        names: "The bucket's name",
+        fields: [
+          field("endpoint", "Endpoint", required: true, placeholder: "https://s3.amazonaws.com"),
+          field("region", "Region", value: "us-east-1"),
+          field("prefix", "Prefix", help: "Left off, the whole bucket is walked."),
+          field("force_path_style", "Address the bucket by path", kind: "boolean", value: "true",
+                help: "On for MinIO and Garage. Off for AWS' own endpoints."),
+          field("access_key_id", "Access key", required: true, held: :credentials),
+          field("secret_access_key", "Secret key", required: true, secret: true)
+        ]
+      }
+    end
+
     def self.command_schema
       {
         list: { prefix: "string?", continuation_token: "string?" },

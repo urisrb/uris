@@ -68,6 +68,20 @@ module Types
       Resource.active.order(:type, :key)
     end
 
+    field :resource_types, [ Types::AttachingType ], null: false, grants: "uris:resources:read",
+          description: "Every type that can be attached, and what each of them needs."
+
+    def resource_types
+      Resource.attachable.map do |klass|
+        klass.attaching.merge(
+          type: klass.sti_name,
+          capabilities: klass.capabilities.map(&:to_s),
+          syncs: klass.method_defined?(:each_page),
+          brokered: klass.brokered?
+        )
+      end
+    end
+
     field :runs, Types::RunPageType, null: false, grants: "uris:catalog:read" do
       argument :kind, String, required: false
       argument :status, String, required: false

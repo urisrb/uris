@@ -11,6 +11,21 @@ class Resource
       [ :storage ]
     end
 
+    def self.attaching
+      return nil if permitted_roots.empty?
+
+      {
+        label: "A directory",
+        blurb: "A directory on the machine running uris. It has to sit inside a root the " \
+               "server was started with — #{permitted_roots.join(', ')}.",
+        names: "A name for it",
+        fields: [
+          field("root", "Directory", required: true, placeholder: permitted_roots.first.to_s),
+          field("prefix", "Prefix", help: "Left off, the whole directory is walked.")
+        ]
+      }
+    end
+
     def self.command_schema
       {
         list: { prefix: "string?", limit: "integer?" },

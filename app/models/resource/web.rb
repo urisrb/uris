@@ -12,6 +12,19 @@ class Resource
       [ :browser ]
     end
 
+    def self.attaching
+      {
+        label: "The web",
+        blurb: "What renders an address into a page you keep. One is enough for a tenant — " \
+               "snapshots go to your default storage.",
+        names: "A name for it",
+        fields: [
+          field("width", "Render width", kind: "integer", value: "1280",
+                help: "How wide the window is when the page is taken.")
+        ]
+      }
+    end
+
     def self.command_schema
       {
         snapshot: { url: "string", width: "integer?", full_page: "boolean?" },

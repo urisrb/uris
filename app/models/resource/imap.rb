@@ -13,6 +13,23 @@ class Resource
       []
     end
 
+    def self.attaching
+      {
+        label: "A mailbox",
+        blurb: "One IMAP mailbox. Messages are catalogued, and their attachments become items " \
+               "of their own.",
+        names: "A name for it",
+        fields: [
+          field("host", "Server", required: true, placeholder: "imap.example.com"),
+          field("port", "Port", kind: "integer", help: "Left off, 993 with TLS and 143 without."),
+          field("ssl", "Over TLS", kind: "boolean", value: "true"),
+          field("mailbox", "Mailbox", value: "INBOX"),
+          field("username", "Username", required: true, held: :credentials),
+          field("password", "Password", required: true, secret: true)
+        ]
+      }
+    end
+
     def self.command_schema
       {
         list: { mailbox: "string?", limit: "integer?" },

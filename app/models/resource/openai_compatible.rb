@@ -39,6 +39,23 @@ class Resource
       [ :inference ]
     end
 
+    def self.attaching
+      {
+        label: "A model backend",
+        blurb: "Anything speaking the OpenAI chat API — ollama, LM Studio, llama.cpp, vLLM, " \
+               "or a hosted one. Name a model for each role you want it to serve.",
+        names: "A name for it",
+        fields: [
+          field("base_url", "Base URL", required: true, placeholder: "http://127.0.0.1:11434/v1"),
+          field("models.fast", "Fast model", help: "Short summaries and titles."),
+          field("models.smart", "Smart model", help: "Longer reasoning."),
+          field("models.vision", "Vision model", help: "Anything that has to look at an image."),
+          field("models.agent", "Agent model", help: "What a feed drives. It has to call tools."),
+          field("api_key", "API key", secret: true, help: "Left off where the backend wants none.")
+        ]
+      }
+    end
+
     def self.command_schema
       { models: {} }
     end

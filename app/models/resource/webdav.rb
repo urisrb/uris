@@ -34,6 +34,21 @@ class Resource
       [ :storage ]
     end
 
+    def self.attaching
+      {
+        label: "WebDAV",
+        blurb: "A WebDAV collection — Nextcloud, ownCloud, or anything else speaking it.",
+        names: "A name for it",
+        fields: [
+          field("url", "Collection URL", required: true,
+                placeholder: "https://cloud.example.com/remote.php/dav/files/you/"),
+          field("prefix", "Prefix", help: "Left off, the whole collection is walked."),
+          field("username", "Username", held: :credentials),
+          field("password", "Password", secret: true)
+        ]
+      }
+    end
+
     def self.command_schema
       {
         list: { prefix: "string?", limit: "integer?" },

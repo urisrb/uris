@@ -71,3 +71,51 @@ mutation ExportItems($destinationId: ID, $kind: String, $query: String) {
     }
   }
 }
+
+query ResourceTypes {
+  resourceTypes {
+    type
+    label
+    blurb
+    names
+    capabilities
+    syncs
+    brokered
+    fields {
+      name
+      label
+      kind
+      required
+      secret
+      value
+      help
+      placeholder
+    }
+  }
+}
+
+mutation AttachResource(
+  $type: String!
+  $key: String!
+  $name: String
+  $settings: JSON
+) {
+  attachResource(
+    input: { type: $type, key: $key, name: $name, settings: $settings }
+  ) {
+    resource {
+      id
+      type
+      key
+      name
+    }
+    checkError
+  }
+}
+
+mutation EnrollResource($type: String!, $key: String!, $name: String) {
+  enrollResource(input: { type: $type, key: $key, name: $name }) {
+    url
+    expiresIn
+  }
+}

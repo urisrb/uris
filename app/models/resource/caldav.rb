@@ -6,6 +6,16 @@ class Resource
       []
     end
 
+    def self.attaching
+      super.merge(
+        label: "Calendars",
+        blurb: "A CalDAV collection. Only the events in it are catalogued.",
+        fields: super[:fields].map { |held|
+          held[:name] == "url" ? held.merge(placeholder: "https://cloud.example.com/remote.php/dav/calendars/you/") : held
+        }
+      )
+    end
+
     def self.command_schema
       {
         list: { prefix: "string?", limit: "integer?" },
