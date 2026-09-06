@@ -114,4 +114,39 @@ class RunTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) { assert_equal 60, Item.count }
   end
+
+  test "a run announces how it settled, not only what it logged" do
+    Tenant.switch(@tenant) do
+      assert_equal [ :run_progressed ], announced { |run| run.finished! }
+      assert_equal [ :run_progressed ], announced { |run| run.cancel! }
+      assert_equal [ :run_progressed ], announced { |run| run.gated! }
+    end
+  end
+
+  test "a run that has already settled announces nothing further" do
+    Tenant.switch(@tenant) do
+      assert_empty announced { |run|
+        run.cancel!
+        run.finished!
+      }.drop(1)
+    end
+  end
+
+  private
+
+    def announced
+      heard = []
+      run = Run.start!(kind: "sync", resource: @storage)
+      subscriptions = UrisSchema.subscriptions
+
+      subscriptions.define_singleton_method(:trigger) { |name, *, **| heard << name }
+
+      begin
+        yield run
+      ensure
+        subscriptions.singleton_class.remove_method(:trigger)
+      end
+
+      heard
+    end
 end

@@ -79,6 +79,7 @@ export function RunTrail({
   empty: string
 }) {
   const [open, setOpen] = useState<string | null>(null)
+  const [stranger, setStranger] = useState<string | null>(null)
   const { data, loading, refetch } = useQuery(ContextRunsDocument, {
     feedId: feedId ?? null,
     itemId: itemId ?? null,
@@ -87,25 +88,21 @@ export function RunTrail({
   const { data: progressed } = useSubscription(RunProgressedDocument)
 
   const rows = data?.runs.nodes ?? []
-  const busy = rows.some((run) => RUN_OPEN.has(run.status))
 
   const streamed = progressed?.runProgressed.run
   const live = streamed?.id === open ? (streamed?.logs ?? null) : null
 
   useEffect(() => {
     if (!streamed) return
-    if (!rows.some((run) => run.id === streamed.id)) return
+
+    const ours = rows.some((run) => run.id === streamed.id)
+
+    if (!ours && stranger === streamed.id) return
+
+    if (!ours) setStranger(streamed.id)
 
     refetch()
-  }, [streamed, rows, refetch])
-
-  useEffect(() => {
-    if (!busy) return
-
-    const timer = window.setInterval(() => refetch(), 2000)
-
-    return () => window.clearInterval(timer)
-  }, [busy, refetch])
+  }, [streamed, rows, stranger, refetch])
 
   if (loading && !data) return <Loader size="xs" color="var(--brass)" />
 

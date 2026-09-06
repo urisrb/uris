@@ -55,12 +55,15 @@ class Run < ApplicationRecord
       error: error&.truncate(500),
       finished_at: Time.current
     )
+
+    publish!
   end
 
   def gated!
     return false unless open?
 
     update_columns(status: "gated", finished_at: Time.current)
+    publish!
     true
   end
 
@@ -68,6 +71,7 @@ class Run < ApplicationRecord
     return false unless open?
 
     update_columns(status: "cancelled", finished_at: Time.current)
+    publish!
     true
   end
 
@@ -120,9 +124,15 @@ class Run < ApplicationRecord
       self.lines = index
       clear_attribute_changes([ :lines ])
 
+      publish!
+      index
+    end
+
+    def publish!
       UrisSchema.subscriptions.trigger(:run_progressed, { id: to_gid_param }, self,
                                        scope: tenant_id)
-      index
+    rescue StandardError => e
+      Rails.logger.warn "run #{id} could not announce: #{e.message}"
     end
 
     def append(text)
