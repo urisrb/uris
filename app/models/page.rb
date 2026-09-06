@@ -14,8 +14,6 @@ class Page
     new(rows.first(size), rows.size > size)
   end
 
-  # A search is walked by offset rather than by id: the engine orders by score,
-  # so "everything after this id" is not a place in the results.
   def self.at(nodes, from:, total:)
     reached = from + nodes.length
 

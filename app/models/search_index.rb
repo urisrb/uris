@@ -146,8 +146,6 @@ module SearchIndex
       page(query, tenant: tenant, kind: kind, limit: limit)[:ids]
     end
 
-    # A window of matches and how many there are altogether, so a caller can say
-    # "of 300" rather than handing back fifty and letting them assume that is all.
     def page(query, tenant: Current.tenant, kind: nil, limit: 50, from: 0)
       raise ArgumentError, "no tenant" if tenant.nil?
 

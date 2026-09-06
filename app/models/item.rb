@@ -97,8 +97,6 @@ class Item < ApplicationRecord
     self
   end
 
-  # The emptied item is destroyed once its last reference moves, so anything
-  # written about it has to come across first or it goes with it.
   def keep_note_from(other)
     return if other.note.blank?
     return update!(note: other.note) if note.blank?
@@ -194,7 +192,7 @@ class Item < ApplicationRecord
   private
 
     def index_for_search
-      Tenant.switch(Tenant.find(tenant_id)) { SearchIndex.index(self) }
+      Tenant.switch(Tenant.find(tenant_id)) { SearchIndex.index(Item.find_by(id: id) || self) }
     end
 
     def remove_from_search
