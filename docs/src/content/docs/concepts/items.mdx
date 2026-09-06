@@ -64,6 +64,30 @@ that knows what it found overrides `kind_for` and says so directly:
 
 Kind is not resource type. `pdf` is a kind; `s3` is a [type](/concepts/resources/).
 
+## Getting in
+
+Every path that turns bytes into an item goes through `Intake.write!` (`app/models/intake.rb`):
+sanitise the key, write to the tenant's default storage, `Reference.discover!`, queue analysis.
+There is one place that does it rather than one per caller.
+
+| From | Path | Lands as |
+| --- | --- | --- |
+| a dropped or chosen file | `POST /uploads` | whatever `Kind.for_filename` says |
+| a typed or pasted note | `addNote` | `text`, under `notes/` |
+| the file at an address | `fetchUrl` → `FetchUrlJob` → `Download` | named by what was served, under `downloads/` |
+| a page as it looks now | `snapshotUrl` → `SnapshotUrlJob` → `Resource::Web#snapshot!` | `page`, keyed on the address |
+| a connected resource | `SyncResourceJob` | whatever `kind_for` says |
+| an attachment inside an email | `Analyzer::Base#extract_children!` | a child item, see below |
+
+`snapshotUrl` and `fetchUrl` open a `Run` each — rendering and downloading both take long enough
+that the caller watches rather than waits.
+
+`Download` re-checks every hop against `PublicAddress` rather than only the address it was handed:
+a public host answering with a redirect to `169.254.169.254` is the attack that a single check
+misses. It refuses a scheme outside `http` whatever `URIS_ALLOW_PRIVATE_FETCH` allows, caps the
+body while reading it rather than after, and names the file from `Content-Disposition`, then the
+path, then the content type — so analysis, which is keyed off the extension, knows what it has.
+
 ## Children
 
 An analyzer that declares `has_children?` returns child bodies from `children_of`, and

@@ -112,6 +112,45 @@ Adapters raise `Resource::Failed` (or a subclass — `Resource::Filesystem::Esca
 `Resource::Rss::Gone`) rather than a vendor error. Jobs retry it with backoff; see
 [Jobs](/concepts/jobs/).
 
+## Attaching
+
+`self.attaching` declares what a type needs before it can answer — a label, a blurb, what its `key`
+means, and one entry per field. It sits beside `command_schema`, and for the same reason: a caller
+discovers a type's vocabulary rather than having it written down somewhere that falls out of step.
+
+```ruby
+# app/models/resource/imap.rb
+{
+  label: "A mailbox",
+  names: "A name for it",
+  fields: [
+    field("host", "Server", required: true, placeholder: "imap.example.com"),
+    field("ssl", "Over TLS", kind: "boolean", value: "true"),
+    field("username", "Username", required: true, held: :credentials),
+    field("password", "Password", required: true, secret: true)
+  ]
+}
+```
+
+`held` says where a value is stored — `:details` or `:credentials`, the encrypted column. `secret`
+only decides masking, so a username lives in `credentials` without being hidden from the person
+typing it. Returning `nil` from `attaching` means a type nobody attaches by hand.
+
+`Resource.attachable` walks `Resource::TYPES` and keeps the ones that answer. The `resourceTypes`
+query serves them and `attachResource` consumes them:
+
+- Only declared fields are read, so a key the form never offered cannot reach `details` or
+  `credentials`.
+- A dotted name nests — `models.fast` becomes `details["models"]["fast"]`.
+- Nothing hands a credential back. The schema carries names and defaults, never values, and the
+  audit event records which fields were set rather than what was typed into them.
+- `database` is not attachable. `filesystem` is only offered where `URIS_FILESYSTEM_ROOTS` is set,
+  since otherwise the form is a way to read any path on the host.
+- Attaching runs `check` and reports what it said, so a bucket that does not answer looks wrong
+  immediately rather than at the first sync.
+
+A brokered type declares `attaching` with no fields and goes through `enrollResource` instead.
+
 ## Enrollment
 
 Types that include `Resource::Brokered` hold a connection id, not a credential. `Broker.release`
