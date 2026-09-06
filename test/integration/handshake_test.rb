@@ -5,17 +5,15 @@ class HandshakeTest < ActionDispatch::IntegrationTest
     @tenant = Tenant.create!(subdomain: "handshake-#{SecureRandom.hex(4)}", name: "Handshake")
   end
 
-  test "an app nobody has connected offers the handshake rather than a login it cannot run" do
+  test "an app nobody has connected walks into the handshake rather than a login it cannot run" do
     get "/", headers: host
 
     assert_redirected_to "/auth/handshake"
 
     get "/auth/handshake", headers: host
 
-    assert_response :success
-    assert_match "has not been connected", response.body
-    assert_no_match(/#{Regexp.escape(issuer.origin)}/, response.body,
-                    "a stranger who learns the issuer can claim its tenant first")
+    assert_response :redirect
+    assert response.location.start_with?("#{issuer.url_for(@tenant.subdomain)}/handshake")
   end
 
   test "starting the handshake sends the browser to its issuer, naming one origin throughout" do
