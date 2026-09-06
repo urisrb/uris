@@ -8,8 +8,11 @@ class Resource
     ENDPOINTS = {
       "exa" => "https://api.exa.ai/search",
       "brave" => "https://api.search.brave.com/res/v1/web/search",
-      "tavily" => "https://api.tavily.com/search"
+      "tavily" => "https://api.tavily.com/search",
+      "searxng" => nil
     }.freeze
+
+    KEYLESS = %w[searxng].freeze
 
     PROVIDERS = ENDPOINTS.keys.freeze
     LIMIT = 8
@@ -40,14 +43,41 @@ class Resource
       { search: { query: "string", limit: "integer?" } }
     end
 
+    def self.permitted_origins
+      ENV.fetch("URIS_SEARCH_ORIGINS", "").split(",").filter_map do |entry|
+        next if entry.strip.blank?
+
+        begin
+          uri = URI.parse(entry.strip)
+          "#{uri.scheme}://#{uri.host}:#{uri.port}" if uri.is_a?(URI::HTTP)
+        rescue URI::InvalidURIError
+          nil
+        end
+      end
+    end
+
+    def self.named?(target)
+      uri = URI.parse(target.to_s)
+
+      permitted_origins.include?("#{uri.scheme}://#{uri.host}:#{uri.port}")
+    rescue URI::InvalidURIError
+      false
+    end
+
     validate :it_names_a_provider_that_answers
+    validate :it_is_told_where_a_self_hosted_engine_lives
 
     def provider
       details.to_h["provider"].to_s.strip.downcase
     end
 
     def endpoint
-      details.to_h["endpoint"].presence || ENDPOINTS[provider]
+      named = details.to_h["endpoint"].presence || ENDPOINTS[provider]
+      return named unless provider == "searxng" && named.present?
+
+      URI.parse(named).path.delete_suffix("/").empty? ? "#{named.delete_suffix('/')}/search" : named
+    rescue URI::InvalidURIError
+      named
     end
 
     def check!
@@ -78,6 +108,8 @@ class Resource
         case provider
         when "brave"
           get("#{endpoint}?#{URI.encode_www_form(q: query, count: count)}")
+        when "searxng"
+          get("#{endpoint}?#{URI.encode_www_form(q: query, format: 'json')}")
         when "tavily"
           post(endpoint, { query: query, max_results: count })
         else
@@ -142,6 +174,8 @@ class Resource
         token = credentials.to_h["api_key"].to_s
 
         case provider
+        when "searxng"
+          base
         when "brave"
           base.merge("X-Subscription-Token" => token)
         when "tavily"
@@ -156,7 +190,24 @@ class Resource
           errors.add(:details, "must name a provider: #{PROVIDERS.join(', ')}")
         end
 
+        return if KEYLESS.include?(provider)
+
         errors.add(:credentials, "must carry an api_key") if credentials.to_h["api_key"].blank?
+      end
+
+      def it_is_told_where_a_self_hosted_engine_lives
+        return unless KEYLESS.include?(provider)
+        return if details.to_h["endpoint"].present?
+
+        errors.add(:details, "must name an endpoint — #{provider} is wherever you run it")
+      end
+
+      def permitted!(target)
+        PublicAddress.permitted!(target, allow_private: self.class.named?(target))
+      rescue PublicAddress::Blocked => e
+        raise PublicFetch::Blocked, "#{key}: #{e.message}"
+      rescue PublicAddress::Unresolvable => e
+        raise Resource::Failed, "#{key}: #{e.message}"
       end
   end
 end

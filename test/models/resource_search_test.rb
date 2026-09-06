@@ -102,6 +102,59 @@ class ResourceSearchTest < ActiveSupport::TestCase
     end
   end
 
+  test "a self-hosted engine needs no key, but does need an address" do
+    Tenant.switch(@tenant) do
+      nowhere = Resource::Search.new(key: "sx", details: { "provider" => "searxng" })
+
+      assert_not nowhere.valid?
+      assert_match(/must name an endpoint/, nowhere.errors.full_messages.join)
+
+      somewhere = Resource::Search.new(key: "sx", details: { "provider" => "searxng",
+                                                            "endpoint" => "https://s.example.com" })
+
+      assert somewhere.valid?, somewhere.errors.full_messages.join
+    end
+  end
+
+  test "a searxng base url grows the search path it answers on" do
+    Tenant.switch(@tenant) do
+      base = engine(**{ "provider" => "searxng", "endpoint" => "https://s.example.com" })
+      full = engine(**{ "provider" => "searxng", "endpoint" => "https://s.example.com/search" })
+
+      assert_equal "https://s.example.com/search", base.endpoint
+      assert_equal "https://s.example.com/search", full.endpoint
+    end
+  end
+
+  test "searxng is asked over a plain query, with no key on the wire" do
+    stub_request(:get, "https://example.com/search")
+      .with(query: { q: "anything", format: "json" })
+      .to_return(status: 200, headers: { "Content-Type" => "application/json" },
+                 body: { results: [ { url: "https://example.test/c", title: "C",
+                                      content: "found it" } ] }.to_json)
+
+    Tenant.switch(@tenant) do
+      results = engine(**{ "provider" => "searxng", "endpoint" => "https://example.com" }).search("anything")
+
+      assert_equal "found it", results.first[:snippet]
+    end
+  end
+
+  test "a private engine answers only when its origin was named" do
+    Tenant.switch(@tenant) do
+      inside = engine(**{ "provider" => "searxng", "endpoint" => "http://127.0.0.1:8888/search" })
+
+      assert_raises(PublicFetch::Blocked) { inside.search("anything") }
+
+      stub_request(:get, "http://127.0.0.1:8888/search")
+        .with(query: { q: "anything", format: "json" })
+        .to_return(status: 200, headers: { "Content-Type" => "application/json" },
+                   body: { results: [] }.to_json)
+
+      with_origins("http://127.0.0.1:8888") { assert_empty inside.search("anything") }
+    end
+  end
+
   test "a private address is blocked, so a named endpoint cannot reach inside" do
     Tenant.switch(@tenant) do
       inside = engine(**{ "endpoint" => "http://127.0.0.1:9200/search" })
@@ -109,4 +162,14 @@ class ResourceSearchTest < ActiveSupport::TestCase
       assert_raises(PublicFetch::Blocked) { inside.search("anything") }
     end
   end
+
+  private
+
+    def with_origins(value)
+      previous = ENV["URIS_SEARCH_ORIGINS"]
+      ENV["URIS_SEARCH_ORIGINS"] = value
+      yield
+    ensure
+      ENV["URIS_SEARCH_ORIGINS"] = previous
+    end
 end
