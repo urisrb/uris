@@ -5,15 +5,21 @@ require "rails/test_help"
 require_relative "support/offline"
 require_relative "support/fake_issuer"
 require_relative "support/fake_search_engine"
+require_relative "support/fake_s3"
 require_relative "support/mcp_client"
 
 ENV["URIS_PUBLIC_ORIGIN"] = nil
+ENV["S3_ENDPOINT"] = FakeS3::ENDPOINT
 
-SEARCH_ENGINE_URL = ENV["OPENSEARCH_URL"].presence
+SEARCH_ENGINE_URL = ENV["URIS_TEST_SEARCH_ENGINE"].presence
 
-unless SEARCH_ENGINE_URL
+if SEARCH_ENGINE_URL
+  ENV["OPENSEARCH_URL"] = SEARCH_ENGINE_URL
+else
   SearchIndex.define_singleton_method(:client) { @client ||= FakeSearchEngine.new }
 end
+
+Resource::S3.define_method(:client) { FakeS3.for(details["endpoint"]) }
 
 module ActiveSupport
   class TestCase
@@ -23,6 +29,7 @@ module ActiveSupport
 
     setup do
       Masks::Client.registry.clear!
+      FakeS3.reset!
       ENV["MASKS_ISSUER_TEMPLATE"] = FakeIssuer.template
     end
 
@@ -31,7 +38,7 @@ module ActiveSupport
     def requires_search_engine!
       return if SEARCH_ENGINE_URL
 
-      skip "asserts what the search engine does; set OPENSEARCH_URL to run it"
+      skip "asserts what the search engine itself does; set URIS_TEST_SEARCH_ENGINE to run it"
     end
 
     def issuer
