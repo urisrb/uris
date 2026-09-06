@@ -3,11 +3,12 @@ class Run < ApplicationRecord
 
   include TenantScoped
 
-  KINDS = %w[sync export analyze reindex dedupe].freeze
+  KINDS = %w[sync export analyze reindex dedupe feed].freeze
   STATUSES = %w[queued running done failed cancelled gated].freeze
   OPEN = %w[queued running].freeze
 
   belongs_to :resource, optional: true
+  belongs_to :feed, optional: true
 
   validates :kind, inclusion: { in: KINDS }
   validates :status, inclusion: { in: STATUSES }
@@ -15,8 +16,8 @@ class Run < ApplicationRecord
   scope :open, -> { where(status: OPEN) }
   scope :newest_first, -> { order(id: :desc) }
 
-  def self.start!(kind:, resource: nil, selector: {}, deadline: nil)
-    create!(kind: kind, resource: resource, selector: selector.to_h, deadline: deadline)
+  def self.start!(kind:, resource: nil, feed: nil, selector: {}, deadline: nil)
+    create!(kind: kind, resource: resource, feed: feed, selector: selector.to_h, deadline: deadline)
   end
 
   def open?

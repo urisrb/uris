@@ -5,8 +5,8 @@ module TenantIsolation
       ALTER TABLE #{table} FORCE ROW LEVEL SECURITY;
 
       CREATE POLICY tenant_isolation ON #{table}
-        USING (tenant_id = NULLIF(current_setting('items.tenant_id', true), '')::bigint)
-        WITH CHECK (tenant_id = NULLIF(current_setting('items.tenant_id', true), '')::bigint);
+        USING (tenant_id = NULLIF(current_setting('uris.tenant_id', true), '')::bigint)
+        WITH CHECK (tenant_id = NULLIF(current_setting('uris.tenant_id', true), '')::bigint);
     SQL
   end
 

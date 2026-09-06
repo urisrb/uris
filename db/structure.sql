@@ -71,6 +71,45 @@ ALTER SEQUENCE public.audit_events_id_seq OWNED BY public.audit_events.id;
 
 
 --
+-- Name: feeds; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.feeds (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    slug character varying NOT NULL,
+    name character varying,
+    prompt text NOT NULL,
+    role character varying DEFAULT 'agent'::character varying NOT NULL,
+    turns integer,
+    ran_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.feeds FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: feeds_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.feeds_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: feeds_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.feeds_id_seq OWNED BY public.feeds.id;
+
+
+--
 -- Name: gates; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -370,7 +409,8 @@ CREATE TABLE public.runs (
     deadline timestamp(6) without time zone,
     error character varying,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    feed_id bigint
 );
 
 ALTER TABLE ONLY public.runs FORCE ROW LEVEL SECURITY;
@@ -485,6 +525,13 @@ ALTER TABLE ONLY public.audit_events ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
+-- Name: feeds id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feeds ALTER COLUMN id SET DEFAULT nextval('public.feeds_id_seq'::regclass);
+
+
+--
 -- Name: gates id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -568,6 +615,14 @@ ALTER TABLE ONLY public.ar_internal_metadata
 
 ALTER TABLE ONLY public.audit_events
     ADD CONSTRAINT audit_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: feeds feeds_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feeds
+    ADD CONSTRAINT feeds_pkey PRIMARY KEY (id);
 
 
 --
@@ -691,6 +746,20 @@ CREATE INDEX index_audit_events_on_tenant_id_and_id ON public.audit_events USING
 --
 
 CREATE INDEX index_audit_events_on_tenant_id_and_status_and_id ON public.audit_events USING btree (tenant_id, status, id);
+
+
+--
+-- Name: index_feeds_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feeds_on_tenant_id ON public.feeds USING btree (tenant_id);
+
+
+--
+-- Name: index_feeds_on_tenant_id_and_slug; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_feeds_on_tenant_id_and_slug ON public.feeds USING btree (tenant_id, slug);
 
 
 --
@@ -904,6 +973,13 @@ CREATE INDEX index_resources_on_via ON public.resources USING btree (tenant_id, 
 
 
 --
+-- Name: index_runs_on_feed_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_runs_on_feed_id ON public.runs USING btree (feed_id);
+
+
+--
 -- Name: index_runs_on_resource_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -974,6 +1050,14 @@ ALTER TABLE ONLY public.runs
 
 ALTER TABLE ONLY public.gates
     ADD CONSTRAINT fk_rails_1402937732 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: runs fk_rails_1e6c1e0ed1; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.runs
+    ADD CONSTRAINT fk_rails_1e6c1e0ed1 FOREIGN KEY (feed_id) REFERENCES public.feeds(id);
 
 
 --
@@ -1073,6 +1157,14 @@ ALTER TABLE ONLY public.audit_events
 
 
 --
+-- Name: feeds fk_rails_e5c16162e1; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feeds
+    ADD CONSTRAINT fk_rails_e5c16162e1 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: prompts fk_rails_eaab65bd59; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1101,6 +1193,12 @@ ALTER TABLE ONLY public.resources
 --
 
 ALTER TABLE public.audit_events ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: feeds; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.feeds ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: gates; Type: ROW SECURITY; Schema: public; Owner: -
@@ -1161,6 +1259,13 @@ ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY tenant_isolation ON public.audit_events USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
+-- Name: feeds tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.feeds USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
@@ -1233,6 +1338,8 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260906021000'),
+('20260906020000'),
 ('20260905233000'),
 ('20260905230001'),
 ('20260905230000'),

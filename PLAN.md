@@ -54,10 +54,17 @@ that chose to stop.
 
 ## Phase 2 — Feed as a record
 
-- [ ] `Feed`: tenant, slug, prompt, role, schedule
-- [ ] `Run::KINDS` gains `feed`, so `halted?`, cancellation, gates and budgets come free
-- [ ] `Feed#run!` → `Run` → `AgentJob`
-- [ ] `Feed::TURNS` cap; running out is a normal outcome rather than an error
+- [x] `Feed`: tenant, slug, prompt, role, turns
+- [x] `Run::KINDS` gains `feed`, and a run points back at the feed that opened it
+- [x] `Feed#run!` → `Run` → `RunFeedJob`
+- [x] `Feed::TURNS` cap; running out finishes the run with a reason rather than raising
+- [x] Reserved slugs refused at the model, not left to route order
+- [x] A feed acts as itself — `feed:<slug>` — rather than borrowing whoever opened the page
+- [ ] Feeds on a schedule (moved to Later)
+
+**Phase 2 landed 2026-09-06.** `/invoices` ran in 4 turns and answered $4,200 from real items.
+`RunFeedJob` owns its `Run` directly rather than through `TrackedRun`, whose hooks come from
+JobIteration and a feed is one unit of work rather than an iteration.
 
 ## Phase 3 — results, with provenance
 
