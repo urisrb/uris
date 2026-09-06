@@ -30,6 +30,7 @@ interface Tally {
   current: string | null
   walking: boolean
   running: boolean
+  waiting: number
   settledAt: number | null
 }
 
@@ -40,8 +41,11 @@ const EMPTY: Tally = {
   current: null,
   walking: false,
   running: false,
+  waiting: 0,
   settledAt: null,
 }
+
+type Sources = { entries?: FileSystemEntry[]; files?: Dropped[] }
 
 interface Uploads extends Tally {
   dragging: boolean
@@ -69,18 +73,23 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
 
   const live = useRef<Tally>(EMPTY)
   const control = useRef<AbortController | null>(null)
+  const queued = useRef<Sources[]>([])
+  const runner = useRef<(sources: Sources) => void>(() => {})
   const depth = useRef(0)
 
   const publish = useCallback(() => setTally({ ...live.current }), [])
 
-  const begin = useCallback(
-    (sources: { entries?: FileSystemEntry[]; files?: Dropped[] }) => {
-      control.current?.abort()
-
+  const start = useCallback(
+    (sources: Sources) => {
       const controller = new AbortController()
       control.current = controller
 
-      live.current = { ...EMPTY, walking: true, running: true }
+      live.current = {
+        ...EMPTY,
+        walking: true,
+        running: true,
+        waiting: queued.current.length,
+      }
       publish()
 
       const handlers = {
@@ -115,13 +124,37 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
           ]
         })
         .finally(() => {
+          const next = queued.current.shift()
+
+          if (next && !controller.signal.aborted) {
+            runner.current(next)
+            return
+          }
+
           live.current.running = false
           live.current.walking = false
+          live.current.waiting = 0
           live.current.settledAt = Date.now()
           publish()
         })
     },
     [publish],
+  )
+
+  runner.current = start
+
+  const begin = useCallback(
+    (sources: Sources) => {
+      if (live.current.running) {
+        queued.current.push(sources)
+        live.current.waiting = queued.current.length
+        publish()
+        return
+      }
+
+      start(sources)
+    },
+    [start, publish],
   )
 
   useEffect(() => {
@@ -160,19 +193,18 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
     }
 
     const drop = (event: DragEvent) => {
-      if (!event.dataTransfer) return
+      if (!event.dataTransfer || !carriesFiles(event)) return
 
       event.preventDefault()
       depth.current = 0
       setDragging(false)
 
       const entries = entriesFrom(event.dataTransfer)
+      const files = entries.length > 0 ? null : looseFiles(event.dataTransfer)
 
-      begin(
-        entries.length > 0
-          ? { entries }
-          : { files: looseFiles(event.dataTransfer) },
-      )
+      if (entries.length === 0 && files?.length === 0) return
+
+      begin(entries.length > 0 ? { entries } : { files: files ?? [] })
     }
 
     const cancelled = () => {
@@ -195,24 +227,29 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
     }
   }, [begin])
 
+  const add = useCallback(
+    (list: FileList) => begin({ files: filesFrom(list) }),
+    [begin],
+  )
+
+  const cancel = useCallback(() => {
+    queued.current = []
+    control.current?.abort()
+    live.current.running = false
+    live.current.walking = false
+    live.current.waiting = 0
+    live.current.settledAt = Date.now()
+    publish()
+  }, [publish])
+
+  const dismiss = useCallback(() => {
+    live.current = EMPTY
+    publish()
+  }, [publish])
+
   const value = useMemo<Uploads>(
-    () => ({
-      ...tally,
-      dragging,
-      add: (list: FileList) => begin({ files: filesFrom(list) }),
-      cancel: () => {
-        control.current?.abort()
-        live.current.running = false
-        live.current.walking = false
-        live.current.settledAt = Date.now()
-        publish()
-      },
-      dismiss: () => {
-        live.current = EMPTY
-        publish()
-      },
-    }),
-    [tally, dragging, begin, publish],
+    () => ({ ...tally, dragging, add, cancel, dismiss }),
+    [tally, dragging, add, cancel, dismiss],
   )
 
   return (
@@ -250,6 +287,7 @@ function Tray() {
     current,
     walking,
     running,
+    waiting,
     settledAt,
     cancel,
     dismiss,
@@ -260,7 +298,7 @@ function Tray() {
   const share = found > 0 ? Math.min(100, Math.round((done / found) * 100)) : 0
 
   return (
-    <aside className="tray">
+    <aside className="tray" aria-live="polite">
       <div className="tray-head">
         <IconArrowBarToDown size={17} stroke={1.6} color="var(--brass)" />
         <Text fw={600} size="sm" style={{ color: 'var(--bright)' }}>
@@ -298,6 +336,13 @@ function Tray() {
       </div>
 
       <div className="tray-body">
+        {waiting > 0 && (
+          <div style={{ marginTop: 'var(--s3)' }}>
+            {counted(waiting)} more {waiting === 1 ? 'drop' : 'drops'} waiting
+            their turn
+          </div>
+        )}
+
         {current && running && (
           <div className="tray-path" style={{ marginTop: 'var(--s3)' }}>
             {current}
@@ -313,10 +358,11 @@ function Tray() {
             <div style={{ marginBottom: 'var(--s2)' }}>
               {counted(failures.length)} did not land
             </div>
-            {failures.slice(-8).map((failure) => (
+            {failures.slice(-8).map((failure, at) => (
               <div
                 className="tray-fail"
-                key={`${failure.path}-${failure.reason}`}
+                // biome-ignore lint/suspicious/noArrayIndexKey: two files can fail the same way
+                key={`${at}-${failure.path}`}
               >
                 {failure.path || 'batch'} — {failure.reason}
               </div>

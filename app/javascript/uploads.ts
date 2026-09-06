@@ -4,6 +4,8 @@ const ATTEMPTS = 3
 
 export class Unauthorized extends Error {}
 
+export class Refused extends Error {}
+
 export interface Dropped {
   path: string
   open: () => Promise<File>
@@ -173,8 +175,11 @@ async function send(item: Dropped, csrf: string | null, signal: AbortSignal) {
   if (response.ok) return
 
   const body = await response.json().catch(() => null)
+  const reason = body?.error ?? `the server said ${response.status}`
+  const permanent =
+    response.status >= 400 && response.status < 500 && response.status !== 429
 
-  throw new Error(body?.error ?? `the server said ${response.status}`)
+  throw permanent ? new Refused(reason) : new Error(reason)
 }
 
 async function drain(
@@ -201,7 +206,7 @@ async function drain(
         if (signal.aborted) return
         if (error instanceof Unauthorized) throw error
 
-        if (attempt >= ATTEMPTS) {
+        if (error instanceof Refused || attempt >= ATTEMPTS) {
           handlers.onFailed({
             path: item.path,
             reason: error instanceof Error ? error.message : 'failed',
@@ -222,6 +227,10 @@ export async function upload(
   signal: AbortSignal,
 ) {
   const channel = new Channel<Dropped>(BUFFER)
+
+  const stop = () => channel.close()
+
+  signal.addEventListener('abort', stop, { once: true })
 
   let fatal: Error | null = null
 
@@ -257,6 +266,8 @@ export async function upload(
   }
 
   await Promise.all(workers)
+
+  signal.removeEventListener('abort', stop)
 
   if (fatal) throw fatal
 }
