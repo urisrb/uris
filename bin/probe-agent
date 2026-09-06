@@ -80,9 +80,9 @@ def probe(model, tools)
       looks_like_a_call = said.include?("\"name\"") || said.start_with?("[{", "{\"")
 
       verdict = if looks_like_a_call then :as_text
-                elsif said.include?(WANTED) then :answered
-                else :gave_up
-                end
+      elsif said.include?(WANTED) then :answered
+      else :gave_up
+      end
 
       return [ verdict, calls, said[0, 70] ]
     end
