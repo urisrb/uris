@@ -225,33 +225,41 @@ pre,
   font-weight: 500;
 }
 
+.face {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--raised);
+  object-fit: cover;
+}
+
+.face-letters {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--soft);
+  border: 1px solid var(--line);
+}
+
+.face-button {
+  display: inline-flex;
+  border-radius: 999px;
+  outline-offset: 2px;
+}
+
+.face-button:hover .face {
+  background: var(--lifted);
+  box-shadow: 0 0 0 2px var(--line);
+}
+
 .shell-main {
   min-width: 0;
   padding: var(--s6) var(--s6) var(--s8);
   background: var(--base);
-}
-
-/* One bar has to hold a lot, so the sections fold into a dropdown before the
-   search does — losing the labels costs less than losing the search. */
-@media (max-width: 880px) {
-  .head-nav {
-    display: none;
-  }
-
-  .head-nav-menu {
-    display: inline-flex;
-  }
-}
-
-@media (max-width: 640px) {
-  .shell-head {
-    padding: 0 var(--s3);
-    gap: var(--s2);
-  }
-
-  .shell-main {
-    padding: var(--s5) var(--s4) var(--s8);
-  }
 }
 
 .dot {
@@ -265,6 +273,7 @@ pre,
 
 .hunt {
   flex: 1;
+  min-width: 0;
   max-width: 620px;
   display: flex;
   align-items: center;
@@ -294,6 +303,39 @@ pre,
 
 .hunt input::placeholder {
   color: var(--muted);
+}
+
+@media (max-width: 880px) {
+  .head-nav {
+    display: none;
+  }
+
+  .head-nav-menu {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 640px) {
+  .shell {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .shell-head {
+    flex-wrap: wrap;
+    padding: var(--s3);
+    gap: var(--s2);
+    row-gap: var(--s3);
+  }
+
+  .shell-head .hunt {
+    order: 10;
+    flex: 1 0 100%;
+    max-width: none;
+  }
+
+  .shell-main {
+    padding: var(--s5) var(--s4) var(--s8);
+  }
 }
 
 .panel {
@@ -707,6 +749,18 @@ a.entry:hover {
 
 .gate-inner {
   width: min(560px, 100%);
+}
+
+.gate-lockup {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.7rem, 2.4vw, 1.4rem);
+}
+
+.gate-lockup svg {
+  width: clamp(3.3rem, 12.4vw, 7rem);
+  height: auto;
+  flex: none;
 }
 
 .gate-word {

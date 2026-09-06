@@ -53,6 +53,7 @@ export default defineConfig({
             { label: "MCP tools", slug: "reference/tools" },
             { label: "GraphQL", slug: "reference/graphql" },
             { label: "Configuration", slug: "reference/configuration" },
+            { label: "Design", slug: "reference/design" },
             { label: "Releasing", slug: "reference/releasing" },
           ],
         },

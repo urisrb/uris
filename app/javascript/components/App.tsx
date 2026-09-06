@@ -1,4 +1,5 @@
-import { Button, Group, Loader, Menu } from '@mantine/core'
+import { Button, Group, Loader, Menu, UnstyledButton } from '@mantine/core'
+import type { Account } from '@masks/client'
 import {
   IconDatabase,
   IconLayoutGrid,
@@ -22,6 +23,7 @@ import { useSession } from '../hooks/useSession'
 import { tone } from '../kinds'
 import { Catalog } from './Catalog'
 import { Cycle } from './Cycle'
+import { Face } from './Face'
 import { FeedDetail } from './FeedDetail'
 import { Feeds } from './Feeds'
 import { ItemDetail } from './ItemDetail'
@@ -76,6 +78,7 @@ export function App() {
   return (
     <UploadsProvider>
       <Shell
+        account={account}
         who={account.nickname ?? account.name ?? account.email ?? 'you'}
         tenant={account.tenant?.name}
         logout={logout}
@@ -95,7 +98,10 @@ function Gate({
   return (
     <div className="gate">
       <div className="gate-inner">
-        <div className="wordmark gate-word">items</div>
+        <div className="gate-lockup">
+          <Mark size={92} />
+          <div className="wordmark gate-word">uris</div>
+        </div>
         <div style={{ marginTop: 'var(--s5)' }}>
           <Spectrum />
         </div>
@@ -126,11 +132,13 @@ function Gate({
 }
 
 function Shell({
+  account,
   who,
   tenant,
   logout,
   logoutEverywhere,
 }: {
+  account: Account
   who: string
   tenant?: string | null
   logout: () => void
@@ -151,12 +159,15 @@ function Shell({
 
         <Menu position="bottom-end" width={210}>
           <Menu.Target>
-            <Button variant="subtle" color="gray" size="compact-sm" radius="xl">
-              {who}
-            </Button>
+            <UnstyledButton className="face-button" aria-label={who}>
+              <Face account={account} />
+            </UnstyledButton>
           </Menu.Target>
           <Menu.Dropdown>
-            {tenant && <Menu.Label>{tenant}</Menu.Label>}
+            <Menu.Label>
+              {who}
+              {tenant ? ` · ${tenant}` : ''}
+            </Menu.Label>
             <Menu.Item component={Link} to="/settings">
               Settings
             </Menu.Item>
@@ -193,8 +204,6 @@ function Shell({
   )
 }
 
-// Wide enough and the sections sit in the bar; narrow and they collapse into one
-// dropdown rather than a drawer that covers what you were reading.
 function Nav() {
   const location = useLocation()
   const on = (to: string) =>
@@ -246,8 +255,6 @@ function Nav() {
   )
 }
 
-// The kinds are a filter on the catalog, not navigation, so they only appear where
-// they do something.
 function Kinds() {
   const location = useLocation()
   const [params] = useSearchParams()
