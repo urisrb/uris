@@ -5,6 +5,7 @@ class Grant
     "uris:catalog:read" => "Read your catalog",
     "uris:catalog:write" => "Change your catalog",
     "uris:web:read" => "Search the web",
+    "uris:mcp:call" => "Use the servers you have added",
     "uris:resources:read" => "Read your places",
     "uris:resources:command" => "Act on your places",
     "uris:settings:read" => "Read your settings",
@@ -52,7 +53,13 @@ class Grant
   end
 
   def tools
-    Tool.all.select { |tool| permits?(tool.scope) }
+    (Tool.all + proxied).select { |tool| permits?(tool.scope) }
+  end
+
+  def proxied
+    return [] unless permits?(Resource::Mcp::SCOPE)
+
+    Tenant.switch(tenant) { Resource.capable_of(:tools).flat_map(&:proxied_tools) }
   end
 
   private

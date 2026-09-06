@@ -19,7 +19,7 @@ module McpTransports
 
   class << self
     def for(tenant:, grant:)
-      key = [ tenant.id, grant.scopes.sort ]
+      key = [ tenant.id, grant.scopes.sort, proxied_at(tenant, grant) ]
 
       LOCK.synchronize { held[key] ||= build(tenant, grant) }
     end
@@ -51,6 +51,16 @@ module McpTransports
 
       def cache_key(session_id)
         "mcp:session:#{session_id}"
+      end
+
+      def proxied_at(tenant, grant)
+        return nil unless grant.permits?(Resource::Mcp::SCOPE)
+
+        Tenant.switch(tenant) do
+          held = Resource.active.where(type: Resource::Mcp.sti_name)
+
+          [ held.count, held.maximum(:updated_at)&.to_f ]
+        end
       end
 
       def held
