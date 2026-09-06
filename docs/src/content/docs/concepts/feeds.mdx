@@ -53,20 +53,29 @@ special-cased for feeds, which is what keeps a feed unable to do more than the t
 
 ## What the models can actually do
 
-Tool calling is a property of the model, not the server. Measured against the models on the host:
+Tool calling is a property of the model, not the server — and Ollama's declared `tools` capability
+is not to be trusted: five of the installed models advertise it and one drives a loop. Measured
+against the eleven real tool definitions, with a system message telling the model it has tools:
 
-| Model | Tools |
-| --- | --- |
-| `llama3.1:8b` | yes |
-| `gemma3:4b` | no — the server answers `does not support tools` |
-| `mistral:latest` | no; malformed output |
+| Model | Declares tools | One call | A loop |
+| --- | --- | --- | --- |
+| `qwen3:8b` | yes | yes | **yes** |
+| `llama3.1:8b` | yes | yes | no — emits the second call as text |
+| `mistral:latest` | yes | no — writes the call into the content field | no |
+| `glm4` (GLM-4-9B) | yes | no — *"I don't have direct access to external tools"* | no |
+| `deepseek-r1` 14b/32b | yes | no — reasons about it, never calls | no |
+| `gemma3:4b` | no | the server answers `does not support tools` | no |
+
+A single call proves nothing. `llama3.1:8b` answers one correctly and then breaks the moment there
+is a tool result in the history, which is every turn after the first. `qwen3:8b` searched, took an
+id out of the result, fetched it, and stopped with the answer.
 
 `gemma3:4b` is currently both the `fast` and the `vision` role, so neither can drive a feed. Feeds
 take a role of their own:
 
 ```ruby
 Analyzer::Base.summary_role   # :smart, :fast, :vision
-Feed::ROLE                    # :agent
+Feed::ROLE                    # :agent -> qwen3:8b
 ```
 
 Because `Resource.for_role` resolves a role against whichever inference resource names the model,
