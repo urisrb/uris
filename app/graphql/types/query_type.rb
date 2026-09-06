@@ -82,6 +82,14 @@ module Types
       end
     end
 
+    field :run, Types::RunType, null: true, grants: "uris:catalog:read" do
+      argument :id, ID, required: true
+    end
+
+    def run(id:)
+      Run.find_by(id: id)
+    end
+
     field :runs, Types::RunPageType, null: false, grants: "uris:catalog:read" do
       argument :kind, String, required: false
       argument :status, String, required: false

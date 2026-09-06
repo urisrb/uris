@@ -1,7 +1,12 @@
 import { Alert, Button, Group, Loader, Stack, Table, Text } from '@mantine/core'
-import { CancelRunDocument, RunsDocument } from '@uris-to/client'
-import { useMutation, useQuery } from '@uris-to/client/react'
-import { type CSSProperties, useEffect, useState } from 'react'
+import {
+  CancelRunDocument,
+  RunLogDocument,
+  RunProgressedDocument,
+  RunsDocument,
+} from '@uris-to/client'
+import { useMutation, useQuery, useSubscription } from '@uris-to/client/react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
 
 const STATUSES = ['queued', 'running', 'done', 'failed', 'cancelled', 'gated']
 
@@ -28,17 +33,68 @@ function elapsed(startedAt?: string | null, finishedAt?: string | null) {
     : `${Math.floor(seconds / 60)}m ${seconds % 60}s`
 }
 
+const TONE_FOR_LINE: Record<string, string> = {
+  '[x]': 'var(--bad)',
+  '[✓]': 'var(--ok)',
+  '[-]': 'var(--muted)',
+}
+
+function RunLog({ id, live }: { id: string; live: string | null }) {
+  const { data, loading } = useQuery(RunLogDocument, { id })
+  const bottom = useRef<HTMLDivElement | null>(null)
+  const logs = live ?? data?.run?.logs ?? ''
+  const lines = logs.split('\n').filter(Boolean)
+
+  const written = lines.length
+
+  useEffect(() => {
+    if (written === 0) return
+
+    bottom.current?.scrollIntoView({ block: 'nearest' })
+  }, [written])
+
+  if (loading && !data) return <Loader size="xs" color="var(--brass)" />
+
+  if (lines.length === 0) {
+    return (
+      <Text c="dimmed" size="xs">
+        This kind of work does not log.
+      </Text>
+    )
+  }
+
+  return (
+    <div className="run-log">
+      {lines.map((line, index) => (
+        <div
+          // biome-ignore lint/suspicious/noArrayIndexKey: position is the identity
+          key={index}
+          style={{ color: TONE_FOR_LINE[line.slice(0, 3)] ?? 'var(--soft)' }}
+        >
+          {line}
+        </div>
+      ))}
+      <div ref={bottom} />
+    </div>
+  )
+}
+
 export function Runs() {
   const [status, setStatus] = useState<string | null>(null)
+  const [open, setOpen] = useState<string | null>(null)
   const { data, loading, error, refetch } = useQuery(RunsDocument, {
     status,
     after: null,
     limit: 50,
   })
   const cancel = useMutation(CancelRunDocument)
+  const { data: progressed } = useSubscription(RunProgressedDocument)
 
   const rows = data?.runs.nodes ?? []
   const busy = rows.some((run) => OPEN.has(run.status))
+
+  const streamed = progressed?.runProgressed.run
+  const live = streamed?.id === open ? (streamed?.logs ?? null) : null
 
   useEffect(() => {
     if (!busy) return
@@ -102,12 +158,28 @@ export function Runs() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {rows.map((run) => (
+              {rows.flatMap((run) => [
                 <Table.Tr key={run.id}>
                   <Table.Td>
-                    <Text fw={600} size="sm">
-                      {run.kind}
-                    </Text>
+                    <Group gap="var(--s2)" wrap="nowrap">
+                      {run.lines > 0 && (
+                        <button
+                          type="button"
+                          className="tag"
+                          data-dot="false"
+                          data-on={open === run.id}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() =>
+                            setOpen(open === run.id ? null : run.id)
+                          }
+                        >
+                          {open === run.id ? 'hide' : `${run.lines} lines`}
+                        </button>
+                      )}
+                      <Text fw={600} size="sm">
+                        {run.kind}
+                      </Text>
+                    </Group>
                     {run.error && (
                       <Text size="xs" style={{ color: 'var(--bad)' }}>
                         {run.error}
@@ -157,8 +229,15 @@ export function Runs() {
                       </Button>
                     )}
                   </Table.Td>
-                </Table.Tr>
-              ))}
+                </Table.Tr>,
+                open === run.id ? (
+                  <Table.Tr key={`${run.id}-log`}>
+                    <Table.Td colSpan={6} style={{ paddingTop: 0 }}>
+                      <RunLog id={run.id} live={live} />
+                    </Table.Td>
+                  </Table.Tr>
+                ) : null,
+              ])}
             </Table.Tbody>
           </Table>
         </div>

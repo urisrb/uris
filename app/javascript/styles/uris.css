@@ -946,3 +946,17 @@ a.entry:hover {
     background: var(--brass-dim);
   }
 }
+
+.run-log {
+  max-height: 20rem;
+  overflow: auto;
+  padding: var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--void);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
