@@ -169,11 +169,13 @@ export function Resources() {
         </Group>
       </Group>
 
-      <Attach
-        opened={attaching}
-        onClose={() => setAttaching(false)}
-        onAttached={refetch}
-      />
+      {attaching && (
+        <Attach
+          opened
+          onClose={() => setAttaching(false)}
+          onAttached={refetch}
+        />
+      )}
 
       <div className="panel">
         {resources.map((resource) => (

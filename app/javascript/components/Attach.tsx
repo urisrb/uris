@@ -17,7 +17,7 @@ import {
   type ResourceTypesQuery,
 } from '@uris-to/client'
 import { useMutation, useQuery } from '@uris-to/client/react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 type Attaching = ResourceTypesQuery['resourceTypes'][number]
 
@@ -43,11 +43,7 @@ export function Attach({
   onClose: () => void
   onAttached: () => void
 }) {
-  const { data, loading } = useQuery(
-    ResourceTypesDocument,
-    {},
-    { skip: !opened },
-  )
+  const { data, loading } = useQuery(ResourceTypesDocument, {})
   const attach = useMutation(AttachResourceDocument)
   const enroll = useMutation(EnrollResourceDocument)
 
@@ -62,18 +58,6 @@ export function Attach({
   const types = data?.resourceTypes ?? []
   const type = types.find((held) => held.type === chosen) ?? null
 
-  useEffect(() => {
-    if (!opened) return
-
-    setChosen(null)
-    setKey('')
-    setName('')
-    setTyped({})
-    setRefused(null)
-    setWarned(null)
-    setLink(null)
-  }, [opened])
-
   const pick = (next: Attaching) => {
     setChosen(next.type)
     setTyped(seeded(next))
@@ -83,7 +67,11 @@ export function Attach({
   }
 
   const attaching = attach.loading || enroll.loading
-  const ready = key.trim().length > 0
+  const missing = (type?.fields ?? []).filter(
+    (field) => field.required && !`${typed[field.name] ?? ''}`.trim(),
+  )
+  const ready =
+    key.trim().length > 0 && (type?.brokered || missing.length === 0)
 
   async function connect() {
     if (!type) return
@@ -205,7 +193,8 @@ export function Attach({
               {link && (
                 <Alert color="yellow" title="One step left">
                   Open this to sign in. Nothing exists until you do, and the
-                  link expires in half an hour.
+                  link expires in half an hour. Come back and press Done and it
+                  will be in the list.
                   <div style={{ marginTop: 'var(--s2)' }}>
                     <Anchor href={link} target="_blank" rel="noreferrer">
                       {link}
@@ -215,7 +204,13 @@ export function Attach({
               )}
 
               <Group justify="flex-end">
-                <Button variant="default" onClick={onClose}>
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    if (link) onAttached()
+                    onClose()
+                  }}
+                >
                   {warned || link ? 'Done' : 'Cancel'}
                 </Button>
                 <Button
