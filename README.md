@@ -7,7 +7,7 @@ Drive search only searches Drive. Gmail search only searches Gmail. uris searche
 them, with analysis attached, and can hand the bytes back as an export or a local copy.
 
 ```
-sync       resource → catalog        pull references in          ✓ eight of ten types
+sync       resource → catalog        pull references in          ✓ eight of eleven types
 analyze    content  → understanding  per item, by kind          ✓ summaries, vision
 search     catalog  → you            one index across everything ✓
 export     catalog  → resource       bytes back out              ✓
@@ -16,9 +16,10 @@ export     catalog  → resource       bytes back out              ✓
 All four are reachable over `/mcp`, which is what the product is for.
 
 A **item** is a reference, not the bytes. The catalog is the product; originals stay in the resource
-they came from. A **resource** is an instance — "my B2 bucket" — and its **type** (`s3`, `imap`,
-`oauth-google`) is what decides how much code exists: one `s3` adapter serves AWS, R2, B2, Wasabi,
-MinIO and Garage. A type owns its adapter, its command schema, its locator shape, and its enumerator.
+they came from — with one exception, [snapshots](#snapshots), where there is no original to leave.
+A **resource** is an instance — "my B2 bucket" — and its **type** (`s3`, `imap`, `oauth-google`) is
+what decides how much code exists: one `s3` adapter serves AWS, R2, B2, Wasabi, MinIO and Garage. A
+type owns its adapter, its command schema, its locator shape, and its enumerator.
 
 Everything that touches an unbounded number of items checkpoints through
 [job-iteration](https://github.com/Shopify/job-iteration), so a sync or an export survives a deploy
@@ -126,6 +127,37 @@ curl -sS -X POST http://demo.uris.test:4242/mcp \
   -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
+
+## Snapshots
+
+Every other type points at bytes somebody else is keeping. A `web` resource does not: it drives a
+headless browser at an address and the rendering it gets back — a full-page PNG and the text the
+page actually laid out — did not exist until it asked. Visiting again does not produce it a second
+time, so a snapshot is written into the tenant's storage resource and the locator remembers which
+one, rather than being re-fetched from the URL it came from.
+
+One item per address. Snapshotting the same page twice is a new version of one item, not a second
+entry to merge later, and the version is a digest of the capture — so a page that has not changed
+costs nothing and a page that has re-opens analysis on its own.
+
+**A browser pointed at an address a caller named is an SSRF engine, and the guard the other types
+use does not reach it.** `PublicFetch` checks one URL, once, at the moment it resolves. A browser
+resolves again, follows its own redirects, pulls a hundred subresources and runs whatever script
+the page carries, none of which passes through that check. So the rules moved down a layer into
+`PublicAddress` and sit on every request the renderer makes, through CDP interception: reserved
+ranges refused on each one, `file://` and `chrome://` refused whatever the address rules say, and
+loopback wearing an IPv6 costume unmapped before it is judged.
+
+The rest is containment rather than filtering. Ferrum turns off the same-origin policy and site
+isolation by default, which suits a suite driving its own app and not a renderer aimed at the open
+web, so both come back on. Each capture gets a browser of its own and a profile that is deleted
+after, because two tenants sharing a cookie jar is not a bug you would find by reading the code.
+A capture is capped in wall-clock time, in pixels — infinite scroll is otherwise a memory bomb —
+and in bytes.
+
+Chrome's own sandbox stays on. In a container that needs namespaces it may not have: give it
+`--cap-add=SYS_ADMIN` or a seccomp profile that allows `clone`, and reach for
+`URIS_CHROME_NO_SANDBOX` only knowing it is the last thing between a hostile page and the worker.
 
 ## Jobs, and what happens when one fails
 

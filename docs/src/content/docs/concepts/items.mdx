@@ -54,6 +54,14 @@ Assigned from the file extension by `Kind.for_filename` (`app/models/kind.rb`), 
 | `email` | eml |
 | `file` | anything else |
 
+Two kinds never come from a filename, because the things they name do not have one. A resource
+that knows what it found overrides `kind_for` and says so directly:
+
+| kind | assigned by |
+| --- | --- |
+| `feed` | `Resource::Rss` — an entry in a feed, keyed on its guid |
+| `page` | `Resource::Web` — a snapshot, keyed on the address it was taken from |
+
 Kind is not resource type. `pdf` is a kind; `s3` is a [type](/concepts/resources/).
 
 ## Children
