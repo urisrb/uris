@@ -16,6 +16,9 @@ class Resource
     JSON_SYSTEM = "Respond with valid JSON only. No markdown, no explanation."
     AGENT_ROLE = "agent"
     CHAIN_TIMEOUT = 120
+    # A thinking model spends the budget reasoning before it emits anything. At 1024 it
+    # runs out mid-thought and answers with neither content nor a tool call.
+    AGENT_MAX_TOKENS = 4096
     CHAIN_SYSTEM = "You have tools. Call one rather than answering from memory."
     CHAIN_ASK = "Search the catalog for invoices, then tell me what you found."
     CHAIN_RESULT = { count: 1, items: [ { id: "itm_1", title: "acme.pdf" } ] }.to_json
@@ -131,6 +134,52 @@ class Resource
       raise Resource::Unusable,
             "#{key}: #{model} wrote its second call as text instead of a tool call, so it " \
             "cannot drive a loop — #{said.truncate(120)}"
+    end
+
+    # One turn of a tool loop. The caller owns the messages and decides what to do with a
+    # tool call, because the loop is ours: a model emits a request to run something, never
+    # runs it. json_mode is deliberately not set here — response_format and tools fight,
+    # and a model forced into a JSON object cannot emit a tool call.
+    def converse(messages:, tools: [], role: AGENT_ROLE, promptable: nil, turn: 1)
+      model = model_for(role)
+      last = messages.last.to_h
+      asked = (last[:content] || last["content"] || last[:name] || last["name"]).to_s.presence || "(tool result)"
+      record = Prompt.open!(resource: self, role: role, model: model, request: scrub(asked).truncate(MAX_PROMPT),
+                           promptable: promptable, attempt: turn)
+
+      begin
+        answered = post("/chat/completions", {
+          model: model, stream: false, max_tokens: agent_max_tokens, temperature: temperature,
+          messages: messages, tools: tools
+        }.compact_blank, timeout: read_timeout)
+      rescue StandardError => e
+        record.fail!(e)
+        raise
+      end
+
+      message = answered.dig("choices", 0, "message") || {}
+      record.finish!(recorded(message))
+
+      if message["content"].blank? && message["tool_calls"].blank?
+        raise Resource::Unusable,
+              "#{key}: #{model} answered with neither content nor a tool call — it likely spent " \
+              "the #{agent_max_tokens} token budget reasoning"
+      end
+
+      message
+    end
+
+    def agent_max_tokens = details.fetch("agent_max_tokens", AGENT_MAX_TOKENS).to_i
+
+    # Thinking models put their reasoning somewhere other than content, and it is the most
+    # useful thing in the row when a turn goes wrong.
+    def recorded(message)
+      said = message["content"].to_s
+      calls = Array(message["tool_calls"]).filter_map { |call| call.dig("function", "name") }
+      thought = (message["reasoning"] || message["reasoning_content"]).to_s
+
+      [ said.presence, ("called #{calls.join(', ')}" if calls.any?),
+        ("thinking: #{thought.squish.truncate(2000)}" if thought.present?) ].compact.join("\n\n")
     end
 
     def summarize(prompt, role:, promptable: nil, images: [])

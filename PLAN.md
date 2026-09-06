@@ -38,13 +38,19 @@ would have caught `glm4` on its own.
 
 ## Phase 1 — the loop, with no Feed anywhere
 
-- [ ] `#converse(messages:, tools:)` on the inference resource — one turn, tool-aware
-- [ ] It must not send `response_format: json_object`, which fights tool calling
-- [ ] An `Agent` that loops: turn cap, dispatches through the same `Tool.call` MCP uses,
+- [x] `#converse(messages:, tools:)` on the inference resource — one turn, tool-aware
+- [x] It must not send `response_format: json_object`, which fights tool calling
+- [x] An `Agent` that loops: turn cap, dispatches through the same `Tool.call` MCP uses,
       appends `role: "tool"` messages
-- [ ] One `Prompt` row per turn, `promptable:` the run
-- [ ] Exercised against `search_items` and `get_item` only, with a real `Grant`
-- [ ] Done when a rake task runs a sentence against a live tenant and chains two real tools
+- [x] One `Prompt` row per turn, `promptable:` the run, recording the reasoning too
+- [x] `agentTurned` subscription, alongside `itemAnalyzed`, scoped by tenant
+- [x] Exercised against `search_items` and `get_item` only, with a real `Grant`
+- [x] `rake agent:ask[demo,'…']` chains search_items then get_item and answers from real items
+
+**Phase 1 landed 2026-09-06.** A thinking model spends its budget reasoning before it emits
+anything, so agent turns get 4096 tokens rather than 1024 — at 1024 qwen3 ran out mid-thought
+and returned neither content nor a call. That case now raises rather than looking like a model
+that chose to stop.
 
 ## Phase 2 — Feed as a record
 
