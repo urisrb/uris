@@ -1,14 +1,18 @@
-import { Alert, Button, Group, Loader, Stack, Text } from '@mantine/core'
+import { Alert, Button, Group, Loader, Menu, Stack, Text } from '@mantine/core'
 import {
+  IconArrowMerge,
+  IconDots,
   IconFilePlus,
   IconFolderPlus,
   IconLayoutGrid,
   IconLayoutList,
   IconLink,
+  IconPackageExport,
 } from '@tabler/icons-react'
 import {
   CatalogDocument,
   ItemAnalyzedDocument,
+  MergeProposalsDocument,
   SearchDocument,
   SetSettingDocument,
   SettingsDocument,
@@ -18,6 +22,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 import { useAdd } from './Add'
+import { Export } from './Export'
 import { KindBadge } from './KindBadge'
 import { useAloud } from './Say'
 import { Cover, Thumb } from './Thumb'
@@ -156,8 +161,13 @@ function Listing({
           </div>
         </div>
 
-        <Switcher view={view} onPick={onPick} />
+        <Group gap="var(--s2)" wrap="nowrap">
+          <Switcher view={view} onPick={onPick} />
+          <Tools kind={kind} term={term} />
+        </Group>
       </div>
+
+      {!searching && <Doubles />}
 
       {error && <Alert color="red">{error.message}</Alert>}
 
@@ -234,6 +244,80 @@ function Listing({
         </Group>
       )}
     </Stack>
+  )
+}
+
+const DOUBLES = 25
+
+function Doubles() {
+  const { data } = useQuery(MergeProposalsDocument, {
+    status: 'open',
+    after: null,
+    limit: DOUBLES,
+  })
+
+  const page = data?.mergeProposals
+  const found = page?.nodes.length ?? 0
+
+  if (found === 0) return null
+
+  return (
+    <Link to="/merges" className="double">
+      <IconArrowMerge size={16} stroke={1.7} color="var(--brass)" />
+      <span>
+        <span className="figure">
+          {found}
+          {page?.hasMore ? '+' : ''}
+        </span>{' '}
+        {found === 1 ? 'set of items looks' : 'sets of items look'} like the
+        same thing
+      </span>
+      <span className="double-go">Review</span>
+    </Link>
+  )
+}
+
+function Tools({ kind, term }: { kind: string | null; term: string }) {
+  const [exporting, setExporting] = useState(false)
+
+  return (
+    <>
+      <Export
+        opened={exporting}
+        onClose={() => setExporting(false)}
+        kind={kind}
+        term={term}
+      />
+
+      <Menu position="bottom-end" width={210}>
+        <Menu.Target>
+          <Button
+            variant="subtle"
+            color="gray"
+            size="compact-sm"
+            radius="xl"
+            aria-label="More"
+          >
+            <IconDots size={16} stroke={1.8} />
+          </Button>
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Item
+            leftSection={<IconPackageExport size={16} stroke={1.6} />}
+            onClick={() => setExporting(true)}
+          >
+            Export these…
+          </Menu.Item>
+          <Menu.Item
+            component={Link}
+            to="/merges"
+            leftSection={<IconArrowMerge size={16} stroke={1.6} />}
+          >
+            Duplicates
+          </Menu.Item>
+        </Menu.Dropdown>
+      </Menu>
+    </>
   )
 }
 

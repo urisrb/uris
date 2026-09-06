@@ -1,0 +1,68 @@
+query MergeProposals($status: String, $after: ID, $limit: Int) {
+  mergeProposals(status: $status, after: $after, limit: $limit) {
+    hasMore
+    nextCursor
+    nodes {
+      id
+      blockingKey
+      reason
+      status
+      current
+      settledAt
+      createdAt
+      items {
+        id
+        kind
+        title
+        summary
+        thumbnailUrl
+        createdAt
+        references {
+          id
+          filename
+          contentType
+          resource {
+            id
+            key
+            type
+          }
+        }
+      }
+    }
+  }
+}
+
+mutation ProposeMerges {
+  proposeMerges(input: {}) {
+    run {
+      id
+      status
+    }
+  }
+}
+
+mutation SettleMergeProposal($id: ID!, $accept: Boolean!) {
+  settleMergeProposal(input: { id: $id, accept: $accept }) {
+    proposal {
+      id
+      status
+      settledAt
+    }
+    item {
+      id
+      title
+    }
+  }
+}
+
+mutation MergeItems($id: ID!, $otherId: ID!) {
+  mergeItems(input: { id: $id, otherId: $otherId }) {
+    item {
+      id
+      title
+      references {
+        id
+      }
+    }
+  }
+}

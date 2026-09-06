@@ -1,14 +1,20 @@
 import { Alert, Button, Code, Group, Loader, Stack, Text } from '@mantine/core'
-import { IconArrowLeft, IconCut, IconSparkles } from '@tabler/icons-react'
+import {
+  IconArrowLeft,
+  IconArrowMerge,
+  IconCut,
+  IconSparkles,
+} from '@tabler/icons-react'
 import {
   AnalyzeItemDocument,
   ItemDocument,
   SplitReferenceDocument,
 } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
-import type { CSSProperties } from 'react'
+import { type CSSProperties, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
+import { Gather } from './Gather'
 import { KindBadge } from './KindBadge'
 import { RunTrail } from './RunTrail'
 import { useAloud, useSay } from './Say'
@@ -17,6 +23,7 @@ import { Thumb } from './Thumb'
 export function ItemDetail() {
   const { id = '' } = useParams()
   const say = useSay()
+  const [gathering, setGathering] = useState(false)
   const { data, loading, error, refetch } = useQuery(ItemDocument, { id })
   const analyze = useAloud(
     AnalyzeItemDocument,
@@ -69,23 +76,42 @@ export function ItemDetail() {
           </Group>
         </div>
 
-        <Button
-          radius="xl"
-          color="chalk"
-          leftSection={<IconSparkles size={16} />}
-          loading={analyze.loading}
-          onClick={async () => {
-            const answered = await analyze.execute({ id: item.id })
+        <Group gap="var(--s2)" wrap="nowrap">
+          <Button
+            radius="xl"
+            variant="default"
+            leftSection={<IconArrowMerge size={16} />}
+            onClick={() => setGathering(true)}
+          >
+            Merge in
+          </Button>
 
-            if (!answered) return
+          <Button
+            radius="xl"
+            color="chalk"
+            leftSection={<IconSparkles size={16} />}
+            loading={analyze.loading}
+            onClick={async () => {
+              const answered = await analyze.execute({ id: item.id })
 
-            say({ text: `Analyzing ${item.title ?? 'this item'}.` })
-            refetch()
-          }}
-        >
-          Analyze
-        </Button>
+              if (!answered) return
+
+              say({ text: `Analyzing ${item.title ?? 'this item'}.` })
+              refetch()
+            }}
+          >
+            Analyze
+          </Button>
+        </Group>
       </Group>
+
+      <Gather
+        opened={gathering}
+        onClose={() => setGathering(false)}
+        id={item.id}
+        title={item.title ?? 'this item'}
+        onGathered={refetch}
+      />
 
       {viewable.length > 0 && (
         <Group align="flex-start" gap="var(--s4)">
