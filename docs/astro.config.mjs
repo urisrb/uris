@@ -35,6 +35,7 @@ export default defineConfig({
             { label: "Tenancy", slug: "concepts/tenancy" },
             { label: "Analysis", slug: "concepts/analysis" },
             { label: "Jobs and failure", slug: "concepts/jobs" },
+            { label: "Feeds", slug: "concepts/feeds" },
           ],
         },
         {
