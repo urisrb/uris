@@ -1,5 +1,6 @@
 class SweepAuditEventsJob < ApplicationJob
   queue_as :sync
+  across_tenants!
 
   def perform
     retention = Rails.configuration.uris.audit_retention

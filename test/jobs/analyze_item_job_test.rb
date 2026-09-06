@@ -70,7 +70,7 @@ class AnalyzeItemJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { ResourceBlob.find_by!(key: "notes.txt").destroy! }
 
     assert_enqueued_with(job: AnalyzeItemJob) do
-      AnalyzeItemJob.perform_now(@tenant.id, @item.id, run.id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, @item.id, run.id) }
     end
 
     Tenant.switch(@tenant) { assert run.reload.open?, "a run being retried is not finished" }
@@ -96,7 +96,7 @@ class AnalyzeItemJobTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) { ResourceBlob.find_by!(key: "notes.txt").destroy! }
 
-    AnalyzeItemJob.perform_now(@tenant.id, @item.id, run.id)
+    Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, @item.id, run.id) }
 
     Tenant.switch(@tenant) do
       assert_equal "running", run.reload.status,

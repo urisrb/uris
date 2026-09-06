@@ -213,7 +213,7 @@ class SummaryTest < ActiveSupport::TestCase
     id = Tenant.switch(@tenant) { item("notes.txt").id }
 
     assert_enqueued_jobs 1, only: AnalyzeItemJob do
-      AnalyzeItemJob.perform_now(@tenant.id, id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) }
     end
   end
 

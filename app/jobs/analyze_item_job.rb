@@ -32,7 +32,9 @@ class AnalyzeItemJob < ApplicationJob
 
     return finish_run if item.nil?
 
-    Tenant.switch(tenant) { Analyzer.for(item, run: run).run }
+    Tenant.switch(tenant) do
+      ActiveRecord::Base.transaction(requires_new: true) { Analyzer.for(item, run: run).run }
+    end
 
     Tenant.switch(tenant) { run&.progressed!(1) }
 

@@ -1,5 +1,6 @@
 class SweepRunsJob < ApplicationJob
   queue_as :sync
+  across_tenants!
 
   def perform
     Tenant.find_each do |tenant|

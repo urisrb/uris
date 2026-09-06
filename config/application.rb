@@ -4,6 +4,8 @@ require "rails/all"
 
 Bundler.require(*Rails.groups)
 
+require_relative "../lib/tenancy/middleware"
+
 module Uris
   class Application < Rails::Application
     config.active_record.query_log_tags_enabled = true
@@ -15,7 +17,9 @@ module Uris
     ]
     config.load_defaults 8.1
 
-    config.autoload_lib(ignore: %w[assets tasks])
+    config.autoload_lib(ignore: %w[assets tasks tenancy])
+
+    config.middleware.use Tenancy::Middleware
 
     config.active_record.schema_format = :sql
 

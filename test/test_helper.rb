@@ -26,6 +26,8 @@ module ActiveSupport
       ENV["MASKS_ISSUER_TEMPLATE"] = FakeIssuer.template
     end
 
+    teardown { Tenant.clear! }
+
     def requires_search_engine!
       return if SEARCH_ENGINE_URL
 

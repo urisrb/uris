@@ -103,14 +103,8 @@ class Run < ApplicationRecord
 
   # Appends in SQL rather than read-modify-write so the returned index is the
   # authoritative position of this line, and a second writer cannot lose one.
-  #
-  # Tenant.switch opens a savepoint every call, so a run that is already in its
-  # own tenant — which is every call from an analyzer — writes without one.
-  # A log line is not worth a nested transaction per step.
   def line(*parts)
     text = parts.compact.map { |part| part.to_s.tr("\n", " ") }.join(" : ").truncate(LINE_LIMIT)
-
-    return emit(text) if Current.tenant&.id == tenant_id
 
     Tenant.switch(tenant) { emit(text) }
   end

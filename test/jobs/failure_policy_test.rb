@@ -47,7 +47,7 @@ class FailurePolicyTest < ActiveSupport::TestCase
 
   test "the same failure point retries when the resource is what broke" do
     assert_enqueued_jobs 1, only: AnalyzeItemJob do
-      AnalyzeItemJob.perform_now(@tenant.id, @stranded.id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, @stranded.id) }
     end
   end
 

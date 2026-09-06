@@ -1,6 +1,18 @@
 class Tenant < ApplicationRecord
   class Unconfigured < Masks::Client::Error; end
 
+  class Exposed < StandardError
+    def initialize(role)
+      super(
+        "this server connects to Postgres as #{role || 'a role it cannot read back'}, which sees " \
+        "through row-level security. Every tenant_isolation policy on the database is decorative " \
+        "while it does, and the only thing left between one tenant and another's items, resources " \
+        "and grants is a default scope in Ruby. Connect as a role holding neither SUPERUSER nor " \
+        "BYPASSRLS."
+      )
+    end
+  end
+
   encrypts :client_secret
   encrypts :registration_access_token
 
@@ -81,36 +93,59 @@ class Tenant < ApplicationRecord
       "#{origin(request)}#{Masks::Rails::Engine.routes.url_helpers.callback_path}"
     end
 
+    def isolated!
+      return true if @isolated
+
+      held = role_privileges
+
+      raise Exposed, held&.fetch("rolname", nil) unless held && held["bypasses"] == false
+
+      @isolated = true
+    end
+
+    def role_privileges
+      connection.select_one(<<~SQL)
+        SELECT rolname, rolsuper OR rolbypassrls AS bypasses
+        FROM pg_roles WHERE rolname = current_user
+      SQL
+    end
+
     def switch(tenant)
       raise ArgumentError, "no tenant" if tenant.nil?
 
-      previous_tenant = Current.tenant
+      isolated!
+
+      return yield tenant if Current.tenant&.id == tenant.id
+
+      held = Current.tenant
 
       ActiveRecord::Base.transaction(requires_new: true) do
-        previous_setting = tenant_setting
-        assign_tenant_setting(tenant.id)
-        Current.tenant = tenant
+        enter(tenant)
 
         begin
           yield tenant
         ensure
-          Current.tenant = previous_tenant
-          assign_tenant_setting(previous_setting)
+          enter(held)
         end
       end
     end
 
+    def clear!
+      enter(nil)
+    end
+
     private
 
-      def tenant_setting
-        connection.select_value("SELECT current_setting('uris.tenant_id', true)")
-      end
+      def enter(tenant)
+        Current.tenant = tenant
 
-      def assign_tenant_setting(id)
         connection.exec_query(
-          "SELECT set_config('uris.tenant_id', $1, true)", "tenant", [ id.to_s ]
+          "SELECT set_config($1, $2, false)", "tenant",
+          [ TenantIsolation::SETTING, tenant&.id.to_s ]
         )
-      rescue ActiveRecord::StatementInvalid
+
+        connection.clear_query_cache
+      rescue ActiveRecord::ConnectionNotEstablished, ActiveRecord::ConnectionFailed
         nil
       end
   end
