@@ -8,6 +8,7 @@
     "build:sdk:watch": "tsc -p web/tsconfig.json --watch --preserveWatchOutput",
     "lint": "biome check",
     "lint:fix": "biome check --write",
+    "test": "vitest run",
     "format": "biome format --write",
     "typecheck": "tsc --noEmit"
   },
@@ -44,6 +45,7 @@
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.14",
-    "vite-plugin-ruby": "^5.2.2"
+    "vite-plugin-ruby": "^5.2.2",
+    "vitest": "^5.0.0"
   }
 }

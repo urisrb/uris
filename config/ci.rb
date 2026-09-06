@@ -7,6 +7,7 @@ CI.run do
   step "Style: everything else", "bin/fmt && git diff --exit-code"
 
   step "Types: TypeScript", "npm run typecheck"
+  step "Tests: JavaScript", "npm test"
   step "Boot: eager load", "env RAILS_ENV=test bin/rails zeitwerk:check"
 
   step "Security: Gem audit", "bin/bundler-audit"

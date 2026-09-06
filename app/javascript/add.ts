@@ -5,6 +5,10 @@ const BARE = /^[\w-]+(\.[\w-]+)+([/:?#]|$)/
 const FILE_LIKE =
   /\.(pdf|png|jpe?g|gif|webp|heic|avif|tiff?|txt|md|rtf|csv|tsv|json|xml|xlsx?|ods|docx?|odt|ics|vcf|vcard|pkpass|eml|zip|epub|mp3|mp4|mov|wav)$/i
 
+function named(text: string): boolean {
+  return !/[/:?#]/.test(text) && FILE_LIKE.test(text)
+}
+
 export function asUrl(text: string): URL | null {
   const trimmed = text.trim()
 
@@ -12,7 +16,7 @@ export function asUrl(text: string): URL | null {
 
   const candidate = /^https?:\/\//i.test(trimmed)
     ? trimmed
-    : BARE.test(trimmed)
+    : BARE.test(trimmed) && !named(trimmed)
       ? `https://${trimmed}`
       : null
 
