@@ -7,6 +7,7 @@ module Types
     field :fetch_url, mutation: Mutations::FetchUrl, grants: "uris:catalog:write"
 
     field :analyze_item, mutation: Mutations::AnalyzeItem, grants: "uris:catalog:write"
+    field :rename_item, mutation: Mutations::RenameItem, grants: "uris:catalog:write"
     field :forget_item, mutation: Mutations::ForgetItem, grants: "uris:catalog:write"
     field :merge_items, mutation: Mutations::MergeItems, grants: "uris:catalog:write"
     field :split_reference, mutation: Mutations::SplitReference, grants: "uris:catalog:write"

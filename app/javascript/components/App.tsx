@@ -12,7 +12,7 @@ import {
 } from '@tabler/icons-react'
 import { CatalogDocument } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
-import { type CSSProperties, useEffect, useState } from 'react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import {
   Link,
   Route,
@@ -375,8 +375,30 @@ function Hunt() {
   const [draft, setDraft] = useState(term)
   const [wanted, setWanted] = useState<Intent | null>(null)
   const [said, setSaid] = useState<string | null>(null)
+  const box = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => setDraft(term), [term])
+
+  useEffect(() => {
+    const reach = (event: KeyboardEvent) => {
+      if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) {
+        return
+      }
+
+      const on = event.target as HTMLElement | null
+
+      if (on?.isContentEditable) return
+      if (on && /^(INPUT|TEXTAREA|SELECT)$/.test(on.tagName)) return
+
+      event.preventDefault()
+      box.current?.focus()
+      box.current?.select()
+    }
+
+    window.addEventListener('keydown', reach)
+
+    return () => window.removeEventListener('keydown', reach)
+  }, [])
 
   const found = asUrl(draft)
   const intent = wanted ?? (found ? intentFor(found) : 'snapshot')
@@ -423,6 +445,7 @@ function Hunt() {
       )}
 
       <input
+        ref={box}
         value={draft}
         onChange={(event) => {
           setDraft(event.currentTarget.value)
@@ -430,18 +453,24 @@ function Hunt() {
           setSaid(null)
         }}
         onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            setDraft('')
+            event.currentTarget.blur()
+            return
+          }
+
           if (!offering) return
 
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
             event.preventDefault()
             setWanted(intent === 'snapshot' ? 'fetch' : 'snapshot')
           }
-
-          if (event.key === 'Escape') setDraft('')
         }}
         placeholder="Search everything you own, or paste an address"
         aria-label="Search everything you own, or paste an address"
       />
+
+      {!draft && <kbd className="hunt-key">/</kbd>}
 
       {term && !found && (
         <Button

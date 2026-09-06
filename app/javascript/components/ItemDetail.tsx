@@ -4,16 +4,18 @@ import {
   IconArrowMerge,
   IconCut,
   IconEraser,
+  IconPencil,
   IconSparkles,
 } from '@tabler/icons-react'
 import {
   AnalyzeItemDocument,
   ForgetItemDocument,
   ItemDocument,
+  RenameItemDocument,
   SplitReferenceDocument,
 } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
-import { type CSSProperties, useState } from 'react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 import { Gather } from './Gather'
@@ -42,6 +44,7 @@ export function ItemDetail() {
     ForgetItemDocument,
     'That item could not be forgotten.',
   )
+  const rename = useAloud(RenameItemDocument, 'That name could not be kept.')
 
   const item = data?.item
 
@@ -71,8 +74,22 @@ export function ItemDetail() {
       </Button>
 
       <Group justify="space-between" align="flex-start" wrap="nowrap">
-        <div style={{ minWidth: 0 }}>
-          <h1 className="page-title">{item.title ?? 'Untitled'}</h1>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <Naming
+            title={item.title ?? ''}
+            busy={rename.loading}
+            onName={async (next) => {
+              const answered = await rename.execute({
+                id: item.id,
+                title: next,
+              })
+
+              if (!answered) return false
+
+              refetch()
+              return true
+            }}
+          />
           <Group gap="var(--s3)" mt="var(--s3)">
             <KindBadge kind={item.kind} />
             <span className="eyebrow">
@@ -295,5 +312,61 @@ export function ItemDetail() {
         </div>
       </Stack>
     </Stack>
+  )
+}
+
+function Naming({
+  title,
+  busy,
+  onName,
+}: {
+  title: string
+  busy: boolean
+  onName: (next: string) => Promise<boolean>
+}) {
+  const [naming, setNaming] = useState(false)
+  const [draft, setDraft] = useState(title)
+  const box = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    if (naming) box.current?.select()
+  }, [naming])
+
+  const keep = async () => {
+    if (draft.trim() === title.trim()) return setNaming(false)
+    if (await onName(draft)) setNaming(false)
+  }
+
+  if (!naming) {
+    return (
+      <button
+        type="button"
+        className="naming"
+        title="Rename"
+        onClick={() => {
+          setDraft(title)
+          setNaming(true)
+        }}
+      >
+        <h1 className="page-title">{title || 'Untitled'}</h1>
+        <IconPencil size={17} stroke={1.7} />
+      </button>
+    )
+  }
+
+  return (
+    <input
+      ref={box}
+      className="naming-box"
+      value={draft}
+      disabled={busy}
+      aria-label="Name"
+      onChange={(event) => setDraft(event.currentTarget.value)}
+      onBlur={keep}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') keep()
+        if (event.key === 'Escape') setNaming(false)
+      }}
+    />
   )
 }

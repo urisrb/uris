@@ -968,6 +968,72 @@ a.entry:hover {
   }
 }
 
+.hunt-key {
+  flex: none;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--lifted);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  line-height: 1.5;
+}
+
+.hunt:focus-within .hunt-key {
+  display: none;
+}
+
+.naming {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  text-align: left;
+  cursor: text;
+}
+
+.naming h1 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.naming svg {
+  flex: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.naming:hover svg,
+.naming:focus-visible svg {
+  opacity: 1;
+}
+
+.naming-box {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid var(--brass);
+  outline: 0;
+  background: none;
+  color: var(--bright);
+  font-family: var(--sans);
+  font-size: var(--t-display);
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  line-height: 1.08;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .naming svg {
+    transition: none;
+  }
+}
+
 .double {
   display: flex;
   align-items: center;

@@ -100,3 +100,12 @@ mutation ForgetItem($id: ID!) {
     places
   }
 }
+
+mutation RenameItem($id: ID!, $title: String!) {
+  renameItem(input: { id: $id, title: $title }) {
+    item {
+      id
+      title
+    }
+  }
+}
