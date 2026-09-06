@@ -4,6 +4,7 @@ class Grant
   DESCRIBED = {
     "uris:catalog:read" => "Read your catalog",
     "uris:catalog:write" => "Change your catalog",
+    "uris:web:read" => "Search the web",
     "uris:resources:read" => "Read your places",
     "uris:resources:command" => "Act on your places",
     "uris:settings:read" => "Read your settings",

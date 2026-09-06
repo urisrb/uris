@@ -2,6 +2,7 @@ module Tool
   def self.all
     [
       Tool::SearchItems,
+      Tool::SearchWeb,
       Tool::GetItem,
       Tool::AnalyzeItem,
       Tool::ListResources,

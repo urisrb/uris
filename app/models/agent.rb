@@ -2,7 +2,7 @@ class Agent
   class Refused < StandardError; end
 
   TURNS = 6
-  READ_TOOLS = %w[search_items get_item].freeze
+  READ_TOOLS = %w[search_items get_item search_web].freeze
 
   SYSTEM = <<~TEXT.freeze
     You are the uris catalog agent. Use the tools to find what the request asks for.
