@@ -21,7 +21,7 @@ export function Gather({ opened, onClose, id, title, onGathered }: Props) {
 
   const found = useQuery(
     SearchDocument,
-    { query: term, kind: null },
+    { query: term, kind: null, after: null, limit: 10 },
     { skip: !opened || term.length === 0 },
   )
   const merge = useAloud(MergeItemsDocument, 'Those could not be merged.')
@@ -33,7 +33,9 @@ export function Gather({ opened, onClose, id, title, onGathered }: Props) {
     setTerm('')
   }, [opened])
 
-  const others = (found.data?.search ?? []).filter((item) => item.id !== id)
+  const others = (found.data?.search.nodes ?? []).filter(
+    (item) => item.id !== id,
+  )
 
   const gather = async (other: { id: string; title?: string | null }) => {
     const answered = await merge.execute({ id, otherId: other.id })

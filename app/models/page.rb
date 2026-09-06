@@ -2,7 +2,7 @@ class Page
   DEFAULT = 50
   MAX = 200
 
-  attr_reader :nodes, :has_more
+  attr_reader :nodes, :has_more, :total
 
   def self.of(scope, after: nil, limit: nil)
     size = (limit || DEFAULT).to_i.clamp(1, MAX)
@@ -14,12 +14,24 @@ class Page
     new(rows.first(size), rows.size > size)
   end
 
-  def initialize(nodes, has_more)
+  # A search is walked by offset rather than by id: the engine orders by score,
+  # so "everything after this id" is not a place in the results.
+  def self.at(nodes, from:, total:)
+    reached = from + nodes.length
+
+    new(nodes, reached < total, reached.to_s, total)
+  end
+
+  def initialize(nodes, has_more, cursor = nil, total = nil)
     @nodes = nodes
     @has_more = has_more
+    @cursor = cursor
+    @total = total
   end
 
   def next_cursor
-    nodes.last&.id&.to_s if has_more
+    return nil unless has_more
+
+    @cursor || nodes.last&.id&.to_s
   end
 end

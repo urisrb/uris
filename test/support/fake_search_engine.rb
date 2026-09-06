@@ -99,12 +99,13 @@ class FakeSearchEngine
     @monitor.synchronize do
       name, filter = resolve!(index)
       asked = normalize(body)
-      found = matching(name, filter, asked).first(asked["size"] || 10)
+      found = matching(name, filter, asked)
+      window = found.drop(asked["from"].to_i).first(asked["size"] || 10)
 
       {
         "hits" => {
           "total" => { "value" => found.length },
-          "hits" => found.map do |id, document|
+          "hits" => window.map do |id, document|
             { "_index" => name, "_id" => id, "_score" => 1.0, "_source" => document }
           end
         }

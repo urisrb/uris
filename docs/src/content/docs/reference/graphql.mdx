@@ -31,9 +31,9 @@ end
 | `tenant` | `uris:read` | who answered |
 | `item(id:)` | `uris:read` | one item |
 | `items(kind:, resourceId:, after:, limit:)` | `uris:read` | a page of the catalog |
-| `search(query:, kind:, limit:)` | `uris:read` | the index, clamped to 1–200 |
+| `search(query:, kind:, after:, limit:)` | `uris:read` | a page of the index, with a `total` |
 | `kinds` | `uris:read` | counts grouped by kind |
-| `resources` | `resources:read` | active resources, ordered by type and key |
+| `resources(archived:)` | `resources:read` | in use by default, put away on request |
 | `resourceTypes` | `resources:read` | every type that can be attached, and what each needs |
 | `feeds` `feed(slug:)` | `uris:read` | feeds, newest first |
 | `settings` | `settings:read` | every setting the grant may read |
@@ -43,7 +43,12 @@ end
 
 Paged fields go through `Page.of(scope, after:, limit:)` — keyset pagination on the primary key,
 newest first, `limit` clamped to 1–200 with a default of 50. One extra row is fetched to answer
-"is there more"; nothing counts.
+"is there more"; nothing counts, so `total` is null.
+
+`search` is the exception. The engine orders by score, so "everything after this id" is not a
+place in the results — it walks by offset through `Page.at(nodes, from:, total:)`, `after` is how
+far in to start rather than an id, and the engine's own hit count fills `total`. It is the one
+paged field that can tell you how many matched rather than only whether more remain.
 
 ### Mutations
 
@@ -51,9 +56,10 @@ newest first, `limit` clamped to 1–200 with a default of 50. One extra row is 
 | --- | --- |
 | `addNote` `snapshotUrl` `fetchUrl` | `uris:write` |
 | `analyzeItem` `mergeItems` `splitReference` `proposeMerges` `settleMergeProposal` | `uris:write` |
+| `forgetItem` | `uris:write` |
 | `exportItems` `cancelRun` | `uris:write` |
-| `saveFeed` `runFeed` `pauseFeed` | `uris:write` |
-| `attachResource` `enrollResource` `syncResource` `checkResource` | `resources:command` |
+| `saveFeed` `runFeed` `pauseFeed` `deleteFeed` | `uris:write` |
+| `attachResource` `enrollResource` `syncResource` `checkResource` `archiveResource` | `resources:command` |
 | `setDefaultStorage` `setDefaultInference` `setSyncInterval` | `resources:command` |
 | `setSetting` | `settings:write` |
 
@@ -64,6 +70,13 @@ because a secret in a tool call is a secret in the transcript.
 
 `addNote` answers with the item. `snapshotUrl` and `fetchUrl` answer with a `Run` to watch, since
 rendering a page and pulling a file both outlast a request.
+
+Nothing that removes reaches through to storage anyone else owns. `forgetItem` drops an item's
+references and its search entry, and a later sync of the same resource will catalogue it again.
+`deleteFeed` takes the prompt and its runs; the items it minted are nullified rather than
+destroyed, and the payload says how many outlived it. `archiveResource` sets and unsets
+`archived_at`, which is what `Resource.active` reads — so an archived resource stops being offered
+to tools and jobs while everything it catalogued stays searchable. All three are audited.
 
 ### Subscriptions
 

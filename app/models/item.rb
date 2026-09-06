@@ -39,6 +39,14 @@ class Item < ApplicationRecord
     where(id: ids).in_order_of(:id, ids)
   end
 
+  def self.found(query, kind: nil, limit: 50, from: 0)
+    held = SearchIndex.page(query, kind: kind, limit: limit, from: from)
+    ids = held[:ids]
+    nodes = ids.empty? ? [] : where(id: ids).in_order_of(:id, ids).to_a
+
+    Page.at(nodes, from: from, total: held[:total])
+  end
+
   def self.referencing(resource_id)
     where(id: Reference.where(resource_id: resource_id).select(:item_id))
   end

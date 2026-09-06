@@ -23,15 +23,20 @@ query Catalog($kind: String, $after: ID, $limit: Int) {
   }
 }
 
-query Search($query: String, $kind: String) {
-  search(query: $query, kind: $kind) {
-    id
-    kind
-    title
-    summary
-    thumbnailUrl
-    analyzedAt
-    createdAt
+query Search($query: String, $kind: String, $after: ID, $limit: Int) {
+  search(query: $query, kind: $kind, after: $after, limit: $limit) {
+    hasMore
+    nextCursor
+    total
+    nodes {
+      id
+      kind
+      title
+      summary
+      thumbnailUrl
+      analyzedAt
+      createdAt
+    }
   }
 }
 

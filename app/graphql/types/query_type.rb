@@ -44,14 +44,17 @@ module Types
       Page.of(scope, after: after, limit: limit)
     end
 
-    field :search, [ Types::ItemType ], null: false, grants: "uris:catalog:read" do
+    field :search, Types::ItemPageType, null: false, grants: "uris:catalog:read" do
       argument :query, String, required: false
       argument :kind, String, required: false
+      argument :after, ID, required: false,
+               description: "How far into the matches to start. A search is walked by offset."
       argument :limit, Integer, required: false
     end
 
-    def search(query: nil, kind: nil, limit: nil)
-      Item.search(query, kind: kind, limit: (limit || 50).to_i.clamp(1, 200))
+    def search(query: nil, kind: nil, after: nil, limit: nil)
+      Item.found(query, kind: kind, from: after.to_i,
+                        limit: (limit || Page::DEFAULT).to_i.clamp(1, Page::MAX))
     end
 
     field :kinds, [ Types::KindCountType ], null: false, grants: "uris:catalog:read"

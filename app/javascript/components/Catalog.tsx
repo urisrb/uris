@@ -107,19 +107,19 @@ function Listing({
   )
   const found = useQuery(
     SearchDocument,
-    { query: term, kind },
+    { query: term, kind, after: cursor, limit: PAGE },
     { skip: !searching },
   )
   const { data: analyzed } = useSubscription(ItemAnalyzedDocument)
 
   useEffect(() => {
-    const page = catalog.data?.items
+    const page = searching ? found.data?.search : catalog.data?.items
     if (!page) return
 
     setPages((existing) =>
       cursor ? [...existing, ...page.nodes] : [...page.nodes],
     )
-  }, [catalog.data, cursor])
+  }, [searching, found.data, catalog.data, cursor])
 
   useEffect(() => {
     if (analyzed && !searching) catalog.refetch()
@@ -132,8 +132,9 @@ function Listing({
     }
   }, [settledAt, addedAt, searching, catalog.refetch])
 
-  const rows: Row[] = searching ? (found.data?.search ?? []) : pages
-  const page = catalog.data?.items
+  const rows: Row[] = pages
+  const page = searching ? found.data?.search : catalog.data?.items
+  const total = searching ? (found.data?.search.total ?? null) : null
   const loading = searching ? found.loading : catalog.loading
   const error = searching ? found.error : catalog.error
 
@@ -147,8 +148,14 @@ function Listing({
           <div className="eyebrow" style={{ marginTop: 'var(--s2)' }}>
             {searching ? (
               <>
-                <span className="figure">{rows.length.toLocaleString()}</span>{' '}
-                {rows.length === 1 ? 'match' : 'matches'}
+                <span className="figure">{rows.length.toLocaleString()}</span>
+                {total !== null && total > rows.length && (
+                  <>
+                    {' of '}
+                    <span className="figure">{total.toLocaleString()}</span>
+                  </>
+                )}{' '}
+                {total === 1 ? 'match' : 'matches'}
                 {kind ? ` of kind ${kind}` : ''}
               </>
             ) : (
@@ -231,13 +238,13 @@ function Listing({
         <Empty searching={searching} kind={kind} />
       )}
 
-      {!searching && page?.hasMore && (
+      {page?.hasMore && (
         <Group justify="center">
           <Button
             variant="default"
             radius="xl"
             onClick={() => setCursor(page.nextCursor ?? null)}
-            loading={catalog.loading}
+            loading={loading}
           >
             Load more
           </Button>

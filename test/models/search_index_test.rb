@@ -76,6 +76,37 @@ class SearchIndexTest < ActiveSupport::TestCase
     assert_raises(ArgumentError) { SearchIndex.search("invoice", tenant: nil) }
   end
 
+  test "a page of matches says how many there are, not merely how many it handed back" do
+    Tenant.switch(@demo) do
+      first = Item.found(nil, kind: "pdf", limit: 2)
+
+      assert_equal 2, first.nodes.length
+      assert_equal 3, first.total, "three pdfs match, and a short page must not hide the third"
+      assert first.has_more
+      assert_equal "2", first.next_cursor
+
+      second = Item.found(nil, kind: "pdf", limit: 2, from: first.next_cursor.to_i)
+
+      assert_equal 1, second.nodes.length
+      assert_equal 3, second.total
+      assert_not second.has_more
+      assert_nil second.next_cursor
+
+      walked = (first.nodes + second.nodes).map(&:id)
+
+      assert_equal walked, walked.uniq, "a second page must not repeat the first"
+    end
+  end
+
+  test "a page past the end is empty rather than an error" do
+    Tenant.switch(@demo) do
+      past = Item.found(nil, from: 500)
+
+      assert_empty past.nodes
+      assert_not past.has_more
+    end
+  end
+
   test "a destroyed item leaves the index" do
     Tenant.switch(@demo) do
       Item.find_by!(title: "March invoice").destroy!
