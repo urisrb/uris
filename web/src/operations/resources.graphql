@@ -1,5 +1,5 @@
-query Resources {
-  resources {
+query Resources($archived: Boolean) {
+  resources(archived: $archived) {
     id
     type
     key
@@ -15,6 +15,17 @@ query Resources {
     checkedAt
     checkError
     healthy
+    archivedAt
+  }
+}
+
+mutation ArchiveResource($id: ID!, $archived: Boolean!) {
+  archiveResource(input: { id: $id, archived: $archived }) {
+    resource {
+      id
+      key
+      archivedAt
+    }
   }
 }
 

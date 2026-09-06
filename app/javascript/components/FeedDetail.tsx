@@ -4,9 +4,11 @@ import {
   IconPlayerPause,
   IconPlayerPlay,
   IconRefresh,
+  IconTrash,
 } from '@tabler/icons-react'
 import {
   AgentTurnedDocument,
+  DeleteFeedDocument,
   FeedDocument,
   PauseFeedDocument,
   RunFeedDocument,
@@ -20,6 +22,7 @@ import { tone } from '../kinds'
 import { FeedForm } from './FeedForm'
 import { RunTrail } from './RunTrail'
 import { useAloud, useSay } from './Say'
+import { Sure } from './Sure'
 
 const OPEN = new Set(['queued', 'running'])
 
@@ -45,11 +48,13 @@ export function FeedDetail() {
   const navigate = useNavigate()
   const say = useSay()
   const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const { data, loading, error, refetch } = useQuery(FeedDocument, {
     slug: slug ?? '',
   })
   const start = useAloud(RunFeedDocument, 'That feed could not be run.')
   const pause = useAloud(PauseFeedDocument, 'That feed could not be paused.')
+  const remove = useAloud(DeleteFeedDocument, 'That feed could not be deleted.')
 
   const feed = data?.feed
   const runs = feed?.runs ?? []
@@ -89,6 +94,16 @@ export function FeedDetail() {
 
         <Group gap="var(--s2)">
           {open && <Loader size="xs" />}
+
+          <Button
+            variant="subtle"
+            color="gray"
+            radius="xl"
+            leftSection={<IconTrash size={15} />}
+            onClick={() => setDeleting(true)}
+          >
+            Delete
+          </Button>
 
           <Button
             variant="subtle"
@@ -172,6 +187,33 @@ export function FeedDetail() {
           <Text fw={600}>{feed.turns ?? 'the default'}</Text>
         </div>
       </Group>
+
+      <Sure
+        opened={deleting}
+        onClose={() => setDeleting(false)}
+        title={`Delete /${feed.slug}?`}
+        verb="Delete it"
+        loading={remove.loading}
+        onSure={async () => {
+          const answered = await remove.execute({ id: feed.id })
+
+          if (!answered) return
+
+          const kept = answered.deleteFeed?.kept ?? 0
+
+          setDeleting(false)
+          say({
+            text: kept
+              ? `/${feed.slug} is gone. The ${kept} ${kept === 1 ? 'item' : 'items'} it wrote stayed in your catalog.`
+              : `/${feed.slug} is gone.`,
+          })
+          navigate('/feeds')
+        }}
+      >
+        The prompt and its run history go. Anything it wrote stays in your
+        catalog as an ordinary item — deleting the feed that found something is
+        not the same as throwing the something away.
+      </Sure>
 
       <FeedForm
         opened={editing}

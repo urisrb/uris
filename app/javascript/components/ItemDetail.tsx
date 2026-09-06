@@ -3,27 +3,32 @@ import {
   IconArrowLeft,
   IconArrowMerge,
   IconCut,
+  IconEraser,
   IconSparkles,
 } from '@tabler/icons-react'
 import {
   AnalyzeItemDocument,
+  ForgetItemDocument,
   ItemDocument,
   SplitReferenceDocument,
 } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
 import { type CSSProperties, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 import { Gather } from './Gather'
 import { KindBadge } from './KindBadge'
 import { RunTrail } from './RunTrail'
 import { useAloud, useSay } from './Say'
+import { Sure } from './Sure'
 import { Thumb } from './Thumb'
 
 export function ItemDetail() {
   const { id = '' } = useParams()
+  const navigate = useNavigate()
   const say = useSay()
   const [gathering, setGathering] = useState(false)
+  const [forgetting, setForgetting] = useState(false)
   const { data, loading, error, refetch } = useQuery(ItemDocument, { id })
   const analyze = useAloud(
     AnalyzeItemDocument,
@@ -32,6 +37,10 @@ export function ItemDetail() {
   const split = useAloud(
     SplitReferenceDocument,
     'That place could not be split off.',
+  )
+  const forget = useAloud(
+    ForgetItemDocument,
+    'That item could not be forgotten.',
   )
 
   const item = data?.item
@@ -79,6 +88,16 @@ export function ItemDetail() {
         <Group gap="var(--s2)" wrap="nowrap">
           <Button
             radius="xl"
+            variant="subtle"
+            color="gray"
+            leftSection={<IconEraser size={16} />}
+            onClick={() => setForgetting(true)}
+          >
+            Forget
+          </Button>
+
+          <Button
+            radius="xl"
             variant="default"
             leftSection={<IconArrowMerge size={16} />}
             onClick={() => setGathering(true)}
@@ -104,6 +123,32 @@ export function ItemDetail() {
           </Button>
         </Group>
       </Group>
+
+      <Sure
+        opened={forgetting}
+        onClose={() => setForgetting(false)}
+        title={`Forget ${item.title ?? 'this item'}?`}
+        verb="Forget it"
+        loading={forget.loading}
+        onSure={async () => {
+          const answered = await forget.execute({ id: item.id })
+
+          if (!answered) return
+
+          setForgetting(false)
+          say({ text: `${item.title ?? 'That item'} is out of the catalog.` })
+          navigate('/')
+        }}
+      >
+        uris stops pointing at the{' '}
+        <strong>
+          {item.references.length}{' '}
+          {item.references.length === 1 ? 'place' : 'places'}
+        </strong>{' '}
+        it lives and drops it from search. Not one of those places is touched —
+        the files stay exactly where they are, and a later sync of the same
+        resource will catalogue this again.
+      </Sure>
 
       <Gather
         opened={gathering}

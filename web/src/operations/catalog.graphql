@@ -88,3 +88,10 @@ mutation SplitReference($id: ID!) {
     }
   }
 }
+
+mutation ForgetItem($id: ID!) {
+  forgetItem(input: { id: $id }) {
+    forgotten
+    places
+  }
+}

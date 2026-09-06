@@ -101,3 +101,10 @@ subscription AgentTurned($id: ID!) {
     said
   }
 }
+
+mutation DeleteFeed($id: ID!) {
+  deleteFeed(input: { id: $id }) {
+    deleted
+    kept
+  }
+}

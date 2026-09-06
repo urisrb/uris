@@ -9,6 +9,8 @@ import {
   Tooltip,
 } from '@mantine/core'
 import {
+  IconArchive,
+  IconArchiveOff,
   IconCheck,
   IconPlus,
   IconRefresh,
@@ -17,6 +19,7 @@ import {
   IconStarFilled,
 } from '@tabler/icons-react'
 import {
+  ArchiveResourceDocument,
   CheckResourceDocument,
   ResourcesDocument,
   SetDefaultInferenceDocument,
@@ -47,6 +50,7 @@ interface Resource {
   syncInterval?: number | null
   syncedAt?: string | null
   nextSyncAt?: string | null
+  archivedAt?: string | null
 }
 
 function toneFor(resource: Resource) {
@@ -79,7 +83,10 @@ export function Resources() {
 
   const { id: landed } = useParams()
   const say = useSay()
-  const { data, loading, error, refetch } = useQuery(ResourcesDocument)
+  const [shelved, setShelved] = useState(false)
+  const { data, loading, error, refetch } = useQuery(ResourcesDocument, {
+    archived: shelved,
+  })
   const sync = useAloud(SyncResourceDocument, 'That resource could not sync.')
   const check = useAloud(
     CheckResourceDocument,
@@ -97,6 +104,23 @@ export function Resources() {
     SetSyncIntervalDocument,
     'That schedule could not be set.',
   )
+  const archive = useAloud(
+    ArchiveResourceDocument,
+    'That resource could not be put away.',
+  )
+
+  const putAway = async (resource: Resource, archived: boolean) => {
+    const answered = await archive.execute({ id: resource.id, archived })
+
+    if (!answered) return
+
+    say({
+      text: archived
+        ? `${resource.key} is put away. What it catalogued stays where it is.`
+        : `${resource.key} is back in use.`,
+    })
+    refetch()
+  }
   const [minutes, setMinutes] = useState<Record<string, number | string>>({})
   const [attaching, setAttaching] = useState(false)
   const arrived = useRef<HTMLDivElement | null>(null)
@@ -116,15 +140,33 @@ export function Resources() {
         <div>
           <h1 className="page-title">Resources</h1>
           <div className="eyebrow" style={{ marginTop: 'var(--s2)' }}>
-            The places your items live, and what each one can be asked to do
+            {shelved
+              ? 'Put away, and still holding everything they ever catalogued'
+              : 'The places your items live, and what each one can be asked to do'}
           </div>
         </div>
-        <Button
-          leftSection={<IconPlus size={16} stroke={2} />}
-          onClick={() => setAttaching(true)}
-        >
-          Attach one
-        </Button>
+
+        <Group gap="var(--s2)">
+          <button
+            type="button"
+            className="tag"
+            data-dot="false"
+            data-on={shelved}
+            style={{ cursor: 'pointer' }}
+            onClick={() => setShelved(!shelved)}
+          >
+            {shelved ? 'In use' : 'Put away'}
+          </button>
+
+          {!shelved && (
+            <Button
+              leftSection={<IconPlus size={16} stroke={2} />}
+              onClick={() => setAttaching(true)}
+            >
+              Attach one
+            </Button>
+          )}
+        </Group>
       </Group>
 
       <Attach
@@ -203,154 +245,180 @@ export function Resources() {
               )}
             </div>
 
-            <Stack gap="var(--s2)" align="flex-end">
-              <Group gap="var(--s2)" wrap="nowrap">
-                <Button
-                  size="xs"
-                  radius="xl"
-                  variant="default"
-                  leftSection={<IconCheck size={14} />}
-                  onClick={async () => {
-                    const answered = await check.execute({ id: resource.id })
-
-                    if (!answered) return
-
-                    say(
-                      answered.checkResource?.ok
-                        ? { text: `${resource.key} answers.` }
-                        : {
-                            text:
-                              answered.checkResource?.resource.checkError ??
-                              `${resource.key} did not answer.`,
-                            wrong: true,
-                          },
-                    )
-                    refetch()
-                  }}
-                >
-                  Check
-                </Button>
-                <Button
-                  size="xs"
-                  radius="xl"
-                  color="chalk"
-                  leftSection={<IconRefresh size={14} />}
-                  disabled={resource.syncing}
-                  onClick={async () => {
-                    const answered = await sync.execute({ id: resource.id })
-
-                    if (!answered) return
-
-                    say({ text: `${resource.key} is syncing.` })
-                    refetch()
-                  }}
-                >
-                  Sync
-                </Button>
-                {resource.capabilities.includes('storage') && (
+            {resource.archivedAt ? (
+              <Button
+                size="xs"
+                radius="xl"
+                variant="default"
+                leftSection={<IconArchiveOff size={14} />}
+                loading={archive.loading}
+                onClick={() => putAway(resource, false)}
+              >
+                Put back
+              </Button>
+            ) : (
+              <Stack gap="var(--s2)" align="flex-end">
+                <Group gap="var(--s2)" wrap="nowrap">
                   <Button
                     size="xs"
                     radius="xl"
-                    variant="subtle"
-                    color="gray"
-                    disabled={resource.defaultStorage}
-                    leftSection={
-                      resource.defaultStorage ? (
-                        <IconStarFilled size={14} />
-                      ) : (
-                        <IconStar size={14} />
+                    variant="default"
+                    leftSection={<IconCheck size={14} />}
+                    onClick={async () => {
+                      const answered = await check.execute({ id: resource.id })
+
+                      if (!answered) return
+
+                      say(
+                        answered.checkResource?.ok
+                          ? { text: `${resource.key} answers.` }
+                          : {
+                              text:
+                                answered.checkResource?.resource.checkError ??
+                                `${resource.key} did not answer.`,
+                              wrong: true,
+                            },
                       )
-                    }
+                      refetch()
+                    }}
+                  >
+                    Check
+                  </Button>
+                  <Button
+                    size="xs"
+                    radius="xl"
+                    color="chalk"
+                    leftSection={<IconRefresh size={14} />}
+                    disabled={resource.syncing}
                     onClick={async () => {
-                      const answered = await takeDrops.execute({
+                      const answered = await sync.execute({ id: resource.id })
+
+                      if (!answered) return
+
+                      say({ text: `${resource.key} is syncing.` })
+                      refetch()
+                    }}
+                  >
+                    Sync
+                  </Button>
+                  {resource.capabilities.includes('storage') && (
+                    <Button
+                      size="xs"
+                      radius="xl"
+                      variant="subtle"
+                      color="gray"
+                      disabled={resource.defaultStorage}
+                      leftSection={
+                        resource.defaultStorage ? (
+                          <IconStarFilled size={14} />
+                        ) : (
+                          <IconStar size={14} />
+                        )
+                      }
+                      onClick={async () => {
+                        const answered = await takeDrops.execute({
+                          id: resource.id,
+                        })
+
+                        if (!answered) return
+
+                        say({ text: `Drops land in ${resource.key} now.` })
+                        refetch()
+                      }}
+                    >
+                      Take drops
+                    </Button>
+                  )}
+                  {resource.capabilities.includes('inference') && (
+                    <Button
+                      size="xs"
+                      radius="xl"
+                      variant="subtle"
+                      color="gray"
+                      disabled={resource.defaultInference}
+                      leftSection={<IconSparkles size={14} />}
+                      onClick={async () => {
+                        const answered = await takeQuestions.execute({
+                          id: resource.id,
+                        })
+
+                        if (!answered) return
+
+                        say({ text: `${resource.key} answers questions now.` })
+                        refetch()
+                      }}
+                    >
+                      Take questions
+                    </Button>
+                  )}
+                </Group>
+
+                <Group gap="var(--s2)" wrap="nowrap">
+                  <NumberInput
+                    size="xs"
+                    w={110}
+                    min={1}
+                    radius="xl"
+                    placeholder="minutes"
+                    value={
+                      minutes[resource.id] ??
+                      (resource.syncInterval ? resource.syncInterval / 60 : '')
+                    }
+                    onChange={(value) =>
+                      setMinutes((current) => ({
+                        ...current,
+                        [resource.id]: value,
+                      }))
+                    }
+                  />
+                  <Button
+                    size="xs"
+                    radius="xl"
+                    variant="default"
+                    onClick={async () => {
+                      const value = Number(minutes[resource.id])
+                      const seconds = value > 0 ? Math.round(value * 60) : null
+                      const answered = await setInterval.execute({
                         id: resource.id,
+                        seconds,
                       })
 
                       if (!answered) return
 
-                      say({ text: `Drops land in ${resource.key} now.` })
+                      say({
+                        text: seconds
+                          ? `${resource.key} syncs every ${Math.round(seconds / 60)} minutes.`
+                          : `${resource.key} syncs on demand only.`,
+                      })
                       refetch()
                     }}
                   >
-                    Take drops
+                    Schedule
                   </Button>
-                )}
-                {resource.capabilities.includes('inference') && (
+
                   <Button
                     size="xs"
                     radius="xl"
                     variant="subtle"
                     color="gray"
-                    disabled={resource.defaultInference}
-                    leftSection={<IconSparkles size={14} />}
-                    onClick={async () => {
-                      const answered = await takeQuestions.execute({
-                        id: resource.id,
-                      })
-
-                      if (!answered) return
-
-                      say({ text: `${resource.key} answers questions now.` })
-                      refetch()
-                    }}
+                    leftSection={<IconArchive size={14} />}
+                    loading={archive.loading}
+                    onClick={() => putAway(resource, true)}
                   >
-                    Take questions
+                    Put away
                   </Button>
-                )}
-              </Group>
-
-              <Group gap="var(--s2)" wrap="nowrap">
-                <NumberInput
-                  size="xs"
-                  w={110}
-                  min={1}
-                  radius="xl"
-                  placeholder="minutes"
-                  value={
-                    minutes[resource.id] ??
-                    (resource.syncInterval ? resource.syncInterval / 60 : '')
-                  }
-                  onChange={(value) =>
-                    setMinutes((current) => ({
-                      ...current,
-                      [resource.id]: value,
-                    }))
-                  }
-                />
-                <Button
-                  size="xs"
-                  radius="xl"
-                  variant="default"
-                  onClick={async () => {
-                    const value = Number(minutes[resource.id])
-                    const seconds = value > 0 ? Math.round(value * 60) : null
-                    const answered = await setInterval.execute({
-                      id: resource.id,
-                      seconds,
-                    })
-
-                    if (!answered) return
-
-                    say({
-                      text: seconds
-                        ? `${resource.key} syncs every ${Math.round(seconds / 60)} minutes.`
-                        : `${resource.key} syncs on demand only.`,
-                    })
-                    refetch()
-                  }}
-                >
-                  Schedule
-                </Button>
-              </Group>
-            </Stack>
+                </Group>
+              </Stack>
+            )}
           </div>
         ))}
       </div>
 
       {resources.length === 0 && (
-        <Text c="dimmed" size="sm">
-          No resources are attached yet. Attach one and its contents become
-          items you can search.
+        <Text c="dimmed" size="sm" maw="58ch">
+          {shelved
+            ? 'Nothing has been put away. A resource you stop using goes here rather than being deleted, and what it catalogued stays searchable.'
+            : 'No resources are attached yet. Attach one and its contents become items you can search.'}
         </Text>
       )}
     </Stack>

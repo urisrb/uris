@@ -62,10 +62,15 @@ module Types
       end
     end
 
-    field :resources, [ Types::ResourceType ], null: false, grants: "uris:resources:read"
+    field :resources, [ Types::ResourceType ], null: false, grants: "uris:resources:read" do
+      argument :archived, Boolean, required: false,
+               description: "Left off, the ones still in use. True, the ones put away."
+    end
 
-    def resources
-      Resource.active.order(:type, :key)
+    def resources(archived: false)
+      scope = archived ? Resource.where.not(archived_at: nil) : Resource.active
+
+      scope.order(:type, :key)
     end
 
     field :resource_types, [ Types::AttachingType ], null: false, grants: "uris:resources:read",
