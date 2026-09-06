@@ -17,6 +17,10 @@ class Run < ApplicationRecord
   scope :newest_first, -> { order(id: :desc) }
   scope :past_deadline, -> { open.where(deadline: ...Time.current) }
 
+  # Work aimed at one item names it in the selector rather than through a
+  # column, because a run may be enqueued before the item it will touch exists.
+  scope :for_item, ->(item_id) { where("runs.selector->>'id' = ?", item_id.to_s) }
+
   def self.start!(kind:, resource: nil, feed: nil, selector: {}, deadline: nil)
     create!(kind: kind, resource: resource, feed: feed, selector: selector.to_h,
             deadline: deadline || default_deadline)

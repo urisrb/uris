@@ -93,14 +93,20 @@ module Types
     field :runs, Types::RunPageType, null: false, grants: "uris:catalog:read" do
       argument :kind, String, required: false
       argument :status, String, required: false
+      argument :feed_id, ID, required: false,
+               description: "Only runs of this feed."
+      argument :item_id, ID, required: false,
+               description: "Only runs whose work was this item, newest first."
       argument :after, ID, required: false
       argument :limit, Integer, required: false
     end
 
-    def runs(kind: nil, status: nil, after: nil, limit: nil)
+    def runs(kind: nil, status: nil, feed_id: nil, item_id: nil, after: nil, limit: nil)
       scope = Run.all
       scope = scope.where(kind: kind) if kind.present?
       scope = scope.where(status: status) if status.present?
+      scope = scope.where(feed_id: feed_id) if feed_id.present?
+      scope = scope.for_item(item_id) if item_id.present?
 
       Page.of(scope, after: after, limit: limit)
     end

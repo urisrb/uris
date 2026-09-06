@@ -1102,6 +1102,13 @@ CREATE INDEX index_runs_on_resource_id ON public.runs USING btree (resource_id);
 
 
 --
+-- Name: index_runs_on_tenant_and_selector_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_runs_on_tenant_and_selector_id ON public.runs USING btree (tenant_id, ((selector ->> 'id'::text)));
+
+
+--
 -- Name: index_runs_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1514,6 +1521,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260906140000'),
 ('20260906120000'),
 ('20260906024000'),
 ('20260906023001'),
