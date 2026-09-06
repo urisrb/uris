@@ -23,6 +23,8 @@ export default defineConfig({
       title: "uris",
       description:
         "A data unifier — one searchable index across everything you own, wherever it lives, with a way back out.",
+      favicon: "/icon.svg",
+      logo: { src: "./src/assets/mark.svg" },
       customCss: ["./src/styles/global.css"],
       social: [
         {
