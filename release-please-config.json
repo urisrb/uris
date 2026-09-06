@@ -6,13 +6,30 @@
     "web": {
       "release-type": "node",
       "component": "client",
+      "initial-version": "0.1.0",
+      "bump-minor-pre-major": true,
       "changelog-path": "CHANGELOG.md",
       "changelog-sections": [
-        { "type": "feat", "section": "Features" },
-        { "type": "fix", "section": "Fixes" },
-        { "type": "perf", "section": "Performance" },
-        { "type": "docs", "section": "Documentation" },
-        { "type": "refactor", "section": "Refactoring" }
+        {
+          "type": "feat",
+          "section": "Features"
+        },
+        {
+          "type": "fix",
+          "section": "Fixes"
+        },
+        {
+          "type": "perf",
+          "section": "Performance"
+        },
+        {
+          "type": "docs",
+          "section": "Documentation"
+        },
+        {
+          "type": "refactor",
+          "section": "Refactoring"
+        }
       ]
     }
   }
