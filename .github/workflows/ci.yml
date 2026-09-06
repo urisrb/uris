@@ -156,19 +156,6 @@ jobs:
           - 5432:5432
         options: --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=3
 
-      opensearch:
-        image: opensearchproject/opensearch:2.11.0
-        env:
-          discovery.type: single-node
-          plugins.security.disabled: "true"
-          OPENSEARCH_INITIAL_ADMIN_PASSWORD: admin
-          OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
-        ports:
-          - 9201:9200
-        options: >-
-          --health-cmd="curl -fs localhost:9200/_cluster/health || exit 1"
-          --health-interval=10s --health-timeout=5s --health-retries=20
-
     steps:
       - name: Install packages
         run: |
@@ -208,7 +195,6 @@ jobs:
           CACHE_DATABASE_URL: postgres://uris:uris@localhost:5432/uris_test_cache
           QUEUE_DATABASE_URL: postgres://uris:uris@localhost:5432/uris_test_queue
           CABLE_DATABASE_URL: postgres://uris:uris@localhost:5432/uris_test_cable
-          OPENSEARCH_URL: http://localhost:9201
           S3_ENDPOINT: http://localhost:9000
           S3_REGION: us-east-1
           S3_ACCESS_KEY_ID: uris

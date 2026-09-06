@@ -28,12 +28,16 @@ class SearchIndexTest < ActiveSupport::TestCase
   end
 
   test "search finds items by locator" do
+    requires_search_engine!
+
     Tenant.switch(@demo) do
       assert_equal [ "Beach photo" ], Item.search("beach").pluck(:title)
     end
   end
 
   test "a search never crosses tenants, even for a shared term" do
+    requires_search_engine!
+
     Tenant.switch(@demo) do
       assert_equal [ "March invoice" ], Item.search("invoice").pluck(:title)
     end
@@ -44,6 +48,8 @@ class SearchIndexTest < ActiveSupport::TestCase
   end
 
   test "the tenant filter is on the alias, so the engine applies it" do
+    requires_search_engine!
+
     hits = SearchIndex.client.search(
       index: SearchIndex.alias_for(@demo),
       body: { query: { match_all: {} } }
@@ -53,6 +59,8 @@ class SearchIndexTest < ActiveSupport::TestCase
   end
 
   test "digits in a path are searchable and distinguish siblings" do
+    requires_search_engine!
+
     Tenant.switch(@demo) do
       assert_equal [ "file-1.pdf" ], Item.search("file-1").pluck(:title)
     end

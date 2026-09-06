@@ -73,4 +73,5 @@ gem "mission_control-jobs"
 group :test do
   gem "capybara"
   gem "selenium-webdriver"
+  gem "webmock"
 end

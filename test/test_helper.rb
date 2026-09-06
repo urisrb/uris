@@ -2,10 +2,18 @@ ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
 
+require_relative "support/offline"
 require_relative "support/fake_issuer"
+require_relative "support/fake_search_engine"
 require_relative "support/mcp_client"
 
 ENV["URIS_PUBLIC_ORIGIN"] = nil
+
+SEARCH_ENGINE_URL = ENV["OPENSEARCH_URL"].presence
+
+unless SEARCH_ENGINE_URL
+  SearchIndex.define_singleton_method(:client) { @client ||= FakeSearchEngine.new }
+end
 
 module ActiveSupport
   class TestCase
@@ -16,6 +24,12 @@ module ActiveSupport
     setup do
       Masks::Client.registry.clear!
       ENV["MASKS_ISSUER_TEMPLATE"] = FakeIssuer.template
+    end
+
+    def requires_search_engine!
+      return if SEARCH_ENGINE_URL
+
+      skip "asserts what the search engine does; set OPENSEARCH_URL to run it"
     end
 
     def issuer

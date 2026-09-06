@@ -1,4 +1,5 @@
 require "test_helper"
+require_relative "../support/fake_feed_server"
 
 class AttachingTest < ActionDispatch::IntegrationTest
   TYPES = <<~GQL.freeze
@@ -22,6 +23,12 @@ class AttachingTest < ActionDispatch::IntegrationTest
   GQL
 
   setup do
+    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+
+    @server = FakeFeedServer.current
+    @server.reset!
+    @feed = @server.serve_body("/feed.xml", @server.rss([]))
+
     @tenant = Tenant.create!(subdomain: "attach-#{SecureRandom.hex(4)}", name: "Attaching")
 
     connect!(@tenant)
@@ -29,6 +36,7 @@ class AttachingTest < ActionDispatch::IntegrationTest
 
   teardown do
     ENV.delete("URIS_FILESYSTEM_ROOTS")
+    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
   end
 
   test "every attachable type says what it needs" do
@@ -90,13 +98,13 @@ class AttachingTest < ActionDispatch::IntegrationTest
   test "a key the form never offered is dropped rather than stored" do
     body = execute(ATTACH, variables: {
       type: "rss", key: "news",
-      settings: { "url" => "https://example.com/feed.xml", "root" => "/etc", "via_id" => "7" }
+      settings: { "url" => @feed, "root" => "/etc", "via_id" => "7" }
     })
 
     Tenant.switch(@tenant) do
       held = Resource.find(body.dig("data", "attachResource", "resource", "id"))
 
-      assert_equal({ "url" => "https://example.com/feed.xml" }, held.details)
+      assert_equal({ "url" => @feed }, held.details)
       assert_nil held.via_id
     end
   end
@@ -148,7 +156,7 @@ class AttachingTest < ActionDispatch::IntegrationTest
   test "attaching needs the command scope, not merely the read one" do
     body = execute(ATTACH, scopes: %w[uris:resources:read],
                            variables: { type: "rss", key: "news",
-                                        settings: { "url" => "https://example.com/feed.xml" } })
+                                        settings: { "url" => @feed } })
 
     assert_nil body.dig("data", "attachResource")
     Tenant.switch(@tenant) { assert_equal 0, Resource.count }
@@ -156,7 +164,7 @@ class AttachingTest < ActionDispatch::IntegrationTest
 
   test "what was attached is audited without any of what was typed into it" do
     execute(ATTACH, variables: {
-      type: "rss", key: "news", settings: { "url" => "https://example.com/feed.xml" }
+      type: "rss", key: "news", settings: { "url" => @feed }
     })
 
     Tenant.switch(@tenant) do
@@ -165,7 +173,7 @@ class AttachingTest < ActionDispatch::IntegrationTest
       assert_equal "ok", event.status
       assert_equal "rss", event.arguments["type"]
       assert_equal "url", event.arguments["set"]
-      refute_includes event.arguments.to_s, "example.com"
+      refute_includes event.arguments.to_s, @feed
     end
   end
 
