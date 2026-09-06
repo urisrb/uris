@@ -20,6 +20,8 @@ import {
 import { useMutation, useQuery } from '@uris-to/client/react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTitle } from '../hooks/useTitle'
+import { useAloud, useSay } from './Say'
 
 const EVERY = [
   { label: 'by hand', seconds: 0 },
@@ -50,10 +52,13 @@ function when(at?: string | null) {
 }
 
 export function Feeds() {
+  useTitle('Feeds')
+
+  const say = useSay()
   const { data, loading, error, refetch } = useQuery(FeedsDocument, {})
   const save = useMutation(SaveFeedDocument)
-  const start = useMutation(RunFeedDocument)
-  const pause = useMutation(PauseFeedDocument)
+  const start = useAloud(RunFeedDocument, 'That feed could not be run.')
+  const pause = useAloud(PauseFeedDocument, 'That feed could not be paused.')
 
   const [open, setOpen] = useState(false)
   const [slug, setSlug] = useState('')
@@ -81,6 +86,7 @@ export function Feeds() {
     }
 
     setOpen(false)
+    say({ text: `/${slug} is yours. Run it and it will start looking.` })
     refetch()
   }
 
@@ -159,7 +165,11 @@ export function Feeds() {
                         size="compact-xs"
                         variant="default"
                         onClick={async () => {
-                          await start.execute({ id: feed.id })
+                          const answered = await start.execute({ id: feed.id })
+
+                          if (!answered) return
+
+                          say({ text: `/${feed.slug} is running.` })
                           refetch()
                         }}
                       >
@@ -170,9 +180,17 @@ export function Feeds() {
                           size="compact-xs"
                           variant="subtle"
                           onClick={async () => {
-                            await pause.execute({
+                            const answered = await pause.execute({
                               id: feed.id,
                               paused: !feed.pausedAt,
+                            })
+
+                            if (!answered) return
+
+                            say({
+                              text: feed.pausedAt
+                                ? `/${feed.slug} runs on its own again.`
+                                : `/${feed.slug} is paused.`,
                             })
                             refetch()
                           }}

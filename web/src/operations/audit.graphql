@@ -1,0 +1,38 @@
+query AuditEvents(
+  $action: String
+  $status: String
+  $subject: String
+  $after: ID
+  $limit: Int
+) {
+  auditEvents(
+    action: $action
+    status: $status
+    subject: $subject
+    after: $after
+    limit: $limit
+  ) {
+    hasMore
+    nextCursor
+    nodes {
+      id
+      channel
+      action
+      status
+      scope
+      subject
+      clientId
+      remoteIp
+      requestId
+      durationMs
+      detail
+      arguments
+      createdAt
+      run {
+        id
+        kind
+        status
+      }
+    }
+  }
+}

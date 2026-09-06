@@ -5,23 +5,34 @@ import {
   ItemDocument,
   SplitReferenceDocument,
 } from '@uris-to/client'
-import { useMutation, useQuery } from '@uris-to/client/react'
+import { useQuery } from '@uris-to/client/react'
 import type { CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useTitle } from '../hooks/useTitle'
 import { KindBadge } from './KindBadge'
 import { RunTrail } from './RunTrail'
+import { useAloud, useSay } from './Say'
 import { Thumb } from './Thumb'
 
 export function ItemDetail() {
   const { id = '' } = useParams()
+  const say = useSay()
   const { data, loading, error, refetch } = useQuery(ItemDocument, { id })
-  const analyze = useMutation(AnalyzeItemDocument)
-  const split = useMutation(SplitReferenceDocument)
+  const analyze = useAloud(
+    AnalyzeItemDocument,
+    'That item could not be analyzed.',
+  )
+  const split = useAloud(
+    SplitReferenceDocument,
+    'That place could not be split off.',
+  )
+
+  const item = data?.item
+
+  useTitle(item?.title ?? 'Item')
 
   if (loading) return <Loader size="sm" color="var(--brass)" />
   if (error) return <Alert color="red">{error.message}</Alert>
-
-  const item = data?.item
 
   if (!item) return <Text c="dimmed">No such item.</Text>
 
@@ -64,7 +75,11 @@ export function ItemDetail() {
           leftSection={<IconSparkles size={16} />}
           loading={analyze.loading}
           onClick={async () => {
-            await analyze.execute({ id: item.id })
+            const answered = await analyze.execute({ id: item.id })
+
+            if (!answered) return
+
+            say({ text: `Analyzing ${item.title ?? 'this item'}.` })
             refetch()
           }}
         >
@@ -180,7 +195,13 @@ export function ItemDetail() {
                     size="xs"
                     leftSection={<IconCut size={14} />}
                     onClick={async () => {
-                      await split.execute({ id: reference.id })
+                      const answered = await split.execute({ id: reference.id })
+
+                      if (!answered) return
+
+                      say({
+                        text: `${reference.resource.key} is its own item now.`,
+                      })
                       refetch()
                     }}
                   >

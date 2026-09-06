@@ -8,6 +8,7 @@ import {
   IconRss,
   IconSearch,
   IconSettings,
+  IconShieldLock,
 } from '@tabler/icons-react'
 import { CatalogDocument } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
@@ -22,17 +23,22 @@ import {
 } from 'react-router-dom'
 import { asUrl, type Intent, intentFor, shortly } from '../add'
 import { useSession } from '../hooks/useSession'
+import { useTitle } from '../hooks/useTitle'
 import { tone } from '../kinds'
 import { AddButton, AddProvider, useAdd } from './Add'
+import { Audit } from './Audit'
 import { Catalog } from './Catalog'
 import { Cycle } from './Cycle'
 import { Face } from './Face'
+import { Fallen } from './Fallen'
 import { FeedDetail } from './FeedDetail'
 import { Feeds } from './Feeds'
 import { ItemDetail } from './ItemDetail'
+import { Lost } from './Lost'
 import { Mark } from './Mark'
 import { Resources } from './Resources'
 import { Runs } from './Runs'
+import { SayProvider } from './Say'
 import { Settings } from './Settings'
 import { UploadsProvider, useUploads } from './Uploads'
 
@@ -53,6 +59,7 @@ const SECTIONS = [
   { to: '/feeds', label: 'Feeds', icon: IconRss },
   { to: '/resources', label: 'Resources', icon: IconDatabase },
   { to: '/runs', label: 'Runs', icon: IconProgressCheck },
+  { to: '/audit', label: 'Audit', icon: IconShieldLock },
   { to: '/settings', label: 'Settings', icon: IconSettings },
 ]
 
@@ -78,17 +85,19 @@ export function App() {
   }
 
   return (
-    <UploadsProvider>
-      <AddProvider>
-        <Shell
-          account={account}
-          who={account.nickname ?? account.name ?? account.email ?? 'you'}
-          tenant={account.tenant?.name}
-          logout={logout}
-          logoutEverywhere={logoutEverywhere}
-        />
-      </AddProvider>
-    </UploadsProvider>
+    <SayProvider>
+      <UploadsProvider>
+        <AddProvider>
+          <Shell
+            account={account}
+            who={account.nickname ?? account.name ?? account.email ?? 'you'}
+            tenant={account.tenant?.name}
+            logout={logout}
+            logoutEverywhere={logoutEverywhere}
+          />
+        </AddProvider>
+      </UploadsProvider>
+    </SayProvider>
   )
 }
 
@@ -99,6 +108,8 @@ function Gate({
   unconnected: boolean
   enter: () => void
 }) {
+  useTitle('Sign in')
+
   return (
     <div className="gate">
       <div className="gate-inner">
@@ -141,6 +152,8 @@ function Shell({
   logout: () => void
   logoutEverywhere: () => void
 }) {
+  const location = useLocation()
+
   return (
     <div className="shell">
       <header className="shell-head">
@@ -179,25 +192,30 @@ function Shell({
       </header>
 
       <main className="shell-main">
-        <Routes>
-          <Route path="/" element={<Catalog />} />
-          <Route path="/items/:id" element={<ItemDetail />} />
-          <Route path="/feeds" element={<Feeds />} />
-          <Route path="/feeds/:slug" element={<FeedDetail />} />
-          <Route path="/resources" element={<Resources />} />
-          <Route path="/runs" element={<Runs />} />
-          <Route
-            path="/settings"
-            element={
-              <Settings
-                who={who}
-                tenant={tenant}
-                logout={logout}
-                logoutEverywhere={logoutEverywhere}
-              />
-            }
-          />
-        </Routes>
+        <Fallen key={location.pathname}>
+          <Routes>
+            <Route path="/" element={<Catalog />} />
+            <Route path="/items/:id" element={<ItemDetail />} />
+            <Route path="/feeds" element={<Feeds />} />
+            <Route path="/feeds/:slug" element={<FeedDetail />} />
+            <Route path="/resources" element={<Resources />} />
+            <Route path="/resources/:id" element={<Resources />} />
+            <Route path="/runs" element={<Runs />} />
+            <Route path="/audit" element={<Audit />} />
+            <Route
+              path="/settings"
+              element={
+                <Settings
+                  who={who}
+                  tenant={tenant}
+                  logout={logout}
+                  logoutEverywhere={logoutEverywhere}
+                />
+              }
+            />
+            <Route path="*" element={<Lost />} />
+          </Routes>
+        </Fallen>
       </main>
     </div>
   )

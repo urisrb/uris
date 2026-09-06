@@ -13,11 +13,13 @@ import {
   SetSettingDocument,
   SettingsDocument,
 } from '@uris-to/client'
-import { useMutation, useQuery, useSubscription } from '@uris-to/client/react'
+import { useQuery, useSubscription } from '@uris-to/client/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useTitle } from '../hooks/useTitle'
 import { useAdd } from './Add'
 import { KindBadge } from './KindBadge'
+import { useAloud } from './Say'
 import { Cover, Thumb } from './Thumb'
 import { useUploads } from './Uploads'
 
@@ -50,8 +52,10 @@ export function Catalog() {
   const term = (params.get('q') ?? '').trim()
 
   const settings = useQuery(SettingsDocument)
-  const save = useMutation(SetSettingDocument)
+  const save = useAloud(SetSettingDocument, 'That view could not be kept.')
   const [picked, setPicked] = useState<View | null>(null)
+
+  useTitle(term ? `${term} — search` : kind ? kind : null)
 
   const stored = settings.data?.settings.find(
     (setting) => setting.key === VIEW_SETTING,

@@ -7,6 +7,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { App } from '../components/App'
+import { Fallen } from '../components/Fallen'
 import { theme } from '../theme'
 import { client } from '../uris'
 
@@ -18,7 +19,9 @@ if (root) {
       <MantineProvider theme={theme} forceColorScheme="dark">
         <UrisProvider client={client}>
           <BrowserRouter>
-            <App />
+            <Fallen what="uris could not start">
+              <App />
+            </Fallen>
           </BrowserRouter>
         </UrisProvider>
       </MantineProvider>

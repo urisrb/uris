@@ -7,6 +7,7 @@ query Resources {
     capabilities
     itemsCount
     defaultStorage
+    defaultInference
     syncInterval
     nextSyncAt
     syncedAt
@@ -47,6 +48,15 @@ mutation SetDefaultStorage($id: ID!) {
     resource {
       id
       defaultStorage
+    }
+  }
+}
+
+mutation SetDefaultInference($id: ID!) {
+  setDefaultInference(input: { id: $id }) {
+    resource {
+      id
+      defaultInference
     }
   }
 }

@@ -12,19 +12,24 @@ import {
   IconCheck,
   IconPlus,
   IconRefresh,
+  IconSparkles,
   IconStar,
   IconStarFilled,
 } from '@tabler/icons-react'
 import {
   CheckResourceDocument,
   ResourcesDocument,
+  SetDefaultInferenceDocument,
   SetDefaultStorageDocument,
   SetSyncIntervalDocument,
   SyncResourceDocument,
 } from '@uris-to/client'
-import { useMutation, useQuery } from '@uris-to/client/react'
-import { type CSSProperties, useState } from 'react'
+import { useQuery } from '@uris-to/client/react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { useTitle } from '../hooks/useTitle'
 import { Attach } from './Attach'
+import { useAloud, useSay } from './Say'
 
 interface Resource {
   id: string
@@ -36,6 +41,7 @@ interface Resource {
   checkError?: string | null
   syncing: boolean
   defaultStorage: boolean
+  defaultInference: boolean
   itemsCount: number
   capabilities: string[]
   syncInterval?: number | null
@@ -69,13 +75,35 @@ function schedule(resource: Resource) {
 }
 
 export function Resources() {
+  useTitle('Resources')
+
+  const { id: landed } = useParams()
+  const say = useSay()
   const { data, loading, error, refetch } = useQuery(ResourcesDocument)
-  const sync = useMutation(SyncResourceDocument)
-  const check = useMutation(CheckResourceDocument)
-  const setDefault = useMutation(SetDefaultStorageDocument)
-  const setInterval = useMutation(SetSyncIntervalDocument)
+  const sync = useAloud(SyncResourceDocument, 'That resource could not sync.')
+  const check = useAloud(
+    CheckResourceDocument,
+    'That resource could not be checked.',
+  )
+  const takeDrops = useAloud(
+    SetDefaultStorageDocument,
+    'That could not take drops.',
+  )
+  const takeQuestions = useAloud(
+    SetDefaultInferenceDocument,
+    'That could not take questions.',
+  )
+  const setInterval = useAloud(
+    SetSyncIntervalDocument,
+    'That schedule could not be set.',
+  )
   const [minutes, setMinutes] = useState<Record<string, number | string>>({})
   const [attaching, setAttaching] = useState(false)
+  const arrived = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (landed) arrived.current?.scrollIntoView({ block: 'center' })
+  }, [landed])
 
   if (loading && !data) return <Loader size="sm" color="var(--brass)" />
   if (error) return <Alert color="red">{error.message}</Alert>
@@ -109,8 +137,10 @@ export function Resources() {
         {resources.map((resource) => (
           <div
             key={resource.id}
+            ref={resource.id === landed ? arrived : undefined}
             className="entry"
             data-spine="true"
+            data-landed={resource.id === landed}
             style={{ '--tone': toneFor(resource) } as CSSProperties}
           >
             <div style={{ minWidth: 0 }}>
@@ -140,6 +170,14 @@ export function Resources() {
                     style={{ '--tone': 'var(--brass)' } as CSSProperties}
                   >
                     drops land here
+                  </span>
+                )}
+                {resource.defaultInference && (
+                  <span
+                    className="tag"
+                    style={{ '--tone': 'var(--brass)' } as CSSProperties}
+                  >
+                    answers questions
                   </span>
                 )}
               </Group>
@@ -173,7 +211,20 @@ export function Resources() {
                   variant="default"
                   leftSection={<IconCheck size={14} />}
                   onClick={async () => {
-                    await check.execute({ id: resource.id })
+                    const answered = await check.execute({ id: resource.id })
+
+                    if (!answered) return
+
+                    say(
+                      answered.checkResource?.ok
+                        ? { text: `${resource.key} answers.` }
+                        : {
+                            text:
+                              answered.checkResource?.resource.checkError ??
+                              `${resource.key} did not answer.`,
+                            wrong: true,
+                          },
+                    )
                     refetch()
                   }}
                 >
@@ -186,7 +237,11 @@ export function Resources() {
                   leftSection={<IconRefresh size={14} />}
                   disabled={resource.syncing}
                   onClick={async () => {
-                    await sync.execute({ id: resource.id })
+                    const answered = await sync.execute({ id: resource.id })
+
+                    if (!answered) return
+
+                    say({ text: `${resource.key} is syncing.` })
                     refetch()
                   }}
                 >
@@ -207,11 +262,39 @@ export function Resources() {
                       )
                     }
                     onClick={async () => {
-                      await setDefault.execute({ id: resource.id })
+                      const answered = await takeDrops.execute({
+                        id: resource.id,
+                      })
+
+                      if (!answered) return
+
+                      say({ text: `Drops land in ${resource.key} now.` })
                       refetch()
                     }}
                   >
                     Take drops
+                  </Button>
+                )}
+                {resource.capabilities.includes('inference') && (
+                  <Button
+                    size="xs"
+                    radius="xl"
+                    variant="subtle"
+                    color="gray"
+                    disabled={resource.defaultInference}
+                    leftSection={<IconSparkles size={14} />}
+                    onClick={async () => {
+                      const answered = await takeQuestions.execute({
+                        id: resource.id,
+                      })
+
+                      if (!answered) return
+
+                      say({ text: `${resource.key} answers questions now.` })
+                      refetch()
+                    }}
+                  >
+                    Take questions
                   </Button>
                 )}
               </Group>
@@ -240,9 +323,18 @@ export function Resources() {
                   variant="default"
                   onClick={async () => {
                     const value = Number(minutes[resource.id])
-                    await setInterval.execute({
+                    const seconds = value > 0 ? Math.round(value * 60) : null
+                    const answered = await setInterval.execute({
                       id: resource.id,
-                      seconds: value > 0 ? Math.round(value * 60) : null,
+                      seconds,
+                    })
+
+                    if (!answered) return
+
+                    say({
+                      text: seconds
+                        ? `${resource.key} syncs every ${Math.round(seconds / 60)} minutes.`
+                        : `${resource.key} syncs on demand only.`,
                     })
                     refetch()
                   }}
@@ -261,11 +353,6 @@ export function Resources() {
           items you can search.
         </Text>
       )}
-
-      {setInterval.error && (
-        <Alert color="red">{setInterval.error.message}</Alert>
-      )}
-      {sync.error && <Alert color="red">{sync.error.message}</Alert>}
     </Stack>
   )
 }

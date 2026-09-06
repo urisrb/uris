@@ -1,12 +1,31 @@
 import { Alert, Button, Group, Loader, Stack, Table, Text } from '@mantine/core'
-import { FeedDocument, RunFeedDocument } from '@uris-to/client'
-import { useMutation, useQuery } from '@uris-to/client/react'
-import { type CSSProperties, useEffect } from 'react'
+import {
+  IconPlayerPause,
+  IconPlayerPlay,
+  IconRefresh,
+} from '@tabler/icons-react'
+import {
+  AgentTurnedDocument,
+  FeedDocument,
+  PauseFeedDocument,
+  RunFeedDocument,
+  RunProgressedDocument,
+} from '@uris-to/client'
+import { useQuery, useSubscription } from '@uris-to/client/react'
+import { type CSSProperties, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useTitle } from '../hooks/useTitle'
 import { tone } from '../kinds'
 import { RunTrail } from './RunTrail'
+import { useAloud, useSay } from './Say'
 
 const OPEN = new Set(['queued', 'running'])
+
+interface Turn {
+  turn: number
+  calls: string[]
+  said?: string | null
+}
 
 function when(at?: string | null) {
   if (!at) return '—'
@@ -21,23 +40,29 @@ function when(at?: string | null) {
 
 export function FeedDetail() {
   const { slug } = useParams<{ slug: string }>()
+  const say = useSay()
   const { data, loading, error, refetch } = useQuery(FeedDocument, {
     slug: slug ?? '',
   })
-  const start = useMutation(RunFeedDocument)
+  const start = useAloud(RunFeedDocument, 'That feed could not be run.')
+  const pause = useAloud(PauseFeedDocument, 'That feed could not be paused.')
 
   const feed = data?.feed
   const runs = feed?.runs ?? []
   const items = feed?.items ?? []
-  const busy = runs.some((run) => OPEN.has(run.status))
+  const open = runs.find((run) => OPEN.has(run.status))
+
+  useTitle(feed ? `/${feed.slug}` : 'Feed')
+
+  const { data: progressed } = useSubscription(RunProgressedDocument)
+  const streamed = progressed?.runProgressed.run
 
   useEffect(() => {
-    if (!busy) return
+    if (!streamed) return
+    if (!runs.some((run) => run.id === streamed.id)) return
 
-    const timer = window.setInterval(() => refetch(), 2000)
-
-    return () => window.clearInterval(timer)
-  }, [busy, refetch])
+    refetch()
+  }, [streamed, runs, refetch])
 
   if (loading && !feed) return <Loader size="sm" />
   if (error) return <Alert color="red">{error.message}</Alert>
@@ -59,14 +84,56 @@ export function FeedDetail() {
         </div>
 
         <Group gap="var(--s2)">
-          {busy && <Loader size="xs" />}
+          {open && <Loader size="xs" />}
+
+          {feed.interval ? (
+            <Button
+              variant="default"
+              radius="xl"
+              loading={pause.loading}
+              leftSection={
+                feed.pausedAt ? (
+                  <IconPlayerPlay size={15} />
+                ) : (
+                  <IconPlayerPause size={15} />
+                )
+              }
+              onClick={async () => {
+                const answered = await pause.execute({
+                  id: feed.id,
+                  paused: !feed.pausedAt,
+                })
+
+                if (!answered) return
+
+                say({
+                  text: feed.pausedAt
+                    ? `/${feed.slug} runs on its own again.`
+                    : `/${feed.slug} is paused. It will only run by hand.`,
+                })
+                refetch()
+              }}
+            >
+              {feed.pausedAt ? 'Resume' : 'Pause'}
+            </Button>
+          ) : null}
+
           <Button
+            radius="xl"
+            color="chalk"
+            loading={start.loading}
+            disabled={Boolean(open)}
+            leftSection={<IconRefresh size={15} />}
             onClick={async () => {
-              await start.execute({ id: feed.id })
+              const answered = await start.execute({ id: feed.id })
+
+              if (!answered) return
+
+              say({ text: `/${feed.slug} is running.` })
               refetch()
             }}
           >
-            Run now
+            {open ? 'Running' : 'Run now'}
           </Button>
         </Group>
       </Group>
@@ -86,7 +153,13 @@ export function FeedDetail() {
             {feed.pausedAt ? 'paused' : when(feed.nextRunAt)}
           </Text>
         </div>
+        <div>
+          <div className="eyebrow">Turns it may take</div>
+          <Text fw={600}>{feed.turns ?? 'the default'}</Text>
+        </div>
       </Group>
+
+      {open && <Thinking key={open.id} id={open.id} cap={feed.turns} />}
 
       {items.length > 0 && (
         <div className="panel">
@@ -143,5 +216,79 @@ export function FeedDetail() {
         <RunTrail feedId={feed.id} empty="This feed has not run yet." />
       </div>
     </Stack>
+  )
+}
+
+function Thinking({ id, cap }: { id: string; cap?: number | null }) {
+  const [turns, setTurns] = useState<Turn[]>([])
+  const { data } = useSubscription(AgentTurnedDocument, { id })
+
+  useEffect(() => {
+    const turn = data?.agentTurned
+
+    if (!turn) return
+
+    setTurns((held) =>
+      held.some((past) => past.turn === turn.turn) ? held : [...held, turn],
+    )
+  }, [data])
+
+  const latest = turns[turns.length - 1]
+
+  return (
+    <div className="thinking">
+      <div className="thinking-head">
+        <span className="thinking-pulse" />
+        <span className="label">Thinking</span>
+        <span className="eyebrow">
+          turn <span className="figure">{latest?.turn ?? 1}</span>
+          {cap ? (
+            <>
+              {' '}
+              of <span className="figure">{cap}</span>
+            </>
+          ) : null}
+        </span>
+      </div>
+
+      {turns.length === 0 ? (
+        <Text size="sm" c="dimmed" px="var(--s4)" pb="var(--s4)">
+          Waiting on the first turn. What it reasons through will show up here
+          as it goes.
+        </Text>
+      ) : (
+        <div className="thinking-turns">
+          {turns.map((turn) => (
+            <div key={turn.turn} className="thinking-turn">
+              <span className="thinking-count figure">{turn.turn}</span>
+
+              <div style={{ minWidth: 0 }}>
+                {turn.said && <div className="thinking-said">{turn.said}</div>}
+
+                {turn.calls.length > 0 && (
+                  <Group gap="var(--s2)" mt="var(--s2)">
+                    {turn.calls.map((call) => (
+                      <span
+                        key={call}
+                        className="tag mono"
+                        style={{ '--tone': 'var(--brass)' } as CSSProperties}
+                      >
+                        {call}
+                      </span>
+                    ))}
+                  </Group>
+                )}
+
+                {!turn.said && turn.calls.length === 0 && (
+                  <Text size="xs" c="dimmed">
+                    thought without saying anything
+                  </Text>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

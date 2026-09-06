@@ -1,6 +1,8 @@
 import { Alert, Button, Group, Loader, Stack } from '@mantine/core'
 import { SetSettingDocument, SettingsDocument } from '@uris-to/client'
-import { useMutation, useQuery } from '@uris-to/client/react'
+import { useQuery } from '@uris-to/client/react'
+import { useTitle } from '../hooks/useTitle'
+import { useAloud } from './Say'
 
 interface Props {
   who: string
@@ -10,8 +12,10 @@ interface Props {
 }
 
 export function Settings({ who, tenant, logout, logoutEverywhere }: Props) {
+  useTitle('Settings')
+
   const { data, loading, error, refetch } = useQuery(SettingsDocument)
-  const save = useMutation(SetSettingDocument)
+  const save = useAloud(SetSettingDocument, 'That could not be changed.')
 
   const settings = data?.settings ?? []
   const stale = /does not carry settings:/.test(error?.message ?? '')
@@ -99,8 +103,6 @@ export function Settings({ who, tenant, logout, logoutEverywhere }: Props) {
           </div>
         )}
       </Stack>
-
-      {save.error && <Alert color="red">{save.error.message}</Alert>}
     </Stack>
   )
 }
