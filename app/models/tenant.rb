@@ -119,14 +119,12 @@ class Tenant < ApplicationRecord
 
       held = Current.tenant
 
-      ActiveRecord::Base.transaction(requires_new: true) do
-        enter(tenant)
+      enter(tenant)
 
-        begin
-          yield tenant
-        ensure
-          enter(held)
-        end
+      begin
+        yield tenant
+      ensure
+        enter(held)
       end
     end
 

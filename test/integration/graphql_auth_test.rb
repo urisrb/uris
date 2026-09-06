@@ -113,7 +113,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
   end
 
   test "streaming a reference out needs a grant too" do
-    reference = @item.references.first
+    reference = Tenant.switch(@tenant) { @item.references.first }
 
     get "/references/#{reference.id}/thumbnail", headers: host_for(@tenant)
 

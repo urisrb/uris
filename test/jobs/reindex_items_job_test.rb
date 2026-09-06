@@ -33,7 +33,8 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
   test "a catalog the index lost is put back" do
     Tenant.switch(@tenant) do
       SearchIndex.client.delete_by_query(
-        index: SearchIndex.alias_for(@tenant), body: { query: { match_all: {} } }
+        index: SearchIndex.alias_for(@tenant), body: { query: { match_all: {} } },
+        refresh: true, conflicts: "proceed"
       )
     end
 
@@ -69,7 +70,8 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       Gate.set!(key: "reindex", enabled: false)
       SearchIndex.client.delete_by_query(
-        index: SearchIndex.alias_for(@tenant), body: { query: { match_all: {} } }
+        index: SearchIndex.alias_for(@tenant), body: { query: { match_all: {} } },
+        refresh: true, conflicts: "proceed"
       )
     end
 
@@ -83,7 +85,8 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       Gate.set!(key: "reindex", enabled: true, live: false)
       SearchIndex.client.delete_by_query(
-        index: SearchIndex.alias_for(@tenant), body: { query: { match_all: {} } }
+        index: SearchIndex.alias_for(@tenant), body: { query: { match_all: {} } },
+        refresh: true, conflicts: "proceed"
       )
     end
 
@@ -101,7 +104,8 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
       end
 
       SearchIndex.client.delete_by_query(
-        index: SearchIndex.alias_for(@tenant), body: { query: { match_all: {} } }
+        index: SearchIndex.alias_for(@tenant), body: { query: { match_all: {} } },
+        refresh: true, conflicts: "proceed"
       )
     end
 
@@ -115,7 +119,8 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       SearchIndex.client.delete_by_query(
-        index: SearchIndex.alias_for(@tenant), body: { query: { match_all: {} } }
+        index: SearchIndex.alias_for(@tenant), body: { query: { match_all: {} } },
+        refresh: true, conflicts: "proceed"
       )
     end
 
