@@ -6,7 +6,8 @@ require "net/http"
 require "json"
 
 MODELS = ARGV.reject { |a| a.start_with?("-") }
-ORIGIN = ENV.fetch("OLLAMA_ORIGIN", "http://localhost:11434")
+# Any OpenAI-compatible server: ollama on 11434, LM Studio on 1234, llama-server on 8080.
+ORIGIN = ENV.fetch("PROBE_ORIGIN", "http://localhost:11434")
 TURNS = Integer(ENV.fetch("PROBE_TURNS", 6))
 ASK = ENV.fetch("PROBE_ASK", "Find invoice PDFs in my catalog, then tell me the total on the first one.")
 # Stopping politely is not succeeding. The canned get_item is the only place this
@@ -105,7 +106,16 @@ def probe(model, tools)
   [ :ran_out, calls, "hit the #{TURNS}-turn cap" ]
 end
 
-abort "usage: bin/probe-agent MODEL [MODEL...]" if MODELS.empty?
+if MODELS.empty?
+  abort <<~TEXT
+    usage: bin/probe-agent MODEL [MODEL...]
+
+      PROBE_ORIGIN=http://localhost:1234 bin/probe-agent openai/gpt-oss-20b
+
+    Asks a model to chain two tools against the real Tool.all schema and checks
+    it reached the answer. PROBE_ORIGIN defaults to ollama; LM Studio is 1234.
+  TEXT
+end
 
 built = tools
 puts "#{built.size} tools, #{TURNS} turns, #{ORIGIN}"
