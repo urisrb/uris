@@ -1,4 +1,4 @@
-import { Burger, Button, Loader, Menu, Text } from '@mantine/core'
+import { Button, Group, Loader, Menu } from '@mantine/core'
 import {
   IconDatabase,
   IconLayoutGrid,
@@ -25,6 +25,7 @@ import { Cycle } from './Cycle'
 import { FeedDetail } from './FeedDetail'
 import { Feeds } from './Feeds'
 import { ItemDetail } from './ItemDetail'
+import { Mark } from './Mark'
 import { Resources } from './Resources'
 import { Runs } from './Runs'
 import { Settings } from './Settings'
@@ -135,28 +136,18 @@ function Shell({
   logout: () => void
   logoutEverywhere: () => void
 }) {
-  const [open, setOpen] = useState(false)
-
   return (
     <div className="shell">
       <header className="shell-head">
-        <Burger
-          opened={open}
-          onClick={() => setOpen((was) => !was)}
-          size="sm"
-          color="var(--soft)"
-          hiddenFrom="sm"
-        />
-
-        <Link
-          to="/"
-          className="wordmark"
-          style={{ fontSize: 'var(--t-title)', textDecoration: 'none' }}
-        >
-          items
+        <Link to="/" className="mark-link" aria-label="uris">
+          <Mark />
         </Link>
 
+        <Nav />
+
         <Hunt />
+
+        <Kinds />
 
         <Menu position="bottom-end" width={210}>
           <Menu.Target>
@@ -176,10 +167,6 @@ function Shell({
           </Menu.Dropdown>
         </Menu>
       </header>
-
-      <nav className="shell-rail" data-open={open}>
-        <Rail onGo={() => setOpen(false)} />
-      </nav>
 
       <main className="shell-main">
         <Routes>
@@ -203,6 +190,145 @@ function Shell({
         </Routes>
       </main>
     </div>
+  )
+}
+
+// Wide enough and the sections sit in the bar; narrow and they collapse into one
+// dropdown rather than a drawer that covers what you were reading.
+function Nav() {
+  const location = useLocation()
+  const on = (to: string) =>
+    to === '/' ? location.pathname === '/' : location.pathname.startsWith(to)
+  const here = SECTIONS.find((section) => on(section.to)) ?? SECTIONS[0]
+
+  return (
+    <>
+      <nav className="head-nav">
+        {SECTIONS.map(({ to, label, icon: Icon }) => (
+          <Link
+            key={to}
+            to={to}
+            className="head-link"
+            aria-current={on(to) ? 'page' : undefined}
+          >
+            <Icon size={16} stroke={1.6} />
+            {label}
+          </Link>
+        ))}
+      </nav>
+
+      <Menu position="bottom-start" width={190}>
+        <Menu.Target>
+          <Button
+            className="head-nav-menu"
+            variant="subtle"
+            color="gray"
+            size="compact-sm"
+            leftSection={<here.icon size={16} stroke={1.6} />}
+          >
+            {here.label}
+          </Button>
+        </Menu.Target>
+        <Menu.Dropdown>
+          {SECTIONS.map(({ to, label, icon: Icon }) => (
+            <Menu.Item
+              key={to}
+              component={Link}
+              to={to}
+              leftSection={<Icon size={16} stroke={1.6} />}
+            >
+              {label}
+            </Menu.Item>
+          ))}
+        </Menu.Dropdown>
+      </Menu>
+    </>
+  )
+}
+
+// The kinds are a filter on the catalog, not navigation, so they only appear where
+// they do something.
+function Kinds() {
+  const location = useLocation()
+  const [params] = useSearchParams()
+  const { settledAt } = useUploads()
+  const { data, refetch } = useQuery(CatalogDocument, {
+    kind: null,
+    after: null,
+    limit: 1,
+  })
+
+  useEffect(() => {
+    if (settledAt) refetch()
+  }, [settledAt, refetch])
+
+  if (location.pathname !== '/') return null
+
+  const kind = params.get('kind')
+  const kinds = data?.kinds ?? []
+  const total = kinds.reduce((sum, entry) => sum + entry.count, 0)
+
+  const linkTo = (next: string | null) => {
+    const held = new URLSearchParams(params)
+
+    if (next) held.set('kind', next)
+    else held.delete('kind')
+
+    const query = held.toString()
+
+    return query ? `/?${query}` : '/'
+  }
+
+  return (
+    <Menu position="bottom-end" width={230}>
+      <Menu.Target>
+        <Button
+          variant={kind ? 'light' : 'subtle'}
+          color="gray"
+          size="compact-sm"
+          radius="xl"
+          leftSection={
+            kind ? (
+              <span
+                className="dot"
+                style={{ '--tone': tone(kind) } as CSSProperties}
+              />
+            ) : undefined
+          }
+        >
+          {kind ?? 'All kinds'}
+        </Button>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item component={Link} to={linkTo(null)}>
+          <Group justify="space-between" gap="var(--s4)">
+            <span>everything</span>
+            <span className="figure">{total.toLocaleString()}</span>
+          </Group>
+        </Menu.Item>
+
+        {kinds.length > 0 && <Menu.Divider />}
+
+        {kinds.map((entry) => (
+          <Menu.Item
+            key={entry.kind}
+            component={Link}
+            to={linkTo(entry.kind === kind ? null : entry.kind)}
+            leftSection={
+              <span
+                className="dot"
+                style={{ '--tone': tone(entry.kind) } as CSSProperties}
+              />
+            }
+          >
+            <Group justify="space-between" gap="var(--s4)">
+              <span>{entry.kind}</span>
+              <span className="figure">{entry.count.toLocaleString()}</span>
+            </Group>
+          </Menu.Item>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
   )
 }
 
@@ -252,98 +378,5 @@ function Hunt() {
         </Button>
       )}
     </form>
-  )
-}
-
-function Rail({ onGo }: { onGo: () => void }) {
-  const location = useLocation()
-  const [params] = useSearchParams()
-  const { settledAt } = useUploads()
-  const { data, refetch } = useQuery(CatalogDocument, {
-    kind: null,
-    after: null,
-    limit: 1,
-  })
-
-  useEffect(() => {
-    if (settledAt) refetch()
-  }, [settledAt, refetch])
-
-  const kind = params.get('kind')
-  const kinds = data?.kinds ?? []
-  const total = kinds.reduce((sum, entry) => sum + entry.count, 0)
-
-  const linkTo = (next: string | null) => {
-    const held = new URLSearchParams(params)
-
-    if (next) held.set('kind', next)
-    else held.delete('kind')
-
-    const query = held.toString()
-
-    return query ? `/?${query}` : '/'
-  }
-
-  return (
-    <>
-      <div className="rail-group">
-        {SECTIONS.map(({ to, label, icon: Icon }) => {
-          const on =
-            to === '/'
-              ? location.pathname === '/'
-              : location.pathname.startsWith(to)
-
-          return (
-            <Link
-              key={to}
-              to={to}
-              className="rail-link"
-              aria-current={on ? 'page' : undefined}
-              onClick={onGo}
-            >
-              <Icon size={17} stroke={1.6} />
-              {label}
-            </Link>
-          )
-        })}
-      </div>
-
-      <div className="rail-group">
-        <div className="rail-label">Kinds</div>
-
-        <Link
-          to={linkTo(null)}
-          className="kind-link"
-          style={{ '--tone': 'var(--soft)' } as CSSProperties}
-          data-on={!kind}
-          onClick={onGo}
-        >
-          <span>everything</span>
-          <span className="figure">{total.toLocaleString()}</span>
-        </Link>
-
-        {kinds.map((entry) => (
-          <Link
-            key={entry.kind}
-            to={linkTo(entry.kind === kind ? null : entry.kind)}
-            className="kind-link"
-            style={{ '--tone': tone(entry.kind) } as CSSProperties}
-            data-on={entry.kind === kind}
-            onClick={onGo}
-          >
-            <span>{entry.kind}</span>
-            <span className="figure">{entry.count.toLocaleString()}</span>
-          </Link>
-        ))}
-      </div>
-
-      <div className="rail-group">
-        <div className="rail-label">Adding items</div>
-        <Text size="xs" c="dimmed" px="var(--s3)" style={{ lineHeight: 1.5 }}>
-          Drop files or a whole folder anywhere on this page. They are written
-          to your default storage, then indexed.
-        </Text>
-      </div>
-    </>
   )
 }

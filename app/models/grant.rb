@@ -2,13 +2,13 @@ class Grant
   class Denied < StandardError; end
 
   DESCRIBED = {
-    "uris:catalog:read" => "Search your catalog and read what is in it",
-    "uris:catalog:write" => "Add to your catalog, and run analysis over it",
-    "uris:resources:read" => "List the places your items live",
-    "uris:resources:command" => "Act on those places — sync, fetch, and export",
-    "uris:settings:read" => "Read how you have set uris up for yourself",
-    "uris:settings:write" => "Change how uris behaves for you",
-    "uris:settings:admin" => "Change how uris behaves for everyone here"
+    "uris:catalog:read" => "Read your catalog",
+    "uris:catalog:write" => "Change your catalog",
+    "uris:resources:read" => "Read your places",
+    "uris:resources:command" => "Act on your places",
+    "uris:settings:read" => "Read your settings",
+    "uris:settings:write" => "Change your settings",
+    "uris:settings:admin" => "Change everyone's settings"
   }.freeze
 
   NAMESPACE = "uris:".freeze
