@@ -2,6 +2,10 @@
 
 module Types
   class MutationType < Types::BaseObject
+    field :add_note, mutation: Mutations::AddNote, grants: "uris:catalog:write"
+    field :snapshot_url, mutation: Mutations::SnapshotUrl, grants: "uris:catalog:write"
+    field :fetch_url, mutation: Mutations::FetchUrl, grants: "uris:catalog:write"
+
     field :analyze_item, mutation: Mutations::AnalyzeItem, grants: "uris:catalog:write"
     field :merge_items, mutation: Mutations::MergeItems, grants: "uris:catalog:write"
     field :split_reference, mutation: Mutations::SplitReference, grants: "uris:catalog:write"

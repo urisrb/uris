@@ -61,6 +61,18 @@ class Resource < ApplicationRecord
       {}
     end
 
+    def capable_of(capability)
+      active.select { |resource| resource.capabilities.include?(capability) }
+    end
+
+    def browser
+      capable_of(:browser).first
+    end
+
+    def browser!
+      browser || raise(ArgumentError, "this tenant has nothing that can render a page")
+    end
+
     def default_for(capability)
       active.find_by(DEFAULTABLE.fetch(capability) => true)
     end

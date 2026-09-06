@@ -1,0 +1,32 @@
+mutation AddNote($title: String, $body: String!) {
+  addNote(input: { title: $title, body: $body }) {
+    item {
+      id
+      kind
+      title
+      createdAt
+    }
+  }
+}
+
+mutation SnapshotUrl($url: String!) {
+  snapshotUrl(input: { url: $url }) {
+    run {
+      id
+      kind
+      status
+      selector
+    }
+  }
+}
+
+mutation FetchUrl($url: String!) {
+  fetchUrl(input: { url: $url }) {
+    run {
+      id
+      kind
+      status
+      selector
+    }
+  }
+}

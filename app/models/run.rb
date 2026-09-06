@@ -3,7 +3,7 @@ class Run < ApplicationRecord
 
   include TenantScoped
 
-  KINDS = %w[sync export analyze reindex dedupe feed].freeze
+  KINDS = %w[sync export analyze reindex dedupe feed snapshot fetch].freeze
   STATUSES = %w[queued running done failed cancelled gated].freeze
   OPEN = %w[queued running].freeze
 

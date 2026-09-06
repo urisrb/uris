@@ -26,8 +26,10 @@ class FakeFeedServer
     "#{origin}#{path}"
   end
 
-  def serve_body(path, body, content_type: "application/xml")
-    @lock.synchronize { @routes[path] = { status: "200 OK", body: body, type: content_type } }
+  def serve_body(path, body, content_type: "application/xml", headers: {})
+    @lock.synchronize do
+      @routes[path] = { status: "200 OK", body: body, type: content_type, headers: headers }
+    end
     url_for(path)
   end
 
@@ -117,6 +119,7 @@ class FakeFeedServer
         "Content-Length: #{route[:body].bytesize}"
       ]
       headers << "Location: #{route[:location]}" if route[:location]
+      route[:headers].to_h.each { |name, value| headers << "#{name}: #{value}" }
 
       (headers + [ "Connection: close", "", route[:body] ]).join("\r\n")
     end
