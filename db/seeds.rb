@@ -33,6 +33,11 @@ TENANTS.each do |attrs|
       warn "  storage unreachable (#{e.class}) — is docker compose running?"
     end
 
+    Resource::Web.find_or_create_by!(key: "web") do |resource|
+      resource.name = "Snapshots"
+      resource.details = {}
+    end
+
     if (endpoint = ENV["OLLAMA_URL"]).present?
       brain = Resource::OpenaiCompatible.find_or_initialize_by(key: "ollama")
       brain.assign_attributes(

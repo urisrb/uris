@@ -1,0 +1,197 @@
+require "digest"
+
+class Resource
+  class Web < Resource
+    class Gone < Resource::Failed; end
+
+    PREFIX = "snapshots"
+    MAX_TEXT = 100_000
+    LIST = 200
+
+    def self.capabilities
+      [ :browser ]
+    end
+
+    def self.command_schema
+      {
+        snapshot: { url: "string", width: "integer?", full_page: "boolean?" },
+        list: { limit: "integer?" },
+        get: { url: "string" }
+      }
+    end
+
+    def check!
+      unless Snapshot.available?
+        raise Resource::Unusable,
+              "#{key}: no browser to render with — install chromium or set URIS_CHROME_PATH"
+      end
+
+      storage
+      true
+    end
+
+    def kind_for(_object)
+      "page"
+    end
+
+    def version_for(locator)
+      locator.to_h["digest"].presence
+    end
+
+    def locator_key_for(object)
+      canonical(object)
+    end
+
+    def title_for(object)
+      object.to_s
+    end
+
+    # The bytes are a rendering, not something the origin will hand back a second
+    # time — visiting again produces a different page. So a snapshot is written
+    # into a storage resource and the locator remembers which one, rather than
+    # being re-fetched from the URL it came from.
+    def storage
+      named = details["storage"].presence
+      found = scoped { named ? Resource.active.find_by(key: named) : Resource.default_storage }
+
+      if found.nil?
+        raise Resource::Unusable,
+              "#{key}: #{named || 'this tenant'} has no storage to put a snapshot in"
+      end
+
+      found.storage!
+    end
+
+    def snapshot!(url, width: nil, full_page: nil)
+      capture = Snapshot.of(canonical(url), width: width || details["width"],
+                                            full_page: full_page.nil? ? true : full_page)
+
+      record!(capture)
+    end
+
+    def download(locator)
+      where = holding(locator)
+      where.download(locator.fetch("png"))
+    rescue KeyError
+      raise Gone, "#{key}: #{locator['url']} has no snapshot stored against it"
+    end
+
+    def read(locator)
+      where = holding(locator)
+      where.download(locator.fetch("text")).read.force_encoding(Encoding::UTF_8).scrub
+    rescue KeyError, Resource::Failed
+      ""
+    end
+
+    def command_snapshot(url:, width: nil, full_page: nil)
+      described(snapshot!(url, width: width, full_page: full_page))
+    end
+
+    def command_list(limit: nil)
+      count = (limit || 50).to_i.clamp(1, LIST)
+
+      {
+        "snapshots" => scoped { references.order(created_at: :desc).limit(count).to_a }
+                         .map { |reference| summary(reference.locator) }
+      }
+    end
+
+    def command_get(url:)
+      reference = scoped { references.find_by(locator_key: canonical(url)) }
+      raise Gone, "#{key}: nothing snapshotted at #{url}" if reference.nil?
+
+      summary(reference.locator).merge("text" => read(reference.locator).truncate(MAX_TEXT))
+    end
+
+    private
+
+      def references
+        Reference.where(resource_id: id)
+      end
+
+      def record!(capture)
+        stored = write!(capture)
+
+        scoped do
+          reference = Reference.discover!(
+            resource: self,
+            locator: stored,
+            locator_key: canonical(capture.url),
+            kind: "page",
+            title: capture.title.presence || capture.url
+          )
+
+          retitle!(reference, capture)
+          analyse!(reference)
+          reference
+        end
+      end
+
+      def write!(capture)
+        where = storage
+        digest = Digest::SHA256.hexdigest(capture.png)
+        stem = "#{PREFIX}/#{capture.taken_at.utc.strftime('%Y%m%dT%H%M%S')}-#{digest.first(16)}"
+
+        {
+          "url" => canonical(capture.url),
+          "final_url" => capture.final_url,
+          "title" => capture.title,
+          "taken_at" => capture.taken_at.utc.iso8601,
+          "width" => capture.width,
+          "height" => capture.height,
+          "digest" => digest,
+          "storage" => where.key,
+          "png" => where.upload("#{stem}.png", capture.png),
+          "text" => where.upload("#{stem}.txt", capture.text.to_s)
+        }
+      end
+
+      def retitle!(reference, capture)
+        title = capture.title.presence
+        return if title.blank? || reference.item.title == title
+
+        reference.item.update!(title: title)
+      end
+
+      def analyse!(reference)
+        return if reference.analyzed_at.present?
+
+        AnalyzeItemJob.start!(tenant_id, reference.item_id)
+      end
+
+      def holding(locator)
+        named = locator.to_h["storage"].presence
+        found = scoped { named ? Resource.find_by(key: named) : nil } || storage
+
+        found.storage!
+      end
+
+      def described(reference)
+        summary(reference.locator).merge(
+          "id" => reference.item_id.to_s,
+          "kind" => reference.item.kind
+        )
+      end
+
+      def summary(locator)
+        locator.to_h.slice("url", "final_url", "title", "taken_at", "width", "height", "digest")
+      end
+
+      # One item per address, so snapshotting the same page twice is a new version
+      # of the same thing rather than a second entry that has to be merged later.
+      def canonical(url)
+        uri = URI.parse(url.to_s)
+        uri.fragment = nil
+        uri.path = "/" if uri.path.blank?
+        uri.to_s
+      rescue URI::InvalidURIError
+        url.to_s
+      end
+
+      def scoped(&block)
+        return yield if Current.tenant&.id == tenant_id
+
+        Tenant.switch(tenant, &block)
+      end
+  end
+end

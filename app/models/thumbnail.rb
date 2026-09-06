@@ -5,7 +5,8 @@ class Thumbnail
 
   SIZES = { "small" => 96, "medium" => 320, "large" => 1024 }.freeze
   DEFAULT_SIZE = "medium"
-  KINDS = %w[image pdf].freeze
+  PREVIEW_SIZE = "large"
+  KINDS = %w[image pdf page].freeze
   CONTENT_TYPE = "image/jpeg"
   RETAIN = 30.days
 
@@ -44,6 +45,7 @@ class Thumbnail
         Dir.mktmpdir do |dir|
           case reference.kind
           when "image" then from_image(path, dir)
+          when "page" then from_page(path, dir)
           when "pdf" then from_pdf(path, dir)
           end
         end
@@ -56,6 +58,18 @@ class Thumbnail
         run("vipsthumbnail", ready, "--size", "#{width}x>", "-o", "#{out}[Q=80]")
         File.binread(out)
       end
+    end
+
+    # A full-page capture is a column metres long, and scaled to a tile it is a
+    # thread with nothing legible in it. Tiles take the top of the page square;
+    # the preview, which the vision analyzer reads, keeps the whole column.
+    def from_page(path, dir)
+      out = File.join(dir, "out.jpg")
+      crop = size == PREVIEW_SIZE ? [] : [ "--smartcrop", "low" ]
+      geometry = size == PREVIEW_SIZE ? "#{width}x>" : "#{width}x#{width}"
+
+      run("vipsthumbnail", path, "--size", geometry, *crop, "-o", "#{out}[Q=80]")
+      File.binread(out)
     end
 
     def viewable(path, &block)
@@ -77,8 +91,16 @@ class Thumbnail
       File.binread(rendered)
     end
 
+    # A page's locator key is the address it was taken from, and the tail of a URL
+    # says nothing about the bytes — the capture is always a PNG.
+    def suffix
+      return ".png" if reference.kind == "page"
+
+      File.extname(reference.locator_key.to_s)
+    end
+
     def source
-      Tempfile.create([ "thumb", File.extname(reference.locator_key.to_s) ], binmode: true) do |file|
+      Tempfile.create([ "thumb", suffix ], binmode: true) do |file|
         IO.copy_stream(reference.download, file)
         file.flush
         yield file.path

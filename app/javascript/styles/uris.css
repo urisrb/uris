@@ -27,6 +27,7 @@
   --k-text: #5f9fd0;
   --k-doc: #8093cc;
   --k-image: #a684c4;
+  --k-page: #b881b5;
   --k-pkpass: #c67d9e;
   --k-file: #7d8f96;
 
@@ -748,32 +749,23 @@ a.entry:hover {
 }
 
 .gate-inner {
-  width: min(560px, 100%);
+  width: min(720px, 100%);
 }
 
-.gate-lockup {
-  display: flex;
-  align-items: center;
-  gap: clamp(0.7rem, 2.4vw, 1.4rem);
-}
-
-.gate-lockup svg {
-  width: clamp(3.3rem, 12.4vw, 7rem);
+.gate-mark svg {
+  display: block;
+  width: clamp(3.25rem, 10vw, 5.5rem);
   height: auto;
-  flex: none;
-}
-
-.gate-word {
-  font-size: clamp(4rem, 15vw, 8.5rem);
 }
 
 .gate-line {
-  margin: var(--s5) 0 0;
-  font-size: clamp(1.75rem, 5vw, 2.75rem);
+  margin: clamp(var(--s4), 2.5vw, var(--s5)) 0 0;
+  font-size: clamp(2.125rem, 7.5vw, 4.25rem);
   font-weight: 700;
-  letter-spacing: -0.028em;
-  line-height: 1.1;
+  letter-spacing: -0.032em;
+  line-height: 1.05;
   color: var(--bright);
+  white-space: nowrap;
 }
 
 .cycle {

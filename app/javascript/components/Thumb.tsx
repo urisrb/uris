@@ -10,6 +10,7 @@ import {
   IconTable,
   IconTicket,
   IconUser,
+  IconWorld,
 } from '@tabler/icons-react'
 import { toned } from '../kinds'
 
@@ -23,6 +24,7 @@ const GLYPHS: Record<string, typeof IconFile> = {
   doc: IconFileTypeDoc,
   calendar: IconCalendarEvent,
   contact: IconUser,
+  page: IconWorld,
   pkpass: IconTicket,
 }
 

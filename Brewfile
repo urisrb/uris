@@ -8,5 +8,6 @@ brew "postgresql@17"
 brew "shfmt"
 brew "ollama"
 
+cask "chromium"
 cask "libreoffice"
 cask "font-urw-base35"

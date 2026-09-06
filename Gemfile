@@ -28,6 +28,8 @@ gem "aws-sdk-s3", require: false
 gem "net-imap", require: false
 gem "nokogiri"
 
+gem "ferrum"
+
 gem "job-iteration"
 
 gem "csv"

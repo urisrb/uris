@@ -1,6 +1,4 @@
 require "net/http"
-require "resolv"
-require "ipaddr"
 
 module PublicFetch
   extend ActiveSupport::Concern
@@ -14,34 +12,18 @@ module PublicFetch
 
   class_methods do
     def private_fetches_allowed?
-      ENV["URIS_ALLOW_PRIVATE_FETCH"].present?
+      PublicAddress.allowed?
     end
   end
 
   private
 
     def permitted!(target)
-      uri = URI.parse(target.to_s)
-
-      unless uri.is_a?(URI::HTTP) && uri.host.present?
-        raise Blocked, "#{key}: #{target} is not an http or https URL"
-      end
-
-      return uri if self.class.private_fetches_allowed?
-
-      addresses(uri.host).each do |address|
-        if address.loopback? || address.private? || address.link_local?
-          raise Blocked, "#{key}: #{uri.host} resolves to #{address}, which is not a public address"
-        end
-      end
-
-      uri
-    end
-
-    def addresses(host)
-      Resolv.getaddresses(host).filter_map do |found|
-        IPAddr.new(found) rescue nil
-      end.presence || raise(Resource::Failed, "#{key}: #{host} does not resolve")
+      PublicAddress.permitted!(target, allow_private: self.class.private_fetches_allowed?)
+    rescue PublicAddress::Blocked => e
+      raise Blocked, "#{key}: #{e.message}"
+    rescue PublicAddress::Unresolvable => e
+      raise Resource::Failed, "#{key}: #{e.message}"
     end
 
     def over_http(target, redirects: MAX_REDIRECTS, &build)

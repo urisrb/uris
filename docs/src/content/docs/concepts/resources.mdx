@@ -1,6 +1,6 @@
 ---
 title: Resources
-description: Ten STI subclasses of Resource, what each can do, and which of them can sync.
+description: Eleven STI subclasses of Resource, what each can do, and which of them can sync.
 ---
 
 A resource is a place items live. It is an *instance* — one bucket, one mailbox — and its type is
@@ -21,6 +21,7 @@ dasherizes the class name, so `Resource::OauthGoogle` stores and reports as `oau
 | `webdav` | `Resource::Webdav` | storage | ✓ |
 | `imap` | `Resource::Imap` | — | ✓ |
 | `rss` | `Resource::Rss` | — | ✓ |
+| `web` | `Resource::Web` | browser | — |
 | `caldav` | `Resource::Caldav` | — | ✓ |
 | `carddav` | `Resource::Carddav` | — | ✓ |
 | `oauth-google` | `Resource::OauthGoogle` | integration | — |
@@ -36,7 +37,7 @@ One class serves every vendor speaking its dialect: `s3` covers AWS, R2, B2, Was
 Garage.
 
 :::note[TODO]
-`compute`, `browser` and `media` capabilities have no implementation, nor do the `docker` and
+`compute` and `media` capabilities have no implementation, nor do the `docker` and
 `ssh-exec` types or the `node` attach class. `transport` has a contract — `reach!` — and one edge,
 `via_id`, but no type implements it yet: the `tailscale` type is not written, so every resource is
 reached directly.
@@ -44,8 +45,13 @@ reached directly.
 
 ## Capability
 
-`self.capabilities` returns an array of symbols. `storage`, `integration` and `inference` are in
-use; `transport` is defined and unimplemented.
+`self.capabilities` returns an array of symbols. `storage`, `integration`, `inference` and
+`browser` are in use; `transport` is defined and unimplemented.
+
+Only `storage` and `inference` are defaultable — `DEFAULTABLE` maps those two onto their columns,
+so a tenant can name the one bucket exports land in and the one backend summaries run through.
+`browser` has no default column because there is nothing to choose between: a `web` resource
+renders through the browser on the machine running the worker.
 
 ## Reaching a resource
 

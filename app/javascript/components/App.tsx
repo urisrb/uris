@@ -31,7 +31,6 @@ import { Mark } from './Mark'
 import { Resources } from './Resources'
 import { Runs } from './Runs'
 import { Settings } from './Settings'
-import { Spectrum } from './Spectrum'
 import { UploadsProvider, useUploads } from './Uploads'
 
 const VERBS: [string, string][] = [
@@ -98,23 +97,16 @@ function Gate({
   return (
     <div className="gate">
       <div className="gate-inner">
-        <div className="gate-lockup">
+        <div className="gate-mark">
           <Mark size={92} />
-          <div className="wordmark gate-word">uris</div>
-        </div>
-        <div style={{ marginTop: 'var(--s5)' }}>
-          <Spectrum />
         </div>
 
         <p className="gate-line">
-          Everything you <Cycle words={VERBS} />
+          <span className="wordmark">uris.to</span>/
+          <Cycle words={VERBS} />
         </p>
 
-        <p className="gate-tagline">
-          {unconnected
-            ? 'Connect a sign-in server. It is the front door to all of it.'
-            : 'Your items, together. One index across every account you own — searchable, and yours to take back out.'}
-        </p>
+        <p className="gate-tagline">Yours to keep</p>
 
         <Button
           mt="var(--s6)"

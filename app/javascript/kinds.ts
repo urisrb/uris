@@ -10,6 +10,7 @@ export const KIND_ORDER = [
   'text',
   'doc',
   'image',
+  'page',
   'pkpass',
   'file',
 ] as const
