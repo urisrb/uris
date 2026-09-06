@@ -89,11 +89,22 @@ class Item < ApplicationRecord
     raise ArgumentError, "an item cannot merge into itself" if other.id == id
 
     transaction do
+      keep_note_from(other)
       other.references.to_a.each { |reference| reference.move_to!(self) }
       references.reset
     end
 
     self
+  end
+
+  # The emptied item is destroyed once its last reference moves, so anything
+  # written about it has to come across first or it goes with it.
+  def keep_note_from(other)
+    return if other.note.blank?
+    return update!(note: other.note) if note.blank?
+    return if note.include?(other.note)
+
+    update!(note: [ note, other.note ].join("\n\n"))
   end
 
   def destroy_if_empty!

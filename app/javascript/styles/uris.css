@@ -984,6 +984,17 @@ a.entry:hover {
   display: none;
 }
 
+.note {
+  padding: var(--s4) var(--s5);
+  color: var(--text);
+  font-size: var(--t-small);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-left: 3px solid var(--brass);
+  max-width: 72ch;
+}
+
 .naming {
   display: flex;
   align-items: center;

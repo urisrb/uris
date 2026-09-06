@@ -1,9 +1,19 @@
-import { Alert, Button, Code, Group, Loader, Stack, Text } from '@mantine/core'
+import {
+  Alert,
+  Button,
+  Code,
+  Group,
+  Loader,
+  Stack,
+  Text,
+  Textarea,
+} from '@mantine/core'
 import {
   IconArrowLeft,
   IconArrowMerge,
   IconCut,
   IconEraser,
+  IconNote,
   IconPencil,
   IconSparkles,
 } from '@tabler/icons-react'
@@ -11,6 +21,7 @@ import {
   AnalyzeItemDocument,
   ForgetItemDocument,
   ItemDocument,
+  NoteItemDocument,
   RenameItemDocument,
   SplitReferenceDocument,
 } from '@uris-to/client'
@@ -45,6 +56,7 @@ export function ItemDetail() {
     'That item could not be forgotten.',
   )
   const rename = useAloud(RenameItemDocument, 'That name could not be kept.')
+  const note = useAloud(NoteItemDocument, 'That note could not be kept.')
 
   const item = data?.item
 
@@ -195,12 +207,29 @@ export function ItemDetail() {
         </Group>
       )}
 
+      <Noting
+        note={item.note ?? ''}
+        busy={note.loading}
+        onNote={async (next) => {
+          const answered = await note.execute({ id: item.id, note: next })
+
+          if (!answered) return false
+
+          say({ text: next ? 'Noted.' : 'The note is gone.' })
+          refetch()
+          return true
+        }}
+      />
+
       {item.summary && (
-        <div className="panel" style={{ padding: 'var(--s4) var(--s5)' }}>
-          <Text size="sm" style={{ lineHeight: 1.6, maxWidth: '72ch' }}>
-            {item.summary}
-          </Text>
-        </div>
+        <Stack gap="var(--s2)">
+          <div className="label">What uris made of it</div>
+          <div className="panel" style={{ padding: 'var(--s4) var(--s5)' }}>
+            <Text size="sm" style={{ lineHeight: 1.6, maxWidth: '72ch' }}>
+              {item.summary}
+            </Text>
+          </div>
+        </Stack>
       )}
 
       <Stack gap="var(--s3)">
@@ -368,5 +397,102 @@ function Naming({
         if (event.key === 'Escape') setNaming(false)
       }}
     />
+  )
+}
+
+function Noting({
+  note,
+  busy,
+  onNote,
+}: {
+  note: string
+  busy: boolean
+  onNote: (next: string) => Promise<boolean>
+}) {
+  const [writing, setWriting] = useState(false)
+  const [draft, setDraft] = useState(note)
+
+  useEffect(() => setDraft(note), [note])
+
+  const keep = async () => {
+    if (await onNote(draft.trim())) setWriting(false)
+  }
+
+  if (!writing) {
+    return note ? (
+      <Stack gap="var(--s2)">
+        <Group justify="space-between" align="baseline">
+          <div className="label">Your note</div>
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            color="gray"
+            onClick={() => setWriting(true)}
+          >
+            Edit
+          </Button>
+        </Group>
+
+        <div className="panel note">{note}</div>
+      </Stack>
+    ) : (
+      <Button
+        w="fit-content"
+        size="compact-sm"
+        radius="xl"
+        variant="subtle"
+        color="gray"
+        leftSection={<IconNote size={15} />}
+        onClick={() => setWriting(true)}
+      >
+        Add a note
+      </Button>
+    )
+  }
+
+  return (
+    <Stack gap="var(--s2)">
+      <div className="label">Your note</div>
+
+      <Textarea
+        autosize
+        autoFocus
+        minRows={3}
+        value={draft}
+        disabled={busy}
+        aria-label="Your note"
+        placeholder="Anything you want to remember about this — uris will not touch it, and a search will find it."
+        onChange={(event) => setDraft(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            setDraft(note)
+            setWriting(false)
+          }
+        }}
+      />
+
+      <Group gap="var(--s2)">
+        <Button
+          size="xs"
+          radius="xl"
+          color="chalk"
+          loading={busy}
+          onClick={keep}
+        >
+          Keep it
+        </Button>
+        <Button
+          size="xs"
+          radius="xl"
+          variant="default"
+          onClick={() => {
+            setDraft(note)
+            setWriting(false)
+          }}
+        >
+          Cancel
+        </Button>
+      </Group>
+    </Stack>
   )
 }

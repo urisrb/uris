@@ -56,7 +56,7 @@ paged field that can tell you how many matched rather than only whether more rem
 | --- | --- |
 | `addNote` `snapshotUrl` `fetchUrl` | `uris:write` |
 | `analyzeItem` `mergeItems` `splitReference` `proposeMerges` `settleMergeProposal` | `uris:write` |
-| `renameItem` `forgetItem` | `uris:write` |
+| `renameItem` `noteItem` `forgetItem` | `uris:write` |
 | `exportItems` `cancelRun` | `uris:write` |
 | `saveFeed` `runFeed` `pauseFeed` `deleteFeed` | `uris:write` |
 | `attachResource` `enrollResource` `syncResource` `checkResource` `archiveResource` | `resources:command` |
@@ -70,6 +70,11 @@ because a secret in a tool call is a secret in the transcript.
 
 `addNote` answers with the item. `snapshotUrl` and `fetchUrl` answer with a `Run` to watch, since
 rendering a page and pulling a file both outlast a request.
+
+`noteItem` writes your own words onto an item and clears them when given a blank. A note is
+indexed alongside the title and weighted the same, so it is a way of making something findable by
+what you call it rather than by what is in it — and `Item#merge!` carries a note across before the
+emptied item is destroyed, because otherwise merging would quietly eat it.
 
 Nothing that removes reaches through to storage anyone else owns. `forgetItem` drops an item's
 references and its search entry, and a later sync of the same resource will catalogue it again.

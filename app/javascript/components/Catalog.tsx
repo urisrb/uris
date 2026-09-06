@@ -372,8 +372,9 @@ function Empty({
   if (searching) {
     return (
       <Text c="dimmed" size="sm">
-        Nothing matches that yet. Analysis is what makes an item searchable, so
-        anything still waiting on it will not turn up here.
+        Nothing matches that yet. An item turns up here once it has been
+        analyzed or you have written a note on it, so anything still waiting on
+        both will not.
       </Text>
     )
   }

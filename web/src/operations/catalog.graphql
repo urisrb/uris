@@ -45,6 +45,7 @@ query Item($id: ID!) {
     id
     kind
     title
+    note
     summary
     thumbnailUrl
     analyzedAt
@@ -106,6 +107,15 @@ mutation RenameItem($id: ID!, $title: String!) {
     item {
       id
       title
+    }
+  }
+}
+
+mutation NoteItem($id: ID!, $note: String) {
+  noteItem(input: { id: $id, note: $note }) {
+    item {
+      id
+      note
     }
   }
 }

@@ -243,7 +243,8 @@ CREATE TABLE public.items (
     parent_id bigint,
     origin character varying DEFAULT 'resource'::character varying NOT NULL,
     feed_id bigint,
-    run_id bigint
+    run_id bigint,
+    note text
 );
 
 ALTER TABLE ONLY public.items FORCE ROW LEVEL SECURITY;
@@ -1521,6 +1522,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260906150000'),
 ('20260906140000'),
 ('20260906120000'),
 ('20260906024000'),

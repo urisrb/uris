@@ -14,6 +14,7 @@ module Types
     field :title, String
     field :references, [ Types::ReferenceType ], null: false
     field :analyzed_at, GraphQL::Types::ISO8601DateTime
+    field :note, String, description: "What you wrote about it, in your own words."
     field :summary, String
     field :thumbnail_url, String
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false
