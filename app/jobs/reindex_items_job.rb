@@ -41,7 +41,7 @@ class ReindexItemsJob < ApplicationJob
   private
 
     def page_after(after)
-      scope = Item.includes(:references).order(:id).limit(PAGE)
+      scope = Item.includes(:references, children: :references).order(:id).limit(PAGE)
       scope = scope.where("items.id > ?", after.to_i) if after.present?
       scope.to_a
     end

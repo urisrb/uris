@@ -15,12 +15,19 @@ module Types
     field :references, [ Types::ReferenceType ], null: false
     field :analyzed_at, GraphQL::Types::ISO8601DateTime
     field :note, String, description: "What you wrote about it, in your own words."
-    field :summary, String
+    field :summary, String,
+          description: "What a model made of it. The extracted text, until one has run."
+    field :keywords, [ String ], null: false,
+          description: "Search terms a model drew out of it."
     field :thumbnail_url, String
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false
 
     def summary
-      object.body_text&.squish&.truncate(SUMMARY)
+      object.summary || object.body_text&.squish&.truncate(SUMMARY)
+    end
+
+    def keywords
+      object.keywords
     end
 
     def thumbnail_url

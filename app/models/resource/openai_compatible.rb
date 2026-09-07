@@ -10,6 +10,7 @@ class Resource
     MAX_TOKENS = 1024
     TEMPERATURE = 0.2
     JSON_ATTEMPTS = 3
+    VISION_JSON_ATTEMPTS = 10
     MAX_PROMPT = 40_000
     MAX_IMAGE = 8.megabytes
     IMAGE_TYPE = "image/jpeg"
@@ -201,9 +202,10 @@ class Resource
 
     def summarize(prompt, role:, promptable: nil, images: [])
       model = model_for(role)
+      tries = attempts_for(role)
       last = nil
 
-      JSON_ATTEMPTS.times do |index|
+      tries.times do |index|
         answer = complete(prompt, model: model, role: role, promptable: promptable,
                           attempt: index + 1, images: images)
         parsed = self.class.extract_json(answer)
@@ -214,7 +216,11 @@ class Resource
       end
 
       raise Resource::Unusable,
-            "#{key}: #{model} did not answer with JSON in #{JSON_ATTEMPTS} tries — #{last.to_s.truncate(200)}"
+            "#{key}: #{model} did not answer with JSON in #{tries} tries — #{last.to_s.truncate(200)}"
+    end
+
+    def attempts_for(role)
+      role.to_s == "vision" ? VISION_JSON_ATTEMPTS : JSON_ATTEMPTS
     end
 
     def command_models

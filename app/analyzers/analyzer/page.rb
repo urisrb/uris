@@ -24,14 +24,13 @@ module Analyzer
         Title: #{step_result(:page).to_h['title'] || 'none'}
         Captured: #{step_result(:page).to_h['taken_at']}
         #{rendered_text}
-        Return ONLY valid JSON, no markdown and no explanation:
-        {"summary": "...", "keywords": ["...", "..."]}
-
-        - summary: two or three sentences on what this page is, what it says, and
-          what it appears to be for
-        - keywords: up to #{SUMMARY_KEYWORDS} search terms, as an array of strings
+        #{summary_shape(SAYS)}
       PROMPT
     end
+
+    SAYS = "two or three sentences on what this page is and what it says. Name " \
+           "the site, the people, the products and the figures it carries rather " \
+           "than describing them in the abstract."
 
     def summary_images
       [ preview ]

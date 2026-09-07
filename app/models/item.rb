@@ -162,18 +162,33 @@ class Item < ApplicationRecord
   end
 
   def announce_analyzed!
-    Tenant.switch(tenant) do
-      UrisSchema.subscriptions.trigger(:item_analyzed, {}, self, scope: tenant_id)
-      UrisSchema.subscriptions.trigger(:item_analyzed, { id: to_gid_param }, self,
-                                         scope: tenant_id)
-    end
+    UrisSchema.subscriptions.trigger(:item_analyzed, {}, self, scope: tenant_id)
+    UrisSchema.subscriptions.trigger(:item_analyzed, { id: to_gid_param }, self,
+                                       scope: tenant_id)
   end
 
-  def body_text
+  def body_text(without: [])
     strings = []
-    collect_strings(references.flat_map(&:extracted)) { |s| strings << s }
-    children.each { |child| collect_strings(child.references.flat_map(&:extracted)) { |s| strings << s } }
+    collect_strings(references.flat_map { |ref| ref.extracted(without: without) }) { |s| strings << s }
+    children.each do |child|
+      collect_strings(child.references.flat_map { |ref| ref.extracted(without: without) }) { |s| strings << s }
+    end
     strings.uniq.join("\n").presence
+  end
+
+  def summaries
+    (references.filter_map(&:summary) +
+      children.flat_map { |child| child.references.filter_map(&:summary) }).uniq
+  end
+
+  def summary
+    references.filter_map(&:summary).first
+  end
+
+  def keywords
+    (references.flat_map { |ref| ref.keywords + ref.entities } +
+      children.flat_map { |child| child.references.flat_map { |ref| ref.keywords + ref.entities } })
+      .uniq { |word| word.downcase }
   end
 
   DEPTH = 4
@@ -196,7 +211,7 @@ class Item < ApplicationRecord
   private
 
     def index_for_search
-      Tenant.switch(Tenant.find(tenant_id)) { SearchIndex.index(Item.find_by(id: id) || self) }
+      SearchIndex.index(Item.find_by(id: id) || self)
     end
 
     def remove_from_search

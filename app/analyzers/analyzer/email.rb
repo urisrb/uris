@@ -41,7 +41,7 @@ module Analyzer
     def summary_prompt
       headers = step_result(:headers) || {}
       body = step_result(:text).to_s
-      return nil if body.blank? && headers.blank?
+      return super if body.blank? && headers.blank?
 
       attached = children_summaries
 
@@ -60,13 +60,12 @@ module Analyzer
         #{body.truncate(SUMMARY_BODY)}
         ---
 
-        Return ONLY valid JSON, no markdown and no explanation:
-        {"summary": "...", "keywords": ["...", "..."]}
-
-        - summary: one sentence — who wants what, and by when
-        - keywords: up to #{SUMMARY_KEYWORDS} search terms, as an array of strings
+        #{summary_shape(SAYS)}
       PROMPT
     end
+
+    SAYS = "one or two sentences — who wants what, and by when. Name the sender, " \
+           "the organisation, the amounts and the dates rather than alluding to them."
 
     private
 
@@ -104,19 +103,11 @@ module Analyzer
         part = message.multipart? ? (message.text_part || message.html_part) : message
 
         text = part&.decoded.to_s.force_encoding("UTF-8").scrub
-        text = strip_tags(text) if part&.mime_type == "text/html"
+        text = Markup.strip(text) if part&.mime_type == "text/html"
 
         [ stringify(message.subject), text ].compact.join("\n\n").strip
       rescue StandardError
         stringify(message.subject).to_s
-      end
-
-      def strip_tags(html)
-        html.gsub(%r{<(script|style)[^>]*>.*?</\1>}mi, " ")
-            .gsub(/<[^>]+>/, " ")
-            .gsub(/&nbsp;/i, " ")
-            .squeeze(" ")
-            .strip
       end
   end
 end

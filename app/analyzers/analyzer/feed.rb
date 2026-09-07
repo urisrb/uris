@@ -18,16 +18,7 @@ module Analyzer
       def body_of(reference)
         content = reference.download.read.force_encoding("UTF-8").scrub
 
-        [ reference.item.title, strip_tags(content) ].compact_blank.join("\n\n").strip
-      end
-
-      def strip_tags(html)
-        html.gsub(%r{<(script|style)[^>]*>.*?</\1>}mi, " ")
-            .gsub(/<[^>]+>/, " ")
-            .gsub(/&nbsp;/i, " ")
-            .gsub(/&amp;/i, "&")
-            .squeeze(" ")
-            .strip
+        [ reference.item.title, Markup.strip(content) ].compact_blank.join("\n\n").strip
       end
   end
 end

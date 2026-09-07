@@ -1,7 +1,7 @@
 module Analyzer
   class Failed < StandardError; end
 
-  PROMPTS_CHANGED_AT = Time.utc(2026, 9, 5).freeze
+  PROMPTS_CHANGED_AT = Time.utc(2026, 9, 7).freeze
 
   def self.all
     [

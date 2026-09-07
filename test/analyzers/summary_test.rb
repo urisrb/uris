@@ -175,17 +175,19 @@ class SummaryTest < ActiveSupport::TestCase
     end
   end
 
-  test "a document below the minimum is never sent to the model" do
+  test "a document too short to have been worth extracting is summarized anyway" do
     Tenant.switch(@tenant) { store("tiny.txt", "too short") }
     sync
     inference!
+    @server.answer_json("summary" => "A two-word note reading \"too short\".",
+                        "keywords" => [ "too short" ])
 
     analyze "tiny.txt"
 
-    assert_equal 0, @server.count_for("/v1/chat/completions")
+    assert_equal 1, @server.count_for("/v1/chat/completions")
 
     Tenant.switch(@tenant) do
-      assert_not reference("tiny.txt").analysis.fetch("steps").key?("summary")
+      assert reference("tiny.txt").analysis.dig("steps", "summary", "result", "summary").present?
     end
   end
 
@@ -240,18 +242,45 @@ class SummaryTest < ActiveSupport::TestCase
     end
   end
 
-  test "a kind that extracts no text asks the model nothing" do
+  test "a kind that extracts no text is described from what can be seen of it" do
     inference!
+
+    @server.answer_json("summary" => "A 21-byte binary file named mystery.bin. Its contents were not read.",
+                        "keywords" => [ "mystery.bin" ])
 
     Tenant.switch(@tenant) { store("mystery.bin", "\x01\x02\x03 not text at all") }
     sync
     analyze "mystery.bin"
 
-    assert_equal 0, @server.count_for("/v1/chat/completions")
+    Tenant.switch(@tenant) do
+      steps = reference("mystery.bin").analysis.fetch("steps")
+
+      assert_not steps.key?("text")
+      assert_equal "binary", steps.dig("format", "result", "observed")
+      assert steps.dig("summary", "result", "summary").present?
+    end
+
+    assert_includes @server.prompts.last, "No text could be read out of this file"
+  end
+
+  test "a file nothing claims but that is plainly text is read rather than weighed" do
+    inference!
+
+    @server.answer_json("summary" => "An access log of order and refund requests.",
+                        "keywords" => [ "orders", "refunds" ])
+
+    Tenant.switch(@tenant) { store("server.log", "GET /orders/4820 200\nPOST /refunds 500\n" * 8) }
+    sync
+    analyze "server.log"
 
     Tenant.switch(@tenant) do
-      assert_not reference("mystery.bin").analysis.fetch("steps").key?("summary")
+      steps = reference("server.log").analysis.fetch("steps")
+
+      assert_equal "text", steps.dig("format", "result", "observed")
+      assert_includes steps.dig("text", "result"), "/orders/4820"
     end
+
+    assert_includes @server.prompts.last, "/orders/4820"
   end
 
   private
@@ -260,7 +289,8 @@ class SummaryTest < ActiveSupport::TestCase
       Tenant.switch(@tenant) do
         @inference = Resource::OpenaiCompatible.create!(
           key: "ollama", name: "Local models",
-          details: { "base_url" => @server.base_url, "models" => { "smart" => "llama3.1:8b" } }
+          details: { "base_url" => @server.base_url,
+                     "models" => { "smart" => "llama3.1:8b", "fast" => "gemma3:4b" } }
         )
         @inference.make_default_inference!
       end

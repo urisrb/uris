@@ -19,6 +19,8 @@ module SearchIndex
       title: { type: "text", analyzer: "path" },
       locator_key: { type: "text", analyzer: "path" },
       note: { type: "text" },
+      summary: { type: "text" },
+      keywords: { type: "text", analyzer: "path", fields: { raw: { type: "keyword" } } },
       body: { type: "text" },
       resource_ids: { type: "long" },
       created_at: { type: "date" }
@@ -136,7 +138,9 @@ module SearchIndex
         title: item.title,
         note: item.note,
         locator_key: item.references.map(&:locator_key).compact.join(" "),
-        body: item.body_text,
+        summary: item.summaries.join("\n"),
+        keywords: item.keywords,
+        body: item.body_text(without: [ :summary ]),
         resource_ids: item.references.map(&:resource_id),
         created_at: item.created_at
       }
@@ -151,7 +155,8 @@ module SearchIndex
 
       must = if query.present?
         [ { multi_match: {
-          query: query, fields: %w[title^2 note^2 locator_key body], operator: "and"
+          query: query, fields: %w[title^3 keywords^3 note^2 summary^2 locator_key body],
+          operator: "and"
         } } ]
       else
         [ { match_all: {} } ]

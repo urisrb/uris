@@ -18,7 +18,7 @@ module Analyzer
 
     def summary_prompt
       events = step_result(:events) || []
-      return nil if events.empty?
+      return super if events.empty?
 
       lines = events.first(SUMMARY_EVENTS).map do |event|
         "- #{[ event['dtstart'], event['summary'], event['location'] ].compact_blank.join(' — ')}"
@@ -30,16 +30,13 @@ module Analyzer
         Filename: #{reference.filename}
         Events: #{events.size}
 
-        First #{lines.size}:
-        #{lines.join("\n")}
-
-        Return ONLY valid JSON, no markdown and no explanation:
-        {"summary": "...", "keywords": ["...", "..."]}
-
-        - summary: one or two sentences on what is on this calendar and over what period
-        - keywords: up to #{SUMMARY_KEYWORDS} search terms, as an array of strings
+        #{fenced("First #{lines.size} of #{events.size} events:\n#{lines.join("\n")}")}
+        #{summary_shape(SAYS)}
       PROMPT
     end
+
+    SAYS = "one or two sentences on what is on this calendar and over what period. " \
+           "Name the events, the people and the places rather than counting them."
 
     private
 

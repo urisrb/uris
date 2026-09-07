@@ -18,7 +18,7 @@ module Analyzer
 
     def summary_prompt
       sheets = step_result(:sheets) || []
-      return nil if sheets.empty?
+      return super if sheets.empty?
 
       described = sheets.map do |sheet|
         headers = Array(sheet["headers"]).compact.join(" | ")
@@ -39,13 +39,13 @@ module Analyzer
         #{described.join("\n\n").truncate(SUMMARY_TEXT)}
         ---
 
-        Return ONLY valid JSON, no markdown and no explanation:
-        {"summary": "...", "keywords": ["...", "..."]}
-
-        - summary: what this workbook holds and what it is for, two or three sentences
-        - keywords: up to #{SUMMARY_KEYWORDS} search terms, as an array of strings
+        #{summary_shape(SAYS)}
       PROMPT
     end
+
+    SAYS = "two or three sentences on what this workbook holds. Name the sheets, " \
+           "the columns and the organisations, people or periods the data covers, " \
+           "in the words the workbook uses."
 
     private
 

@@ -109,16 +109,35 @@ class Reference < ApplicationRecord
     Thumbnail.available_for?(kind)
   end
 
-  def extracted
-    analysis.fetch("steps", {}).values.filter_map { |step| step["result"] }
+  def extracted(without: [])
+    skipped = Array(without).map(&:to_s)
+
+    analysis.fetch("steps", {}).except(*skipped).values.filter_map { |step| step["result"] }
+  end
+
+  def summary
+    analysis.dig("steps", "summary", "result", "summary").presence
+  end
+
+  def keywords
+    summary_terms("keywords")
+  end
+
+  def entities
+    summary_terms("entities")
+  end
+
+  def summary_terms(key)
+    Array(analysis.dig("steps", "summary", "result", key)).filter_map do |word|
+      word.to_s.strip.presence
+    end
   end
 
   private
 
     def reindex_item
-      Tenant.switch(Tenant.find(tenant_id)) do
-        subject = Item.find_by(id: item_id)
-        SearchIndex.index(subject) if subject
-      end
+      subject = Item.find_by(id: item_id)
+
+      SearchIndex.index(subject) if subject
     end
 end

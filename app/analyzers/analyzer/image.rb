@@ -37,14 +37,13 @@ module Analyzer
         Filename: #{reference.filename}
         Dimensions: #{width}×#{height}
         #{read_text}
-        Return ONLY valid JSON, no markdown and no explanation:
-        {"summary": "...", "keywords": ["...", "..."]}
-
-        - summary: two or three sentences on what is in the image — people, objects,
-          setting, any text it carries — and what it appears to be for
-        - keywords: up to #{SUMMARY_KEYWORDS} search terms, as an array of strings
+        #{summary_shape(SAYS)}
       PROMPT
     end
+
+    SAYS = "two or three sentences on what is in the image — people, objects, " \
+           "setting, and any text it carries. Name what you can identify rather " \
+           "than its category, and transcribe any text exactly as it appears."
 
     def summary_images
       [ preview ]
