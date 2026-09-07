@@ -1,7 +1,9 @@
 require "socket"
 require "json"
+require "digest"
 
 class FakeModelServer
+  WIDTH = 768
   class << self
     def current
       @current ||= new
@@ -19,6 +21,9 @@ class FakeModelServer
     @counts = Hash.new(0)
     @authorizations = Hash.new { |hash, key| hash[key] = [] }
     @hang = 0
+    @embedded = []
+    @width = WIDTH
+    @vectors = {}
     @server = TCPServer.new("127.0.0.1", 0)
     @port = @server.addr[1]
     @thread = Thread.new { serve }
@@ -41,8 +46,25 @@ class FakeModelServer
       @counts = Hash.new(0)
       @authorizations = Hash.new { |hash, key| hash[key] = [] }
       @hang = 0
+      @embedded = []
+      @width = WIDTH
+      @vectors = {}
     end
     self
+  end
+
+  def embeds(width: WIDTH)
+    @lock.synchronize { @width = width }
+    self
+  end
+
+  def embeds_as(text, vector)
+    @lock.synchronize { @vectors[text.to_s] = vector }
+    self
+  end
+
+  def embedded
+    @lock.synchronize { @embedded.dup }
   end
 
   def serves(*models)
@@ -137,8 +159,36 @@ class FakeModelServer
       case path
       when %r{/models\z} then rendered(200, JSON.generate(models_payload))
       when %r{/chat/completions\z} then completion(body)
+      when %r{/embeddings\z} then embeddings(body)
       else rendered(404, "")
       end
+    end
+
+    def embeddings(body)
+      wanted = Array(JSON.parse(body)["input"])
+      @lock.synchronize { @embedded.concat(wanted) }
+
+      data = wanted.each_with_index.map do |text, index|
+        { "index" => index, "embedding" => vector_for(text) }
+      end
+
+      rendered(200, JSON.generate({ "object" => "list", "data" => data }))
+    rescue JSON::ParserError
+      rendered(400, "")
+    end
+
+    def vector_for(text)
+      held, width = @lock.synchronize { [ @vectors[text.to_s], @width ] }
+
+      return held if held
+
+      vector = Array.new(width, 0.0)
+
+      text.to_s.downcase.scan(/[a-z0-9]+/).each do |word|
+        vector[Digest::SHA256.hexdigest(word)[0, 8].to_i(16) % width] += 1.0
+      end
+
+      vector
     end
 
     def models_payload

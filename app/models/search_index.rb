@@ -1,7 +1,12 @@
 module SearchIndex
   class Failed < StandardError; end
 
+  VECTOR_DIMENSIONS = ENV.fetch("URIS_EMBEDDING_DIMENSIONS", 768).to_i
+  CANDIDATES = 200
+  FUSION_RANK = 60
+
   SETTINGS = {
+    index: { knn: true },
     analysis: {
       tokenizer: {
         path_parts: { type: "pattern", pattern: "[/\\\\\\-_.\\s]+" }
@@ -23,7 +28,12 @@ module SearchIndex
       keywords: { type: "text", analyzer: "path", fields: { raw: { type: "keyword" } } },
       body: { type: "text" },
       resource_ids: { type: "long" },
-      created_at: { type: "date" }
+      created_at: { type: "date" },
+      embedding: {
+        type: "knn_vector",
+        dimension: VECTOR_DIMENSIONS,
+        method: { name: "hnsw", engine: "lucene", space_type: "cosinesimil" }
+      }
     }
   }.freeze
 
@@ -161,8 +171,9 @@ module SearchIndex
         keywords: item.keywords,
         body: item.body_text(without: [ :summary ]),
         resource_ids: item.references.map(&:resource_id),
-        created_at: item.created_at
-      }
+        created_at: item.created_at,
+        embedding: item.embedding.presence
+      }.compact
     end
 
     def search(query, tenant: Current.tenant, kind: nil, limit: 50)
@@ -172,6 +183,18 @@ module SearchIndex
     def page(query, tenant: Current.tenant, kind: nil, limit: 50, from: 0)
       raise ArgumentError, "no tenant" if tenant.nil?
 
+      vector = wanted_vector(query, limit: limit, from: from)
+      depth = vector ? CANDIDATES : limit
+      found = lexical(query, tenant: tenant, kind: kind, limit: depth, from: vector ? 0 : from)
+
+      return found if vector.nil?
+
+      fused = fuse(found[:ids], nearest(vector, tenant: tenant, kind: kind, limit: depth))
+
+      { ids: fused.drop(from).first(limit), total: [ found[:total], fused.length ].max }
+    end
+
+    def lexical(query, tenant:, kind:, limit:, from:)
       must = if query.present?
         [ { multi_match: {
           query: query, fields: %w[title^3 keywords^3 note^2 summary^2 locator_key body],
@@ -197,6 +220,37 @@ module SearchIndex
       }
     end
 
+    def nearest(vector, tenant:, kind:, limit:)
+      must = [ { term: { tenant_id: tenant.id } } ]
+      must << { term: { kind: kind } } if kind
+
+      response = client.search(
+        index: alias_for(tenant),
+        body: {
+          query: { knn: { embedding: { vector: vector, k: limit, filter: { bool: { must: must } } } } },
+          size: limit, _source: false
+        }
+      )
+
+      response.dig("hits", "hits").map { |hit| hit["_id"].to_i }
+    rescue OpenSearch::Transport::Transport::Errors::BadRequest,
+           OpenSearch::Transport::Transport::Errors::NotFound => e
+      Rails.logger.warn("the search engine refused a vector query: #{e.message.truncate(200)}")
+      []
+    end
+
+    def fuse(lexical, semantic)
+      scored = Hash.new(0.0)
+
+      [ lexical, semantic ].each do |ranked|
+        ranked.each_with_index { |id, rank| scored[id] += 1.0 / (FUSION_RANK + rank + 1) }
+      end
+
+      seen = scored.keys.each_with_index.to_h
+
+      scored.sort_by { |id, score| [ -score, seen[id] ] }.map(&:first)
+    end
+
     def refresh!(index: alias_name)
       client.indices.refresh(index: index)
     rescue OpenSearch::Transport::Transport::Errors::NotFound
@@ -212,6 +266,12 @@ module SearchIndex
     end
 
     private
+
+      def wanted_vector(query, limit:, from:)
+        return nil if query.blank? || (from + limit) > CANDIDATES
+
+        Embedding.query(query)
+      end
 
       def tenant_alias(tenant, index)
         {

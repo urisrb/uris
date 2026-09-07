@@ -1,6 +1,6 @@
 ---
 title: Search the catalog
-description: One OpenSearch query across every resource that has been synced, matching titles, paths and extracted text.
+description: One query across every resource that has been synced, fusing word matches with vector matches.
 ---
 
 ```json
@@ -17,15 +17,19 @@ Omit `query` and the search becomes a `match_all` — the most recent items, opt
 
 ## What it matches
 
-`SearchIndex.search` runs a `multi_match` over three fields:
+`SearchIndex.lexical` runs a `multi_match`:
 
 ```ruby
-{ multi_match: { query: query, fields: %w[title^2 locator_key body], operator: "and" } }
+{ multi_match: { query: query, fields: %w[title^3 keywords^3 note^2 summary^2 locator_key body],
+                 operator: "and" } }
 ```
 
 | Field | Holds | Analyzer |
 | --- | --- | --- |
-| `title` | the item's title, boosted ×2 | `path` |
+| `title` | the item's title, boosted ×3 | `path` |
+| `keywords` | the terms and entities analysis pulled out, boosted ×3 | `path` |
+| `note` | what you wrote on it, boosted ×2 | standard |
+| `summary` | what a model wrote about it, boosted ×2 | standard |
 | `locator_key` | the key within its resource | `path` |
 | `body` | `Item#body_text` | standard |
 
@@ -39,6 +43,56 @@ not yet analyzed matches on its path and title alone.
 
 `Item.search` asks the index for ids and reloads them from Postgres with `in_order_of`, so results
 keep their relevance order while every column comes from the system of record.
+
+## Meaning, not only words
+
+`operator: "and"` is unforgiving on purpose — it is what stops a three-word query returning a
+thousand loose matches. The cost is that a question phrased differently from the document finds
+nothing at all, which is most of how people search.
+
+So every item also carries a vector, and a query is answered twice: once by words, once by
+distance.
+
+```ruby
+{ knn: { embedding: { vector: vector, k: 200, filter: { bool: { must: [...] } } } } }
+```
+
+The two ranked lists are fused with reciprocal rank
+[RRF](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf) — each list contributes
+`1 / (60 + rank)` to an id's score, and the sum orders the result. Nothing is thrown away: a word
+match the vector missed keeps its place, and a vector match sharing no word with the query is found
+at all. There is no tuned weight between the two, because a rank is comparable across lists in a way
+a BM25 score and a cosine distance are not.
+
+Fusion needs candidates deeper than the page it returns, so it reads `SearchIndex::CANDIDATES` from
+each side. A window past that depth is served lexically, where paging is exact.
+
+### What gets embedded
+
+Not the file — its gist: title, keywords, summary, your note, and the head of the extracted body.
+An item is embedded from what is known about it, which means search quality is downstream of
+[analysis](/concepts/analysis/) on the vector side too.
+
+`EmbedItemsJob` sweeps every minute for items whose vector is older than the text it was made from,
+embeds a batch in one call, and re-indexes them. There is no per-item job and no hook in the sync
+path: an item is embedded because its gist changed, not because something remembered to ask. The
+digest is over the model name as well as the text, so pointing a tenant at a different embedding
+model re-embeds the catalog rather than mixing two vector spaces in one index.
+
+### Declaring the model
+
+A model backend serves the `embedding` role by naming a model for it. Unlike the other roles, a
+`default` model will not stand in — a model that writes a decent summary is not thereby a vector
+space, and silently embedding with the wrong one is worse than not embedding at all.
+
+The index is built for one width, `URIS_EMBEDDING_DIMENSIONS` (768). `check_resource` embeds a probe
+string and refuses a model whose vectors are a different width, naming both numbers, rather than
+letting the mismatch surface as a mapper exception at index time. Changing the width changes the
+mapping stamp, so the index rebuilds itself; the stored vectors do not survive that change, and the
+sweep re-embeds.
+
+If no backend declares an embedding model, or the one that does cannot be reached, search runs
+lexically and answers. A sleeping GPU is not an outage.
 
 ## Then get one
 
@@ -66,7 +120,9 @@ carrying a `term` filter on `tenant_id` that the engine applies:
 { add: { index: index, alias: alias_for(tenant), filter: { term: { tenant_id: tenant.id } } } }
 ```
 
-See [Tenancy](/concepts/tenancy/).
+A vector query carries the same `term` a second time, inside its own `filter`, rather than trusting
+the alias alone. A k-nearest search is a ranking before it is a filter, and the two compose in an
+order worth being explicit about. See [Tenancy](/concepts/tenancy/).
 
 ## Rebuilding
 

@@ -21,6 +21,16 @@ class Item < ApplicationRecord
   scope :synced, -> { where(origin: "resource") }
   scope :minted, -> { where(origin: "feed") }
 
+  scope :unembedded, -> {
+    where(<<~SQL.squish).order(Arel.sql("items.embedded_at ASC NULLS FIRST, items.id ASC"))
+      items.embedded_at IS NULL
+        OR items.embedded_at < items.updated_at
+        OR items.embedded_at < (
+          SELECT MAX(held.analyzed_at) FROM item_references held WHERE held.item_id = items.id
+        )
+    SQL
+  }
+
   def minted? = origin == "feed"
 
   belongs_to :parent, class_name: "Item", optional: true

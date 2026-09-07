@@ -7,10 +7,10 @@ Drive search only searches Drive. Gmail search only searches Gmail. uris searche
 them, with analysis attached, and can hand the bytes back as an export or a local copy.
 
 ```
-sync       resource → catalog        pull references in          ✓ eight of eleven types
-analyze    content  → understanding  per item, by kind          ✓ summaries, vision
-search     catalog  → you            one index across everything ✓
-export     catalog  → resource       bytes back out              ✓
+sync       resource → catalog        pull references in           ✓ eight of thirteen types
+analyze    content  → understanding  per item, by kind            ✓ summaries, vision
+search     catalog  → you            one index across everything  ✓ words and meaning, fused
+export     catalog  → resource       bytes back out               ✓
 ```
 
 All four are reachable over `/mcp`, which is what the product is for.
@@ -20,6 +20,22 @@ they came from — with one exception, [snapshots](#snapshots), where there is n
 A **resource** is an instance — "my B2 bucket" — and its **type** (`s3`, `imap`, `oauth-google`) is
 what decides how much code exists: one `s3` adapter serves AWS, R2, B2, Wasabi, MinIO and Garage. A
 type owns its adapter, its command schema, its locator shape, and its enumerator.
+
+## Two ways to be found
+
+A query is answered twice — once by words, once by distance — and the two rankings are fused with
+reciprocal rank. `operator: "and"` makes the lexical side unforgiving, which is what keeps a
+three-word query from returning a thousand loose matches; the vector side is what finds the vet bill
+when you asked about the dog. Neither is weighted against the other, because a rank is comparable
+across two lists in a way a BM25 score and a cosine distance are not.
+
+Every item carries one vector, made from its gist — title, keywords, summary, your note, the head of
+its text — and re-made when that gist changes. Nothing embeds inside a request: a sweep every minute
+finds the items whose vector is older than what is known about them and embeds a batch in one call.
+A backend serves the `embedding` role only by naming a model for it, never by falling back to a
+`default` one, and `check_resource` refuses a model whose vectors are the wrong width for the index
+rather than letting that surface as a mapper exception halfway through a sync. With no such model
+declared, or none reachable, search runs lexically and answers.
 
 Everything that touches an unbounded number of items checkpoints through
 [job-iteration](https://github.com/Shopify/job-iteration), so a sync or an export survives a deploy

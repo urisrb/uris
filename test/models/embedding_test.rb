@@ -1,0 +1,143 @@
+require "test_helper"
+require_relative "../support/fake_model_server"
+
+class EmbeddingTest < ActiveSupport::TestCase
+  MODELS = { "smart" => "llama3.1:8b", "embedding" => "nomic-embed-text" }.freeze
+
+  setup do
+    SearchIndex.reset!
+
+    @server = FakeModelServer.current
+    @server.reset!.serves(MODELS.values).embeds(width: SearchIndex::VECTOR_DIMENSIONS)
+
+    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+
+    @tenant = Tenant.create!(subdomain: "vec-#{SecureRandom.hex(4)}", name: "Vectors")
+
+    Tenant.switch(@tenant) do
+      @brain = Resource::OpenaiCompatible.create!(
+        key: "ollama", name: "Local models",
+        details: { "base_url" => @server.base_url, "models" => MODELS }
+      )
+    end
+  end
+
+  teardown do
+    ENV.delete("URIS_INFERENCE_ORIGINS")
+  end
+
+  test "an item with no vector is swept up, embedded and re-indexed" do
+    Tenant.switch(@tenant) do
+      item = create_item(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf")
+
+      assert_includes Item.unembedded, item
+
+      assert_equal 1, Embedding.sweep!
+
+      item.reload
+
+      assert_equal SearchIndex::VECTOR_DIMENSIONS, item.embedding.length
+      assert item.embedded_at.present?
+      assert_not_includes Item.unembedded, item
+    end
+  end
+
+  test "a sweep that changes nothing does not ask the backend again" do
+    Tenant.switch(@tenant) do
+      create_item(kind: "pdf", title: "March invoice")
+
+      Embedding.sweep!
+
+      asked = @server.embedded.length
+
+      Item.update_all(embedded_at: 1.hour.ago)
+
+      Embedding.sweep!
+
+      assert_equal asked, @server.embedded.length,
+                   "the text did not change, so it must not be embedded a second time"
+      assert_empty Item.unembedded.to_a
+    end
+  end
+
+  test "text that changed is embedded again" do
+    Tenant.switch(@tenant) do
+      item = create_item(kind: "pdf", title: "March invoice")
+
+      Embedding.sweep!
+      first = item.reload.embedded_digest
+
+      item.update!(title: "April invoice")
+
+      assert_includes Item.unembedded, item
+
+      Embedding.sweep!
+
+      assert_not_equal first, item.reload.embedded_digest
+    end
+  end
+
+  test "a whole page of items costs one call rather than one call each" do
+    Tenant.switch(@tenant) do
+      3.times { |n| Item.create!(kind: "pdf", title: "bulk #{n}") }
+
+      assert_equal 3, Embedding.sweep!
+      assert_equal 1, @server.count_for("/v1/embeddings")
+    end
+  end
+
+  test "a backend serving no embedding model is not asked to stand in for one" do
+    Tenant.switch(@tenant) do
+      @brain.update!(details: @brain.details.merge("models" => { "default" => "llama3.1:8b" }))
+
+      assert_nil Embedding.held, "a default model can write a summary, but it is not a vector space"
+
+      create_item(kind: "pdf", title: "March invoice")
+
+      assert_equal 0, Embedding.sweep!
+    end
+  end
+
+  test "the gist carries what analysis learned, not only the filename" do
+    Tenant.switch(@tenant) do
+      item = create_item(kind: "pdf", title: "scan-0001.pdf")
+      item.reference.update!(analysis: { "steps" => { "summary" => { "result" => {
+        "summary" => "An invoice from Acme for $4,200.",
+        "keywords" => [ "acme", "invoice" ]
+      } } } })
+
+      gist = Embedding.gist(item.reload)
+
+      assert_match(/Acme/, gist)
+      assert_match(/invoice/, gist)
+    end
+  end
+
+  test "check refuses a model whose vectors are the wrong width for the index" do
+    @server.embeds(width: 384)
+
+    error = Tenant.switch(@tenant) { assert_raises(Resource::Unusable) { @brain.check! } }
+
+    assert_match(/384/, error.message)
+    assert_match(/#{SearchIndex::VECTOR_DIMENSIONS}/, error.message)
+    assert_match(/URIS_EMBEDDING_DIMENSIONS/, error.message)
+  end
+
+  test "check passes when the embedding model matches the index" do
+    Tenant.switch(@tenant) { assert @brain.check! }
+  end
+
+  test "a search whose backend is asleep answers without a vector rather than failing" do
+    dead = "http://127.0.0.1:1"
+    ENV["URIS_INFERENCE_ORIGINS"] = [ @server.origin, dead ].join(",")
+
+    Tenant.switch(@tenant) do
+      create_item(kind: "pdf", title: "March invoice")
+
+      @brain.update!(details: @brain.details.merge("base_url" => "#{dead}/v1"))
+
+      assert_raises(Resource::Failed) { Embedding.sweep! }
+      assert_nil Embedding.query("invoice"), "a search must not fail because the GPU is asleep"
+    end
+  end
+end

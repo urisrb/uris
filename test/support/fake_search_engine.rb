@@ -125,7 +125,7 @@ class FakeSearchEngine
     @monitor.synchronize do
       name, filter = resolve!(index)
       asked = normalize(body)
-      found = matching(name, filter, asked)
+      found = nearest(name, filter, asked) || matching(name, filter, asked)
       window = found.drop(asked["from"].to_i).first(asked["size"] || 10)
 
       {
@@ -246,6 +246,27 @@ class FakeSearchEngine
       else
         held.delete(wanted)
       end
+    end
+
+    def nearest(name, filter, body)
+      asked = body.dig("query", "knn", "embedding")
+      return nil if asked.nil?
+
+      wanted = Array(asked["vector"]).map(&:to_f)
+
+      @documents.fetch(name, {})
+        .select { |_, document| clause?(document, filter) && clause?(document, asked["filter"]) }
+        .select { |_, document| Array(document["embedding"]).length == wanted.length }
+        .sort_by { |id, document| [ -cosine(wanted, document["embedding"]), id.to_i ] }
+        .first(asked["k"].to_i.positive? ? asked["k"].to_i : 10)
+    end
+
+    def cosine(one, two)
+      held = Array(two).map(&:to_f)
+      dot = one.each_with_index.sum { |value, index| value * held[index].to_f }
+      size = Math.sqrt(one.sum { |value| value * value }) * Math.sqrt(held.sum { |value| value * value })
+
+      size.zero? ? 0.0 : dot / size
     end
 
     def matching(name, filter, body)

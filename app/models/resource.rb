@@ -125,6 +125,12 @@ class Resource < ApplicationRecord
 
       candidates.find(&:default_inference?) || candidates.first
     end
+
+    def for_declared_role(role)
+      candidates = active.select { |resource| resource.inference? && resource.declares_role?(role) }
+
+      candidates.find(&:default_inference?) || candidates.first
+    end
   end
 
   def capabilities
@@ -150,6 +156,10 @@ class Resource < ApplicationRecord
   end
 
   def serves_role?(_role)
+    false
+  end
+
+  def declares_role?(_role)
     false
   end
 

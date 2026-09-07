@@ -8,6 +8,11 @@ shared: &shared
     class: ScheduleFeedsJob
     queue: sync
     schedule: every minute
+  embed_items:
+    class: EmbedItemsJob
+    queue: analysis
+    schedule: every minute
+
   sweep_audit_events:
     class: SweepAuditEventsJob
     queue: sync

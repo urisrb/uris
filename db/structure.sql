@@ -244,7 +244,10 @@ CREATE TABLE public.items (
     origin character varying DEFAULT 'resource'::character varying NOT NULL,
     feed_id bigint,
     run_id bigint,
-    note text
+    note text,
+    embedding double precision[],
+    embedded_digest character varying,
+    embedded_at timestamp(6) without time zone
 );
 
 ALTER TABLE ONLY public.items FORCE ROW LEVEL SECURITY;
@@ -935,6 +938,13 @@ CREATE INDEX index_items_on_tenant_id_and_created_at ON public.items USING btree
 
 
 --
+-- Name: index_items_on_tenant_id_and_embedded_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_items_on_tenant_id_and_embedded_at ON public.items USING btree (tenant_id, embedded_at);
+
+
+--
 -- Name: index_items_on_tenant_id_and_feed_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1522,6 +1532,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260907100000'),
 ('20260906150000'),
 ('20260906140000'),
 ('20260906120000'),

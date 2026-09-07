@@ -16,6 +16,9 @@ class Resource
     IMAGE_TYPE = "image/jpeg"
     JSON_SYSTEM = "Respond with valid JSON only. No markdown, no explanation."
     AGENT_ROLE = "agent"
+    EMBEDDING_ROLE = "embedding"
+    EMBED_PROBE = "an invoice from acme for four thousand two hundred dollars".freeze
+    MAX_EMBED = 8_000
     CHAIN_TIMEOUT = 120
     # A thinking model spends the budget reasoning before it emits anything. At 1024 it
     # runs out mid-thought and answers with neither content nor a tool call.
@@ -52,6 +55,9 @@ class Resource
           field("models.smart", "Smart model", help: "Longer reasoning."),
           field("models.vision", "Vision model", help: "Anything that has to look at an image."),
           field("models.agent", "Agent model", help: "What a feed drives. It has to call tools."),
+          field("models.embedding", "Embedding model",
+                help: "What search compares meaning with. Its vectors have to be the width " \
+                      "the index was built for."),
           field("api_key", "API key", secret: true, help: "Left off where the backend wants none.")
         ]
       }
@@ -84,6 +90,10 @@ class Resource
       models.key?(role.to_s) || models.key?(DEFAULT_ROLE)
     end
 
+    def declares_role?(role)
+      models.key?(role.to_s)
+    end
+
     def model_for(role)
       models[role.to_s] || models[DEFAULT_ROLE] ||
         raise(Resource::Unusable, "#{key} serves no model for #{role}")
@@ -114,8 +124,40 @@ class Resource
       end
 
       chains! if models.key?(AGENT_ROLE)
+      embeds! if models.key?(EMBEDDING_ROLE)
 
       true
+    end
+
+    def embeds!
+      model = model_for(EMBEDDING_ROLE)
+      vector = embed([ EMBED_PROBE ]).first
+      wanted = Embedding.dimensions
+
+      raise Resource::Unusable, "#{key}: #{model} answered with no vector" if vector.blank?
+      return true if vector.length == wanted
+
+      raise Resource::Unusable,
+            "#{key}: #{model} returns #{vector.length} dimensions and the index holds #{wanted} — " \
+            "name a model that matches, or set URIS_EMBEDDING_DIMENSIONS to #{vector.length} and " \
+            "let the index rebuild itself"
+    end
+
+    def embed(texts, role: EMBEDDING_ROLE)
+      wanted = Array(texts).map { |text| scrub(text).truncate(MAX_EMBED) }
+      return [] if wanted.empty?
+
+      model = model_for(role)
+      answered = post("/embeddings", { model: model, input: wanted }, timeout: read_timeout)
+      vectors = Array(answered["data"]).sort_by { |entry| entry["index"].to_i }
+                                       .map { |entry| Array(entry["embedding"]).map(&:to_f) }
+
+      if vectors.length != wanted.length
+        raise Resource::Unusable,
+              "#{key}: #{model} answered with #{vectors.length} vectors for #{wanted.length} texts"
+      end
+
+      vectors
     end
 
     # Serving a model is not the same as being able to drive a tool loop. Two turns,
