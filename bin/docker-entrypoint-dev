@@ -1,9 +1,14 @@
 #!/bin/bash -e
 
+mkdir -p tmp
+exec 9>tmp/node-modules.lock
+flock 9
 cmp -s package-lock.json node_modules/.lock-stamp || {
+  find node_modules -mindepth 1 -maxdepth 1 -exec rm -rf {} +
   npm ci
   cp package-lock.json node_modules/.lock-stamp
 }
+exec 9>&-
 
 bundle check >/dev/null 2>&1 || bundle install
 
