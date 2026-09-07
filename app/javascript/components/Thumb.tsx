@@ -12,6 +12,7 @@ import {
   IconUser,
   IconWorld,
 } from '@tabler/icons-react'
+import { useState } from 'react'
 import { toned } from '../kinds'
 
 const GLYPHS: Record<string, typeof IconFile> = {
@@ -36,7 +37,9 @@ interface Props {
 }
 
 export function Thumb({ url, kind, alt, size }: Props) {
-  if (url) {
+  const [broken, setBroken] = useState<string | null>(null)
+
+  if (url && broken !== url) {
     return (
       <img
         src={url}
@@ -46,6 +49,7 @@ export function Thumb({ url, kind, alt, size }: Props) {
         loading="lazy"
         className="thumb"
         style={{ width: size, height: size }}
+        onError={() => setBroken(url)}
       />
     )
   }
@@ -63,8 +67,18 @@ export function Thumb({ url, kind, alt, size }: Props) {
 }
 
 export function Cover({ url, kind, alt }: Omit<Props, 'size'>) {
-  if (url) {
-    return <img src={url} alt={alt} loading="lazy" className="card-figure" />
+  const [broken, setBroken] = useState<string | null>(null)
+
+  if (url && broken !== url) {
+    return (
+      <img
+        src={url}
+        alt={alt}
+        loading="lazy"
+        className="card-figure"
+        onError={() => setBroken(url)}
+      />
+    )
   }
 
   const Glyph = GLYPHS[kind] ?? IconFile

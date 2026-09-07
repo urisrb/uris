@@ -30,6 +30,14 @@ const SayContext = createContext<((word: Word) => void) | null>(null)
 export function SayProvider({ children }: { children: ReactNode }) {
   const [spoken, setSpoken] = useState<Spoken[]>([])
   const counted = useRef(0)
+  const timers = useRef<number[]>([])
+
+  useEffect(
+    () => () => {
+      for (const timer of timers.current) window.clearTimeout(timer)
+    },
+    [],
+  )
 
   const hush = useCallback((id: number) => {
     setSpoken((held) => held.filter((word) => word.id !== id))
@@ -42,7 +50,9 @@ export function SayProvider({ children }: { children: ReactNode }) {
       const id = counted.current
 
       setSpoken((held) => [...held.slice(-3), { ...word, id }])
-      window.setTimeout(() => hush(id), word.wrong ? HELD.wrong : HELD.right)
+      timers.current.push(
+        window.setTimeout(() => hush(id), word.wrong ? HELD.wrong : HELD.right),
+      )
     },
     [hush],
   )

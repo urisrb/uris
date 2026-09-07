@@ -121,6 +121,7 @@ export function FeedForm({ opened, onClose, feed, onSaved }: Props) {
                 className="tag"
                 data-dot="false"
                 data-on={interval === option.seconds}
+                aria-pressed={interval === option.seconds}
                 style={{ cursor: 'pointer' }}
                 onClick={() => setInterval(option.seconds)}
               >

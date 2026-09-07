@@ -111,8 +111,14 @@ export function Resources() {
     'That resource could not be put away.',
   )
 
+  const [putting, setPutting] = useState<string | null>(null)
+
   const putAway = async (resource: Resource, archived: boolean) => {
-    const answered = await archive.execute({ id: resource.id, archived })
+    setPutting(resource.id)
+
+    const answered = await archive
+      .execute({ id: resource.id, archived })
+      .finally(() => setPutting(null))
 
     if (!answered) return
 
@@ -151,6 +157,7 @@ export function Resources() {
             className="tag"
             data-dot="false"
             data-on={shelved}
+            aria-pressed={shelved}
             style={{ cursor: 'pointer' }}
             onClick={() => setShelved(!shelved)}
           >
@@ -252,7 +259,7 @@ export function Resources() {
                 radius="xl"
                 variant="default"
                 leftSection={<IconArchiveOff size={14} />}
-                loading={archive.loading}
+                loading={putting === resource.id}
                 onClick={() => putAway(resource, false)}
               >
                 Put back
@@ -412,7 +419,7 @@ export function Resources() {
                     variant="subtle"
                     color="gray"
                     leftSection={<IconArchive size={14} />}
-                    loading={archive.loading}
+                    loading={putting === resource.id}
                     onClick={() => putAway(resource, true)}
                   >
                     Put away

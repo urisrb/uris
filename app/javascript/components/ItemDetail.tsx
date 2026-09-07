@@ -62,7 +62,7 @@ export function ItemDetail() {
 
   useTitle(item?.title ?? 'Item')
 
-  if (loading) return <Loader size="sm" color="var(--brass)" />
+  if (loading && !data) return <Loader size="sm" color="var(--brass)" />
   if (error) return <Alert color="red">{error.message}</Alert>
 
   if (!item) return <Text c="dimmed">No such item.</Text>

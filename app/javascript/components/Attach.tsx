@@ -141,6 +141,7 @@ export function Attach({
                   className="tag"
                   data-dot="false"
                   data-on={chosen === held.type}
+                  aria-pressed={chosen === held.type}
                   style={{ cursor: 'pointer' }}
                   onClick={() => pick(held)}
                 >

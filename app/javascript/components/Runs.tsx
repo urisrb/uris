@@ -6,6 +6,7 @@ import {
 } from '@uris-to/client'
 import { useQuery, useSubscription } from '@uris-to/client/react'
 import { type CSSProperties, useEffect, useState } from 'react'
+import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
 import { RUN_OPEN, RUN_TONES, RunLog } from './RunTrail'
 import { useAloud, useSay } from './Say'
@@ -57,6 +58,7 @@ export function Runs() {
           className="tag"
           data-dot="false"
           data-on={status === null}
+          aria-pressed={status === null}
           style={{ cursor: 'pointer' }}
           onClick={() => setStatus(null)}
         >
@@ -71,6 +73,7 @@ export function Runs() {
               { '--tone': RUN_TONES[value], cursor: 'pointer' } as CSSProperties
             }
             data-on={status === value}
+            aria-pressed={status === value}
             data-off={status !== null && status !== value}
             onClick={() => setStatus(status === value ? null : value)}
           >
@@ -87,7 +90,6 @@ export function Runs() {
 function Ledger({ status }: { status: string | null }) {
   const say = useSay()
   const [cursor, setCursor] = useState<string | null>(null)
-  const [rows, setRows] = useState<Row[]>([])
   const [open, setOpen] = useState<string | null>(null)
   const [, tick] = useState(0)
 
@@ -99,18 +101,15 @@ function Ledger({ status }: { status: string | null }) {
   const cancel = useAloud(CancelRunDocument, 'That run could not be cancelled.')
   const { data: progressed } = useSubscription(RunProgressedDocument)
 
+  const page = data?.runs
+  const [rows, setRows] = usePages<Row>(
+    page as { nodes: Row[] } | undefined,
+    cursor,
+  )
+
   const streamed = progressed?.runProgressed.run
   const live = streamed?.id === open ? (streamed?.logs ?? null) : null
   const busy = rows.some((run) => RUN_OPEN.has(run.status))
-
-  useEffect(() => {
-    const page = data?.runs
-    if (!page) return
-
-    setRows((held) =>
-      cursor ? [...held, ...(page.nodes as Row[])] : [...(page.nodes as Row[])],
-    )
-  }, [data, cursor])
 
   useEffect(() => {
     if (!streamed) return
@@ -133,7 +132,7 @@ function Ledger({ status }: { status: string | null }) {
 
       return next
     })
-  }, [streamed])
+  }, [streamed, setRows])
 
   useEffect(() => {
     if (!streamed || cursor) return
@@ -149,8 +148,6 @@ function Ledger({ status }: { status: string | null }) {
 
     return () => window.clearInterval(timer)
   }, [busy])
-
-  const page = data?.runs
 
   if (error) return <Alert color="red">{error.message}</Alert>
   if (loading && rows.length === 0) {
@@ -192,6 +189,7 @@ function Ledger({ status }: { status: string | null }) {
                         className="tag"
                         data-dot="false"
                         data-on={open === run.id}
+                        aria-expanded={open === run.id}
                         style={{ cursor: 'pointer' }}
                         onClick={() => setOpen(open === run.id ? null : run.id)}
                       >

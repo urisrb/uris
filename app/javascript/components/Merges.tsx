@@ -6,8 +6,9 @@ import {
   SettleMergeProposalDocument,
 } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
-import { type CSSProperties, useEffect, useState } from 'react'
+import { type CSSProperties, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
 import { tone } from '../kinds'
 import { useAloud, useSay } from './Say'
@@ -125,6 +126,7 @@ export function Merges() {
               { '--tone': TONES[value], cursor: 'pointer' } as CSSProperties
             }
             data-on={status === value}
+            aria-pressed={status === value}
             data-off={status !== value}
             onClick={() => setStatus(value)}
           >
@@ -140,7 +142,6 @@ export function Merges() {
 
 function Queue({ status }: { status: string }) {
   const [cursor, setCursor] = useState<string | null>(null)
-  const [kept, setKept] = useState<Proposal[]>([])
 
   const { data, loading, error } = useQuery(MergeProposalsDocument, {
     status,
@@ -148,21 +149,14 @@ function Queue({ status }: { status: string }) {
     limit: PAGE,
   })
 
-  useEffect(() => {
-    const page = data?.mergeProposals
-    if (!page) return
-
-    setKept((held) =>
-      cursor
-        ? [...held, ...(page.nodes as Proposal[])]
-        : [...(page.nodes as Proposal[])],
-    )
-  }, [data, cursor])
+  const page = data?.mergeProposals
+  const [kept, setKept] = usePages<Proposal>(
+    page as { nodes: Proposal[] } | undefined,
+    cursor,
+  )
 
   const settle = (id: string) =>
     setKept((held) => held.filter((one) => one.id !== id))
-
-  const page = data?.mergeProposals
 
   if (error) return <Alert color="red">{error.message}</Alert>
   if (loading && kept.length === 0) {

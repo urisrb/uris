@@ -33,6 +33,7 @@ import {
 import { useQuery, useSubscription } from '@uris-to/client/react'
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
 import { tone } from '../kinds'
 import { useAdd } from './Add'
@@ -142,7 +143,6 @@ function Listing({
   const searching = term.length > 0
 
   const [cursor, setCursor] = useState<string | null>(null)
-  const [pages, setPages] = useState<Row[]>([])
   const { settledAt } = useUploads()
   const { addedAt } = useAdd()
 
@@ -165,6 +165,9 @@ function Listing({
     { skip: !feed },
   )
 
+  const page = searching ? found.data?.search : catalog.data?.items
+  const [rows] = usePages<Row>(page, cursor)
+
   const runs = thinking.data?.feed?.runs ?? []
   const open = runs.find((run) => OPEN.has(run.status))
 
@@ -177,15 +180,6 @@ function Listing({
   useTitle(
     feed ? `/${feed.slug}` : term ? `${term} — search` : kind ? kind : null,
   )
-
-  useEffect(() => {
-    const page = searching ? found.data?.search : catalog.data?.items
-    if (!page) return
-
-    setPages((existing) =>
-      cursor ? [...existing, ...page.nodes] : [...page.nodes],
-    )
-  }, [searching, found.data, catalog.data, cursor])
 
   useEffect(() => {
     if (analyzed && !searching) catalog.refetch()
@@ -206,8 +200,6 @@ function Listing({
     thinking.refetch()
   }, [settled, catalog.refetch, thinking.refetch])
 
-  const rows: Row[] = pages
-  const page = searching ? found.data?.search : catalog.data?.items
   const total = searching ? (found.data?.search.total ?? null) : null
   const loading = searching ? found.loading : catalog.loading
   const error = searching ? found.error : catalog.error
@@ -316,7 +308,12 @@ function Shelf({
 
   return (
     <div className="shelf">
-      <Link to="/" className="chip" data-on={here === null}>
+      <Link
+        to="/"
+        className="chip"
+        data-on={here === null}
+        aria-current={here === null ? 'page' : undefined}
+      >
         Everything
       </Link>
 
@@ -326,6 +323,7 @@ function Shelf({
           to={`/${feed.slug}`}
           className="chip"
           data-on={feed.id === here?.id}
+          aria-current={feed.id === here?.id ? 'page' : undefined}
         >
           /{feed.slug}
           {feed.pausedAt ? <span className="chip-note">paused</span> : null}

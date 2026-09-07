@@ -4,6 +4,7 @@ import { AuditEventsDocument } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
 import { type CSSProperties, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
 
 const PAGE = 50
@@ -74,6 +75,7 @@ export function Audit() {
             className="tag"
             data-dot="false"
             data-on={status === null}
+            aria-pressed={status === null}
             style={{ cursor: 'pointer' }}
             onClick={() => setStatus(null)}
           >
@@ -88,6 +90,7 @@ export function Audit() {
                 { '--tone': TONES[value], cursor: 'pointer' } as CSSProperties
               }
               data-on={status === value}
+              aria-pressed={status === value}
               data-off={status !== null && status !== value}
               onClick={() => setStatus(status === value ? null : value)}
             >
@@ -143,8 +146,15 @@ function Trail({
   subject: string
 }) {
   const [cursor, setCursor] = useState<string | null>(null)
-  const [kept, setKept] = useState<Event[]>([])
   const [open, setOpen] = useState<string | null>(null)
+  const [, tick] = useState(0)
+
+  // "3m ago" is only true for a minute, and this page is one people leave open.
+  useEffect(() => {
+    const timer = window.setInterval(() => tick((count) => count + 1), 30_000)
+
+    return () => window.clearInterval(timer)
+  }, [])
 
   const { data, loading, error } = useQuery(AuditEventsDocument, {
     action: null,
@@ -154,18 +164,8 @@ function Trail({
     limit: PAGE,
   })
 
-  useEffect(() => {
-    const page = data?.auditEvents
-    if (!page) return
-
-    setKept((held) =>
-      cursor
-        ? [...held, ...(page.nodes as Event[])]
-        : [...(page.nodes as Event[])],
-    )
-  }, [data, cursor])
-
   const page = data?.auditEvents
+  const [kept] = usePages<Event>(page as { nodes: Event[] } | undefined, cursor)
 
   if (error) return <Alert color="red">{error.message}</Alert>
   if (loading && kept.length === 0)
@@ -272,6 +272,7 @@ function Trail({
                 className="tag"
                 data-dot="false"
                 data-on={open === event.id}
+                aria-expanded={open === event.id}
                 style={{ cursor: 'pointer' }}
                 onClick={() => setOpen(open === event.id ? null : event.id)}
               >

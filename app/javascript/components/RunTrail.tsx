@@ -146,6 +146,7 @@ export function RunTrail({
                       className="tag"
                       data-dot="false"
                       data-on={open === run.id}
+                      aria-expanded={open === run.id}
                       style={{ cursor: 'pointer' }}
                       onClick={() => setOpen(open === run.id ? null : run.id)}
                     >
