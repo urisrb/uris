@@ -39,8 +39,9 @@ ENV RAILS_ENV="development" \
 
 COPY --from=masks-client . /masks/client
 COPY vendor/* ./vendor/
-COPY Gemfile ./
-RUN mkdir -p /srv && echo 'eval_gemfile "/rails/Gemfile"' > /srv/Gemfile && bundle install
+COPY Gemfile Gemfile.lock ./
+RUN mkdir -p /srv && echo 'eval_gemfile "/rails/Gemfile"' > /srv/Gemfile && \
+    cp Gemfile.lock /srv/Gemfile.lock && bundle install
 
 COPY package.json package-lock.json ./
 COPY web/package.json ./web/package.json

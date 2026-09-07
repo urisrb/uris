@@ -479,6 +479,7 @@ DEPENDENCIES
   graphql
   image_processing (~> 1.2)
   job-iteration
+  json (~> 2.21)
   jwt
   mail
   masks (~> 0.6)
