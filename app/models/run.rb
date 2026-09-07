@@ -106,7 +106,7 @@ class Run < ApplicationRecord
   def line(*parts)
     text = parts.compact.map { |part| part.to_s.tr("\n", " ") }.join(" : ").truncate(LINE_LIMIT)
 
-    Tenant.switch(tenant) { emit(text) }
+    emit(text)
   end
 
   private

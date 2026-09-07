@@ -65,7 +65,7 @@ class Resource
     # being re-fetched from the URL it came from.
     def storage
       named = details["storage"].presence
-      found = scoped { named ? Resource.active.find_by(key: named) : Resource.default_storage }
+      found = named ? Resource.active.find_by(key: named) : Resource.default_storage
 
       if found.nil?
         raise Resource::Unusable,
@@ -104,13 +104,13 @@ class Resource
       count = (limit || 50).to_i.clamp(1, LIST)
 
       {
-        "snapshots" => scoped { references.order(created_at: :desc).limit(count).to_a }
-                         .map { |reference| summary(reference.locator) }
+        "snapshots" => references.order(created_at: :desc).limit(count)
+                                 .map { |reference| summary(reference.locator) }
       }
     end
 
     def command_get(url:)
-      reference = scoped { references.find_by(locator_key: canonical(url)) }
+      reference = references.find_by(locator_key: canonical(url))
       raise Gone, "#{key}: nothing snapshotted at #{url}" if reference.nil?
 
       summary(reference.locator).merge("text" => read(reference.locator).truncate(MAX_TEXT))
@@ -125,19 +125,17 @@ class Resource
       def record!(capture)
         stored = write!(capture)
 
-        scoped do
-          reference = Reference.discover!(
-            resource: self,
-            locator: stored,
-            locator_key: canonical(capture.url),
-            kind: "page",
-            title: capture.title.presence || capture.url
-          )
+        reference = Reference.discover!(
+          resource: self,
+          locator: stored,
+          locator_key: canonical(capture.url),
+          kind: "page",
+          title: capture.title.presence || capture.url
+        )
 
-          retitle!(reference, capture)
-          analyse!(reference)
-          reference
-        end
+        retitle!(reference, capture)
+        analyse!(reference)
+        reference
       end
 
       def write!(capture)
@@ -174,7 +172,7 @@ class Resource
 
       def holding(locator)
         named = locator.to_h["storage"].presence
-        found = scoped { named ? Resource.find_by(key: named) : nil } || storage
+        found = (named ? Resource.find_by(key: named) : nil) || storage
 
         found.storage!
       end
@@ -199,12 +197,6 @@ class Resource
         uri.to_s
       rescue URI::InvalidURIError
         url.to_s
-      end
-
-      def scoped(&block)
-        return yield if Current.tenant&.id == tenant_id
-
-        Tenant.switch(tenant, &block)
       end
   end
 end

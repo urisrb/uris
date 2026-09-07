@@ -71,7 +71,7 @@ class ResourceMcpTest < ActiveSupport::TestCase
   test "a grant carrying the scope is offered the proxied tools alongside the built-in ones" do
     discovered
 
-    offered = grant(Grant::SCOPES).tools.map(&:tool_name)
+    offered = Tenant.switch(@tenant) { grant(Grant::SCOPES).tools.map(&:tool_name) }
 
     assert_includes offered, "exa__web_search"
     assert_includes offered, "search_items"
@@ -80,7 +80,9 @@ class ResourceMcpTest < ActiveSupport::TestCase
   test "a grant without the scope is offered none of them" do
     discovered
 
-    assert_not_includes grant([ "uris:catalog:read" ]).tools.map(&:tool_name), "exa__web_search"
+    offered = Tenant.switch(@tenant) { grant([ "uris:catalog:read" ]).tools.map(&:tool_name) }
+
+    assert_not_includes offered, "exa__web_search"
   end
 
   test "a private address is blocked before any tool is called" do

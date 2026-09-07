@@ -21,18 +21,16 @@ class Resource
     end
 
     def check!
-      scoped { blobs.limit(1).count }
+      blobs.limit(1).count
       true
     end
 
     def each_page(cursor: nil, prefix: nil)
       loop do
-        batch = scoped do
-          scope = blobs.order(:id).limit(PAGE)
-          scope = scope.where("key LIKE ?", "#{prefix}%") if prefix.present?
-          scope = scope.where(id: cursor.to_i..) if cursor.present?
-          scope.to_a
-        end
+        scope = blobs.order(:id).limit(PAGE)
+        scope = scope.where("key LIKE ?", "#{prefix}%") if prefix.present?
+        scope = scope.where(id: cursor.to_i..) if cursor.present?
+        batch = scope.to_a
 
         break if batch.empty?
 
@@ -56,7 +54,7 @@ class Resource
     end
 
     def download(locator)
-      blob = scoped { blobs.find_by(key: locator.fetch("key")) }
+      blob = blobs.find_by(key: locator.fetch("key"))
       raise Resource::Failed, "#{key}: no blob at #{locator['key']}" if blob.nil?
 
       StringIO.new(blob.bytes)
@@ -65,21 +63,17 @@ class Resource
     def upload(name, body)
       content = body.respond_to?(:read) ? body.read : body.to_s
 
-      scoped do
-        blob = blobs.find_or_initialize_by(key: name)
-        blob.tenant_id ||= tenant_id
-        blob.update!(bytes: content)
-      end
+      blob = blobs.find_or_initialize_by(key: name)
+      blob.tenant_id ||= tenant_id
+      blob.update!(bytes: content)
 
       { "key" => name }
     end
 
     def command_list(prefix: nil)
-      found = scoped do
-        scope = blobs.order(:key).limit(1000)
-        scope = scope.where("key LIKE ?", "#{prefix}%") if prefix.present?
-        scope.to_a
-      end
+      scope = blobs.order(:key).limit(1000)
+      scope = scope.where("key LIKE ?", "#{prefix}%") if prefix.present?
+      found = scope.to_a
 
       {
         "objects" => found.map do |blob|
@@ -102,13 +96,5 @@ class Resource
     def command_put(key:, body:)
       upload(key, body)
     end
-
-    private
-
-      def scoped(&block)
-        return yield if Current.tenant&.id == tenant_id
-
-        Tenant.switch(tenant, &block)
-      end
   end
 end

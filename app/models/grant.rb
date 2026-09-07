@@ -59,7 +59,7 @@ class Grant
   def proxied
     return [] unless permits?(Resource::Mcp::SCOPE)
 
-    Tenant.switch(tenant) { Resource.capable_of(:tools).flat_map(&:proxied_tools) }
+    Resource.capable_of(:tools).flat_map(&:proxied_tools)
   end
 
   private
