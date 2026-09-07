@@ -3,8 +3,8 @@
 A feed is a prompt with an address. `demo.uris.to/buy` holds a sentence, and running it
 produces items you can search like anything else in the catalog.
 
-Written 2026-09-06. Ordered by dependency: each phase is usable on its own and the one
-after it assumes the one before landed.
+Written 2026-09-06, finished 2026-09-07. Ordered by dependency: each phase is usable on its
+own and the one after it assumes the one before landed.
 
 Background and the measurements behind the model choice: `docs/src/content/docs/concepts/feeds.mdx`.
 
@@ -60,7 +60,6 @@ that chose to stop.
 - [x] `Feed::TURNS` cap; running out finishes the run with a reason rather than raising
 - [x] Reserved slugs refused at the model, not left to route order
 - [x] A feed acts as itself — `feed:<slug>` — rather than borrowing whoever opened the page
-- [ ] Feeds on a schedule (moved to Later)
 
 **Phase 2 landed 2026-09-06.** `/invoices` ran in 4 turns and answered $4,200 from real items.
 `RunFeedJob` owns its `Run` directly rather than through `TrackedRun`, whose hooks come from
@@ -68,28 +67,35 @@ JobIteration and a feed is one unit of work rather than an iteration.
 
 ## Phase 3 — results, with provenance
 
-- [ ] `origin` on `Item`: `resource` when synced, `feed` when minted
-- [ ] Minted items live in a `feeds` `Resource::Database`, carrying `feed_id` and `run_id`
-- [ ] A join so a feed has its selections
-- [ ] Nothing lets a feed rewrite a synced item's origin
+- [x] `origin` on `Item`: `resource` when synced, `feed` when minted
+- [x] Minted items live in a `feeds` `Resource::Database`, carrying `feed_id` and `run_id`
+- [x] A join so a feed has its selections
+- [x] Nothing lets a feed rewrite a synced item's origin
 
 ## Phase 4 — the write phase is ours
 
-- [ ] The model is offered read tools only: `search_items`, `get_item`
-- [ ] `add_to_feed` and `create_item` are called by our code after the read phase returns
-- [ ] A feed cannot `sync_resource` or `export_items` whatever it emits — not offered,
+- [x] The model is offered read tools only: `search_items`, `get_item`
+- [x] `add_to_feed` and `create_item` are called by our code after the read phase returns
+- [x] A feed cannot `sync_resource` or `export_items` whatever it emits — not offered,
       not merely refused. Scope stays the backstop rather than the only guard
 
 ## Phase 5 — addressing
 
-- [ ] Catch-all route declared **last**
-- [ ] Slug validated against what the app already owns: `mcp`, `graphql`, `graphiql`, `auth`,
-      `enroll`, `references`, `jobs`, `up`, `settings`, `resources`, `runs`
-- [ ] `feeds#show` renders the feed's items
+- [x] Catch-all route declared **last**
+- [x] Slug validated against what the app already owns, kept honest by a test that walks the
+      route table so a new route cannot quietly become a slug someone can claim
+- [x] `feeds#show` renders the feed's items
+- [x] Feeds on an interval, the way a resource holds `sync_interval`
+
+**Phases 3 to 5 landed 2026-09-07.** A feed has a schedule, a page, and items you can see.
 
 ## Later, separately
 
 - [ ] `Resource::Tailscale` implementing `reach!`. `OpenaiCompatible#base_url` already asks
       `via.reach!`, so nothing else changes — and it is the real answer to running a model
       too big for this laptop
-- [ ] Feeds on an interval, the way a resource holds `sync_interval`
+- [ ] A feed that mints something tells nobody. `ScheduleFeedsJob` runs every minute and there
+      is no way out but a page you have to open: no digest, no webhook, no notification of any
+      kind. The pull side is finished and the push side does not exist
+- [ ] A saved search deserves a slug of its own. Half of what a feed is reached for is a query
+      rather than a prompt, and a query costs no inference and no turns
