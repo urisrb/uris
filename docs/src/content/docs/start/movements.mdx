@@ -6,7 +6,7 @@ description: sync, analyze, search and export — the four operations everything
 ```
 sync       resource → catalog        pull references in
 analyze    content  → understanding  per item, by kind
-search     catalog  → you            one index across everything
+search     catalog  → you            one index, by word and by meaning
 export     catalog  → resource       bytes back out
 ```
 
@@ -16,18 +16,19 @@ All four are reachable over `/mcp` and over `/graphql`.
 
 `Resource#sync!` claims the resource, starts a `Run`, and enqueues `SyncResourceJob`.
 
-The job iterates `each_page` on the resource and records a `Reference` per object. No bytes
-move. Eight of the ten types sync: six implement `each_page` and `Caldav` and `Carddav`
-inherit it from `Webdav`. See
-[Resources](/concepts/resources/).
+The job iterates `each_page` on the resource and records a `Reference` per object. No bytes move —
+except for the types whose records were never files, where `download` composes the text they never
+had. Thirteen of the eighteen types sync: eleven implement `each_page`, and `Caldav` and `Carddav`
+inherit it from `Webdav`. See [Resources](/concepts/resources/).
 
 `app/models/resource.rb`, `app/jobs/sync_resource_job.rb` · [Sync a resource](/guides/sync/)
 
 ## analyze
 
-`Analyzer.for(item)` picks the first of twelve analyzers whose `handles?` returns true, then runs
+`Analyzer.for(item)` picks the first of fourteen analyzers whose `handles?` returns true, then runs
 its `step`s. Steps record `started_at`, `finished_at` and either `result` or `error` under
-`reference.analysis["steps"]`.
+`reference.analysis["steps"]` — so a step that could not run is data you can search and re-run,
+rather than a missing field.
 
 `app/analyzers/` · [Analysis](/concepts/analysis/)
 
@@ -35,6 +36,9 @@ its `step`s. Steps record `started_at`, `finished_at` and either `result` or `er
 
 `Item.search` asks `SearchIndex` for ids and reloads them from Postgres in index order. OpenSearch
 is the query path; Postgres is the system of record.
+
+The query runs twice — once as words, once as a vector — and the two rankings are fused by
+reciprocal rank, so a document that shares no word with the question can still be found.
 
 `app/models/search_index.rb` · [Search the catalog](/guides/search/)
 

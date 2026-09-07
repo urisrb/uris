@@ -1,6 +1,6 @@
 ---
 title: Analysis
-description: Twelve analyzers, first-match dispatch, and a step machine that records each step on the reference.
+description: Fourteen analyzers, first-match dispatch, and a step machine that records each step on the reference.
 ---
 
 Analysis fetches a reference's bytes, extracts what it can, and writes the result onto the
@@ -14,7 +14,7 @@ reference. Originals are not modified.
 literal order of `Analyzer.all` in `app/analyzers/analyzer.rb`:
 
 ```
-Pdf · Image · Doc · Xlsx · Calendar · Pkpass · Email · Feed · Contact · Data · Text · Fallback
+Pdf · Image · Media · Page · Doc · Xlsx · Calendar · Pkpass · Email · Feed · Contact · Data · Text · Fallback
 ```
 
 Most `handles?` implementations test `item.kind`. `Analyzer::Fallback` returns true
@@ -33,7 +33,7 @@ unconditionally and is last, so every item has an analyzer.
 characters.
 
 :::note[TODO]
-The remaining eight analyzers are not documented here yet. Read the `analyze` method in each file
+The remaining ten analyzers are not documented here yet. Read the `analyze` method in each file
 under `app/analyzers/analyzer/`; the pattern is the same three lines.
 :::
 
@@ -131,18 +131,22 @@ re-runnable.
 
 ## Summaries
 
-A summary is a step rather than a thirteenth analyzer, because `Analyzer.for` is first-match over a
+A summary is a step rather than a fifteenth analyzer, because `Analyzer.for` is first-match over a
 fixed array and nothing else could claim a PDF once `Analyzer::Pdf` has.
 
 `Base#run` makes two guarded attempts per reference: `analyze`, then `summarize!`. They are separate
 so that extraction failing does not skip a summary buildable from the other steps, and a summary
 failing never retracts extraction.
 
-`summary_prompt` has a working default over the `text` step, which ten of the twelve analyzers
-write, so most get a summary without declaring anything. A body shorter than
-`Base::SUMMARY_MINIMUM`, 200 characters, gets none. `Email`, `Calendar` and `Xlsx` override the
-prompt to ask in their own terms — an email's prompt carries its headers and its attachments'
-summaries, so a message is described using what was inside the PDF stapled to it.
+`summary_prompt` has a working default over the `text` step, which twelve of the fourteen analyzers
+write, so most get a summary without declaring anything. `Email`, `Calendar`, `Xlsx`, `Image` and
+`Page` override the prompt to ask in their own terms — an email's prompt carries its headers and its
+attachments' summaries, so a message is described using what was inside the PDF stapled to it.
+
+`Media` changes two words rather than the whole prompt: `summary_noun` and `summary_says` are hooks
+on `Base` for exactly the case where the scaffolding is right and the nouns are not. It reads its
+body from the `transcript` step rather than `text`, which is the only structural difference between
+cataloguing a recording and cataloguing a file.
 
 Only `summary` and `keywords` survive the answer, and keywords are capped at
 `Base::SUMMARY_KEYWORDS`, 20. Keywords arriving as `"a, b, c"` rather than an array are coerced,

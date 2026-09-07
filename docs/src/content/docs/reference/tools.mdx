@@ -1,6 +1,6 @@
 ---
 title: MCP tools
-description: The eleven tools in Tool.all, the scope each needs, and the budgets that bound them.
+description: The twelve tools in Tool.all, the scope each needs, and the budgets that bound them.
 ---
 
 `POST /mcp` — stateless Streamable HTTP, one bearer token per call.
@@ -24,12 +24,23 @@ A tool outside the grant is absent from `tools/list`. Calling it anyway answers 
 
 `app/models/grant.rb`:
 
+`Grant::DESCRIBED` is the whole set, and its values are the words a person reads on the consent
+screen:
+
 | | |
 | --- | --- |
-| `uris:read` | Search your catalog and read what is in it |
-| `uris:write` | Add to your catalog, and run analysis over it |
-| `resources:read` | List the places your items live |
-| `resources:command` | Act on those places — sync, fetch, and export |
+| `uris:catalog:read` | Read your catalog |
+| `uris:catalog:write` | Change your catalog |
+| `uris:web:read` | Search the web |
+| `uris:mcp:call` | Use the servers you have added |
+| `uris:resources:read` | Read your places |
+| `uris:resources:command` | Act on your places |
+| `uris:settings:read` | Read your settings |
+| `uris:settings:write` | Change your settings |
+| `uris:settings:admin` | Change everyone's settings |
+
+`uris:settings:admin` is the one scope `SIGN_IN` leaves out, so signing in through the browser
+never carries it.
 
 Scopes not in `Grant::SCOPES` are dropped from the token's claims.
 
@@ -37,17 +48,18 @@ Scopes not in `Grant::SCOPES` are dropped from the token's claims.
 
 | Tool | Scope | Starts a run | Does |
 | --- | --- | --- | --- |
-| `search_items` | `uris:read` | | search the catalog |
-| `get_item` | `uris:read` | | one item in full, plus an 8,000-character excerpt |
-| `analyze_item` | `uris:write` | ✓ | queue one item for analysis |
-| `list_resources` | `resources:read` | | the resources, and their sync state |
-| `describe_resource` | `resources:read` | | one resource's capabilities and command schema |
-| `check_resource` | `resources:read` | | does it answer, and are its credentials accepted |
-| `command_resource` | `resources:command` | | run one command against one resource |
-| `sync_resource` | `resources:command` | ✓ | walk it and record what it holds |
-| `export_items` | `resources:command` | ✓ | copy matching bytes into a storage resource |
-| `list_runs` | `resources:read` | | what the work you started is doing |
-| `cancel_run` | `resources:command` | | stop a run that is still open |
+| `search_items` | `uris:catalog:read` | | search the catalog, by word and by meaning |
+| `get_item` | `uris:catalog:read` | | one item in full, plus an 8,000-character excerpt |
+| `analyze_item` | `uris:catalog:write` | ✓ | queue one item for analysis |
+| `search_web` | `uris:web:read` | | search the web through a `search` resource |
+| `list_resources` | `uris:resources:read` | | the resources, and their sync state |
+| `describe_resource` | `uris:resources:read` | | one resource's capabilities and command schema |
+| `check_resource` | `uris:resources:read` | | does it answer, and are its credentials accepted |
+| `command_resource` | `uris:resources:command` | | run one command against one resource |
+| `sync_resource` | `uris:resources:command` | ✓ | walk it and record what it holds |
+| `export_items` | `uris:resources:command` | ✓ | copy matching bytes into a storage resource |
+| `list_runs` | `uris:resources:read` | | what the work you started is doing |
+| `cancel_run` | `uris:resources:command` | | stop a run that is still open |
 
 :::note[TODO]
 `Tool::EnrollResource` is written but not registered in `Tool.all`, so it does not appear here.

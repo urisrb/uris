@@ -28,18 +28,19 @@ end
 
 | Field | Grant | |
 | --- | --- | --- |
-| `tenant` | `uris:read` | who answered |
-| `item(id:)` | `uris:read` | one item |
-| `items(kind:, resourceId:, after:, limit:)` | `uris:read` | a page of the catalog |
-| `search(query:, kind:, after:, limit:)` | `uris:read` | a page of the index, with a `total` |
-| `kinds` | `uris:read` | counts grouped by kind |
-| `resources(archived:)` | `resources:read` | in use by default, put away on request |
-| `resourceTypes` | `resources:read` | every type that can be attached, and what each needs |
-| `feeds` `feed(slug:)` | `uris:read` | feeds, newest first |
-| `settings` | `settings:read` | every setting the grant may read |
-| `runs(kind:, status:, after:, limit:)` | `uris:read` | a page of runs |
-| `mergeProposals(status:, after:, limit:)` | `uris:read` | open proposals by default |
-| `auditEvents(action:, status:, subject:, after:, limit:)` | `uris:read` | a page of the audit log |
+| `tenant` | `uris:catalog:read` | who answered |
+| `item(id:)` | `uris:catalog:read` | one item |
+| `items(kind:, resourceId:, feed:, after:, limit:)` | `uris:catalog:read` | a page of the catalog |
+| `search(query:, kind:, after:, limit:)` | `uris:catalog:read` | a page of the index, with a `total` |
+| `kinds` | `uris:catalog:read` | counts grouped by kind |
+| `resources(archived:)` | `uris:resources:read` | in use by default, put away on request |
+| `resourceTypes` | `uris:resources:read` | every type that can be attached, and what each needs |
+| `feeds` `feed(slug:)` | `uris:catalog:read` | feeds, newest first |
+| `settings` | `uris:settings:read` | every setting the grant may read |
+| `run(id:)` | `uris:catalog:read` | one run |
+| `runs(kind:, status:, feedId:, itemId:, after:, limit:)` | `uris:catalog:read` | a page of runs |
+| `mergeProposals(status:, after:, limit:)` | `uris:catalog:read` | open proposals by default |
+| `auditEvents(action:, status:, subject:, after:, limit:)` | `uris:catalog:read` | a page of the audit log |
 
 Paged fields go through `Page.of(scope, after:, limit:)` — keyset pagination on the primary key,
 newest first, `limit` clamped to 1–200 with a default of 50. One extra row is fetched to answer
@@ -54,16 +55,16 @@ paged field that can tell you how many matched rather than only whether more rem
 
 | Field | Grant |
 | --- | --- |
-| `addNote` `snapshotUrl` `fetchUrl` | `uris:write` |
-| `analyzeItem` `mergeItems` `splitReference` `proposeMerges` `settleMergeProposal` | `uris:write` |
-| `renameItem` `noteItem` `forgetItem` | `uris:write` |
-| `exportItems` `cancelRun` | `uris:write` |
-| `saveFeed` `runFeed` `pauseFeed` `deleteFeed` | `uris:write` |
-| `attachResource` `enrollResource` `syncResource` `checkResource` `archiveResource` | `resources:command` |
-| `setDefaultStorage` `setDefaultInference` `setSyncInterval` | `resources:command` |
-| `setSetting` | `settings:write` |
+| `addNote` `snapshotUrl` `fetchUrl` | `uris:catalog:write` |
+| `analyzeItem` `mergeItems` `splitReference` `proposeMerges` `settleMergeProposal` | `uris:catalog:write` |
+| `renameItem` `noteItem` `forgetItem` | `uris:catalog:write` |
+| `exportItems` `cancelRun` | `uris:catalog:write` |
+| `saveFeed` `runFeed` `pauseFeed` `deleteFeed` | `uris:catalog:write` |
+| `attachResource` `enrollResource` `syncResource` `checkResource` `archiveResource` | `uris:resources:command` |
+| `setDefaultStorage` `setDefaultInference` `setSyncInterval` | `uris:resources:command` |
+| `setSetting` | `uris:settings:write` |
 
-`exportItems` and `cancelRun` take `uris:write` here and `resources:command` over
+`exportItems` and `cancelRun` take `uris:catalog:write` here and `uris:resources:command` over
 [MCP](/reference/tools/). Merging and dedupe are reachable here and nowhere else, and so is
 attaching a resource by typing its credential — MCP only ever hands back an enrollment link,
 because a secret in a tool call is a secret in the transcript.
@@ -93,7 +94,7 @@ to tools and jobs while everything it catalogued stays searchable. All three are
 `Types::BaseField` takes a `grants:` option and checks it in `authorized?`:
 
 ```ruby
-field :resources, [ Types::ResourceType ], null: false, grants: "resources:read"
+field :resources, [ Types::ResourceType ], null: false, grants: "uris:resources:read"
 ```
 
 A field whose grant the token does not carry raises a `GraphQL::ExecutionError` naming the missing

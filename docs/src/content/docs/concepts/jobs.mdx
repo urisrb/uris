@@ -26,10 +26,25 @@ pool, `AnalyzeItemJob` caps concurrency per tenant with `limits_concurrency`
 | Job | Queue | Schedule |
 | --- | --- | --- |
 | `ScheduleSyncsJob` | `sync` | every minute |
+| `ScheduleFeedsJob` | `sync` | every minute |
+| `EmbedItemsJob` | `analysis` | every minute |
+| `RebuildSearchIndexJob` | `sync` | daily at 3am |
 | `SweepAuditEventsJob` | `sync` | daily at 4am |
+| `SweepRunsJob` | `sync` | daily at 4:20am |
 | `SolidQueue::Job.clear_finished_in_batches` | — | hourly at :12, production only |
 
-`ScheduleSyncsJob` walks every tenant and calls `sync!` on each `Resource.due_for_sync`.
+`ScheduleSyncsJob` walks every tenant and calls `sync!` on each `Resource.due_for_sync`;
+`ScheduleFeedsJob` does the same for `Feed.due`.
+
+`RebuildSearchIndexJob` does nothing unless `SearchIndex.stale?` — the mapping is stamped with a
+digest of itself, so changing it is what triggers a rebuild rather than a deploy step somebody has
+to remember.
+
+`EmbedItemsJob` takes a batch of items with no vector and embeds them in one call. A sweeper's
+retries are its schedule rather than the queue's: a backend that cannot be reached is logged and
+left for the next tick, because piling attempts on top of a job that runs again in sixty seconds
+only makes the queue harder to read. It is on the `analysis` pool because it is inference, and one
+GPU serves it and the summaries alike.
 
 ## Iteration
 
@@ -60,7 +75,7 @@ of each page, because one request per document made a rebuild a request storm.
 
 | | |
 | --- | --- |
-| `kind` | `sync`, `export`, `analyze`, `reindex`, `dedupe` |
+| `kind` | `sync`, `export`, `analyze`, `reindex`, `dedupe`, `feed`, `snapshot`, `fetch` |
 | `status` | `queued`, `running`, `done`, `failed`, `cancelled`, `gated` |
 | `processed` | incremented by `progressed!` |
 | `deadline` | optional; passing it cancels the run |

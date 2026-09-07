@@ -20,8 +20,9 @@ A sync walks `resource.each_page` and records a `Reference` per object. No bytes
 { "name": "sync_resource", "arguments": { "id": "..." } }
 ```
 
-`Resource#sync!` raises `ArgumentError` unless `syncable?`, which is `respond_to?(:each_page)`. Six
-types implement it directly and two inherit it — see [Resources](/concepts/resources/).
+`Resource#sync!` raises `ArgumentError` unless `syncable?`, which is `respond_to?(:each_page)`.
+Eleven types implement it directly and two inherit it, thirteen of eighteen in all — see
+[Resources](/concepts/resources/).
 
 Then it takes the lock, starts a `Run`, and enqueues `SyncResourceJob`:
 
@@ -56,6 +57,14 @@ analyzed.
 | `webdav`, `caldav`, `carddav` | the last entry's path |
 | `imap` | UID, valid only within a `uidvalidity` |
 | `rss` | — |
+| `github` | `owner/name#page` — the repository and how far into it |
+| `notion` | the `next_cursor` Notion hands back |
+| `slack` | `channel:cursor` — nested, so a resume re-enters the channel it stopped in |
+| `microsoft-graph` | the delta endpoint's own next link, in full |
+| `git` | the last path in the tree listing |
+
+A cursor is opaque to the job and meaningful only to the type that issued it, which is why a nested
+walk like Slack's can encode two positions in one string and Microsoft can hand back a URL.
 
 ## Watch it
 

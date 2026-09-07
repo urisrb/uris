@@ -28,9 +28,9 @@ import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
   </svg>
 </div>
 
-Yours, together. A Rails application that catalogues your storage accounts, mailboxes and
-calendars, analyzes what it finds, indexes it in OpenSearch, and serves the result over MCP and
-GraphQL.
+Yours, together. A Rails application that catalogues your storage accounts, mailboxes, calendars,
+repositories and the places you write things down, analyzes what it finds, indexes it in OpenSearch
+by word and by meaning, and serves the result over MCP and GraphQL.
 
 <CardGrid stagger>
   <Card title="An item is a reference" icon="seti:db">
@@ -38,11 +38,11 @@ GraphQL.
     copied into the catalog.
   </Card>
   <Card title="Types are STI subclasses" icon="puzzle">
-    `Resource::S3`, `Resource::Imap`, `Resource::OauthGoogle` and seven more, each owning its adapter,
+    `Resource::S3`, `Resource::Imap`, `Resource::Github` and fifteen more, each owning its adapter,
     command schema, locator shape and page enumerator.
   </Card>
   <Card title="The grant builds the tool list" icon="seti:config">
-    `POST /mcp`, eleven tools, four scopes. `Grant#tools` filters `Tool.all` per request, so a tool
+    `POST /mcp`, twelve tools, nine scopes. `Grant#tools` filters `Tool.all` per request, so a tool
     outside the token's scopes is absent from `tools/list`.
   </Card>
   <Card title="Bulk work resumes" icon="approve-check">
@@ -55,7 +55,7 @@ GraphQL.
   <LinkCard title="Running it" href="/start/running/" description="brew bundle, bin/setup, bin/dev." />
   <LinkCard title="The four movements" href="/start/movements/" description="sync, analyze, search, export." />
   <LinkCard title="Items" href="/concepts/items/" description="Columns, kinds, children, deletion." />
-  <LinkCard title="Resources" href="/concepts/resources/" description="Nine types, their capabilities, and which can sync." />
+  <LinkCard title="Resources" href="/concepts/resources/" description="Eighteen types, their capabilities, and which can sync." />
   <LinkCard title="Tenancy" href="/concepts/tenancy/" description="Four isolation layers and the tests that assert them." />
-  <LinkCard title="MCP tools" href="/reference/tools/" description="All eleven, with scopes and arguments." />
+  <LinkCard title="MCP tools" href="/reference/tools/" description="All twelve, with scopes and arguments." />
 </CardGrid>

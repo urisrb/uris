@@ -3,15 +3,20 @@ title: Running it
 description: Backing services in Docker, Rails on the host, two tenants, and the generated API types.
 ---
 
-Rails runs on the host. Postgres, OpenSearch, MinIO and Mailpit run in Docker (`compose.yml`). The
-analyzers shell out to native binaries, which is why the app itself is not containerised in
-development.
+Rails runs on the host. Postgres, OpenSearch and MinIO run in Docker (`compose.yml`). The analyzers
+shell out to native binaries and inference runs on the GPU, which is why the app itself is not
+containerised in development.
 
 ```sh
 brew bundle          # native dependencies the analyzers need
 bin/setup            # services, database, seed, generated API types
-bin/dev              # web, worker, vite, and the two codegen watchers
+bin/dev              # web, worker, vite, and the codegen watchers
 ```
+
+Two things `brew bundle` cannot fetch, because they are model weights rather than packages: a
+whisper.cpp model for transcription (`URIS_WHISPER_MODEL`) and an embedding model for the vector
+side of search (`ollama pull nomic-embed-text`). Without either, the feature that needs it says so
+and the rest of the application carries on. See [Configuration](/reference/configuration/).
 
 ## Services
 
@@ -20,7 +25,6 @@ bin/dev              # web, worker, vite, and the two codegen watchers
 | postgres | `postgres:17-alpine` | 5434 |
 | opensearch | `opensearchproject/opensearch:2.11.0` | 9201 |
 | minio | `minio/minio` | 9000, console 9001 |
-| mailpit | `axllent/mailpit` | 1025, UI 8025 |
 
 `db/docker-entrypoint-initdb.d` creates a non-superuser role for the application. A superuser
 bypasses row-level security unconditionally — see [Tenancy](/concepts/tenancy/).
@@ -50,7 +54,8 @@ both.
 | vite | `bin/vite dev` |
 | worker | `bin/jobs` — Solid Queue, both pools |
 | schema | chokidar on `app/graphql/**/*.rb` → `graphql:dump_schema` + `npm run codegen` |
-| codegen | chokidar on `app/javascript/**/*.ts{,x}` → `npm run codegen` |
+| codegen | chokidar on `web/src/operations/**/*.graphql` → `npm run codegen` |
+| sdk | `npm run build:sdk:watch` |
 
 ## Build products
 
@@ -68,5 +73,10 @@ npm run codegen
 bin/rails test
 ```
 
-40 test files under `test/`. Isolation is asserted directly in
+79 test files under `test/`. Isolation is asserted directly in
 `test/models/tenant_isolation_test.rb` and `test/integration/graphql_tenancy_test.rb`.
+
+Two environment variables widen what the suite covers rather than changing it. Set
+`URIS_TEST_SEARCH_ENGINE` to run the assertions that are about what a real search engine does, and
+`URIS_WHISPER_MODEL` to run the ones about what whisper actually hears. Unset, those tests skip and
+say why — which is what CI sees.

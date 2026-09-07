@@ -23,9 +23,11 @@ type owns its adapter, its command schema, its locator shape, and its enumerator
 
 Not every type points at files. `github`, `notion` and `slack` catalogue records that were never
 bytes — an issue, a page, a thread — and compose the text they never had, so they are searchable
-beside a PDF. All four API types sit on one adapter that owns the dialling, the byte cap, the 401
-worth releasing a token for and the 429 worth retrying; a subclass writes where its pages come from
-and what a record reads like, and nothing else.
+beside a PDF. All five API types sit on one adapter owning the dialling, the host check, the byte
+cap, the 401 worth one more attempt and the 429 worth retrying; a subclass writes where its pages
+come from and what a record reads like, and nothing else. That adapter does not know which of them
+is brokered — it asks the resource for a token, and `Resource::Brokered` is where the answer
+changes.
 
 ## Two ways to be found
 
@@ -40,6 +42,7 @@ its text — and re-made when that gist changes. Anything that could move the gi
 so finding the work is an indexed lookup rather than a scan, and clearing one too eagerly costs a
 digest rather than a model. Nothing embeds inside a request: a sweep every minute takes the items
 with no vector and embeds a batch in one call.
+
 A backend serves the `embedding` role only by naming a model for it, never by falling back to a
 `default` one, and `check_resource` refuses a model whose vectors are the wrong width for the index
 rather than letting that surface as a mapper exception halfway through a sync. With no such model
@@ -51,9 +54,9 @@ and resumes at its cursor rather than starting over.
 
 ## Running it
 
-Rails runs on the host; Postgres, OpenSearch, MinIO, and Mailpit run in Docker. The analyzers shell
-out to native binaries and inference runs on the GPU, so containerising the app would buy nothing
-and cost the debugger.
+Rails runs on the host; Postgres, OpenSearch and MinIO run in Docker. The analyzers shell out to
+native binaries and inference runs on the GPU, so containerising the app would buy nothing and cost
+the debugger.
 
 ```sh
 brew bundle          # native dependencies the analyzers need
@@ -109,21 +112,22 @@ drift from the API without the types going red first. `bin/dev` keeps both watch
 
 ## The endpoint
 
-`POST /mcp` — stateless Streamable HTTP, eleven tools, one bearer token per call.
+`POST /mcp` — stateless Streamable HTTP, twelve tools, one bearer token per call.
 
-|                     |                     |
-| ------------------- | ------------------- |
-| `search_items`      | `uris:read`         |
-| `get_item`          | `uris:read`         |
-| `analyze_item`      | `uris:write`        |
-| `list_resources`    | `resources:read`    |
-| `describe_resource` | `resources:read`    |
-| `check_resource`    | `resources:read`    |
-| `list_runs`         | `resources:read`    |
-| `command_resource`  | `resources:command` |
-| `sync_resource`     | `resources:command` |
-| `export_items`      | `resources:command` |
-| `cancel_run`        | `resources:command` |
+|                     |                          |
+| ------------------- | ------------------------ |
+| `search_items`      | `uris:catalog:read`      |
+| `get_item`          | `uris:catalog:read`      |
+| `analyze_item`      | `uris:catalog:write`     |
+| `search_web`        | `uris:web:read`          |
+| `list_resources`    | `uris:resources:read`    |
+| `describe_resource` | `uris:resources:read`    |
+| `check_resource`    | `uris:resources:read`    |
+| `list_runs`         | `uris:resources:read`    |
+| `command_resource`  | `uris:resources:command` |
+| `sync_resource`     | `uris:resources:command` |
+| `export_items`      | `uris:resources:command` |
+| `cancel_run`        | `uris:resources:command` |
 
 **The token decides which tools exist.** The server is built per request from the caller's grant, so
 a tool outside it is absent from `tools/list` and answers `Tool not found` if called anyway — there
