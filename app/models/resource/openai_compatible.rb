@@ -82,6 +82,8 @@ class Resource
 
     validate :it_names_an_endpoint
 
+    after_update :reconsider_every_vector, if: :embedding_model_changed?
+
     def models
       details.fetch("models", {})
     end
@@ -321,6 +323,19 @@ class Resource
     private
 
       def configured_url = details["base_url"].to_s
+
+      # Two models do not share a vector space, so a catalogue half embedded by each is a
+      # catalogue that answers neither well. Changing the model clears every stamp, and the
+      # sweep does the rest.
+      def embedding_model_changed?
+        before, after = saved_change_to_details
+
+        before.to_h.dig("models", EMBEDDING_ROLE) != after.to_h.dig("models", EMBEDDING_ROLE)
+      end
+
+      def reconsider_every_vector
+        Item.where.not(embedded_at: nil).update_all(embedded_at: nil)
+      end
 
       def it_names_an_endpoint
         errors.add(:details, "must name a base_url") if details["base_url"].blank?

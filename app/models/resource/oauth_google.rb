@@ -1,13 +1,18 @@
 class Resource
-  class OauthGoogle < Resource
+  class OauthGoogle < Api
     include Brokered
 
     API = "https://www.googleapis.com/drive/v3".freeze
-    OPEN_TIMEOUT = 5
-    READ_TIMEOUT = 20
-    MAX_TEXT = 100_000
-    PAGE = 100
+    MAX_DOWNLOAD = 512.megabytes
     FIELDS = "id,name,mimeType,size,md5Checksum,modifiedTime,parents".freeze
+
+    def self.api
+      API
+    end
+
+    def self.service
+      "Drive"
+    end
 
     def self.capabilities
       [ :integration ]
@@ -106,6 +111,11 @@ class Resource
         { "text" => nil, "note" => "binary — export it or sync it into the catalog instead" }
       end
 
+      def api_download(id)
+        api_bytes("/files/#{CGI.escape(id)}", max_bytes: MAX_DOWNLOAD,
+                                              alt: "media", supportsAllDrives: true)
+      end
+
       def folder?(file)
         file["mimeType"] == "application/vnd.google-apps.folder"
       end
@@ -121,46 +131,6 @@ class Resource
         clauses << details["query"] if details["query"].present?
 
         clauses.join(" and ")
-      end
-
-      def api_get(path, **query)
-        request(URI.parse("#{API}#{path}?#{URI.encode_www_form(query.compact)}")) do |body|
-          JSON.parse(body)
-        end
-      end
-
-      def api_download(id)
-        uri = URI.parse("#{API}/files/#{CGI.escape(id)}?alt=media&supportsAllDrives=true")
-
-        request(uri) { |body| body }
-      end
-
-      def request(uri, retried: false)
-        response = Net::HTTP.start(
-          uri.hostname, uri.port,
-          use_ssl: true, open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT
-        ) { |http| http.request(Net::HTTP::Get.new(uri, "Authorization" => "Bearer #{upstream_token}")) }
-
-        if response.is_a?(Net::HTTPUnauthorized) && !retried
-          forget_upstream_token
-          return request(uri, retried: true)
-        end
-
-        raise Resource::Failed, "#{key}: #{drive_error(response)}" unless response.is_a?(Net::HTTPSuccess)
-
-        yield response.body
-      rescue JSON::ParserError
-        raise Resource::Failed, "#{key}: Drive returned something that is not JSON"
-      rescue Net::HTTPBadResponse, Net::OpenTimeout, Net::ReadTimeout, SocketError, SystemCallError,
-             OpenSSL::SSL::SSLError => e
-        raise Resource::Failed, "#{key}: Drive did not answer (#{e.class})"
-      end
-
-      def drive_error(response)
-        parsed = JSON.parse(response.body.to_s[0, 4096])
-        parsed.dig("error", "message").presence || "Drive answered #{response.code}"
-      rescue JSON::ParserError
-        "Drive answered #{response.code}"
       end
   end
 end

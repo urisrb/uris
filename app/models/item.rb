@@ -21,15 +21,12 @@ class Item < ApplicationRecord
   scope :synced, -> { where(origin: "resource") }
   scope :minted, -> { where(origin: "feed") }
 
-  scope :unembedded, -> {
-    where(<<~SQL.squish).order(Arel.sql("items.embedded_at ASC NULLS FIRST, items.id ASC"))
-      items.embedded_at IS NULL
-        OR items.embedded_at < items.updated_at
-        OR items.embedded_at < (
-          SELECT MAX(held.analyzed_at) FROM item_references held WHERE held.item_id = items.id
-        )
-    SQL
-  }
+  # An item is due a vector when it has no stamp, rather than when its stamp is older than
+  # something else. Whatever could move the gist clears the stamp, so the sweep is an
+  # indexed lookup instead of a scan comparing three timestamps, one of them per row.
+  GIST = %w[title note].freeze
+
+  scope :unembedded, -> { where(embedded_at: nil).order(:id) }
 
   def minted? = origin == "feed"
 
@@ -40,6 +37,7 @@ class Item < ApplicationRecord
   validates :kind, presence: true
 
   after_commit :index_for_search, on: [ :create, :update ]
+  after_commit :reconsider_embedding, on: :update
   after_commit :remove_from_search, on: :destroy
 
   def self.search(query, kind: nil, limit: 50)
@@ -222,6 +220,12 @@ class Item < ApplicationRecord
 
     def index_for_search
       SearchIndex.index(Item.find_by(id: id) || self)
+    end
+
+    def reconsider_embedding
+      return if (saved_changes.keys & GIST).empty?
+
+      Item.where(id: id).where.not(embedded_at: nil).update_all(embedded_at: nil)
     end
 
     def remove_from_search

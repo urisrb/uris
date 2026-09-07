@@ -174,6 +174,34 @@ class GithubResourceTest < ActiveSupport::TestCase
     assert_equal "https://github.com/acme/widgets/issues/7", found["url"]
   end
 
+  test "an issue nobody replied to is not asked for its replies" do
+    stub_request(:get, "#{API}/repos/acme/widgets/issues/7")
+      .to_return(json_response(number: 7, title: "Widget jams", body: "…", state: "open",
+                               user: { login: "ash" }))
+
+    Tenant.switch(@tenant) do
+      @resource.download("repo" => "acme/widgets", "number" => 7, "comments" => 0).read
+    end
+
+    assert_not_requested :get, "#{API}/repos/acme/widgets/issues/7/comments",
+                         query: hash_including({})
+  end
+
+  test "an issue whose count the locator does not carry is still asked" do
+    stub_request(:get, "#{API}/repos/acme/widgets/issues/7")
+      .to_return(json_response(number: 7, title: "Widget jams", body: "…", state: "open",
+                               user: { login: "ash" }))
+    stub_request(:get, "#{API}/repos/acme/widgets/issues/7/comments")
+      .with(query: hash_including({})).to_return(json_response([]))
+
+    Tenant.switch(@tenant) do
+      @resource.download("repo" => "acme/widgets", "number" => 7).read
+    end
+
+    assert_requested :get, "#{API}/repos/acme/widgets/issues/7/comments",
+                     query: hash_including({})
+  end
+
   test "nothing but api.github.com is dialled, whatever a locator carries" do
     Tenant.switch(@tenant) do
       error = assert_raises(Resource::Unusable) do

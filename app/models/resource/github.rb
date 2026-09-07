@@ -125,7 +125,7 @@ class Resource
       number = locator.fetch("number")
       issue = api_get("/repos/#{repo}/issues/#{number}")
 
-      StringIO.new(written(repo, issue, comments(repo, number)))
+      StringIO.new(written(repo, issue, comments(repo, number, locator["comments"])))
     end
 
     def command_list(repo: nil, limit: nil)
@@ -181,7 +181,10 @@ class Resource
         Array(found).map { |issue| issue.merge("repo" => repo) }
       end
 
-      def comments(repo, number)
+      # The locator counted them at sync, and an issue nobody replied to is most of them.
+      def comments(repo, number, held = nil)
+        return [] if held&.zero?
+
         api_get("/repos/#{repo}/issues/#{number}/comments", per_page: COMMENTS)
       rescue Api::Gone
         []

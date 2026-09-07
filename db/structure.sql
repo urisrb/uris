@@ -917,6 +917,13 @@ CREATE INDEX index_item_references_on_tenant_id_and_analyzed_at ON public.item_r
 
 
 --
+-- Name: index_items_awaiting_a_vector; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_items_awaiting_a_vector ON public.items USING btree (tenant_id, id) WHERE (embedded_at IS NULL);
+
+
+--
 -- Name: index_items_on_parent_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -935,13 +942,6 @@ CREATE INDEX index_items_on_tenant_id ON public.items USING btree (tenant_id);
 --
 
 CREATE INDEX index_items_on_tenant_id_and_created_at ON public.items USING btree (tenant_id, created_at);
-
-
---
--- Name: index_items_on_tenant_id_and_embedded_at; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_items_on_tenant_id_and_embedded_at ON public.items USING btree (tenant_id, embedded_at);
 
 
 --
@@ -1532,6 +1532,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260907220000'),
 ('20260907100000'),
 ('20260906150000'),
 ('20260906140000'),

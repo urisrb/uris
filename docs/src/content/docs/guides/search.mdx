@@ -73,11 +73,19 @@ Not the file — its gist: title, keywords, summary, your note, and the head of 
 An item is embedded from what is known about it, which means search quality is downstream of
 [analysis](/concepts/analysis/) on the vector side too.
 
-`EmbedItemsJob` sweeps every minute for items whose vector is older than the text it was made from,
-embeds a batch in one call, and re-indexes them. There is no per-item job and no hook in the sync
-path: an item is embedded because its gist changed, not because something remembered to ask. The
-digest is over the model name as well as the text, so pointing a tenant at a different embedding
-model re-embeds the catalog rather than mixing two vector spaces in one index.
+`EmbedItemsJob` sweeps every minute for items with no vector, embeds a batch in one call, and
+re-indexes them. There is no per-item job and no hook in the sync path: an item is embedded because
+its stamp is missing, not because something remembered to ask.
+
+Staleness is a cleared stamp rather than a comparison. Anything that can move the gist — analysis
+landing on a reference, a rename, a note — sets `embedded_at` back to `NULL`, so finding the work is
+a partial-index lookup costing two buffer reads when there is nothing to do, rather than a scan
+comparing three timestamps with a subquery per row. Clearing one too eagerly is cheap: the sweep
+recomputes the digest, finds the text unchanged, and stamps it back without asking the backend.
+
+The digest covers the model name as well as the text, and naming a different embedding model clears
+every stamp in the tenant — two models are two vector spaces, and half a catalog in each answers
+neither.
 
 ### Declaring the model
 

@@ -36,8 +36,10 @@ when you asked about the dog. Neither is weighted against the other, because a r
 across two lists in a way a BM25 score and a cosine distance are not.
 
 Every item carries one vector, made from its gist — title, keywords, summary, your note, the head of
-its text — and re-made when that gist changes. Nothing embeds inside a request: a sweep every minute
-finds the items whose vector is older than what is known about them and embeds a batch in one call.
+its text — and re-made when that gist changes. Anything that could move the gist clears the stamp,
+so finding the work is an indexed lookup rather than a scan, and clearing one too eagerly costs a
+digest rather than a model. Nothing embeds inside a request: a sweep every minute takes the items
+with no vector and embeds a batch in one call.
 A backend serves the `embedding` role only by naming a model for it, never by falling back to a
 `default` one, and `check_resource` refuses a model whose vectors are the wrong width for the index
 rather than letting that surface as a mapper exception halfway through a sync. With no such model

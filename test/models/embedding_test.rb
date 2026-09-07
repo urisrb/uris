@@ -42,7 +42,7 @@ class EmbeddingTest < ActiveSupport::TestCase
     end
   end
 
-  test "a sweep that changes nothing does not ask the backend again" do
+  test "a stamp cleared over text that did not move is settled without asking the backend" do
     Tenant.switch(@tenant) do
       create_item(kind: "pdf", title: "March invoice")
 
@@ -50,12 +50,73 @@ class EmbeddingTest < ActiveSupport::TestCase
 
       asked = @server.embedded.length
 
-      Item.update_all(embedded_at: 1.hour.ago)
+      Item.update_all(embedded_at: nil)
 
-      Embedding.sweep!
+      assert_equal 1, Embedding.sweep!
 
       assert_equal asked, @server.embedded.length,
                    "the text did not change, so it must not be embedded a second time"
+      assert_empty Item.unembedded.to_a
+    end
+  end
+
+  test "analysis landing on a reference clears the stamp, so the summary reaches the vector" do
+    Tenant.switch(@tenant) do
+      item = create_item(kind: "pdf", title: "scan-0001.pdf")
+
+      Embedding.sweep!
+
+      assert_empty Item.unembedded.to_a
+
+      item.reference.update!(analysis: { "steps" => { "summary" => { "result" => {
+        "summary" => "An invoice from Acme for $4,200."
+      } } } })
+
+      assert_includes Item.unembedded, item.reload
+    end
+  end
+
+  test "a rename clears the stamp and a touch that cannot move the gist does not" do
+    Tenant.switch(@tenant) do
+      item = create_item(kind: "pdf", title: "March invoice")
+
+      Embedding.sweep!
+
+      item.update!(run_id: nil)
+
+      assert_empty Item.unembedded.to_a, "nothing in the gist changed"
+
+      item.update!(title: "April invoice")
+
+      assert_includes Item.unembedded, item.reload
+    end
+  end
+
+  test "naming a different embedding model re-embeds the catalogue rather than mixing two" do
+    Tenant.switch(@tenant) do
+      create_item(kind: "pdf", title: "March invoice")
+
+      Embedding.sweep!
+
+      assert_empty Item.unembedded.to_a
+
+      @brain.update!(details: @brain.details.merge(
+        "models" => MODELS.merge("embedding" => "mxbai-embed-large")
+      ))
+
+      assert_equal 1, Item.unembedded.count,
+                   "two models are two vector spaces, and half a catalogue in each answers neither"
+    end
+  end
+
+  test "changing something else about the backend leaves the catalogue alone" do
+    Tenant.switch(@tenant) do
+      create_item(kind: "pdf", title: "March invoice")
+
+      Embedding.sweep!
+
+      @brain.update!(name: "Renamed")
+
       assert_empty Item.unembedded.to_a
     end
   end

@@ -137,7 +137,9 @@ class Reference < ApplicationRecord
 
     def reindex_item
       subject = Item.find_by(id: item_id)
+      return if subject.nil?
 
-      SearchIndex.index(subject) if subject
+      SearchIndex.index(subject)
+      Item.where(id: item_id).where.not(embedded_at: nil).update_all(embedded_at: nil)
     end
 end

@@ -41,6 +41,10 @@ class Resource
       answer(:post, path, query: query, body: body)
     end
 
+    def api_bytes(path, max_bytes: MAX_BYTES, **query)
+      answer(:get, path, query: query, bytes: max_bytes)
+    end
+
     private
 
       def headers
@@ -63,14 +67,14 @@ class Resource
         uri
       end
 
-      def answer(verb, path, query: {}, body: nil, retried: false)
+      def answer(verb, path, query: {}, body: nil, bytes: nil, retried: false)
         uri = endpoint(path, query)
         response = exchange(uri, verb, body)
 
         case response
         when Net::HTTPUnauthorized
           if !retried && token_expired!
-            return answer(verb, path, query: query, body: body, retried: true)
+            return answer(verb, path, query: query, body: body, bytes: bytes, retried: true)
           end
 
           raise Resource::Unusable, "#{key}: #{self.class.service} refused the token"
@@ -81,7 +85,7 @@ class Resource
         when Net::HTTPServerError
           raise Resource::Failed, "#{key}: #{self.class.service} answered #{response.code}"
         when Net::HTTPSuccess
-          parsed(response)
+          bytes ? bounded(response, bytes) : parsed(response)
         else
           raise Resource::Unusable, "#{key}: #{self.class.service} answered #{response.code} — #{refused(response)}"
         end
@@ -93,10 +97,10 @@ class Resource
         raise Resource::Failed, "#{key}: #{self.class.service} did not answer with JSON"
       end
 
-      def bounded(response)
+      def bounded(response, limit = MAX_BYTES)
         held = response.body.to_s
 
-        raise Resource::Failed, "#{key}: more than #{MAX_BYTES} bytes" if held.bytesize > MAX_BYTES
+        raise Resource::Failed, "#{key}: more than #{limit} bytes" if held.bytesize > limit
 
         held
       end
