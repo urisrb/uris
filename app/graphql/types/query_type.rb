@@ -32,14 +32,17 @@ module Types
     field :items, Types::ItemPageType, null: false, grants: "uris:catalog:read" do
       argument :kind, String, required: false
       argument :resource_id, ID, required: false
+      argument :feed, String, required: false,
+               description: "The slug of a feed, for the items it keeps."
       argument :after, ID, required: false
       argument :limit, Integer, required: false
     end
 
-    def items(kind: nil, resource_id: nil, after: nil, limit: nil)
+    def items(kind: nil, resource_id: nil, feed: nil, after: nil, limit: nil)
       scope = Item.all
       scope = scope.where(kind: kind) if kind.present?
       scope = scope.referencing(resource_id) if resource_id.present?
+      scope = scope.kept_by(feed) if feed.present?
 
       Page.of(scope, after: after, limit: limit)
     end

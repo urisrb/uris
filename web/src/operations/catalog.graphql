@@ -1,4 +1,4 @@
-query Catalog($kind: String, $after: ID, $limit: Int) {
+query Catalog($kind: String, $feed: String, $after: ID, $limit: Int) {
   tenant {
     id
     name
@@ -8,7 +8,7 @@ query Catalog($kind: String, $after: ID, $limit: Int) {
     kind
     count
   }
-  items(kind: $kind, after: $after, limit: $limit) {
+  items(kind: $kind, feed: $feed, after: $after, limit: $limit) {
     hasMore
     nextCursor
     nodes {

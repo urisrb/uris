@@ -55,6 +55,10 @@ class Item < ApplicationRecord
     where(id: Reference.select(:item_id))
   end
 
+  def self.kept_by(slug)
+    where(id: FeedItem.where(feed: Feed.by_slug(slug)).select(:item_id))
+  end
+
   SELECTOR = %w[id kind resource_id query folder since before].freeze
 
   def self.under(folder)

@@ -103,29 +103,17 @@ export function Catalog() {
   }
 
   const known = (feeds.data?.feeds ?? []) as Feed[]
-  const here = slug ? known.find((feed) => feed.slug === slug) : null
+  const here = slug ? (known.find((feed) => feed.slug === slug) ?? null) : null
 
-  if (slug) {
-    if (!feeds.data) return <Loader size="sm" color="var(--brass)" />
-    if (!here) return <Lost />
-
-    return (
-      <FeedView
-        key={here.slug}
-        feed={here}
-        feeds={known}
-        view={view}
-        onPick={pick}
-        onChanged={feeds.refetch}
-      />
-    )
-  }
+  if (slug && !feeds.data) return <Loader size="sm" color="var(--brass)" />
+  if (slug && !here) return <Lost />
 
   return (
     <Listing
-      key={`${kind ?? ''} ${term}`}
+      key={`${slug ?? ''} ${kind ?? ''} ${term}`}
       kind={kind}
       term={term}
+      feed={here}
       feeds={known}
       view={view}
       onPick={pick}
@@ -137,6 +125,7 @@ export function Catalog() {
 function Listing({
   kind,
   term,
+  feed,
   feeds,
   view,
   onPick,
@@ -144,6 +133,7 @@ function Listing({
 }: {
   kind: string | null
   term: string
+  feed: Feed | null
   feeds: Feed[]
   view: View
   onPick: (next: View) => void
@@ -158,7 +148,7 @@ function Listing({
 
   const catalog = useQuery(
     CatalogDocument,
-    { kind, after: cursor, limit: PAGE },
+    { kind, feed: feed?.slug ?? null, after: cursor, limit: PAGE },
     { skip: searching },
   )
   const found = useQuery(
@@ -167,8 +157,26 @@ function Listing({
     { skip: !searching },
   )
   const { data: analyzed } = useSubscription(ItemAnalyzedDocument)
+  const { data: progressed } = useSubscription(RunProgressedDocument)
 
-  useTitle(term ? `${term} — search` : kind ? kind : null)
+  const thinking = useQuery(
+    FeedDocument,
+    { slug: feed?.slug ?? '' },
+    { skip: !feed },
+  )
+
+  const runs = thinking.data?.feed?.runs ?? []
+  const open = runs.find((run) => OPEN.has(run.status))
+
+  const streamed = progressed?.runProgressed.run
+  const settled =
+    streamed &&
+    !OPEN.has(streamed.status) &&
+    runs.some((run) => run.id === streamed.id)
+
+  useTitle(
+    feed ? `/${feed.slug}` : term ? `${term} — search` : kind ? kind : null,
+  )
 
   useEffect(() => {
     const page = searching ? found.data?.search : catalog.data?.items
@@ -189,6 +197,14 @@ function Listing({
       catalog.refetch()
     }
   }, [settledAt, addedAt, searching, catalog.refetch])
+
+  useEffect(() => {
+    if (!settled) return
+
+    setCursor(null)
+    catalog.refetch()
+    thinking.refetch()
+  }, [settled, catalog.refetch, thinking.refetch])
 
   const rows: Row[] = pages
   const page = searching ? found.data?.search : catalog.data?.items
@@ -217,6 +233,7 @@ function Listing({
               <span className="figure">{rows.length.toLocaleString()}</span>{' '}
               {kind ? kind : 'items'}
               {page?.hasMore ? ' so far' : ''}
+              {feed ? ' kept by this feed' : ''}
             </>
           )}
         </div>
@@ -228,9 +245,23 @@ function Listing({
         </Group>
       </div>
 
-      <Shelf feeds={feeds} here={null} onChanged={onChanged} />
+      <Shelf
+        feeds={feeds}
+        here={feed}
+        running={Boolean(open)}
+        onChanged={() => {
+          onChanged()
+          thinking.refetch()
+        }}
+      />
 
-      {!searching && <Doubles />}
+      {feed && <div className="prompt-line">{feed.prompt}</div>}
+
+      {open && (
+        <Thinking key={open.id} id={open.id} cap={thinking.data?.feed?.turns} />
+      )}
+
+      {!searching && !feed && <Doubles />}
 
       {error && <Alert color="red">{error.message}</Alert>}
 
@@ -241,7 +272,7 @@ function Listing({
       )}
 
       {!loading && rows.length === 0 && (
-        <Empty searching={searching} kind={kind} />
+        <Empty searching={searching} kind={kind} feed={feed} />
       )}
 
       {page?.hasMore && (
@@ -255,86 +286,6 @@ function Listing({
             Load more
           </Button>
         </Group>
-      )}
-    </Stack>
-  )
-}
-
-function FeedView({
-  feed,
-  feeds,
-  view,
-  onPick,
-  onChanged,
-}: {
-  feed: Feed
-  feeds: Feed[]
-  view: View
-  onPick: (next: View) => void
-  onChanged: () => void
-}) {
-  const { data, loading, error, refetch } = useQuery(FeedDocument, {
-    slug: feed.slug,
-  })
-  const { data: progressed } = useSubscription(RunProgressedDocument)
-
-  useTitle(`/${feed.slug}`)
-
-  const held = data?.feed
-  const runs = held?.runs ?? []
-  const rows = (held?.items ?? []) as Row[]
-  const open = runs.find((run) => OPEN.has(run.status))
-
-  const streamed = progressed?.runProgressed.run
-  const mine = streamed && runs.some((run) => run.id === streamed.id)
-  const settled = mine && !OPEN.has(streamed.status)
-
-  useEffect(() => {
-    if (settled) refetch()
-  }, [settled, refetch])
-
-  return (
-    <Stack gap="var(--s5)">
-      <div className="page-head">
-        <div className="eyebrow">
-          <span className="figure">{rows.length.toLocaleString()}</span>{' '}
-          {rows.length === 1 ? 'item' : 'items'} kept by this feed
-        </div>
-
-        <Group gap="var(--s2)" wrap="nowrap">
-          <Switcher view={view} onPick={onPick} />
-        </Group>
-      </div>
-
-      <Shelf
-        feeds={feeds}
-        here={feed}
-        running={Boolean(open)}
-        onChanged={() => {
-          onChanged()
-          refetch()
-        }}
-      />
-
-      <div className="prompt-line">{feed.prompt}</div>
-
-      {error && <Alert color="red">{error.message}</Alert>}
-
-      {open && <Thinking key={open.id} id={open.id} cap={held?.turns} />}
-
-      {rows.length > 0 && <Rows rows={rows} view={view} />}
-
-      {loading && rows.length === 0 && (
-        <Loader size="sm" color="var(--brass)" />
-      )}
-
-      {!loading && rows.length === 0 && (
-        <div className="panel" style={{ padding: 'var(--s6)' }}>
-          <Text c="dimmed" size="sm">
-            Nothing kept yet. Run it and it will search your catalog for what
-            the sentence above describes.
-          </Text>
-        </div>
       )}
     </Stack>
   )
@@ -830,9 +781,11 @@ function Switcher({
 function Empty({
   searching,
   kind,
+  feed,
 }: {
   searching: boolean
   kind: string | null
+  feed: Feed | null
 }) {
   const { add } = useUploads()
   const { open } = useAdd()
@@ -846,6 +799,17 @@ function Empty({
         analyzed or you have written a note on it, so anything still waiting on
         both will not.
       </Text>
+    )
+  }
+
+  if (feed) {
+    return (
+      <div className="panel" style={{ padding: 'var(--s6)' }}>
+        <Text c="dimmed" size="sm">
+          Nothing kept yet. Run it and it will search your catalog for what the
+          sentence above describes.
+        </Text>
+      </div>
     )
   }
 

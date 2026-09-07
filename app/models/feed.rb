@@ -6,9 +6,12 @@ class Feed < ApplicationRecord
 
   # A slug becomes a path, so it cannot be a name the application already answers to.
   # Route order alone would not say which of the two wins.
+  # Kept honest by a test that walks the route table, so a new route cannot
+  # quietly become a slug someone can claim.
   RESERVED = %w[
     mcp graphql graphiql auth enroll references items resources runs settings
-    jobs up assets vite feeds rails cable
+    jobs up assets vite feeds rails cable audit merges uploads
+    recede resume refresh
   ].freeze
 
   SLUG = /\A[a-z0-9][a-z0-9-]{0,62}\z/

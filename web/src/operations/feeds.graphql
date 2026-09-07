@@ -26,13 +26,6 @@ query Feed($slug: String!) {
     nextRunAt
     ranAt
     itemsCount
-    items {
-      id
-      title
-      kind
-      origin
-      analyzedAt
-    }
     runs {
       id
       status
