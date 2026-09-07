@@ -6,9 +6,8 @@ import {
   Stack,
   Text,
   Textarea,
-  TextInput,
 } from '@mantine/core'
-import { IconArrowBarToDown, IconFolder, IconPlus } from '@tabler/icons-react'
+import { IconArrowBarToDown, IconFolder } from '@tabler/icons-react'
 import {
   AddNoteDocument,
   FetchUrlDocument,
@@ -30,8 +29,6 @@ import { Link } from 'react-router-dom'
 import { asUrl, type Intent, intentFor, shortly } from '../add'
 import { useUploads } from './Uploads'
 
-type Mode = 'link' | 'note' | 'files'
-
 export interface Added {
   key: string
   label: string
@@ -43,30 +40,18 @@ export type Outcome =
   | { ok: true; added: Added }
   | { ok: false; refused: string }
 
-interface Seed {
-  mode: Mode
-  url?: string
-  body?: string
-}
-
 interface Adding {
   opened: boolean
   added: Added[]
   addedAt: number | null
   busy: boolean
-  open: (seed?: Seed) => void
+  open: (seed?: string) => void
   close: () => void
   keepUrl: (url: string, intent: Intent) => Promise<Outcome>
   keepNote: (title: string, body: string) => Promise<Outcome>
 }
 
 const Context = createContext<Adding | null>(null)
-
-const MODES: { mode: Mode; label: string }[] = [
-  { mode: 'link', label: 'A link' },
-  { mode: 'note', label: 'A note' },
-  { mode: 'files', label: 'Files' },
-]
 
 export function useAdd() {
   const held = useContext(Context)
@@ -90,11 +75,7 @@ export function AddProvider({ children }: { children: ReactNode }) {
   const uploads = useUploads()
 
   const [opened, setOpened] = useState(false)
-  const [mode, setMode] = useState<Mode>('link')
-  const [url, setUrl] = useState('')
-  const [intent, setIntent] = useState<Intent>('snapshot')
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
+  const [text, setText] = useState('')
   const [refused, setRefused] = useState<string | null>(null)
   const [added, setAdded] = useState<Added[]>([])
   const [addedAt, setAddedAt] = useState<number | null>(null)
@@ -195,27 +176,14 @@ export function AddProvider({ children }: { children: ReactNode }) {
     [note, remember],
   )
 
-  const open = useCallback((seed?: Seed) => {
+  const open = useCallback((seed?: string) => {
     setRefused(null)
-    setMode(seed?.mode ?? 'link')
-
-    if (seed?.url !== undefined) {
-      const parsed = asUrl(seed.url)
-
-      setUrl(seed.url)
-      setIntent(parsed ? intentFor(parsed) : 'snapshot')
-    }
-
-    if (seed?.body !== undefined) {
-      setBody(seed.body)
-      setTitle('')
-    }
-
+    if (seed !== undefined) setText(seed)
     setOpened(true)
   }, [])
 
   // Whatever is on the clipboard decides what it becomes: files go the way a
-  // drop goes, an address opens on the link, and anything else is a note.
+  // drop goes, and anything with text in it opens the box already filled.
   useEffect(() => {
     const pasted = (event: ClipboardEvent) => {
       if (typing(event.target)) return
@@ -230,19 +198,12 @@ export function AddProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      const text = data.getData('text/plain')
+      const written = data.getData('text/plain')
 
-      if (!text.trim()) return
+      if (!written.trim()) return
 
       event.preventDefault()
-
-      const found = asUrl(text)
-
-      open(
-        found
-          ? { mode: 'link', url: found.toString() }
-          : { mode: 'note', body: text },
-      )
+      open(written)
     }
 
     window.addEventListener('paste', pasted)
@@ -264,20 +225,21 @@ export function AddProvider({ children }: { children: ReactNode }) {
     [opened, added, addedAt, busy, open, keepUrl, keepNote],
   )
 
+  const found = asUrl(text)
+
   async function keep() {
     setRefused(null)
 
-    const outcome =
-      mode === 'note' ? await keepNote(title, body) : await keepUrl(url, intent)
+    const outcome = found
+      ? await keepUrl(text, intentFor(found))
+      : await keepNote('', text)
 
     if (!outcome.ok) {
       setRefused(outcome.refused)
       return
     }
 
-    setUrl('')
-    setTitle('')
-    setBody('')
+    setText('')
   }
 
   return (
@@ -287,52 +249,46 @@ export function AddProvider({ children }: { children: ReactNode }) {
       <Modal
         opened={opened}
         onClose={() => setOpened(false)}
-        title="Add to the catalog"
+        title="Keep something"
         size="lg"
       >
         <Stack gap="var(--s4)">
-          <Group gap="var(--s2)">
-            {MODES.map((option) => (
-              <button
-                key={option.mode}
-                type="button"
-                className="tag"
-                data-dot="false"
-                data-on={mode === option.mode}
-                style={{ cursor: 'pointer' }}
-                onClick={() => {
-                  setMode(option.mode)
-                  setRefused(null)
-                }}
-              >
-                {option.label}
-              </button>
-            ))}
+          <Textarea
+            autoFocus
+            autosize
+            minRows={3}
+            maxRows={14}
+            value={text}
+            disabled={busy}
+            aria-label="A link, or a note"
+            placeholder="Paste a link, or write a note."
+            onChange={(event) => {
+              setText(event.currentTarget.value)
+              setRefused(null)
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault()
+                if (text.trim() && !busy) keep()
+              }
+            }}
+          />
+
+          <Group justify="space-between" gap="var(--s3)">
+            <Reads text={text} found={found} />
+
+            <Button
+              onClick={keep}
+              loading={busy}
+              disabled={!text.trim()}
+              color="chalk"
+              radius="xl"
+            >
+              Keep it
+            </Button>
           </Group>
 
-          {mode === 'link' && (
-            <Address
-              url={url}
-              intent={intent}
-              busy={busy}
-              onUrl={setUrl}
-              onIntent={setIntent}
-              onKeep={keep}
-            />
-          )}
-
-          {mode === 'note' && (
-            <Note
-              title={title}
-              body={body}
-              busy={busy}
-              onTitle={setTitle}
-              onBody={setBody}
-              onKeep={keep}
-            />
-          )}
-
-          {mode === 'files' && <Files />}
+          <Files />
 
           {refused && <Alert color="red">{refused}</Alert>}
 
@@ -357,122 +313,33 @@ export function AddProvider({ children }: { children: ReactNode }) {
   )
 }
 
-function Address({
-  url,
-  intent,
-  busy,
-  onUrl,
-  onIntent,
-  onKeep,
-}: {
-  url: string
-  intent: Intent
-  busy: boolean
-  onUrl: (value: string) => void
-  onIntent: (value: Intent) => void
-  onKeep: () => void
-}) {
-  const parsed = asUrl(url)
+// The box says what it made of what you typed, so nothing has to be chosen.
+function Reads({ text, found }: { text: string; found: URL | null }) {
+  if (!text.trim()) {
+    return (
+      <Text size="xs" c="dimmed">
+        A web address is kept as a page. Anything else is a note.
+      </Text>
+    )
+  }
+
+  if (!found) {
+    return (
+      <Text size="xs" c="dimmed">
+        Kept as a note. Its first line names it.
+      </Text>
+    )
+  }
 
   return (
-    <>
-      <TextInput
-        label="Address"
-        description="A page to keep as it looks now, or a file to pull down."
-        placeholder="https://example.com/a-page"
-        autoFocus
-        value={url}
-        onChange={(event) => {
-          const next = event.currentTarget.value
-          const found = asUrl(next)
-
-          onUrl(next)
-          if (found) onIntent(intentFor(found))
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' && parsed && !busy) onKeep()
-        }}
-      />
-
-      <div>
-        <Text size="sm" fw={500}>
-          Keep it as
-        </Text>
-        <Group gap="var(--s2)" mt="var(--s2)">
-          <button
-            type="button"
-            className="tag"
-            data-dot="false"
-            data-on={intent === 'snapshot'}
-            style={{ cursor: 'pointer' }}
-            onClick={() => onIntent('snapshot')}
-          >
-            a rendered page
-          </button>
-          <button
-            type="button"
-            className="tag"
-            data-dot="false"
-            data-on={intent === 'fetch'}
-            style={{ cursor: 'pointer' }}
-            onClick={() => onIntent('fetch')}
-          >
-            the file at that address
-          </button>
-        </Group>
-      </div>
-
-      <Group justify="flex-end">
-        <Button onClick={onKeep} loading={busy} disabled={!parsed}>
-          Add
-        </Button>
-      </Group>
-    </>
-  )
-}
-
-function Note({
-  title,
-  body,
-  busy,
-  onTitle,
-  onBody,
-  onKeep,
-}: {
-  title: string
-  body: string
-  busy: boolean
-  onTitle: (value: string) => void
-  onBody: (value: string) => void
-  onKeep: () => void
-}) {
-  return (
-    <>
-      <TextInput
-        label="Title"
-        description="Left off, the first line names it."
-        placeholder="Pelicans"
-        value={title}
-        onChange={(event) => onTitle(event.currentTarget.value)}
-      />
-
-      <Textarea
-        label="Note"
-        placeholder="Anything worth finding again."
-        autoFocus
-        autosize
-        minRows={5}
-        maxRows={16}
-        value={body}
-        onChange={(event) => onBody(event.currentTarget.value)}
-      />
-
-      <Group justify="flex-end">
-        <Button onClick={onKeep} loading={busy} disabled={!body.trim()}>
-          Keep it
-        </Button>
-      </Group>
-    </>
+    <Text size="xs" c="dimmed">
+      <span className="mono" style={{ color: 'var(--brass)' }}>
+        {shortly(found)}
+      </span>{' '}
+      {intentFor(found) === 'fetch'
+        ? '— the file at that address'
+        : '— the page as it looks now'}
+    </Text>
   )
 }
 
@@ -487,26 +354,30 @@ function Files() {
   }
 
   return (
-    <>
-      <Text size="sm" c="dimmed">
-        Everything you choose is written to your default storage, then indexed.
-        Dropping onto the window anywhere does the same, and so does pasting.
+    <div className="drop-well">
+      <Text size="sm" c="dimmed" maw="46ch">
+        Files go straight to your default storage. Drop them anywhere on the
+        window, paste them, or choose them here.
       </Text>
 
-      <Group gap="var(--s3)">
+      <Group gap="var(--s2)" wrap="nowrap">
         <Button
+          size="xs"
+          radius="xl"
           variant="default"
-          leftSection={<IconArrowBarToDown size={16} stroke={1.6} />}
+          leftSection={<IconArrowBarToDown size={15} stroke={1.6} />}
           onClick={() => loose.current?.click()}
         >
-          Choose files
+          Files
         </Button>
         <Button
+          size="xs"
+          radius="xl"
           variant="default"
-          leftSection={<IconFolder size={16} stroke={1.6} />}
+          leftSection={<IconFolder size={15} stroke={1.6} />}
           onClick={() => folder.current?.click()}
         >
-          Choose a folder
+          A folder
         </Button>
       </Group>
 
@@ -519,24 +390,6 @@ function Files() {
         onChange={chosen}
         {...({ webkitdirectory: '' } as Record<string, string>)}
       />
-    </>
-  )
-}
-
-export function AddButton() {
-  const { open } = useAdd()
-
-  return (
-    <Button
-      className="head-add"
-      color="chalk"
-      size="compact-sm"
-      radius="xl"
-      leftSection={<IconPlus size={15} stroke={2} />}
-      onClick={() => open()}
-      aria-label="Add to the catalog"
-    >
-      <span className="head-add-word">Add</span>
-    </Button>
+    </div>
   )
 }

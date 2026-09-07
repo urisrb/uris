@@ -62,12 +62,9 @@ export function Audit() {
 
   return (
     <Stack gap="var(--s5)">
-      <div>
-        <h1 className="page-title">Audit</h1>
-        <div className="eyebrow" style={{ marginTop: 'var(--s2)' }}>
-          Every privileged thing anyone asked uris to do, whether it was
-          allowed, and what it was asked with. Newest first.
-        </div>
+      <div className="eyebrow">
+        Every privileged thing anyone asked uris to do, whether it was allowed,
+        and what it was asked with. Newest first.
       </div>
 
       <Group gap="var(--s3)" align="center" wrap="wrap">

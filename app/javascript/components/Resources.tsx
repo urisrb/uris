@@ -137,13 +137,10 @@ export function Resources() {
   return (
     <Stack gap="var(--s5)">
       <Group justify="space-between" align="flex-end">
-        <div>
-          <h1 className="page-title">Resources</h1>
-          <div className="eyebrow" style={{ marginTop: 'var(--s2)' }}>
-            {shelved
-              ? 'Put away, and still holding everything they ever catalogued'
-              : 'The places your items live, and what each one can be asked to do'}
-          </div>
+        <div className="eyebrow">
+          {shelved
+            ? 'Put away, and still holding everything they ever catalogued'
+            : 'The places your items live, and what each one can be asked to do'}
         </div>
 
         <Group gap="var(--s2)">

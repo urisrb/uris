@@ -1,15 +1,6 @@
-import { Button, Loader, Menu, UnstyledButton } from '@mantine/core'
+import { Button, Loader, Tooltip } from '@mantine/core'
 import type { Account } from '@masks/client'
-import {
-  IconDatabase,
-  IconLayoutGrid,
-  IconLink,
-  IconProgressCheck,
-  IconRss,
-  IconSearch,
-  IconSettings,
-  IconShieldLock,
-} from '@tabler/icons-react'
+import { IconLink, IconSearch, IconSettings } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react'
 import {
   Link,
@@ -22,14 +13,12 @@ import {
 import { asUrl, type Intent, intentFor, shortly } from '../add'
 import { useSession } from '../hooks/useSession'
 import { useTitle } from '../hooks/useTitle'
-import { AddButton, AddProvider, useAdd } from './Add'
+import { AddProvider, useAdd } from './Add'
 import { Audit } from './Audit'
 import { Catalog } from './Catalog'
 import { Cycle } from './Cycle'
 import { Face } from './Face'
 import { Fallen } from './Fallen'
-import { FeedDetail } from './FeedDetail'
-import { Feeds } from './Feeds'
 import { ItemDetail } from './ItemDetail'
 import { Lost } from './Lost'
 import { Mark } from './Mark'
@@ -39,6 +28,7 @@ import { Runs } from './Runs'
 import { SayProvider } from './Say'
 import { Settings } from './Settings'
 import { UploadsProvider } from './Uploads'
+import { Works } from './Works'
 
 const VERBS: [string, string][] = [
   ['make', 'doc'],
@@ -52,16 +42,7 @@ const VERBS: [string, string][] = [
   ['keep', 'file'],
 ]
 
-const SECTIONS = [
-  { to: '/', label: 'Catalog', icon: IconLayoutGrid, lead: true },
-  { to: '/feeds', label: 'Feeds', icon: IconRss, lead: true },
-  { to: '/resources', label: 'Resources', icon: IconDatabase, lead: false },
-  { to: '/runs', label: 'Runs', icon: IconProgressCheck, lead: false },
-  { to: '/audit', label: 'Audit', icon: IconShieldLock, lead: false },
-]
-
-const at = (pathname: string, to: string) =>
-  to === '/' ? pathname === '/' : pathname.startsWith(to)
+const WORKS_AT = /^\/(resources|runs|audit)/
 
 export function App() {
   const { account, status, loading, login, logout, logoutEverywhere, connect } =
@@ -157,23 +138,35 @@ function Shell({
   return (
     <div className="shell">
       <header className="shell-head">
-        <Link to="/" className="mark-link" aria-label="uris">
+        <Link to="/" className="mark-link" aria-label="Catalog">
           <Mark />
         </Link>
 
-        <Nav />
-
         <Hunt />
 
-        <AddButton />
+        <Tooltip label="Resources, runs and audit" openDelay={400}>
+          <Link
+            to="/resources"
+            className="head-icon"
+            aria-label="Resources, runs and audit"
+            aria-current={WORKS_AT.test(location.pathname) ? 'page' : undefined}
+          >
+            <IconSettings size={19} stroke={1.6} />
+          </Link>
+        </Tooltip>
 
-        <Who
-          account={account}
-          who={who}
-          tenant={tenant}
-          logout={logout}
-          logoutEverywhere={logoutEverywhere}
-        />
+        <Tooltip label={who} openDelay={400}>
+          <Link
+            to="/settings"
+            className="head-icon head-face"
+            aria-label={`${who} — your settings`}
+            aria-current={
+              location.pathname.startsWith('/settings') ? 'page' : undefined
+            }
+          >
+            <Face account={account} />
+          </Link>
+        </Tooltip>
       </header>
 
       <main className="shell-main">
@@ -182,12 +175,12 @@ function Shell({
             <Route path="/" element={<Catalog />} />
             <Route path="/items/:id" element={<ItemDetail />} />
             <Route path="/merges" element={<Merges />} />
-            <Route path="/feeds" element={<Feeds />} />
-            <Route path="/feeds/:slug" element={<FeedDetail />} />
-            <Route path="/resources" element={<Resources />} />
-            <Route path="/resources/:id" element={<Resources />} />
-            <Route path="/runs" element={<Runs />} />
-            <Route path="/audit" element={<Audit />} />
+            <Route element={<Works />}>
+              <Route path="/resources" element={<Resources />} />
+              <Route path="/resources/:id" element={<Resources />} />
+              <Route path="/runs" element={<Runs />} />
+              <Route path="/audit" element={<Audit />} />
+            </Route>
             <Route
               path="/settings"
               element={
@@ -199,93 +192,12 @@ function Shell({
                 />
               }
             />
+            <Route path="/:slug" element={<Catalog />} />
             <Route path="*" element={<Lost />} />
           </Routes>
         </Fallen>
       </main>
     </div>
-  )
-}
-
-function Nav() {
-  const { pathname } = useLocation()
-
-  return (
-    <nav className="head-nav">
-      {SECTIONS.filter((section) => section.lead).map(
-        ({ to, label, icon: Icon }) => (
-          <Link
-            key={to}
-            to={to}
-            className="head-link"
-            aria-current={at(pathname, to) ? 'page' : undefined}
-          >
-            <Icon size={16} stroke={1.6} />
-            {label}
-          </Link>
-        ),
-      )}
-    </nav>
-  )
-}
-
-function Who({
-  account,
-  who,
-  tenant,
-  logout,
-  logoutEverywhere,
-}: {
-  account: Account
-  who: string
-  tenant?: string | null
-  logout: () => void
-  logoutEverywhere: () => void
-}) {
-  const { pathname } = useLocation()
-
-  return (
-    <Menu position="bottom-end" width={220}>
-      <Menu.Target>
-        <UnstyledButton className="face-button" aria-label={who}>
-          <Face account={account} />
-        </UnstyledButton>
-      </Menu.Target>
-
-      <Menu.Dropdown>
-        <Menu.Label>
-          {who}
-          {tenant ? ` · ${tenant}` : ''}
-        </Menu.Label>
-
-        {SECTIONS.map(({ to, label, icon: Icon }) => (
-          <Menu.Item
-            key={to}
-            component={Link}
-            to={to}
-            className="head-menu-link"
-            aria-current={at(pathname, to) ? 'page' : undefined}
-            leftSection={<Icon size={16} stroke={1.6} />}
-          >
-            {label}
-          </Menu.Item>
-        ))}
-
-        <Menu.Divider />
-
-        <Menu.Item
-          component={Link}
-          to="/settings"
-          className="head-menu-link"
-          aria-current={at(pathname, '/settings') ? 'page' : undefined}
-          leftSection={<IconSettings size={16} stroke={1.6} />}
-        >
-          Settings
-        </Menu.Item>
-        <Menu.Item onClick={logout}>Sign out</Menu.Item>
-        <Menu.Item onClick={logoutEverywhere}>Sign out everywhere</Menu.Item>
-      </Menu.Dropdown>
-    </Menu>
   )
 }
 

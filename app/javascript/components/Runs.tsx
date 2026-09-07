@@ -46,12 +46,9 @@ export function Runs() {
 
   return (
     <Stack gap="var(--s5)">
-      <div>
-        <h1 className="page-title">Runs</h1>
-        <div className="eyebrow" style={{ marginTop: 'var(--s2)' }}>
-          Work that outlives a single request. Anything still open reports
-          itself as it goes.
-        </div>
+      <div className="eyebrow">
+        Work that outlives a single request — a sync, an export, a feed
+        thinking. Anything still open reports itself as it goes.
       </div>
 
       <Group gap="var(--s2)">

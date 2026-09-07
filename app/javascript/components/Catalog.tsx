@@ -8,24 +8,40 @@ import {
   IconLayoutList,
   IconLink,
   IconPackageExport,
+  IconPencil,
+  IconPlayerPause,
+  IconPlayerPlay,
+  IconPlus,
+  IconRefresh,
+  IconTrash,
 } from '@tabler/icons-react'
 import {
+  AgentTurnedDocument,
   CatalogDocument,
+  DeleteFeedDocument,
+  FeedDocument,
+  FeedsDocument,
   ItemAnalyzedDocument,
   MergeProposalsDocument,
+  PauseFeedDocument,
+  RunFeedDocument,
+  RunProgressedDocument,
   SearchDocument,
   SetSettingDocument,
   SettingsDocument,
 } from '@uris-to/client'
 import { useQuery, useSubscription } from '@uris-to/client/react'
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 import { tone } from '../kinds'
 import { useAdd } from './Add'
 import { Export } from './Export'
+import { FeedForm } from './FeedForm'
 import { KindBadge } from './KindBadge'
-import { useAloud } from './Say'
+import { Lost } from './Lost'
+import { useAloud, useSay } from './Say'
+import { Sure } from './Sure'
 import { Cover, Thumb } from './Thumb'
 import { useUploads } from './Uploads'
 
@@ -38,6 +54,8 @@ type View = (typeof VIEWS)[number]
 const VIEW_SETTING = 'catalog_view'
 
 const VIEW_ICONS = { list: IconLayoutList, cards: IconLayoutGrid }
+
+const OPEN = new Set(['queued', 'running'])
 
 function asView(value: string | null | undefined): View {
   return value === 'cards' ? 'cards' : 'list'
@@ -52,24 +70,55 @@ interface Row {
   analyzedAt?: string | null
 }
 
+interface Feed {
+  id: string
+  slug: string
+  name?: string | null
+  prompt: string
+  interval?: number | null
+  pausedAt?: string | null
+  turns?: number | null
+  itemsCount: number
+}
+
 export function Catalog() {
+  const { slug } = useParams()
   const [params] = useSearchParams()
   const kind = params.get('kind')
   const term = (params.get('q') ?? '').trim()
 
   const settings = useQuery(SettingsDocument)
+  const feeds = useQuery(FeedsDocument, {})
   const save = useAloud(SetSettingDocument, 'That view could not be kept.')
   const [picked, setPicked] = useState<View | null>(null)
-
-  useTitle(term ? `${term} — search` : kind ? kind : null)
 
   const stored = settings.data?.settings.find(
     (setting) => setting.key === VIEW_SETTING,
   )?.value
+  const view = asView(picked ?? stored)
 
   const pick = (next: View) => {
     setPicked(next)
     save.execute({ key: VIEW_SETTING, value: next })
+  }
+
+  const known = (feeds.data?.feeds ?? []) as Feed[]
+  const here = slug ? known.find((feed) => feed.slug === slug) : null
+
+  if (slug) {
+    if (!feeds.data) return <Loader size="sm" color="var(--brass)" />
+    if (!here) return <Lost />
+
+    return (
+      <FeedView
+        key={here.slug}
+        feed={here}
+        feeds={known}
+        view={view}
+        onPick={pick}
+        onChanged={feeds.refetch}
+      />
+    )
   }
 
   return (
@@ -77,8 +126,10 @@ export function Catalog() {
       key={`${kind ?? ''} ${term}`}
       kind={kind}
       term={term}
-      view={asView(picked ?? stored)}
+      feeds={known}
+      view={view}
       onPick={pick}
+      onChanged={feeds.refetch}
     />
   )
 }
@@ -86,13 +137,17 @@ export function Catalog() {
 function Listing({
   kind,
   term,
+  feeds,
   view,
   onPick,
+  onChanged,
 }: {
   kind: string | null
   term: string
+  feeds: Feed[]
   view: View
   onPick: (next: View) => void
+  onChanged: () => void
 }) {
   const searching = term.length > 0
 
@@ -112,6 +167,8 @@ function Listing({
     { skip: !searching },
   )
   const { data: analyzed } = useSubscription(ItemAnalyzedDocument)
+
+  useTitle(term ? `${term} — search` : kind ? kind : null)
 
   useEffect(() => {
     const page = searching ? found.data?.search : catalog.data?.items
@@ -142,31 +199,26 @@ function Listing({
   return (
     <Stack gap="var(--s5)">
       <div className="page-head">
-        <div>
-          <h1 className="page-title">
-            {searching ? term : (catalog.data?.tenant?.name ?? 'Catalog')}
-          </h1>
-          <div className="eyebrow" style={{ marginTop: 'var(--s2)' }}>
-            {searching ? (
-              <>
-                <span className="figure">{rows.length.toLocaleString()}</span>
-                {total !== null && total > rows.length && (
-                  <>
-                    {' of '}
-                    <span className="figure">{total.toLocaleString()}</span>
-                  </>
-                )}{' '}
-                {total === 1 ? 'match' : 'matches'}
-                {kind ? ` of kind ${kind}` : ''}
-              </>
-            ) : (
-              <>
-                <span className="figure">{rows.length.toLocaleString()}</span>{' '}
-                {kind ? kind : 'items'}
-                {page?.hasMore ? ' so far' : ''}
-              </>
-            )}
-          </div>
+        <div className="eyebrow">
+          {searching ? (
+            <>
+              <span className="figure">{rows.length.toLocaleString()}</span>
+              {total !== null && total > rows.length && (
+                <>
+                  {' of '}
+                  <span className="figure">{total.toLocaleString()}</span>
+                </>
+              )}{' '}
+              {total === 1 ? 'match' : 'matches'}
+              {kind ? ` of kind ${kind}` : ''}
+            </>
+          ) : (
+            <>
+              <span className="figure">{rows.length.toLocaleString()}</span>{' '}
+              {kind ? kind : 'items'}
+              {page?.hasMore ? ' so far' : ''}
+            </>
+          )}
         </div>
 
         <Group gap="var(--s2)" wrap="nowrap">
@@ -176,61 +228,13 @@ function Listing({
         </Group>
       </div>
 
+      <Shelf feeds={feeds} here={null} onChanged={onChanged} />
+
       {!searching && <Doubles />}
 
       {error && <Alert color="red">{error.message}</Alert>}
 
-      {rows.length > 0 &&
-        (view === 'cards' ? (
-          <div className="grid">
-            {rows.map((item) => (
-              <Link key={item.id} to={`/items/${item.id}`} className="card">
-                <Cover
-                  url={item.thumbnailUrl}
-                  kind={item.kind}
-                  alt={item.title ?? ''}
-                />
-                <div className="card-body">
-                  <div className="card-title">{item.title ?? 'Untitled'}</div>
-                  {item.summary ? (
-                    <div className="card-summary">{item.summary}</div>
-                  ) : (
-                    !item.analyzedAt && (
-                      <div className="card-summary">Not analyzed yet</div>
-                    )
-                  )}
-                  <div className="card-foot">
-                    <KindBadge kind={item.kind} />
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <div className="panel">
-            {rows.map((item) => (
-              <Link key={item.id} to={`/items/${item.id}`} className="entry">
-                <Thumb
-                  url={item.thumbnailUrl}
-                  kind={item.kind}
-                  alt={item.title ?? ''}
-                  size={48}
-                />
-                <div style={{ minWidth: 0 }}>
-                  <div className="entry-title">{item.title ?? 'Untitled'}</div>
-                  {item.summary ? (
-                    <div className="entry-summary">{item.summary}</div>
-                  ) : (
-                    !item.analyzedAt && (
-                      <div className="entry-summary">Not analyzed yet</div>
-                    )
-                  )}
-                </div>
-                <KindBadge kind={item.kind} />
-              </Link>
-            ))}
-          </div>
-        ))}
+      {rows.length > 0 && <Rows rows={rows} view={view} />}
 
       {loading && rows.length === 0 && (
         <Loader size="sm" color="var(--brass)" />
@@ -253,6 +257,388 @@ function Listing({
         </Group>
       )}
     </Stack>
+  )
+}
+
+function FeedView({
+  feed,
+  feeds,
+  view,
+  onPick,
+  onChanged,
+}: {
+  feed: Feed
+  feeds: Feed[]
+  view: View
+  onPick: (next: View) => void
+  onChanged: () => void
+}) {
+  const { data, loading, error, refetch } = useQuery(FeedDocument, {
+    slug: feed.slug,
+  })
+  const { data: progressed } = useSubscription(RunProgressedDocument)
+
+  useTitle(`/${feed.slug}`)
+
+  const held = data?.feed
+  const runs = held?.runs ?? []
+  const rows = (held?.items ?? []) as Row[]
+  const open = runs.find((run) => OPEN.has(run.status))
+
+  const streamed = progressed?.runProgressed.run
+  const mine = streamed && runs.some((run) => run.id === streamed.id)
+  const settled = mine && !OPEN.has(streamed.status)
+
+  useEffect(() => {
+    if (settled) refetch()
+  }, [settled, refetch])
+
+  return (
+    <Stack gap="var(--s5)">
+      <div className="page-head">
+        <div className="eyebrow">
+          <span className="figure">{rows.length.toLocaleString()}</span>{' '}
+          {rows.length === 1 ? 'item' : 'items'} kept by this feed
+        </div>
+
+        <Group gap="var(--s2)" wrap="nowrap">
+          <Switcher view={view} onPick={onPick} />
+        </Group>
+      </div>
+
+      <Shelf
+        feeds={feeds}
+        here={feed}
+        running={Boolean(open)}
+        onChanged={() => {
+          onChanged()
+          refetch()
+        }}
+      />
+
+      <div className="prompt-line">{feed.prompt}</div>
+
+      {error && <Alert color="red">{error.message}</Alert>}
+
+      {open && <Thinking key={open.id} id={open.id} cap={held?.turns} />}
+
+      {rows.length > 0 && <Rows rows={rows} view={view} />}
+
+      {loading && rows.length === 0 && (
+        <Loader size="sm" color="var(--brass)" />
+      )}
+
+      {!loading && rows.length === 0 && (
+        <div className="panel" style={{ padding: 'var(--s6)' }}>
+          <Text c="dimmed" size="sm">
+            Nothing kept yet. Run it and it will search your catalog for what
+            the sentence above describes.
+          </Text>
+        </div>
+      )}
+    </Stack>
+  )
+}
+
+// A feed is a saved way of cutting the catalog, so it sits with the catalog
+// rather than in a section of its own.
+function Shelf({
+  feeds,
+  here,
+  running,
+  onChanged,
+}: {
+  feeds: Feed[]
+  here: Feed | null
+  running?: boolean
+  onChanged: () => void
+}) {
+  const say = useSay()
+  const navigate = useNavigate()
+  const [making, setMaking] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const start = useAloud(RunFeedDocument, 'That feed could not be run.')
+  const pause = useAloud(PauseFeedDocument, 'That feed could not be paused.')
+  const remove = useAloud(DeleteFeedDocument, 'That feed could not be deleted.')
+
+  return (
+    <div className="shelf">
+      <Link to="/" className="chip" data-on={here === null}>
+        Everything
+      </Link>
+
+      {feeds.map((feed) => (
+        <Link
+          key={feed.id}
+          to={`/${feed.slug}`}
+          className="chip"
+          data-on={feed.id === here?.id}
+        >
+          /{feed.slug}
+          {feed.pausedAt ? <span className="chip-note">paused</span> : null}
+        </Link>
+      ))}
+
+      <button
+        type="button"
+        className="chip chip-new"
+        aria-label="New feed"
+        onClick={() => setMaking(true)}
+      >
+        <IconPlus size={14} stroke={2} />
+      </button>
+
+      {here && (
+        <Menu position="bottom-start" width={200}>
+          <Menu.Target>
+            <button type="button" className="chip" aria-label={`/${here.slug}`}>
+              <IconDots size={14} stroke={1.8} />
+            </button>
+          </Menu.Target>
+          <Menu.Dropdown>
+            <Menu.Item
+              leftSection={<IconRefresh size={15} stroke={1.6} />}
+              disabled={running || start.loading}
+              onClick={async () => {
+                const answered = await start.execute({ id: here.id })
+
+                if (!answered) return
+
+                say({ text: `/${here.slug} is running.` })
+                onChanged()
+              }}
+            >
+              {running ? 'Running' : 'Run now'}
+            </Menu.Item>
+
+            <Menu.Item
+              leftSection={<IconPencil size={15} stroke={1.6} />}
+              onClick={() => setEditing(true)}
+            >
+              Edit
+            </Menu.Item>
+
+            {here.interval ? (
+              <Menu.Item
+                leftSection={
+                  here.pausedAt ? (
+                    <IconPlayerPlay size={15} stroke={1.6} />
+                  ) : (
+                    <IconPlayerPause size={15} stroke={1.6} />
+                  )
+                }
+                onClick={async () => {
+                  const answered = await pause.execute({
+                    id: here.id,
+                    paused: !here.pausedAt,
+                  })
+
+                  if (!answered) return
+
+                  say({
+                    text: here.pausedAt
+                      ? `/${here.slug} runs on its own again.`
+                      : `/${here.slug} is paused. It will only run by hand.`,
+                  })
+                  onChanged()
+                }}
+              >
+                {here.pausedAt ? 'Resume' : 'Pause'}
+              </Menu.Item>
+            ) : null}
+
+            <Menu.Divider />
+
+            <Menu.Item
+              color="red"
+              leftSection={<IconTrash size={15} stroke={1.6} />}
+              onClick={() => setDeleting(true)}
+            >
+              Delete
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+      )}
+
+      <FeedForm
+        opened={making || editing}
+        onClose={() => {
+          setMaking(false)
+          setEditing(false)
+        }}
+        feed={editing ? here : null}
+        onSaved={(saved) => {
+          say({ text: `/${saved} is saved.` })
+          onChanged()
+          navigate(`/${saved}`)
+        }}
+      />
+
+      {here && (
+        <Sure
+          opened={deleting}
+          onClose={() => setDeleting(false)}
+          title={`Delete /${here.slug}?`}
+          verb="Delete it"
+          loading={remove.loading}
+          onSure={async () => {
+            const answered = await remove.execute({ id: here.id })
+
+            if (!answered) return
+
+            const kept = answered.deleteFeed?.kept ?? 0
+
+            setDeleting(false)
+            say({
+              text: kept
+                ? `/${here.slug} is gone. The ${kept} ${kept === 1 ? 'item' : 'items'} it wrote stayed in your catalog.`
+                : `/${here.slug} is gone.`,
+            })
+            onChanged()
+            navigate('/')
+          }}
+        >
+          The prompt and its run history go. Anything it wrote stays in your
+          catalog as an ordinary item — deleting the feed that found something
+          is not the same as throwing the something away.
+        </Sure>
+      )}
+    </div>
+  )
+}
+
+function Thinking({ id, cap }: { id: string; cap?: number | null }) {
+  const [turns, setTurns] = useState<
+    { turn: number; calls: string[]; said?: string | null }[]
+  >([])
+  const { data } = useSubscription(AgentTurnedDocument, { id })
+
+  useEffect(() => {
+    const turn = data?.agentTurned
+
+    if (!turn) return
+
+    setTurns((held) =>
+      held.some((past) => past.turn === turn.turn) ? held : [...held, turn],
+    )
+  }, [data])
+
+  const latest = turns[turns.length - 1]
+
+  return (
+    <div className="thinking">
+      <div className="thinking-head">
+        <span className="thinking-pulse" />
+        <span className="label">Thinking</span>
+        <span className="eyebrow">
+          turn <span className="figure">{latest?.turn ?? 1}</span>
+          {cap ? (
+            <>
+              {' '}
+              of <span className="figure">{cap}</span>
+            </>
+          ) : null}
+        </span>
+      </div>
+
+      {turns.length === 0 ? (
+        <Text size="sm" c="dimmed" px="var(--s4)" pb="var(--s4)">
+          Waiting on the first turn. What it reasons through will show up here
+          as it goes.
+        </Text>
+      ) : (
+        <div className="thinking-turns">
+          {turns.map((turn) => (
+            <div key={turn.turn} className="thinking-turn">
+              <span className="thinking-count figure">{turn.turn}</span>
+
+              <div style={{ minWidth: 0 }}>
+                {turn.said && <div className="thinking-said">{turn.said}</div>}
+
+                {turn.calls.length > 0 && (
+                  <Group gap="var(--s2)" mt="var(--s2)">
+                    {turn.calls.map((call) => (
+                      <span
+                        key={call}
+                        className="tag mono"
+                        style={{ '--tone': 'var(--brass)' } as CSSProperties}
+                      >
+                        {call}
+                      </span>
+                    ))}
+                  </Group>
+                )}
+
+                {!turn.said && turn.calls.length === 0 && (
+                  <Text size="xs" c="dimmed">
+                    thought without saying anything
+                  </Text>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Rows({ rows, view }: { rows: Row[]; view: View }) {
+  if (view === 'cards') {
+    return (
+      <div className="grid">
+        {rows.map((item) => (
+          <Link key={item.id} to={`/items/${item.id}`} className="card">
+            <Cover
+              url={item.thumbnailUrl}
+              kind={item.kind}
+              alt={item.title ?? ''}
+            />
+            <div className="card-body">
+              <div className="card-title">{item.title ?? 'Untitled'}</div>
+              {item.summary ? (
+                <div className="card-summary">{item.summary}</div>
+              ) : (
+                !item.analyzedAt && (
+                  <div className="card-summary">Not analyzed yet</div>
+                )
+              )}
+              <div className="card-foot">
+                <KindBadge kind={item.kind} />
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="panel">
+      {rows.map((item) => (
+        <Link key={item.id} to={`/items/${item.id}`} className="entry">
+          <Thumb
+            url={item.thumbnailUrl}
+            kind={item.kind}
+            alt={item.title ?? ''}
+            size={48}
+          />
+          <div style={{ minWidth: 0 }}>
+            <div className="entry-title">{item.title ?? 'Untitled'}</div>
+            {item.summary ? (
+              <div className="entry-summary">{item.summary}</div>
+            ) : (
+              !item.analyzedAt && (
+                <div className="entry-summary">Not analyzed yet</div>
+              )
+            )}
+          </div>
+          <KindBadge kind={item.kind} />
+        </Link>
+      ))}
+    </div>
   )
 }
 

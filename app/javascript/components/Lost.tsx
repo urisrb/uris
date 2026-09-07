@@ -1,12 +1,12 @@
 import { Button, Group, Text } from '@mantine/core'
-import { IconDatabase, IconLayoutGrid, IconRss } from '@tabler/icons-react'
+import { IconDatabase, IconLayoutGrid, IconSettings } from '@tabler/icons-react'
 import { Link, useLocation } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 
 const WAYS = [
   { to: '/', label: 'Catalog', icon: IconLayoutGrid },
-  { to: '/feeds', label: 'Feeds', icon: IconRss },
   { to: '/resources', label: 'Resources', icon: IconDatabase },
+  { to: '/settings', label: 'Settings', icon: IconSettings },
 ]
 
 export function Lost() {
@@ -23,7 +23,8 @@ export function Lost() {
           {pathname}
         </span>{' '}
         is not an address uris knows. It may have been a feed that was never
-        made, or a link that outlived the thing it pointed at.
+        made or has since been deleted, or a link that outlived the thing it
+        pointed at.
       </Text>
 
       <Group gap="var(--s3)" mt="var(--s5)">
