@@ -18,6 +18,7 @@ module SearchIndex
   }.freeze
 
   MAPPING = {
+    dynamic: false,
     properties: {
       tenant_id: { type: "long" },
       kind: { type: "keyword" },

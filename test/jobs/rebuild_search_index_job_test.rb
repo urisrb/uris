@@ -63,6 +63,8 @@ class RebuildSearchIndexJobTest < ActiveSupport::TestCase
   end
 
   test "a rebuild the engine refuses leaves nothing half-built behind it" do
+    requires_a_refusable_engine!
+
     unstamped!
 
     live = SearchIndex.live_index

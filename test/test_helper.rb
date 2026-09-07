@@ -41,6 +41,12 @@ module ActiveSupport
       skip "asserts what the search engine itself does; set URIS_TEST_SEARCH_ENGINE to run it"
     end
 
+    def requires_a_refusable_engine!
+      return unless SEARCH_ENGINE_URL
+
+      skip "drives a refusal only the in-process engine can be told to make"
+    end
+
     def requires_transcription!
       model = ENV["URIS_WHISPER_MODEL"].presence
 
