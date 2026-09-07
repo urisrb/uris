@@ -24,7 +24,7 @@ class NotionResourceTest < ActiveSupport::TestCase
   end
 
   test "check passes when the secret names an integration" do
-    stub_request(:get, "#{API}/users/me").to_return(json(id: "bot-1", name: "uris"))
+    stub_request(:get, "#{API}/users/me").to_return(json_response(id: "bot-1", name: "uris"))
 
     Tenant.switch(@tenant) { assert @resource.check! }
   end
@@ -39,7 +39,7 @@ class NotionResourceTest < ActiveSupport::TestCase
   end
 
   test "the version header travels on every call" do
-    stub_request(:get, "#{API}/users/me").to_return(json(id: "bot-1"))
+    stub_request(:get, "#{API}/users/me").to_return(json_response(id: "bot-1"))
 
     Tenant.switch(@tenant) { @resource.check! }
 
@@ -49,11 +49,11 @@ class NotionResourceTest < ActiveSupport::TestCase
   test "a sync walks the cursor Notion hands back and stops when it says so" do
     stub_request(:post, "#{API}/search")
       .with(body: hash_excluding("start_cursor"))
-      .to_return(json(results: [ page("a"), database("d") ], has_more: true, next_cursor: "c1"))
+      .to_return(json_response(results: [ page("a"), database("d") ], has_more: true, next_cursor: "c1"))
 
     stub_request(:post, "#{API}/search")
       .with(body: hash_including("start_cursor" => "c1"))
-      .to_return(json(results: [ page("b") ], has_more: false, next_cursor: nil))
+      .to_return(json_response(results: [ page("b") ], has_more: false, next_cursor: nil))
 
     seen = []
 
@@ -65,7 +65,7 @@ class NotionResourceTest < ActiveSupport::TestCase
 
   test "a page lands keyed on its id, titled from its title property" do
     stub_request(:post, "#{API}/search")
-      .to_return(json(results: [ page(PAGE_ID, title: "Q3 plan") ], has_more: false))
+      .to_return(json_response(results: [ page(PAGE_ID, title: "Q3 plan") ], has_more: false))
 
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
@@ -140,10 +140,6 @@ class NotionResourceTest < ActiveSupport::TestCase
 
   private
 
-    def json(body)
-      { status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" } }
-    end
-
     def page(id, title: "A page")
       {
         object: "page", id: id, url: "https://notion.so/#{id}",
@@ -164,6 +160,6 @@ class NotionResourceTest < ActiveSupport::TestCase
     def stub_blocks(id, blocks)
       stub_request(:get, "#{API}/blocks/#{id}/children")
         .with(query: hash_including({}))
-        .to_return(json(results: blocks, has_more: false, next_cursor: nil))
+        .to_return(json_response(results: blocks, has_more: false, next_cursor: nil))
     end
 end

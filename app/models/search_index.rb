@@ -185,12 +185,11 @@ module SearchIndex
       raise ArgumentError, "no tenant" if tenant.nil?
 
       vector = wanted_vector(query, limit: limit, from: from)
-      depth = vector ? CANDIDATES : limit
-      found = lexical(query, tenant: tenant, kind: kind, limit: depth, from: vector ? 0 : from)
 
-      return found if vector.nil?
+      return lexical(query, tenant: tenant, kind: kind, limit: limit, from: from) if vector.nil?
 
-      fused = fuse(found[:ids], nearest(vector, tenant: tenant, kind: kind, limit: depth))
+      found = lexical(query, tenant: tenant, kind: kind, limit: CANDIDATES, from: 0)
+      fused = fuse(found[:ids], nearest(vector, tenant: tenant, kind: kind, limit: CANDIDATES))
 
       { ids: fused.drop(from).first(limit), total: [ found[:total], fused.length ].max }
     end
@@ -211,7 +210,7 @@ module SearchIndex
         index: alias_for(tenant),
         body: {
           query: { bool: { must: must } },
-          size: limit, from: from, track_total_hits: true
+          size: limit, from: from, track_total_hits: true, _source: false
         }
       )
 
@@ -247,9 +246,9 @@ module SearchIndex
         ranked.each_with_index { |id, rank| scored[id] += 1.0 / (FUSION_RANK + rank + 1) }
       end
 
-      seen = scored.keys.each_with_index.to_h
-
-      scored.sort_by { |id, score| [ -score, seen[id] ] }.map(&:first)
+      scored.each_with_index
+            .sort_by { |(_id, score), rank| [ -score, rank ] }
+            .map { |(id, _score), _rank| id }
     end
 
     def refresh!(index: alias_name)

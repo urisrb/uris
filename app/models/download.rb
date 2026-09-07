@@ -43,12 +43,13 @@ class Download
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ".xlsx"
   }.freeze
 
-  def self.of(url)
-    new(url).get
+  def self.of(url, max_bytes: MAX_BYTES)
+    new(url, max_bytes: max_bytes).get
   end
 
-  def initialize(url)
+  def initialize(url, max_bytes: MAX_BYTES)
     @url = url.to_s
+    @max_bytes = max_bytes
   end
 
   def get
@@ -57,7 +58,7 @@ class Download
 
   private
 
-    attr_reader :url
+    attr_reader :url, :max_bytes
 
     # Every hop is checked, not just the one we were handed. A public address
     # that answers with a redirect to 169.254.169.254 is the whole attack, and
@@ -122,7 +123,7 @@ class Download
       length = response["content-length"].to_s
       return if length.blank?
 
-      raise TooBig, "#{url} is #{length} bytes, over the #{MAX_BYTES} ceiling" if length.to_i > MAX_BYTES
+      raise TooBig, "#{url} is #{length} bytes, over the #{max_bytes} ceiling" if length.to_i > max_bytes
     end
 
     def drain(response)
@@ -131,7 +132,7 @@ class Download
       response.read_body do |chunk|
         held << chunk
 
-        raise TooBig, "#{url} is more than #{MAX_BYTES} bytes" if held.bytesize > MAX_BYTES
+        raise TooBig, "#{url} is more than #{max_bytes} bytes" if held.bytesize > max_bytes
       end
 
       held

@@ -139,7 +139,7 @@ class Resource
     end
 
     def command_get(key:)
-      repo, _shape, number = split(key)
+      repo, number = split(key)
       issue = api_get("/repos/#{repo}/issues/#{number}")
 
       described(issue.merge("repo" => repo))
@@ -214,7 +214,7 @@ class Resource
 
         raise ArgumentError, "#{key} is not owner/name/issues/number" if parts.length < 4
 
-        [ parts.first(2).join("/"), parts[2], parts[3] ]
+        [ parts.first(2).join("/"), parts[3] ]
       end
 
       def it_names_a_repository

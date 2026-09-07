@@ -49,14 +49,14 @@ class GithubResourceTest < ActiveSupport::TestCase
   end
 
   test "check passes when the token names an account that can read every repository" do
-    stub_request(:get, "#{API}/user").to_return(json(login: "ash"))
-    stub_request(:get, "#{API}/repos/acme/widgets").to_return(json(full_name: "acme/widgets"))
+    stub_request(:get, "#{API}/user").to_return(json_response(login: "ash"))
+    stub_request(:get, "#{API}/repos/acme/widgets").to_return(json_response(full_name: "acme/widgets"))
 
     Tenant.switch(@tenant) { assert @resource.check! }
   end
 
   test "check names the repository the token cannot reach, rather than only failing" do
-    stub_request(:get, "#{API}/user").to_return(json(login: "ash"))
+    stub_request(:get, "#{API}/user").to_return(json_response(login: "ash"))
     stub_request(:get, "#{API}/repos/acme/widgets").to_return(status: 404, body: "{}")
 
     error = Tenant.switch(@tenant) { assert_raises(Resource::Unusable) { @resource.check! } }
@@ -145,11 +145,11 @@ class GithubResourceTest < ActiveSupport::TestCase
 
   test "downloading an issue is its body and its discussion, not a page of HTML" do
     stub_request(:get, "#{API}/repos/acme/widgets/issues/7")
-      .to_return(json(number: 7, title: "Widget jams", body: "It jams on Tuesdays.",
+      .to_return(json_response(number: 7, title: "Widget jams", body: "It jams on Tuesdays.",
                       state: "open", user: { login: "ash" }))
     stub_request(:get, "#{API}/repos/acme/widgets/issues/7/comments")
       .with(query: hash_including({}))
-      .to_return(json([ { body: "Reproduced on 2.1.", user: { login: "bea" } } ]))
+      .to_return(json_response([ { body: "Reproduced on 2.1.", user: { login: "bea" } } ]))
 
     text = Tenant.switch(@tenant) do
       @resource.download("repo" => "acme/widgets", "number" => 7).read
@@ -163,10 +163,10 @@ class GithubResourceTest < ActiveSupport::TestCase
 
   test "a command reads one issue by its key" do
     stub_request(:get, "#{API}/repos/acme/widgets/issues/7")
-      .to_return(json(number: 7, title: "Widget jams", body: "…", state: "open",
+      .to_return(json_response(number: 7, title: "Widget jams", body: "…", state: "open",
                       user: { login: "ash" }, html_url: "https://github.com/acme/widgets/issues/7"))
     stub_request(:get, "#{API}/repos/acme/widgets/issues/7/comments")
-      .with(query: hash_including({})).to_return(json([]))
+      .with(query: hash_including({})).to_return(json_response([]))
 
     found = Tenant.switch(@tenant) { @resource.command(:get, key: "acme/widgets/issues/7") }
 
@@ -185,7 +185,7 @@ class GithubResourceTest < ActiveSupport::TestCase
   end
 
   test "the token travels in the header and never in the query" do
-    stub_request(:get, "#{API}/user").to_return(json(login: "ash"))
+    stub_request(:get, "#{API}/user").to_return(json_response(login: "ash"))
 
     Tenant.switch(@tenant) { @resource.api_get("/user") }
 
@@ -196,10 +196,6 @@ class GithubResourceTest < ActiveSupport::TestCase
   end
 
   private
-
-    def json(body)
-      { status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" } }
-    end
 
     def stub_issues(page:, count:, from:)
       issues = Array.new(count) do |index|
@@ -212,6 +208,6 @@ class GithubResourceTest < ActiveSupport::TestCase
 
       stub_request(:get, "#{API}/repos/acme/widgets/issues")
         .with(query: hash_including({ "page" => page.to_s }))
-        .to_return(json(issues))
+        .to_return(json_response(issues))
     end
 end

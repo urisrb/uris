@@ -55,14 +55,18 @@ module Analyzer
 
     def summary_prompt
       <<~PROMPT
-        Catalogue the file below so that someone can find it again by searching
-        for what is in it.
+        Catalogue the #{summary_noun} below so that someone can find it again by
+        searching for what is in it.
 
         #{file_facts}
 
         #{summary_body}
-        #{summary_shape}
+        #{summary_shape(summary_says)}
       PROMPT
+    end
+
+    def summary_noun
+      "file"
     end
 
     SAYS = <<~SAYS.strip.freeze
@@ -70,6 +74,10 @@ module Analyzer
           category — write the product, the company and the date, not "a product",
           "an online retailer" and "a deadline". Say only what is above.
     SAYS
+
+    def summary_says
+      SAYS
+    end
 
     def summary_shape(says = SAYS)
       <<~SHAPE

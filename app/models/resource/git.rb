@@ -7,7 +7,6 @@ class Resource
     MAX_BLOB = 2.megabytes
     DEFAULT_PROTOCOLS = "https".freeze
     ENTRY = /\A(\d+) (\w+) ([0-9a-f]+)\s+(\d+|-)\t(.+)\z/
-    TIMEOUT = 300
 
     Entry = Data.define(:path, :sha, :size)
 
@@ -74,7 +73,7 @@ class Resource
       permitted!
 
       refs = with_askpass do |env|
-        git("ls-remote", "--heads", url, env: env, timeout: TIMEOUT, bare: true)
+        git("ls-remote", "--heads", url, env: env, bare: true)
       end
 
       raise Resource::Failed, "#{key}: #{url} served no branches" if refs.strip.empty?
@@ -117,35 +116,31 @@ class Resource
       {
         "url" => url,
         "ref" => ref,
-        "files" => entries(prefix).first(count).map { |entry| described(entry) }
+        "files" => entries(prefix).first(count).map { |entry| locator_for(entry) }
       }
     end
 
     def command_get(path:)
       pull!
 
-      entry = entries(nil).find { |held| held.path == path }
+      entry = entries(path).find { |held| held.path == path }
 
       raise Resource::Failed, "#{key}: no #{path} at #{ref}" if entry.nil?
 
-      described(entry).merge("text" => download(locator_for(entry)).read.force_encoding("UTF-8").scrub)
+      locator_for(entry).merge("text" => download(locator_for(entry)).read.force_encoding("UTF-8").scrub)
     end
 
     private
 
-      def described(entry)
-        { "path" => entry.path, "sha" => entry.sha, "size" => entry.size }
-      end
-
       def entries(prefix)
         under = prefix.to_s.delete_prefix("/").chomp("/")
-        listed = git("ls-tree", "-r", "-l", HEAD)
+        wanted = under.present? ? [ "--", under ] : []
+        listed = git("ls-tree", "-r", "-l", HEAD, *wanted)
 
         listed.lines.filter_map do |line|
           held = parsed(line)
 
           next if held.nil? || held.size > MAX_BLOB
-          next if under.present? && !held.path.start_with?("#{under}/") && held.path != under
 
           held
         end
@@ -164,8 +159,7 @@ class Resource
         prepare!
 
         with_askpass do |env|
-          git("fetch", "--depth", "1", "--no-tags", url, "+#{ref}:#{HEAD}",
-              env: env, timeout: TIMEOUT)
+          git("fetch", "--depth", "1", "--no-tags", url, "+#{ref}:#{HEAD}", env: env)
         end
 
         true
@@ -215,7 +209,7 @@ class Resource
         raise Resource::Failed, "#{key}: #{e.message}"
       end
 
-      def git(*args, env: {}, timeout: nil, binary: false, bare: false)
+      def git(*args, env: {}, binary: false, bare: false)
         command = [ "git" ]
         command += [ "-C", working_dir ] unless bare
         command += %w[-c protocol.file.allow=never -c core.askPass= -c credential.helper=]

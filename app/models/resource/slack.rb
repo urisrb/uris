@@ -6,6 +6,7 @@ class Resource
     REPLIES = 200
     PEOPLE = 200
     PEOPLE_PAGES = 5
+    PEOPLE_HELD = 1.hour
     KINDS = "public_channel,private_channel".freeze
 
     # Slack answers 200 and says no in the body, so a status code decides nothing here.
@@ -60,16 +61,11 @@ class Resource
       true
     end
 
-    def each_page(cursor: nil, prefix: nil)
+    def each_page(cursor: nil, prefix: nil, &block)
       channel, held = resume(cursor)
-      reached = channel.nil?
+      wanted = channel ? channels.drop_while { |found| found["id"] != channel } : channels
 
-      channels.each do |found|
-        reached ||= found["id"] == channel
-        next unless reached
-
-        walk(found, found["id"] == channel ? held : nil) { |batch, mark| yield batch, mark }
-      end
+      wanted.each_with_index { |found, index| walk(found, index.zero? ? held : nil, &block) }
     end
 
     def locator_for(message)
@@ -119,14 +115,13 @@ class Resource
     end
 
     def command_list(channel: nil, limit: nil)
-      count = (limit || 30).to_i.clamp(1, MESSAGES)
-
       return { "channels" => channels.map { |found| described(found) } } if channel.blank?
 
       found = channels.find { |held| held["name"] == channel.delete_prefix("#") || held["id"] == channel }
 
       raise Api::Gone, "#{key}: no channel #{channel}" if found.nil?
 
+      count = (limit || 30).to_i.clamp(1, MESSAGES)
       history = called("/conversations.history", channel: found["id"], limit: count)
 
       {
@@ -245,11 +240,19 @@ class Resource
         people.fetch(id, id)
       end
 
+      # Reached from download, which runs once per item in its own job, so the memo alone
+      # would refetch the whole directory for every thread analysed.
       def people
-        @people ||= gather("/users.list", "members", pages: PEOPLE_PAGES, limit: PEOPLE)
-                      .to_h { |member| [ member["id"], named(member) ] }
+        @people ||= Rails.cache.fetch(people_key, expires_in: PEOPLE_HELD) do
+          gather("/users.list", "members", pages: PEOPLE_PAGES, limit: PEOPLE)
+            .to_h { |member| [ member["id"], named(member) ] }
+        end
       rescue Resource::Failed
         {}
+      end
+
+      def people_key
+        [ "slack-people", tenant_id, id, updated_at.to_i ].join("/")
       end
 
       def named(member)

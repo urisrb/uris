@@ -32,5 +32,15 @@ class Resource
     def forget_upstream_token
       remove_instance_variable(:@upstream_token) if defined?(@upstream_token)
     end
+
+    def token
+      upstream_token
+    end
+
+    def token_expired!
+      forget_upstream_token
+
+      true
+    end
   end
 end

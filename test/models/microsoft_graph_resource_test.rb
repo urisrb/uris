@@ -41,8 +41,8 @@ class MicrosoftGraphResourceTest < ActiveSupport::TestCase
   end
 
   test "the token the broker releases is what reaches Microsoft" do
-    stub_request(:get, "#{API}/me").to_return(json(id: "u1", userPrincipalName: "ash@acme.test"))
-    stub_request(:get, "#{API}/me/drive").to_return(json(id: "d1"))
+    stub_request(:get, "#{API}/me").to_return(json_response(id: "u1", userPrincipalName: "ash@acme.test"))
+    stub_request(:get, "#{API}/me/drive").to_return(json_response(id: "d1"))
 
     Tenant.switch(@tenant) { assert @resource.check! }
 
@@ -50,8 +50,8 @@ class MicrosoftGraphResourceTest < ActiveSupport::TestCase
   end
 
   test "an account with no drive is unusable, and says which account" do
-    stub_request(:get, "#{API}/me").to_return(json(id: "u1", userPrincipalName: "ash@acme.test"))
-    stub_request(:get, "#{API}/me/drive").to_return(json({}))
+    stub_request(:get, "#{API}/me").to_return(json_response(id: "u1", userPrincipalName: "ash@acme.test"))
+    stub_request(:get, "#{API}/me/drive").to_return(json_response({}))
 
     error = Tenant.switch(@tenant) { assert_raises(Resource::Unusable) { @resource.check! } }
 
@@ -60,11 +60,11 @@ class MicrosoftGraphResourceTest < ActiveSupport::TestCase
 
   test "a delta page hands back its own next link as the cursor" do
     stub_request(:get, "#{API}/me/drive/root/delta")
-      .to_return(json(value: [ file("report.pdf") ],
+      .to_return(json_response(value: [ file("report.pdf") ],
                       "@odata.nextLink": "#{API}/me/drive/root/delta?token=abc"))
 
     stub_request(:get, "#{API}/me/drive/root/delta?token=abc")
-      .to_return(json(value: [ file("notes.txt") ], "@odata.deltaLink": "#{API}/delta?token=done"))
+      .to_return(json_response(value: [ file("notes.txt") ], "@odata.deltaLink": "#{API}/delta?token=done"))
 
     seen = []
 
@@ -75,7 +75,7 @@ class MicrosoftGraphResourceTest < ActiveSupport::TestCase
 
   test "a resumed sync asks for the page it had not reached, not the first one" do
     stub_request(:get, "#{API}/me/drive/root/delta?token=abc")
-      .to_return(json(value: [ file("notes.txt") ]))
+      .to_return(json_response(value: [ file("notes.txt") ]))
 
     Tenant.switch(@tenant) do
       @resource.each_page(cursor: "#{API}/me/drive/root/delta?token=abc") { |_batch, _cursor| nil }
@@ -85,7 +85,7 @@ class MicrosoftGraphResourceTest < ActiveSupport::TestCase
   end
 
   test "folders and deletions are not items, and a file is keyed on its path" do
-    stub_request(:get, "#{API}/me/drive/root/delta").to_return(json(value: [
+    stub_request(:get, "#{API}/me/drive/root/delta").to_return(json_response(value: [
       file("report.pdf", path: "/drive/root:/Invoices"),
       { "id" => "f1", "name" => "Invoices", "folder" => { "childCount" => 2 } },
       { "id" => "g1", "name" => "gone.txt", "deleted" => { "state" => "deleted" } }
@@ -104,7 +104,7 @@ class MicrosoftGraphResourceTest < ActiveSupport::TestCase
   test "a folder in the details narrows what is catalogued" do
     Tenant.switch(@tenant) { @resource.update!(details: { "folder" => "Invoices" }) }
 
-    stub_request(:get, "#{API}/me/drive/root/delta").to_return(json(value: [
+    stub_request(:get, "#{API}/me/drive/root/delta").to_return(json_response(value: [
       file("report.pdf", path: "/drive/root:/Invoices"),
       file("holiday.jpg", path: "/drive/root:/Photos")
     ]))
@@ -161,10 +161,6 @@ class MicrosoftGraphResourceTest < ActiveSupport::TestCase
   end
 
   private
-
-    def json(body)
-      { status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" } }
-    end
 
     def file(name, path: "/drive/root:", ctag: "ctag-1")
       {

@@ -168,8 +168,7 @@ class SlackResourceTest < ActiveSupport::TestCase
   private
 
     def ok(body)
-      { status: 200, body: { ok: true }.merge(body).to_json,
-        headers: { "Content-Type" => "application/json" } }
+      json_response({ ok: true }.merge(body))
     end
 
     def stub_ok(path, body = {})

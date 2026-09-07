@@ -45,16 +45,12 @@ module Analyzer
           length, and say plainly that nothing was heard.
     SAYS
 
-    def summary_prompt
-      <<~PROMPT
-        Catalogue the recording below so that someone can find it again by searching
-        for what is in it.
+    def summary_noun
+      "recording"
+    end
 
-        #{file_facts}
-
-        #{summary_body}
-        #{summary_shape(SAYS)}
-      PROMPT
+    def summary_says
+      SAYS
     end
 
     private

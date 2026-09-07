@@ -14,10 +14,6 @@ module Embedding
       Resource.for_declared_role(ROLE)
     end
 
-    def available?
-      held.present?
-    end
-
     def gist(item)
       [
         item.title,
@@ -48,17 +44,16 @@ module Embedding
       resource = held
       return 0 if resource.nil?
 
-      items = Item.unembedded.limit(limit).to_a
+      items = Item.unembedded.includes(:references, children: :references).limit(limit).to_a
       return 0 if items.empty?
 
       model = resource.model_for(ROLE)
       wanted = items.to_h { |item| [ item.id, gist(item) ] }
-      moved, settled = items.partition do |item|
-        item.embedded_digest != digest_of(wanted.fetch(item.id), model)
-      end
+      digests = wanted.transform_values { |text| digest_of(text, model) }
+      moved, settled = items.partition { |item| item.embedded_digest != digests.fetch(item.id) }
 
       settle(settled)
-      write!(resource, moved, wanted, model)
+      write!(resource, moved, wanted, digests)
 
       items.length
     end
@@ -71,7 +66,7 @@ module Embedding
         Item.where(id: items.map(&:id)).update_all(embedded_at: Time.current)
       end
 
-      def write!(resource, items, wanted, model)
+      def write!(resource, items, wanted, digests)
         return if items.empty?
 
         vectors = resource.embed(items.map { |item| wanted.fetch(item.id) })
@@ -79,12 +74,12 @@ module Embedding
         items.each_with_index do |item, index|
           item.update_columns(
             embedding: vectors.fetch(index),
-            embedded_digest: digest_of(wanted.fetch(item.id), model),
+            embedded_digest: digests.fetch(item.id),
             embedded_at: Time.current
           )
-
-          SearchIndex.index(item)
         end
+
+        SearchIndex.index_all(items)
       end
 
       def query_key(resource, text)

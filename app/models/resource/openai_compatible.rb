@@ -143,11 +143,11 @@ class Resource
             "let the index rebuild itself"
     end
 
-    def embed(texts, role: EMBEDDING_ROLE)
+    def embed(texts)
       wanted = Array(texts).map { |text| scrub(text).truncate(MAX_EMBED) }
       return [] if wanted.empty?
 
-      model = model_for(role)
+      model = model_for(EMBEDDING_ROLE)
       answered = post("/embeddings", { model: model, input: wanted }, timeout: read_timeout)
       vectors = Array(answered["data"]).sort_by { |entry| entry["index"].to_i }
                                        .map { |entry| Array(entry["embedding"]).map(&:to_f) }

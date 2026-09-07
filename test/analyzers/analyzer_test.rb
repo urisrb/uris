@@ -43,18 +43,18 @@ class AnalyzerTest < ActiveSupport::TestCase
 
   test "dispatch picks an analyzer by kind, first match wins" do
     Tenant.switch(@tenant) do
-      assert_instance_of Analyzer::Pdf, Analyzer.for(item("invoice.pdf"))
-      assert_instance_of Analyzer::Image, Analyzer.for(item("photo.png"))
-      assert_instance_of Analyzer::Text, Analyzer.for(item("notes.txt"))
-      assert_instance_of Analyzer::Data, Analyzer.for(item("rows.csv"))
+      assert_instance_of Analyzer::Pdf, Analyzer.for(item_at("invoice.pdf"))
+      assert_instance_of Analyzer::Image, Analyzer.for(item_at("photo.png"))
+      assert_instance_of Analyzer::Text, Analyzer.for(item_at("notes.txt"))
+      assert_instance_of Analyzer::Data, Analyzer.for(item_at("rows.csv"))
     end
   end
 
   test "a pdf yields its text and page count" do
-    analyze "invoice.pdf"
+    analyze_item_at "invoice.pdf"
 
     Tenant.switch(@tenant) do
-      analysis = reference("invoice.pdf").analysis
+      analysis = reference_at("invoice.pdf").analysis
 
       assert_includes analysis.dig("steps", "text", "result"), "Invoice for March"
       assert_equal "1", analysis.dig("steps", "info", "result", "pages")
@@ -62,10 +62,10 @@ class AnalyzerTest < ActiveSupport::TestCase
   end
 
   test "an image yields its dimensions" do
-    analyze "photo.png"
+    analyze_item_at "photo.png"
 
     Tenant.switch(@tenant) do
-      dimensions = reference("photo.png").analysis.dig("steps", "dimensions", "result")
+      dimensions = reference_at("photo.png").analysis.dig("steps", "dimensions", "result")
 
       assert_equal 120, dimensions["width"]
       assert_equal 80, dimensions["height"]
@@ -73,10 +73,10 @@ class AnalyzerTest < ActiveSupport::TestCase
   end
 
   test "a csv yields its columns and row count" do
-    analyze "rows.csv"
+    analyze_item_at "rows.csv"
 
     Tenant.switch(@tenant) do
-      shape = reference("rows.csv").analysis.dig("steps", "shape", "result")
+      shape = reference_at("rows.csv").analysis.dig("steps", "shape", "result")
 
       assert_equal %w[name amount], shape["columns"]
       assert_equal 2, shape["rows"]
@@ -84,30 +84,30 @@ class AnalyzerTest < ActiveSupport::TestCase
   end
 
   test "a completed step is not recomputed" do
-    analyze "notes.txt"
+    analyze_item_at "notes.txt"
 
     Tenant.switch(@tenant) do
-      subject = item("notes.txt")
-      first_finished = reference("notes.txt").analysis.dig("steps", "text", "finished_at")
+      subject = item_at("notes.txt")
+      first_finished = reference_at("notes.txt").analysis.dig("steps", "text", "finished_at")
 
       Analyzer.for(subject).run
 
-      assert_equal first_finished, reference("notes.txt").analysis.dig("steps", "text", "finished_at")
+      assert_equal first_finished, reference_at("notes.txt").analysis.dig("steps", "text", "finished_at")
     end
   end
 
   test "force recomputes a step" do
-    analyze "notes.txt"
+    analyze_item_at "notes.txt"
 
     Tenant.switch(@tenant) do
-      subject = item("notes.txt")
+      subject = item_at("notes.txt")
       analyzer = Analyzer.for(subject)
-      before = reference("notes.txt").analysis.dig("steps", "text", "finished_at")
+      before = reference_at("notes.txt").analysis.dig("steps", "text", "finished_at")
 
       analyzer.run
       analyzer.step(:text, force: true) { "different" }
 
-      after = reference("notes.txt").analysis
+      after = reference_at("notes.txt").analysis
 
       assert_not_equal before, after.dig("steps", "text", "finished_at")
       assert_equal "different", after.dig("steps", "text", "result")
@@ -115,16 +115,16 @@ class AnalyzerTest < ActiveSupport::TestCase
   end
 
   test "a step computed before the bytes moved is computed again" do
-    analyze "notes.txt"
+    analyze_item_at "notes.txt"
 
-    before = Tenant.switch(@tenant) { reference("notes.txt").analysis.dig("steps", "text") }
+    before = Tenant.switch(@tenant) { reference_at("notes.txt").analysis.dig("steps", "text") }
 
     @resource.client.put_object(bucket: @bucket, key: "notes.txt", body: "buy more milk")
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
-    analyze "notes.txt"
+    analyze_item_at "notes.txt"
 
     Tenant.switch(@tenant) do
-      after = reference("notes.txt").analysis.dig("steps", "text")
+      after = reference_at("notes.txt").analysis.dig("steps", "text")
 
       assert_equal "remember the milk", before["result"]
       assert_equal "buy more milk", after["result"]
@@ -135,21 +135,21 @@ class AnalyzerTest < ActiveSupport::TestCase
   test "a step computed after the bytes moved is left alone" do
     @resource.client.put_object(bucket: @bucket, key: "notes.txt", body: "buy more milk")
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
-    analyze "notes.txt"
+    analyze_item_at "notes.txt"
 
     finished = Tenant.switch(@tenant) do
-      reference("notes.txt").analysis.dig("steps", "text", "finished_at")
+      reference_at("notes.txt").analysis.dig("steps", "text", "finished_at")
     end
 
-    analyze "notes.txt"
+    analyze_item_at "notes.txt"
 
     Tenant.switch(@tenant) do
-      assert_equal finished, reference("notes.txt").analysis.dig("steps", "text", "finished_at")
+      assert_equal finished, reference_at("notes.txt").analysis.dig("steps", "text", "finished_at")
     end
   end
 
   test "syncing enqueues analysis again for the item whose bytes moved, and only that one" do
-    %w[invoice.pdf photo.png notes.txt rows.csv].each { |key| analyze key }
+    %w[invoice.pdf photo.png notes.txt rows.csv].each { |key| analyze_item_at key }
 
     @resource.client.put_object(bucket: @bucket, key: "notes.txt", body: "buy more milk")
 
@@ -159,7 +159,7 @@ class AnalyzerTest < ActiveSupport::TestCase
   end
 
   test "extracted text becomes searchable" do
-    analyze "invoice.pdf"
+    analyze_item_at "invoice.pdf"
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
@@ -174,26 +174,4 @@ class AnalyzerTest < ActiveSupport::TestCase
       Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
     end
   end
-
-  private
-
-    def upload(name)
-      @resource.client.put_object(
-        bucket: @bucket, key: name,
-        body: File.binread(Rails.root.join("test/fixtures/files", name))
-      )
-    end
-
-    def item(key)
-      item_at(key)
-    end
-
-    def reference(key)
-      Reference.find_by!(locator_key: key).reload
-    end
-
-    def analyze(key)
-      id = Tenant.switch(@tenant) { item(key).id }
-      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) }
-    end
 end

@@ -10,7 +10,6 @@ class Resource
     MAX_BYTES = 8.megabytes
     MAX_TEXT = 100_000
     PAGE = 100
-    RETRY_AFTER = 60
 
     class << self
       def api
@@ -27,10 +26,11 @@ class Resource
     end
 
     def token
-      return upstream_token if brokered?
-
       credentials["token"].presence ||
         raise(Resource::Unusable, "#{key} carries no token — attach it again")
+    end
+
+    def token_expired!
     end
 
     def api_get(path, **query)
@@ -39,10 +39,6 @@ class Resource
 
     def api_post(path, body, **query)
       answer(:post, path, query: query, body: body)
-    end
-
-    def api_text(path, **query)
-      answer(:get, path, query: query, raw: true)
     end
 
     private
@@ -67,13 +63,15 @@ class Resource
         uri
       end
 
-      def answer(verb, path, query: {}, body: nil, raw: false, retried: false)
+      def answer(verb, path, query: {}, body: nil, retried: false)
         uri = endpoint(path, query)
         response = exchange(uri, verb, body)
 
         case response
         when Net::HTTPUnauthorized
-          return retry_once(verb, path, query, body, raw) if brokered? && !retried
+          if !retried && token_expired!
+            return answer(verb, path, query: query, body: body, retried: true)
+          end
 
           raise Resource::Unusable, "#{key}: #{self.class.service} refused the token"
         when Net::HTTPNotFound
@@ -83,16 +81,10 @@ class Resource
         when Net::HTTPServerError
           raise Resource::Failed, "#{key}: #{self.class.service} answered #{response.code}"
         when Net::HTTPSuccess
-          raw ? bounded(response) : parsed(response)
+          parsed(response)
         else
           raise Resource::Unusable, "#{key}: #{self.class.service} answered #{response.code} — #{refused(response)}"
         end
-      end
-
-      def retry_once(verb, path, query, body, raw)
-        forget_upstream_token
-
-        answer(verb, path, query: query, body: body, raw: raw, retried: true)
       end
 
       def parsed(response)

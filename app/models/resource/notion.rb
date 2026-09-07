@@ -4,16 +4,14 @@ class Resource
     VERSION = "2022-06-28".freeze
     DEPTH = 3
     BLOCKS = 100
+    MAX_BLOCKS = 2_000
     UNTITLED = "Untitled".freeze
 
-    LISTED = {
-      "bulleted_list_item" => "- ",
-      "numbered_list_item" => "1. ",
-      "to_do" => "- [ ] ",
-      "quote" => "> "
+    PREFIXES = {
+      "heading_1" => "# ", "heading_2" => "## ", "heading_3" => "### ",
+      "bulleted_list_item" => "- ", "numbered_list_item" => "1. ",
+      "to_do" => "- [ ] ", "quote" => "> "
     }.freeze
-
-    HEADINGS = { "heading_1" => "# ", "heading_2" => "## ", "heading_3" => "### " }.freeze
 
     def self.api
       API
@@ -109,7 +107,7 @@ class Resource
 
     def command_list(query: nil, limit: nil)
       count = (limit || 30).to_i.clamp(1, BLOCKS)
-      found = search(nil, query: query)
+      found = search(nil, query: query, page_size: count)
 
       {
         "pages" => Array(found["results"]).select { |result| result["object"] == "page" }
@@ -129,9 +127,9 @@ class Resource
         super.merge("Notion-Version" => VERSION)
       end
 
-      def search(cursor, query: nil)
+      def search(cursor, query: nil, page_size: BLOCKS)
         body = {
-          page_size: BLOCKS,
+          page_size: page_size,
           filter: { value: "page", property: "object" }
         }
 
@@ -145,14 +143,14 @@ class Resource
       def written(id, depth: DEPTH)
         return "" if depth.zero?
 
-        blocks(id).filter_map { |block| said(block, depth) }.compact_blank.join("\n")
+        blocks(id).map { |block| said(block, depth) }.compact_blank.join("\n")
       end
 
       def blocks(id, cursor = nil, held = [])
         found = api_get("/blocks/#{id}/children", page_size: BLOCKS, start_cursor: cursor)
         held += Array(found["results"])
 
-        return held unless found["has_more"] && found["next_cursor"].present? && held.length < MAX_TEXT
+        return held unless found["has_more"] && found["next_cursor"].present? && held.length < MAX_BLOCKS
 
         blocks(id, found["next_cursor"], held)
       rescue Api::Gone
@@ -162,16 +160,12 @@ class Resource
       def said(block, depth)
         type = block["type"].to_s
         line = spoken(block.dig(type, "rich_text"))
-        line = "#{HEADINGS[type] || LISTED[type]}#{line}" if line.present? && marked?(type)
+        line = "#{PREFIXES[type]}#{line}" if line.present?
         line = child_title(block, type) if line.blank?
 
         return line if block["has_children"].blank?
 
         [ line, indented(written(block["id"], depth: depth - 1)) ].compact_blank.join("\n")
-      end
-
-      def marked?(type)
-        HEADINGS.key?(type) || LISTED.key?(type)
       end
 
       def child_title(block, type)

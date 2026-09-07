@@ -91,5 +91,26 @@ module ActiveSupport
     def item_at(locator_key)
       Item.joins(:references).find_by!(item_references: { locator_key: locator_key })
     end
+
+    def json_response(body)
+      { status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" } }
+    end
+
+    def upload(name)
+      @resource.client.put_object(
+        bucket: @bucket, key: name,
+        body: File.binread(Rails.root.join("test/fixtures/files", name))
+      )
+    end
+
+    def reference_at(key)
+      Reference.find_by!(locator_key: key).reload
+    end
+
+    def analyze_item_at(key)
+      id = Tenant.switch(@tenant) { item_at(key).id }
+
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) }
+    end
   end
 end

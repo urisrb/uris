@@ -5,7 +5,6 @@ class Resource
     API = "https://graph.microsoft.com/v1.0".freeze
     DRIVE = "/me/drive".freeze
     MAX_DOWNLOAD = 512.megabytes
-    CONTENT_TIMEOUT = 120
     ROOT = %r{\A/[^:]*:?/?}
 
     def self.api
@@ -122,7 +121,7 @@ class Resource
         return false if entry["deleted"].present? || entry["folder"].present?
         return false if entry["file"].blank?
 
-        under = [ prefix.presence, folder ].compact.first
+        under = prefix.presence || folder
 
         under.blank? || locator_key_for(entry).start_with?("#{under.delete_prefix('/').chomp('/')}/")
       end
@@ -166,28 +165,11 @@ class Resource
       end
 
       def pulled(target)
-        uri = PublicAddress.permitted!(target)
-
-        response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https",
-                                   open_timeout: OPEN_TIMEOUT, read_timeout: CONTENT_TIMEOUT) do |http|
-          http.request(Net::HTTP::Get.new(uri, "User-Agent" => "uris"))
-        end
-
-        unless response.is_a?(Net::HTTPSuccess)
-          raise Resource::Failed, "#{key}: the storage host answered #{response.code}"
-        end
-
-        body = response.body.to_s
-
-        raise Resource::Failed, "#{key}: more than #{MAX_DOWNLOAD} bytes" if body.bytesize > MAX_DOWNLOAD
-
-        body
-      rescue PublicAddress::Blocked => e
+        Download.of(target, max_bytes: MAX_DOWNLOAD).bytes
+      rescue Download::Blocked => e
         raise Resource::Unusable, "#{key}: #{e.message}"
-      rescue PublicAddress::Unresolvable => e
+      rescue Download::Failed => e
         raise Resource::Failed, "#{key}: #{e.message}"
-      rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, SystemCallError, OpenSSL::SSL::SSLError => e
-        raise Resource::Failed, "#{key}: #{e.class} pulling content"
       end
   end
 end

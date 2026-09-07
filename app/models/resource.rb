@@ -121,13 +121,15 @@ class Resource < ApplicationRecord
     def default_inference! = default_for!(:inference)
 
     def for_role(role)
-      candidates = active.select { |resource| resource.inference? && resource.serves_role?(role) }
-
-      candidates.find(&:default_inference?) || candidates.first
+      best_inference { |resource| resource.serves_role?(role) }
     end
 
     def for_declared_role(role)
-      candidates = active.select { |resource| resource.inference? && resource.declares_role?(role) }
+      best_inference { |resource| resource.declares_role?(role) }
+    end
+
+    def best_inference
+      candidates = active.select { |resource| resource.inference? && yield(resource) }
 
       candidates.find(&:default_inference?) || candidates.first
     end
@@ -135,10 +137,6 @@ class Resource < ApplicationRecord
 
   def capabilities
     self.class.capabilities
-  end
-
-  def brokered?
-    self.class.brokered?
   end
 
   def storage?
