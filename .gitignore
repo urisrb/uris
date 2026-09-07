@@ -47,6 +47,7 @@
 
 # Ignore key files for decrypting credentials and more.
 /config/*.key
+/config/credentials.yml.enc
 
 # A local reference corpus for exercising the analyzers by hand. Mostly binary
 # and 30MB of it is one raw photo, so it lives on disk rather than in history.
