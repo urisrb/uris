@@ -1,4 +1,4 @@
-import { Button, Group, Loader, Menu, UnstyledButton } from '@mantine/core'
+import { Button, Loader, Menu, UnstyledButton } from '@mantine/core'
 import type { Account } from '@masks/client'
 import {
   IconDatabase,
@@ -10,9 +10,7 @@ import {
   IconSettings,
   IconShieldLock,
 } from '@tabler/icons-react'
-import { CatalogDocument } from '@uris-to/client'
-import { useQuery } from '@uris-to/client/react'
-import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Link,
   Route,
@@ -24,7 +22,6 @@ import {
 import { asUrl, type Intent, intentFor, shortly } from '../add'
 import { useSession } from '../hooks/useSession'
 import { useTitle } from '../hooks/useTitle'
-import { tone } from '../kinds'
 import { AddButton, AddProvider, useAdd } from './Add'
 import { Audit } from './Audit'
 import { Catalog } from './Catalog'
@@ -41,7 +38,7 @@ import { Resources } from './Resources'
 import { Runs } from './Runs'
 import { SayProvider } from './Say'
 import { Settings } from './Settings'
-import { UploadsProvider, useUploads } from './Uploads'
+import { UploadsProvider } from './Uploads'
 
 const VERBS: [string, string][] = [
   ['make', 'doc'],
@@ -56,13 +53,15 @@ const VERBS: [string, string][] = [
 ]
 
 const SECTIONS = [
-  { to: '/', label: 'Catalog', icon: IconLayoutGrid },
-  { to: '/feeds', label: 'Feeds', icon: IconRss },
-  { to: '/resources', label: 'Resources', icon: IconDatabase },
-  { to: '/runs', label: 'Runs', icon: IconProgressCheck },
-  { to: '/audit', label: 'Audit', icon: IconShieldLock },
-  { to: '/settings', label: 'Settings', icon: IconSettings },
+  { to: '/', label: 'Catalog', icon: IconLayoutGrid, lead: true },
+  { to: '/feeds', label: 'Feeds', icon: IconRss, lead: true },
+  { to: '/resources', label: 'Resources', icon: IconDatabase, lead: false },
+  { to: '/runs', label: 'Runs', icon: IconProgressCheck, lead: false },
+  { to: '/audit', label: 'Audit', icon: IconShieldLock, lead: false },
 ]
+
+const at = (pathname: string, to: string) =>
+  to === '/' ? pathname === '/' : pathname.startsWith(to)
 
 export function App() {
   const { account, status, loading, login, logout, logoutEverywhere, connect } =
@@ -168,28 +167,13 @@ function Shell({
 
         <AddButton />
 
-        <Kinds />
-
-        <Menu position="bottom-end" width={210}>
-          <Menu.Target>
-            <UnstyledButton className="face-button" aria-label={who}>
-              <Face account={account} />
-            </UnstyledButton>
-          </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Label>
-              {who}
-              {tenant ? ` · ${tenant}` : ''}
-            </Menu.Label>
-            <Menu.Item component={Link} to="/settings">
-              Settings
-            </Menu.Item>
-            <Menu.Item onClick={logout}>Sign out</Menu.Item>
-            <Menu.Item onClick={logoutEverywhere}>
-              Sign out everywhere
-            </Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
+        <Who
+          account={account}
+          who={who}
+          tenant={tenant}
+          logout={logout}
+          logoutEverywhere={logoutEverywhere}
+        />
       </header>
 
       <main className="shell-main">
@@ -224,136 +208,82 @@ function Shell({
 }
 
 function Nav() {
-  const location = useLocation()
-  const on = (to: string) =>
-    to === '/' ? location.pathname === '/' : location.pathname.startsWith(to)
-  const here = SECTIONS.find((section) => on(section.to)) ?? SECTIONS[0]
+  const { pathname } = useLocation()
 
   return (
-    <>
-      <nav className="head-nav">
-        {SECTIONS.map(({ to, label, icon: Icon }) => (
+    <nav className="head-nav">
+      {SECTIONS.filter((section) => section.lead).map(
+        ({ to, label, icon: Icon }) => (
           <Link
             key={to}
             to={to}
             className="head-link"
-            aria-current={on(to) ? 'page' : undefined}
+            aria-current={at(pathname, to) ? 'page' : undefined}
           >
             <Icon size={16} stroke={1.6} />
             {label}
           </Link>
-        ))}
-      </nav>
-
-      <Menu position="bottom-start" width={190}>
-        <Menu.Target>
-          <Button
-            className="head-nav-menu"
-            variant="subtle"
-            color="gray"
-            size="compact-sm"
-            leftSection={<here.icon size={16} stroke={1.6} />}
-          >
-            {here.label}
-          </Button>
-        </Menu.Target>
-        <Menu.Dropdown>
-          {SECTIONS.map(({ to, label, icon: Icon }) => (
-            <Menu.Item
-              key={to}
-              component={Link}
-              to={to}
-              leftSection={<Icon size={16} stroke={1.6} />}
-            >
-              {label}
-            </Menu.Item>
-          ))}
-        </Menu.Dropdown>
-      </Menu>
-    </>
+        ),
+      )}
+    </nav>
   )
 }
 
-function Kinds() {
-  const location = useLocation()
-  const [params] = useSearchParams()
-  const { settledAt } = useUploads()
-  const { addedAt } = useAdd()
-  const { data, refetch } = useQuery(CatalogDocument, {
-    kind: null,
-    after: null,
-    limit: 1,
-  })
-
-  useEffect(() => {
-    if (settledAt || addedAt) refetch()
-  }, [settledAt, addedAt, refetch])
-
-  if (location.pathname !== '/') return null
-
-  const kind = params.get('kind')
-  const kinds = data?.kinds ?? []
-  const total = kinds.reduce((sum, entry) => sum + entry.count, 0)
-
-  const linkTo = (next: string | null) => {
-    const held = new URLSearchParams(params)
-
-    if (next) held.set('kind', next)
-    else held.delete('kind')
-
-    const query = held.toString()
-
-    return query ? `/?${query}` : '/'
-  }
+function Who({
+  account,
+  who,
+  tenant,
+  logout,
+  logoutEverywhere,
+}: {
+  account: Account
+  who: string
+  tenant?: string | null
+  logout: () => void
+  logoutEverywhere: () => void
+}) {
+  const { pathname } = useLocation()
 
   return (
-    <Menu position="bottom-end" width={230}>
+    <Menu position="bottom-end" width={220}>
       <Menu.Target>
-        <Button
-          variant={kind ? 'light' : 'subtle'}
-          color="gray"
-          size="compact-sm"
-          radius="xl"
-          leftSection={
-            kind ? (
-              <span
-                className="dot"
-                style={{ '--tone': tone(kind) } as CSSProperties}
-              />
-            ) : undefined
-          }
-        >
-          {kind ?? 'All kinds'}
-        </Button>
+        <UnstyledButton className="face-button" aria-label={who}>
+          <Face account={account} />
+        </UnstyledButton>
       </Menu.Target>
+
       <Menu.Dropdown>
-        <Menu.Item component={Link} to={linkTo(null)}>
-          <Group justify="space-between" gap="var(--s4)">
-            <span>everything</span>
-            <span className="figure">{total.toLocaleString()}</span>
-          </Group>
-        </Menu.Item>
+        <Menu.Label>
+          {who}
+          {tenant ? ` · ${tenant}` : ''}
+        </Menu.Label>
 
-        {kinds.length > 0 && <Menu.Divider />}
-
-        {kinds.map((entry) => (
+        {SECTIONS.map(({ to, label, icon: Icon }) => (
           <Menu.Item
-            key={entry.kind}
+            key={to}
             component={Link}
-            to={linkTo(entry.kind === kind ? null : entry.kind)}
-            leftSection={
-              <span
-                className="dot"
-                style={{ '--tone': tone(entry.kind) } as CSSProperties}
-              />
-            }
+            to={to}
+            className="head-menu-link"
+            aria-current={at(pathname, to) ? 'page' : undefined}
+            leftSection={<Icon size={16} stroke={1.6} />}
           >
-            <Group justify="space-between" gap="var(--s4)">
-              <span>{entry.kind}</span>
-              <span className="figure">{entry.count.toLocaleString()}</span>
-            </Group>
+            {label}
           </Menu.Item>
         ))}
+
+        <Menu.Divider />
+
+        <Menu.Item
+          component={Link}
+          to="/settings"
+          className="head-menu-link"
+          aria-current={at(pathname, '/settings') ? 'page' : undefined}
+          leftSection={<IconSettings size={16} stroke={1.6} />}
+        >
+          Settings
+        </Menu.Item>
+        <Menu.Item onClick={logout}>Sign out</Menu.Item>
+        <Menu.Item onClick={logoutEverywhere}>Sign out everywhere</Menu.Item>
       </Menu.Dropdown>
     </Menu>
   )
@@ -466,7 +396,7 @@ function Hunt() {
             setWanted(intent === 'snapshot' ? 'fetch' : 'snapshot')
           }
         }}
-        placeholder="Search everything you own, or paste an address"
+        placeholder="Search, or paste an address"
         aria-label="Search everything you own, or paste an address"
       />
 

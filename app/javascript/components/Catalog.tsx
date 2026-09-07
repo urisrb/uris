@@ -18,9 +18,10 @@ import {
   SettingsDocument,
 } from '@uris-to/client'
 import { useQuery, useSubscription } from '@uris-to/client/react'
-import { useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
+import { tone } from '../kinds'
 import { useAdd } from './Add'
 import { Export } from './Export'
 import { KindBadge } from './KindBadge'
@@ -169,6 +170,7 @@ function Listing({
         </div>
 
         <Group gap="var(--s2)" wrap="nowrap">
+          <Kinds />
           <Switcher view={view} onPick={onPick} />
           <Tools kind={kind} term={term} />
         </Group>
@@ -281,6 +283,88 @@ function Doubles() {
       </span>
       <span className="double-go">Review</span>
     </Link>
+  )
+}
+
+function Kinds() {
+  const [params] = useSearchParams()
+  const { settledAt } = useUploads()
+  const { addedAt } = useAdd()
+  const { data, refetch } = useQuery(CatalogDocument, {
+    kind: null,
+    after: null,
+    limit: 1,
+  })
+
+  useEffect(() => {
+    if (settledAt || addedAt) refetch()
+  }, [settledAt, addedAt, refetch])
+
+  const kind = params.get('kind')
+  const kinds = data?.kinds ?? []
+  const total = kinds.reduce((sum, entry) => sum + entry.count, 0)
+
+  const linkTo = (next: string | null) => {
+    const held = new URLSearchParams(params)
+
+    if (next) held.set('kind', next)
+    else held.delete('kind')
+
+    const query = held.toString()
+
+    return query ? `/?${query}` : '/'
+  }
+
+  return (
+    <Menu position="bottom-end" width={230}>
+      <Menu.Target>
+        <Button
+          variant={kind ? 'light' : 'default'}
+          color="gray"
+          size="compact-sm"
+          radius="xl"
+          leftSection={
+            kind ? (
+              <span
+                className="dot"
+                style={{ '--tone': tone(kind) } as CSSProperties}
+              />
+            ) : undefined
+          }
+        >
+          {kind ?? 'All kinds'}
+        </Button>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item component={Link} to={linkTo(null)}>
+          <Group justify="space-between" gap="var(--s4)">
+            <span>everything</span>
+            <span className="figure">{total.toLocaleString()}</span>
+          </Group>
+        </Menu.Item>
+
+        {kinds.length > 0 && <Menu.Divider />}
+
+        {kinds.map((entry) => (
+          <Menu.Item
+            key={entry.kind}
+            component={Link}
+            to={linkTo(entry.kind === kind ? null : entry.kind)}
+            leftSection={
+              <span
+                className="dot"
+                style={{ '--tone': tone(entry.kind) } as CSSProperties}
+              />
+            }
+          >
+            <Group justify="space-between" gap="var(--s4)">
+              <span>{entry.kind}</span>
+              <span className="figure">{entry.count.toLocaleString()}</span>
+            </Group>
+          </Menu.Item>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
   )
 }
 
