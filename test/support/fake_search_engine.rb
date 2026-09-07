@@ -32,11 +32,20 @@ class FakeSearchEngine
       @engine.resolve!(index)
       { "_shards" => { "successful" => 1 } }
     end
+
+    def get_mapping(index:, **)
+      @engine.mapping_of(index)
+    end
+
+    def put_mapping(index:, body:, **)
+      @engine.remap!(index, body)
+    end
   end
 
   def initialize
     @indices = {}
     @documents = {}
+    @mappings = {}
     @monitor = Monitor.new
   end
 
@@ -53,8 +62,25 @@ class FakeSearchEngine
     end
   end
 
+  def refusing_bulk(reason = "mapper_parsing_exception")
+    @refusal = reason
+    yield
+  ensure
+    @refusal = nil
+  end
+
+  def index_names
+    @monitor.synchronize { @indices.keys }
+  end
+
   def bulk(body:, **)
     @monitor.synchronize do
+      if @refusal
+        refused = body.each_slice(2).map { { "index" => { "error" => { "reason" => @refusal } } } }
+
+        return { "errors" => true, "items" => refused }
+      end
+
       items = body.each_slice(2).map do |action, document|
         written = normalize(action).fetch("index")
         name, = resolve!(written["_index"])
@@ -121,8 +147,26 @@ class FakeSearchEngine
 
       @indices[name] = {}
       @documents[name] = {}
+      @mappings[name] = normalize(body)["mappings"] || {}
 
       { "acknowledged" => true, "index" => name }
+    end
+  end
+
+  def mapping_of(name)
+    @monitor.synchronize do
+      held, = resolve!(name)
+
+      { held => { "mappings" => @mappings.fetch(held, {}) } }
+    end
+  end
+
+  def remap!(name, body)
+    @monitor.synchronize do
+      held, = resolve!(name)
+      @mappings[held] = @mappings.fetch(held, {}).merge(normalize(body))
+
+      { "acknowledged" => true }
     end
   end
 
@@ -136,6 +180,7 @@ class FakeSearchEngine
 
       @indices.delete(name)
       @documents.delete(name)
+      @mappings.delete(name)
 
       { "acknowledged" => true }
     end

@@ -99,7 +99,8 @@ class TenantSwitchingTest < ActiveSupport::TestCase
   end
 
   test "the recurring sweeps are enqueued outside a tenant, as their schedule reaches them" do
-    [ ScheduleFeedsJob, ScheduleSyncsJob, SweepAuditEventsJob, SweepRunsJob ].each do |job|
+    [ ScheduleFeedsJob, ScheduleSyncsJob, SweepAuditEventsJob, SweepRunsJob,
+      RebuildSearchIndexJob ].each do |job|
       assert job.across_tenants, "#{job} is reached by the scheduler, which holds no tenant"
     end
   end

@@ -27,6 +27,8 @@ module SearchIndex
     }
   }.freeze
 
+  STAMP = Digest::SHA256.hexdigest([ SETTINGS, MAPPING ].to_json).first(12).freeze
+
   class << self
     def client
       @client ||= OpenSearch::Client.new(url: ENV.fetch("OPENSEARCH_URL", "http://127.0.0.1:9201"))
@@ -58,8 +60,25 @@ module SearchIndex
       live_indices.empty? && client.indices.exists(index: alias_name)
     end
 
+    def stamp_of(index)
+      client.indices.get_mapping(index: index).dig(index, "mappings", "_meta", "stamp")
+    rescue OpenSearch::Transport::Transport::Errors::NotFound
+      nil
+    end
+
+    def stale?
+      live = live_index
+
+      return false if live.nil?
+
+      stamp_of(live) != STAMP
+    end
+
     def build!(name = versioned)
-      client.indices.create(index: name, body: { settings: SETTINGS, mappings: MAPPING })
+      client.indices.create(
+        index: name,
+        body: { settings: SETTINGS, mappings: MAPPING.merge(_meta: { stamp: STAMP }) }
+      )
       name
     rescue OpenSearch::Transport::Transport::Errors::BadRequest => e
       raise unless e.message.include?("resource_already_exists_exception")
