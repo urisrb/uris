@@ -8,7 +8,7 @@ them, with analysis attached, and can hand the bytes back as an export or a loca
 
 ```
 sync       resource → catalog        pull references in           ✓ eight of thirteen types
-analyze    content  → understanding  per item, by kind            ✓ summaries, vision
+analyze    content  → understanding  per item, by kind            ✓ summaries, vision, speech
 search     catalog  → you            one index across everything  ✓ words and meaning, fused
 export     catalog  → resource       bytes back out               ✓
 ```

@@ -161,7 +161,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
-            libpq-dev libvips libvips-tools poppler-utils tesseract-ocr
+            libpq-dev libvips libvips-tools poppler-utils tesseract-ocr ffmpeg
 
       - name: Start MinIO
         run: |

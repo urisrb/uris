@@ -41,6 +41,14 @@ module ActiveSupport
       skip "asserts what the search engine itself does; set URIS_TEST_SEARCH_ENGINE to run it"
     end
 
+    def requires_transcription!
+      model = ENV["URIS_WHISPER_MODEL"].presence
+
+      return if model && File.file?(model) && system("command -v #{Analyzer::Media.binary} > /dev/null")
+
+      skip "asserts what whisper itself hears; set URIS_WHISPER_MODEL to a ggml model file to run it"
+    end
+
     def issuer
       FakeIssuer.current
     end

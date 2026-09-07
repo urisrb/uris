@@ -14,7 +14,8 @@ module Tool
         query: { type: "string", description: "Words to match. All of them must appear." },
         kind: {
           type: "string",
-          description: "Restrict to one kind of item: pdf, image, text, data, xlsx, doc, email, calendar, file."
+          description: "Restrict to one kind of item: pdf, image, audio, video, text, data, xlsx, doc, "\
+                         "email, calendar, contact, pkpass, page, file."
         },
         limit: { type: "integer", minimum: 1, maximum: 200 }
       }

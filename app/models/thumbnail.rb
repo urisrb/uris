@@ -6,7 +6,8 @@ class Thumbnail
   SIZES = { "small" => 96, "medium" => 320, "large" => 1024 }.freeze
   DEFAULT_SIZE = "medium"
   PREVIEW_SIZE = "large"
-  KINDS = %w[image pdf page].freeze
+  KINDS = %w[image pdf page video].freeze
+  POSTER_AT = "00:00:01".freeze
   CONTENT_TYPE = "image/jpeg"
   RETAIN = 30.days
 
@@ -47,6 +48,7 @@ class Thumbnail
           when "image" then from_image(path, dir)
           when "page" then from_page(path, dir)
           when "pdf" then from_pdf(path, dir)
+          when "video" then from_video(path, dir)
           end
         end
       end
@@ -78,6 +80,25 @@ class Thumbnail
       Raw.preview(path, &block)
     rescue Raw::Unreadable => e
       raise Unavailable, e.message
+    end
+
+    def from_video(path, dir)
+      frame = File.join(dir, "frame.png")
+      out = File.join(dir, "out.jpg")
+
+      attempt("ffmpeg", "-v", "error", "-y", "-ss", POSTER_AT, "-i", path, "-frames:v", "1", frame)
+      run("ffmpeg", "-v", "error", "-y", "-i", path, "-frames:v", "1", frame) unless File.size?(frame)
+
+      raise Unavailable, "ffmpeg rendered no frame of #{reference.filename}" unless File.size?(frame)
+
+      run("vipsthumbnail", frame, "--size", "#{width}x>", "-o", "#{out}[Q=80]")
+      File.binread(out)
+    end
+
+    def attempt(*args)
+      run(*args)
+    rescue Unavailable
+      false
     end
 
     def from_pdf(path, dir)

@@ -10,7 +10,7 @@ description: One query across every resource that has been synced, fusing word m
 | Argument | |
 | --- | --- |
 | `query` | words to match; the operator is `and`, so all of them must appear |
-| `kind` | `pdf`, `image`, `text`, `data`, `xlsx`, `doc`, `email`, `calendar`, `contact`, `pkpass`, `file` |
+| `kind` | `pdf`, `image`, `audio`, `video`, `text`, `data`, `xlsx`, `doc`, `email`, `calendar`, `contact`, `pkpass`, `page`, `file` |
 | `limit` | clamped to 1–200, 50 by default |
 
 Omit `query` and the search becomes a `match_all` — the most recent items, optionally of one kind.

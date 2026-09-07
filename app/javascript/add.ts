@@ -3,7 +3,7 @@ export type Intent = 'snapshot' | 'fetch'
 const BARE = /^[\w-]+(\.[\w-]+)+([/:?#]|$)/
 
 const FILE_LIKE =
-  /\.(pdf|png|jpe?g|gif|webp|heic|avif|tiff?|txt|md|rtf|csv|tsv|json|xml|xlsx?|ods|docx?|odt|ics|vcf|vcard|pkpass|eml|zip|epub|mp3|mp4|mov|wav)$/i
+  /\.(pdf|png|jpe?g|gif|webp|heic|avif|tiff?|txt|md|rtf|csv|tsv|json|xml|xlsx?|ods|docx?|odt|ics|vcf|vcard|pkpass|eml|zip|epub|mp3|m4a|m4b|wav|flac|ogg|oga|opus|aac|aiff|mp4|m4v|mov|mkv|webm|avi|mpe?g)$/i
 
 function named(text: string): boolean {
   return !/[/:?#]/.test(text) && FILE_LIKE.test(text)

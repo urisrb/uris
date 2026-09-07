@@ -23,6 +23,7 @@ WORKDIR /rails
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
       curl libjemalloc2 libvips libvips-tools libraw-bin poppler-utils tesseract-ocr \
+      ffmpeg \
       libreoffice-writer postgresql-client \
       chromium fonts-liberation fonts-noto-color-emoji && \
     ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so && \

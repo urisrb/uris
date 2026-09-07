@@ -27,14 +27,35 @@ unconditionally and is last, so every item has an analyzer.
 | `Pdf` | `info`, `text` | `pdfinfo`, `pdftotext` |
 | `Image` | `dimensions`, `deviation`, `ocr` | `vipsheader`, `vips`, `tesseract` |
 | `Email` | `headers`, `attachments`, `text` | — (`mail` gem) |
+| `Media` | `probe`, `transcript` | `ffprobe`, `ffmpeg`, `whisper-cli` |
 
 `brew bundle` installs the binaries. `Analyzer::Base::MAX_TEXT` truncates extracted text at 200,000
 characters.
 
 :::note[TODO]
-The remaining nine analyzers are not documented here yet. Read the `analyze` method in each file
+The remaining eight analyzers are not documented here yet. Read the `analyze` method in each file
 under `app/analyzers/analyzer/`; the pattern is the same three lines.
 :::
+
+### Recordings
+
+A recording is the one kind whose content is time rather than bytes you can read, so `Media` does two
+different things with it. `probe` is metadata — length, container, codecs, the shape of each stream —
+and costs nothing. `transcript` decodes the audio to 16 kHz mono and hands it to
+[whisper.cpp](https://github.com/ggerganov/whisper.cpp), which is where the searchable text of a
+podcast, a voice memo or a screen recording actually comes from.
+
+The two are separate steps on purpose. The model file is downloaded rather than packaged — set
+`URIS_WHISPER_MODEL` to a `ggml-*.bin` — and where it is missing the transcript step records
+*why* under `analysis.steps.transcript.error` while the probe, the summary and the thumbnail all
+still land. An item that could not be heard says so, rather than looking analyzed and empty.
+
+Whisper runs at roughly realtime on a CPU, so `URIS_TRANSCRIBE_SECONDS` (3600) caps how much of a
+long recording is decoded. One podcast should not hold the analysis pool for an hour.
+
+A video also gets a poster: `Thumbnail` takes a frame a second in, falling back to the first frame
+for a clip shorter than that, and scales it through the same `vipsthumbnail` path every other tile
+uses.
 
 ## The step machine
 

@@ -9,6 +9,8 @@ export const KIND_ORDER = [
   'calendar',
   'text',
   'doc',
+  'audio',
+  'video',
   'image',
   'page',
   'pkpass',
