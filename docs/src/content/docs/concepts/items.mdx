@@ -63,6 +63,11 @@ that knows what it found overrides `kind_for` and says so directly:
 | --- | --- |
 | `feed` | `Resource::Rss` — an entry in a feed, keyed on its guid |
 | `page` | `Resource::Web` — a snapshot, keyed on the address it was taken from |
+| `text` | `Resource::Github`, `Resource::Notion`, `Resource::Slack` — an issue, a page or a thread |
+
+An issue, a Notion page and a Slack thread are `text` rather than a kind of their own because that
+is what they are once fetched: their `download` composes the text they never had as a file. They are
+searchable beside a PDF for the same reason.
 
 Kind is not resource type. `pdf` is a kind; `s3` is a [type](/concepts/resources/).
 

@@ -7,7 +7,7 @@ Drive search only searches Drive. Gmail search only searches Gmail. uris searche
 them, with analysis attached, and can hand the bytes back as an export or a local copy.
 
 ```
-sync       resource → catalog        pull references in           ✓ eight of thirteen types
+sync       resource → catalog        pull references in           ✓ thirteen of eighteen types
 analyze    content  → understanding  per item, by kind            ✓ summaries, vision, speech
 search     catalog  → you            one index across everything  ✓ words and meaning, fused
 export     catalog  → resource       bytes back out               ✓
@@ -20,6 +20,12 @@ they came from — with one exception, [snapshots](#snapshots), where there is n
 A **resource** is an instance — "my B2 bucket" — and its **type** (`s3`, `imap`, `oauth-google`) is
 what decides how much code exists: one `s3` adapter serves AWS, R2, B2, Wasabi, MinIO and Garage. A
 type owns its adapter, its command schema, its locator shape, and its enumerator.
+
+Not every type points at files. `github`, `notion` and `slack` catalogue records that were never
+bytes — an issue, a page, a thread — and compose the text they never had, so they are searchable
+beside a PDF. All four API types sit on one adapter that owns the dialling, the byte cap, the 401
+worth releasing a token for and the 429 worth retrying; a subclass writes where its pages come from
+and what a record reads like, and nothing else.
 
 ## Two ways to be found
 

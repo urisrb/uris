@@ -21,7 +21,7 @@ class Resource < ApplicationRecord
 
   TYPES = %w[
     s3 filesystem webdav caldav carddav imap rss web openai-compatible oauth-google database
-    search mcp
+    search mcp github notion slack microsoft-graph git
   ].freeze
 
   validates :key, presence: true,
@@ -135,6 +135,10 @@ class Resource < ApplicationRecord
 
   def capabilities
     self.class.capabilities
+  end
+
+  def brokered?
+    self.class.brokered?
   end
 
   def storage?
