@@ -79,8 +79,10 @@ class AnalyzeItemJobTest < ActiveSupport::TestCase
   test "giving up on an item closes its run with the reason" do
     run = Tenant.switch(@tenant) { AnalyzeItemJob.start!(@tenant.id, @item.id) }
 
-    job = AnalyzeItemJob.new(@tenant.id, @item.id, run.id)
-    job.fail_run(Resource::Failed.new("drop: no blob at notes.txt"))
+    Tenant.switch(@tenant) do
+      job = AnalyzeItemJob.new(@tenant.id, @item.id, run.id)
+      job.fail_run(Resource::Failed.new("drop: no blob at notes.txt"))
+    end
 
     Tenant.switch(@tenant) do
       failed = run.reload
