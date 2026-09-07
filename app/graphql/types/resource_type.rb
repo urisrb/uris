@@ -16,6 +16,9 @@ module Types
     field :next_sync_at, GraphQL::Types::ISO8601DateTime
     field :synced_at, GraphQL::Types::ISO8601DateTime
     field :syncing, Boolean, null: false, method: :syncing?
+    field :syncable, Boolean, null: false, method: :syncable?,
+          description: "Whether it enumerates what it holds. One that does not, like a " \
+                       "browser, can neither be synced nor kept on a schedule."
     field :archived_at, GraphQL::Types::ISO8601DateTime
     field :checked_at, GraphQL::Types::ISO8601DateTime
     field :check_error, String

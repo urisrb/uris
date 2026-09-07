@@ -12,14 +12,12 @@ class ProposeMergesJob < ApplicationJob
     arguments[1]
   end
 
-  def build_enumerator(tenant_id, _run_id = nil, cursor:)
-    tenant = Tenant.find(tenant_id)
-
+  def build_enumerator(_tenant_id, _run_id = nil, cursor:)
     groups = Enumerator.new do |yielder|
       after = cursor
 
       loop do
-        batch = Tenant.switch(tenant) { Blocking.groups_after(after, limit: PAGE) }
+        batch = Blocking.groups_after(after, limit: PAGE)
         break if batch.empty?
 
         after = batch.last["blocking_key"]
@@ -32,10 +30,10 @@ class ProposeMergesJob < ApplicationJob
     enumerator_builder.wrap(enumerator_builder, groups)
   end
 
-  def each_iteration(group, tenant_id, _run_id = nil)
+  def each_iteration(group, _tenant_id, _run_id = nil)
     return track_iteration if dry_run?
 
-    Tenant.switch(tenant_for(tenant_id)) { propose(group) }
+    propose(group)
 
     track_iteration
   end
@@ -53,9 +51,5 @@ class ProposeMergesJob < ApplicationJob
         reason: group["reason"],
         item_ids: ids
       )
-    end
-
-    def tenant_for(tenant_id)
-      @tenant ||= Tenant.find(tenant_id)
     end
 end

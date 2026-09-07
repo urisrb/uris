@@ -52,22 +52,13 @@ module Gated
     end
 
     def read_gate
-      tenant = gate_tenant
-      return Gate::Decision.new(**self.class.gate_defaults) if tenant.nil?
+      return Gate::Decision.new(**self.class.gate_defaults) if Current.tenant.nil?
 
-      Tenant.switch(tenant) do
-        Gate.decide(key: self.class.gate_key, reference: gate_reference, **self.class.gate_defaults)
-      end
-    end
-
-    def gate_tenant
-      Tenant.find_by(id: arguments.first)
+      Gate.decide(key: self.class.gate_key, reference: gate_reference, **self.class.gate_defaults)
     end
 
     def mark_run_gated
-      return if run.nil?
-
-      Tenant.switch(run.tenant) { run.gated! }
+      run&.gated!
     end
 
     def halt_for_gate!

@@ -14,37 +14,30 @@ class ExportItemsJob < ApplicationJob
     arguments[3]
   end
 
-  def build_enumerator(tenant_id, destination_id, selector, _run_id = nil, cursor:)
-    ids = Tenant.switch(Tenant.find(tenant_id)) do
-      Resource.find(destination_id).storage!
-      select(selector).pluck(:id)
-    end
+  def build_enumerator(_tenant_id, destination_id, selector, _run_id = nil, cursor:)
+    Resource.find(destination_id).storage!
 
-    enumerator_builder.build_array_enumerator(ids, cursor: cursor)
+    enumerator_builder.build_array_enumerator(select(selector).pluck(:id), cursor: cursor)
   end
 
-  def each_iteration(item_id, tenant_id, destination_id, _selector, _run_id = nil)
-    tenant = Tenant.find(tenant_id)
+  def each_iteration(item_id, _tenant_id, destination_id, _selector, _run_id = nil)
+    destination = Resource.find(destination_id)
+    item = Item.find_by(id: item_id)
+    source = item&.source_for(destination)
 
-    Tenant.switch(tenant) do
-      destination = Resource.find(destination_id)
-      item = Item.find_by(id: item_id)
-      source = item&.source_for(destination)
+    return track_iteration if source.nil?
 
-      next if source.nil?
+    copy = item.copy_at(destination)
 
-      copy = item.copy_at(destination)
+    return track_iteration if copy && !copy.stale_against?(source)
 
-      next if copy && !copy.stale_against?(source)
+    path = copy&.locator_key || source.path
+    locator = destination.upload(path, source.download)
 
-      path = copy&.locator_key || source.path
-      locator = destination.upload(path, source.download)
-
-      Reference.record!(
-        item: item, resource: destination, locator: locator, locator_key: path,
-        source_version: source.version
-      )
-    end
+    Reference.record!(
+      item: item, resource: destination, locator: locator, locator_key: path,
+      source_version: source.version
+    )
 
     track_iteration
   end

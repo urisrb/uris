@@ -21,62 +21,46 @@ class AnalyzeItemJob < ApplicationJob
     end
   end
 
-  def perform(tenant_id, item_id, run_id = nil)
-    tenant = Tenant.find(tenant_id)
+  def perform(_tenant_id, item_id, _run_id = nil)
+    run&.running!
 
-    Tenant.switch(tenant) { run&.running! }
-
-    item = Tenant.switch(tenant) do
-      Item.includes(references: :resource).find_by(id: item_id)
-    end
+    item = Item.includes(references: :resource).find_by(id: item_id)
 
     return finish_run if item.nil?
 
-    Tenant.switch(tenant) do
-      ActiveRecord::Base.transaction(requires_new: true) { Analyzer.for(item, run: run).run }
-    end
+    ActiveRecord::Base.transaction(requires_new: true) { Analyzer.for(item, run: run).run }
 
-    Tenant.switch(tenant) { run&.progressed!(1) }
+    run&.progressed!(1)
 
     finish_run
 
-    Tenant.switch(tenant) { wake_parent(tenant_id, item) }
+    wake_parent(item)
   end
 
   def fail_run(error)
     return if run.nil?
+    return unless run.reload.open?
 
-    Tenant.switch(run.tenant) do
-      next unless run.reload.open?
-
-      run.finished!(error: "#{error.class}: #{error.message}")
-    end
+    run.finished!(error: "#{error.class}: #{error.message}")
   end
 
   private
 
     def finish_run
-      return if run.nil?
-
-      Tenant.switch(run.tenant) { run.finished! }
+      run&.finished!
     end
 
     def run
       return @run if defined?(@run)
 
-      tenant_id, _item_id, run_id = arguments
-      return @run = nil if run_id.nil?
-
-      @run = Tenant.switch(Tenant.find(tenant_id)) { Run.find_by(id: run_id) }
-    rescue StandardError
-      @run = nil
+      @run = Run.find_by(id: arguments[2])
     end
 
-    def wake_parent(tenant_id, item)
+    def wake_parent(item)
       parent = item.parent
       return if parent.nil? || item.analyzed_at.nil?
       return unless parent.children_ready?
 
-      AnalyzeItemJob.start!(tenant_id, parent.id)
+      AnalyzeItemJob.start!(item.tenant_id, parent.id)
     end
 end

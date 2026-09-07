@@ -79,7 +79,6 @@ export function RunTrail({
   empty: string
 }) {
   const [open, setOpen] = useState<string | null>(null)
-  const [stranger, setStranger] = useState<string | null>(null)
   const { data, loading, refetch } = useQuery(ContextRunsDocument, {
     feedId: feedId ?? null,
     itemId: itemId ?? null,
@@ -92,17 +91,21 @@ export function RunTrail({
   const streamed = progressed?.runProgressed.run
   const live = streamed?.id === open ? (streamed?.logs ?? null) : null
 
+  // Every refetch hands back a fresh nodes array, so reacting to the rows
+  // themselves would refetch forever. A run reaching a new status is the only
+  // thing the trail has to redraw for; the open log streams on its own.
+  const answered = useRef<string | null>(null)
+
   useEffect(() => {
     if (!streamed) return
 
-    const ours = rows.some((run) => run.id === streamed.id)
+    const reached = `${streamed.id} ${streamed.status}`
 
-    if (!ours && stranger === streamed.id) return
+    if (answered.current === reached) return
 
-    if (!ours) setStranger(streamed.id)
-
+    answered.current = reached
     refetch()
-  }, [streamed, rows, stranger, refetch])
+  }, [streamed, refetch])
 
   if (loading && !data) return <Loader size="xs" color="var(--brass)" />
 

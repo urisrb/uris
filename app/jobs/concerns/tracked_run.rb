@@ -34,14 +34,14 @@ module TrackedRun
   def halted?
     return false if run.nil?
 
-    Tenant.switch(run.tenant) { run.halted? }
+    run.halted?
   end
 
   def fail_run(error)
     return if run.nil?
 
     flush_run_progress
-    Tenant.switch(run.tenant) { run.finished!(error: "#{error.class}: #{error.message}") }
+    run.finished!(error: "#{error.class}: #{error.message}")
   end
 
   private
@@ -49,17 +49,17 @@ module TrackedRun
     def run
       return @run if defined?(@run)
 
-      @run = Tenant.switch(Tenant.find(arguments.first)) { Run.find_by(id: run_id) }
+      @run = Run.find_by(id: run_id)
     end
 
     def run_started
-      Tenant.switch(run.tenant) { run.running! } if run
+      run&.running!
     end
 
     def flush_run_progress
       return if run.nil? || @pending_progress.to_i.zero?
 
-      Tenant.switch(run.tenant) { run.progressed!(@pending_progress) }
+      run.progressed!(@pending_progress)
       @pending_progress = 0
     end
 
@@ -67,6 +67,6 @@ module TrackedRun
       return if run.nil?
 
       flush_run_progress
-      Tenant.switch(run.tenant) { run.finished! }
+      run.finished!
     end
 end

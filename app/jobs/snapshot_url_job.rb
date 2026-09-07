@@ -9,24 +9,22 @@ class SnapshotUrlJob < ApplicationJob
     end
   end
 
-  def perform(tenant_id, resource_id, url, run_id = nil)
-    Tenant.switch(Tenant.find(tenant_id)) do
-      run = Run.find_by(id: run_id)
-      resource = Resource.active.find(resource_id)
+  def perform(_tenant_id, resource_id, url, run_id = nil)
+    run = Run.find_by(id: run_id)
+    resource = Resource.active.find(resource_id)
 
-      run&.running!
+    run&.running!
 
-      begin
-        reference = resource.snapshot!(url)
+    begin
+      reference = resource.snapshot!(url)
 
-        run&.progressed!(1)
-        run&.finished!
+      run&.progressed!(1)
+      run&.finished!
 
-        reference
-      rescue StandardError => e
-        run&.finished!(error: "#{e.class}: #{e.message}")
-        raise
-      end
+      reference
+    rescue StandardError => e
+      run&.finished!(error: "#{e.class}: #{e.message}")
+      raise
     end
   end
 end

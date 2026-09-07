@@ -12,6 +12,7 @@ query Resources($archived: Boolean) {
     nextSyncAt
     syncedAt
     syncing
+    syncable
     checkedAt
     checkError
     healthy

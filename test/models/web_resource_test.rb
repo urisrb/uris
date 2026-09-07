@@ -48,6 +48,20 @@ class WebResourceTest < ActiveSupport::TestCase
     end
   end
 
+  # The manage UI hides syncing and scheduling on what cannot be synced, so it
+  # has to be able to ask rather than infer it from the type.
+  test "syncable is answered over graphql" do
+    field = Types::ResourceType.fields["syncable"]
+
+    assert field, "ResourceType should expose syncable"
+    assert_equal "syncable?", field.method_sym.to_s
+
+    Tenant.switch(@tenant) do
+      refute @resource.syncable?, "a browser has nothing to enumerate"
+      assert @storage.syncable?, "storage does"
+    end
+  end
+
   test "a tenant with no storage cannot snapshot, and says so" do
     Tenant.switch(@tenant) do
       @storage.update!(default_storage: false)

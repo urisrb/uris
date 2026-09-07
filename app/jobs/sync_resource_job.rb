@@ -16,8 +16,8 @@ class SyncResourceJob < ApplicationJob
     arguments[2]
   end
 
-  def build_enumerator(tenant_id, resource_id, _run_id = nil, cursor:)
-    resource = resource_for(tenant_id, resource_id)
+  def build_enumerator(_tenant_id, resource_id, _run_id = nil, cursor:)
+    resource = resource_for(resource_id)
 
     objects = Enumerator.new do |yielder|
       resource.each_page(cursor: cursor) do |page, next_cursor|
@@ -29,30 +29,26 @@ class SyncResourceJob < ApplicationJob
   end
 
   def gate_reference
-    resource_for(arguments[0], arguments[1])
+    resource_for(arguments[1])
   rescue ActiveRecord::RecordNotFound
     nil
   end
 
   def each_iteration(object, tenant_id, resource_id, _run_id = nil)
-    resource = resource_for(tenant_id, resource_id)
+    resource = resource_for(resource_id)
     locator_key = resource.locator_key_for(object)
 
     return track_iteration if dry_run?
 
-    reference = Tenant.switch(resource.tenant) do
-      Reference.discover!(
-        resource: resource,
-        locator: resource.locator_for(object),
-        locator_key: locator_key,
-        kind: resource.kind_for(object),
-        title: resource.title_for(object)
-      )
-    end
+    reference = Reference.discover!(
+      resource: resource,
+      locator: resource.locator_for(object),
+      locator_key: locator_key,
+      kind: resource.kind_for(object),
+      title: resource.title_for(object)
+    )
 
-    if reference.analyzed_at.nil?
-      Tenant.switch(resource.tenant) { AnalyzeItemJob.start!(tenant_id, reference.item_id) }
-    end
+    AnalyzeItemJob.start!(tenant_id, reference.item_id) if reference.analyzed_at.nil?
 
     track_iteration
   end
@@ -60,15 +56,10 @@ class SyncResourceJob < ApplicationJob
   private
 
     def release_sync
-      return if @resource.nil?
-
-      Tenant.switch(@resource.tenant) { @resource.release_sync! }
+      @resource&.release_sync!
     end
 
-    def resource_for(tenant_id, resource_id)
-      @resource ||= begin
-        tenant = Tenant.find(tenant_id)
-        Tenant.switch(tenant) { Resource.find(resource_id) }
-      end
+    def resource_for(resource_id)
+      @resource ||= Resource.find(resource_id)
     end
 end

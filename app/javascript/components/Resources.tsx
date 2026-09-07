@@ -43,6 +43,7 @@ interface Resource {
   checkedAt?: string | null
   checkError?: string | null
   syncing: boolean
+  syncable: boolean
   defaultStorage: boolean
   defaultInference: boolean
   itemsCount: number
@@ -68,6 +69,7 @@ function standing(resource: Resource) {
 }
 
 function schedule(resource: Resource) {
+  if (!resource.syncable) return 'nothing to enumerate'
   if (!resource.syncInterval) return 'on demand only'
 
   const every = `every ${Math.round(resource.syncInterval / 60)} min`
@@ -283,23 +285,25 @@ export function Resources() {
                   >
                     Check
                   </Button>
-                  <Button
-                    size="xs"
-                    radius="xl"
-                    color="chalk"
-                    leftSection={<IconRefresh size={14} />}
-                    disabled={resource.syncing}
-                    onClick={async () => {
-                      const answered = await sync.execute({ id: resource.id })
+                  {resource.syncable && (
+                    <Button
+                      size="xs"
+                      radius="xl"
+                      color="chalk"
+                      leftSection={<IconRefresh size={14} />}
+                      disabled={resource.syncing}
+                      onClick={async () => {
+                        const answered = await sync.execute({ id: resource.id })
 
-                      if (!answered) return
+                        if (!answered) return
 
-                      say({ text: `${resource.key} is syncing.` })
-                      refetch()
-                    }}
-                  >
-                    Sync
-                  </Button>
+                        say({ text: `${resource.key} is syncing.` })
+                        refetch()
+                      }}
+                    >
+                      Sync
+                    </Button>
+                  )}
                   {resource.capabilities.includes('storage') && (
                     <Button
                       size="xs"
@@ -353,47 +357,54 @@ export function Resources() {
                 </Group>
 
                 <Group gap="var(--s2)" wrap="nowrap">
-                  <NumberInput
-                    size="xs"
-                    w={110}
-                    min={1}
-                    radius="xl"
-                    placeholder="minutes"
-                    value={
-                      minutes[resource.id] ??
-                      (resource.syncInterval ? resource.syncInterval / 60 : '')
-                    }
-                    onChange={(value) =>
-                      setMinutes((current) => ({
-                        ...current,
-                        [resource.id]: value,
-                      }))
-                    }
-                  />
-                  <Button
-                    size="xs"
-                    radius="xl"
-                    variant="default"
-                    onClick={async () => {
-                      const value = Number(minutes[resource.id])
-                      const seconds = value > 0 ? Math.round(value * 60) : null
-                      const answered = await setInterval.execute({
-                        id: resource.id,
-                        seconds,
-                      })
+                  {resource.syncable && (
+                    <>
+                      <NumberInput
+                        size="xs"
+                        w={110}
+                        min={1}
+                        radius="xl"
+                        placeholder="minutes"
+                        value={
+                          minutes[resource.id] ??
+                          (resource.syncInterval
+                            ? resource.syncInterval / 60
+                            : '')
+                        }
+                        onChange={(value) =>
+                          setMinutes((current) => ({
+                            ...current,
+                            [resource.id]: value,
+                          }))
+                        }
+                      />
+                      <Button
+                        size="xs"
+                        radius="xl"
+                        variant="default"
+                        onClick={async () => {
+                          const value = Number(minutes[resource.id])
+                          const seconds =
+                            value > 0 ? Math.round(value * 60) : null
+                          const answered = await setInterval.execute({
+                            id: resource.id,
+                            seconds,
+                          })
 
-                      if (!answered) return
+                          if (!answered) return
 
-                      say({
-                        text: seconds
-                          ? `${resource.key} syncs every ${Math.round(seconds / 60)} minutes.`
-                          : `${resource.key} syncs on demand only.`,
-                      })
-                      refetch()
-                    }}
-                  >
-                    Schedule
-                  </Button>
+                          say({
+                            text: seconds
+                              ? `${resource.key} syncs every ${Math.round(seconds / 60)} minutes.`
+                              : `${resource.key} syncs on demand only.`,
+                          })
+                          refetch()
+                        }}
+                      >
+                        Schedule
+                      </Button>
+                    </>
+                  )}
 
                   <Button
                     size="xs"

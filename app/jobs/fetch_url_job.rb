@@ -9,29 +9,27 @@ class FetchUrlJob < ApplicationJob
     end
   end
 
-  def perform(tenant_id, url, run_id = nil)
-    Tenant.switch(Tenant.find(tenant_id)) do
-      run = Run.find_by(id: run_id)
+  def perform(_tenant_id, url, run_id = nil)
+    run = Run.find_by(id: run_id)
 
-      run&.running!
+    run&.running!
 
-      begin
-        got = Download.of(url)
-        landed = Intake.write!(
-          path: Intake.filed("downloads", got.filename),
-          body: got.bytes,
-          title: got.filename,
-          source: got.final_url
-        )
+    begin
+      got = Download.of(url)
+      landed = Intake.write!(
+        path: Intake.filed("downloads", got.filename),
+        body: got.bytes,
+        title: got.filename,
+        source: got.final_url
+      )
 
-        run&.progressed!(1)
-        run&.finished!
+      run&.progressed!(1)
+      run&.finished!
 
-        landed
-      rescue StandardError => e
-        run&.finished!(error: "#{e.class}: #{e.message}")
-        raise
-      end
+      landed
+    rescue StandardError => e
+      run&.finished!(error: "#{e.class}: #{e.message}")
+      raise
     end
   end
 end
