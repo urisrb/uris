@@ -29,7 +29,7 @@ class RemovingTest < ActionDispatch::IntegrationTest
       @storage.upload("invoice.txt", "four thousand two hundred")
     end
 
-    SyncResourceJob.perform_now(@tenant.id, @storage.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id) }
 
     Tenant.switch(@tenant) { @item = item_at("invoice.txt") }
 

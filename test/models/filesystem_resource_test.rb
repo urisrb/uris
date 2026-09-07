@@ -132,7 +132,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       destination = Resource::Filesystem.create!(key: "backup", details: { "root" => backup_root.to_s })
       sync
-      ExportItemsJob.perform_now(@tenant.id, destination.id, {})
+      Tenant.switch(@tenant) { ExportItemsJob.perform_now(@tenant.id, destination.id, {}) }
 
       assert_equal "remember the milk", (backup_root + @resource.key + "notes.txt").read
       assert_equal 2, item_at("notes.txt").references.count
@@ -142,7 +142,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
   private
 
     def sync
-      SyncResourceJob.perform_now(@tenant.id, @resource.id)
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
     end
 
     def backup_root

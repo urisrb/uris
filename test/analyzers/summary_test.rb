@@ -226,7 +226,7 @@ class SummaryTest < ActiveSupport::TestCase
     id = Tenant.switch(@tenant) { item("notes.txt").id }
 
     assert_no_enqueued_jobs do
-      assert_nothing_raised { AnalyzeItemJob.perform_now(@tenant.id, id) }
+      assert_nothing_raised { Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) } }
     end
   end
 
@@ -301,12 +301,12 @@ class SummaryTest < ActiveSupport::TestCase
     end
 
     def sync
-      SyncResourceJob.perform_now(@tenant.id, @storage.id)
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id) }
     end
 
     def analyze(key)
       id = Tenant.switch(@tenant) { item(key).id }
-      AnalyzeItemJob.perform_now(@tenant.id, id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) }
     end
 
     def item(key)

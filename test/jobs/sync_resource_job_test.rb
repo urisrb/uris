@@ -36,7 +36,7 @@ class SyncResourceJobTest < ActiveSupport::TestCase
   end
 
   test "syncing a bucket catalogues every object as a reference" do
-    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
     Tenant.switch(@tenant) do
       assert_equal 3, Item.count
@@ -53,19 +53,19 @@ class SyncResourceJobTest < ActiveSupport::TestCase
   end
 
   test "syncing twice converges rather than accumulating" do
-    2.times { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+    2.times { Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) } }
 
     Tenant.switch(@tenant) { assert_equal 3, Item.count }
   end
 
   test "a sync writes into one tenant only" do
-    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
     Tenant.switch(@other) { assert_equal 0, Item.count }
   end
 
   test "the bytes are still in the resource, not in items" do
-    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
     Tenant.switch(@tenant) do
       item = item_at("notes.txt")
@@ -75,7 +75,7 @@ class SyncResourceJobTest < ActiveSupport::TestCase
   end
 
   test "a first sync records the version the resource reports, and calls nothing changed" do
-    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
     Tenant.switch(@tenant) do
       pdf = reference_at("invoices/march.pdf")
@@ -86,14 +86,14 @@ class SyncResourceJobTest < ActiveSupport::TestCase
   end
 
   test "an object whose bytes moved is marked changed and queued for analysis again" do
-    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
     was = Tenant.switch(@tenant) do
       reference_at("invoices/march.pdf").tap { |r| r.update!(analyzed_at: Time.current) }.version
     end
 
     put "invoices/march.pdf", body: "a corrected invoice"
-    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
     Tenant.switch(@tenant) do
       pdf = reference_at("invoices/march.pdf")
@@ -105,11 +105,11 @@ class SyncResourceJobTest < ActiveSupport::TestCase
   end
 
   test "an object that did not move is not marked changed, however often it is synced" do
-    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
     Tenant.switch(@tenant) { reference_at("notes.txt").update!(analyzed_at: Time.current) }
 
-    2.times { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+    2.times { Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) } }
 
     Tenant.switch(@tenant) do
       notes = reference_at("notes.txt")

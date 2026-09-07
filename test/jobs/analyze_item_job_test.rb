@@ -108,7 +108,7 @@ class AnalyzeItemJobTest < ActiveSupport::TestCase
   end
 
   test "analysis without a run still reads the item" do
-    AnalyzeItemJob.perform_now(@tenant.id, @item.id)
+    Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, @item.id) }
 
     Tenant.switch(@tenant) do
       assert @item.reload.analyzed_at.present?

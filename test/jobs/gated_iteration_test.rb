@@ -72,7 +72,7 @@ class GatedIterationTest < ActiveSupport::TestCase
     start_sync
     Tenant.switch(@tenant) { assert_equal 0, Item.count }
 
-    SyncResourceJob.perform_now(@tenant.id, other.id, nil)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, other.id, nil) }
     Tenant.switch(@tenant) { assert_equal 6, Item.count }
   end
 
@@ -107,7 +107,7 @@ class GatedIterationTest < ActiveSupport::TestCase
 
     def start_sync
       run = Tenant.switch(@tenant) { Run.start!(kind: "sync", resource: @resource) }
-      SyncResourceJob.perform_now(@tenant.id, @resource.id, run.id)
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id, run.id) }
       run
     end
 end

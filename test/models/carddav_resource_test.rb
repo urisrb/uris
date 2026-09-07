@@ -67,7 +67,7 @@ class CarddavResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       item = Item.first
-      AnalyzeItemJob.perform_now(@tenant.id, item.id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, item.id) }
 
       contact = item.references.first.reload.analysis.dig("steps", "contacts", "result").first
 
@@ -85,7 +85,7 @@ class CarddavResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       item = Item.first
-      AnalyzeItemJob.perform_now(@tenant.id, item.id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, item.id) }
 
       analysis = item.references.first.reload.analysis
 
@@ -107,6 +107,6 @@ class CarddavResourceTest < ActiveSupport::TestCase
   private
 
     def sync
-      SyncResourceJob.perform_now(@tenant.id, @resource.id)
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
     end
 end

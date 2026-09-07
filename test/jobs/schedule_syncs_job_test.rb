@@ -144,7 +144,7 @@ class ScheduleSyncsJobTest < ActiveSupport::TestCase
       @storage.claim_sync!
     end
 
-    SyncResourceJob.perform_now(@tenant.id, @storage.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id) }
 
     Tenant.switch(@tenant) do
       assert_not @storage.reload.syncing?

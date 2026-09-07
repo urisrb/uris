@@ -22,7 +22,7 @@ class MergeProposalTest < ActiveSupport::TestCase
   end
 
   def propose!
-    ProposeMergesJob.perform_now(@tenant.id)
+    Tenant.switch(@tenant) { ProposeMergesJob.perform_now(@tenant.id) }
 
     Tenant.switch(@tenant) { MergeProposal.open.order(:blocking_key).to_a }
   end
@@ -150,7 +150,7 @@ class MergeProposalTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) { Gate.create!(key: "dedupe", enabled: true, live: false) }
 
-    ProposeMergesJob.perform_now(@tenant.id)
+    Tenant.switch(@tenant) { ProposeMergesJob.perform_now(@tenant.id) }
 
     Tenant.switch(@tenant) { assert_empty MergeProposal.all }
   end

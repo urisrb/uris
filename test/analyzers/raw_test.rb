@@ -38,7 +38,7 @@ class RawTest < ActiveSupport::TestCase
         details: { "base_url" => server.base_url, "models" => { "vision" => "gemma3:4b" } }
       ).make_default_inference!
 
-      SyncResourceJob.perform_now(tenant.id, storage.id)
+      Tenant.switch(tenant) { SyncResourceJob.perform_now(tenant.id, storage.id) }
     end
 
     server.answer_json({ summary: "A photograph off a Nikon.", keywords: [ "photograph" ] })
@@ -46,7 +46,7 @@ class RawTest < ActiveSupport::TestCase
     id = Tenant.switch(tenant) do
       Item.joins(:references).find_by!(item_references: { locator_key: "photo.nef" }).id
     end
-    AnalyzeItemJob.perform_now(tenant.id, id)
+    Tenant.switch(tenant) { AnalyzeItemJob.perform_now(tenant.id, id) }
 
     Tenant.switch(tenant) do
       reference = Reference.find_by!(locator_key: "photo.nef").reload

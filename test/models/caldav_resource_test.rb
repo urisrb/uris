@@ -55,7 +55,7 @@ class CaldavResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       item = Item.first
-      AnalyzeItemJob.perform_now(@tenant.id, item.id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, item.id) }
 
       analysis = item.references.first.reload.analysis
 
@@ -68,7 +68,7 @@ class CaldavResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       item = Item.first
-      AnalyzeItemJob.perform_now(@tenant.id, item.id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, item.id) }
 
       summary = item.references.first.reload.analysis.dig("steps", "events", "result").first["summary"]
 
@@ -95,6 +95,6 @@ class CaldavResourceTest < ActiveSupport::TestCase
   private
 
     def sync
-      SyncResourceJob.perform_now(@tenant.id, @resource.id)
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
     end
 end

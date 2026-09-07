@@ -42,14 +42,14 @@ class CorpusSummaryTest < ActiveSupport::TestCase
       name = File.basename(path)
 
       Tenant.switch(@tenant) { @storage.upload(name, source.read) }
-      SyncResourceJob.perform_now(@tenant.id, @storage.id)
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id) }
 
       @server.answer_json({ summary: "It concerns CORPUSECHO-7781.", keywords: [ "corpusecho" ] })
 
       id = Tenant.switch(@tenant) do
         Item.joins(:references).find_by!(item_references: { locator_key: name }).id
       end
-      AnalyzeItemJob.perform_now(@tenant.id, id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) }
 
       needle = needle_in(source)
       assert_includes @server.prompts.last, needle if needle

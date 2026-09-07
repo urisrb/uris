@@ -53,7 +53,7 @@ class DatabaseResourceTest < ActiveSupport::TestCase
     end
 
     assert @storage.syncable?
-    SyncResourceJob.perform_now(@tenant.id, @storage.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id) }
 
     Tenant.switch(@tenant) do
       assert_equal 2, Item.referencing(@storage.id).count

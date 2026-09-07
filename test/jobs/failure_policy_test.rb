@@ -34,7 +34,7 @@ class FailurePolicyTest < ActiveSupport::TestCase
 
   test "a file the analyzer cannot read is discarded, not retried forever" do
     assert_no_enqueued_jobs do
-      assert_nothing_raised { AnalyzeItemJob.perform_now(@tenant.id, @broken.id) }
+      assert_nothing_raised { Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, @broken.id) } }
     end
 
     Tenant.switch(@tenant) do

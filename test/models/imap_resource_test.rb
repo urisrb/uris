@@ -98,7 +98,7 @@ class ImapResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       item = titled("March invoice")
-      AnalyzeItemJob.perform_now(@tenant.id, item.id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, item.id) }
 
       analysis = item.references.first.reload.analysis
 
@@ -138,7 +138,7 @@ class ImapResourceTest < ActiveSupport::TestCase
   private
 
     def sync
-      SyncResourceJob.perform_now(@tenant.id, @resource.id)
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
     end
 
     def titled(title)

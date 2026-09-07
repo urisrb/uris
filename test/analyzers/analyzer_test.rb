@@ -29,7 +29,7 @@ class AnalyzerTest < ActiveSupport::TestCase
     @resource.client.put_object(bucket: @bucket, key: "notes.txt", body: "remember the milk")
     @resource.client.put_object(bucket: @bucket, key: "rows.csv", body: "name,amount\nash,10\nbea,20\n")
 
-    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
   end
 
   teardown do
@@ -120,7 +120,7 @@ class AnalyzerTest < ActiveSupport::TestCase
     before = Tenant.switch(@tenant) { reference("notes.txt").analysis.dig("steps", "text") }
 
     @resource.client.put_object(bucket: @bucket, key: "notes.txt", body: "buy more milk")
-    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
@@ -134,7 +134,7 @@ class AnalyzerTest < ActiveSupport::TestCase
 
   test "a step computed after the bytes moved is left alone" do
     @resource.client.put_object(bucket: @bucket, key: "notes.txt", body: "buy more milk")
-    SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
     analyze "notes.txt"
 
     finished = Tenant.switch(@tenant) do
@@ -154,7 +154,7 @@ class AnalyzerTest < ActiveSupport::TestCase
     @resource.client.put_object(bucket: @bucket, key: "notes.txt", body: "buy more milk")
 
     assert_enqueued_jobs 1, only: AnalyzeItemJob do
-      SyncResourceJob.perform_now(@tenant.id, @resource.id)
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
     end
   end
 
@@ -171,7 +171,7 @@ class AnalyzerTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { Item.destroy_all }
 
     assert_enqueued_jobs 4, only: AnalyzeItemJob do
-      SyncResourceJob.perform_now(@tenant.id, @resource.id)
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
     end
   end
 
@@ -194,6 +194,6 @@ class AnalyzerTest < ActiveSupport::TestCase
 
     def analyze(key)
       id = Tenant.switch(@tenant) { item(key).id }
-      AnalyzeItemJob.perform_now(@tenant.id, id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) }
     end
 end

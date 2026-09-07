@@ -84,7 +84,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
         credentials: { "username" => "someone", "password" => "irrelevant" }
       )
       sync
-      ExportItemsJob.perform_now(@tenant.id, destination.id, { "kind" => "text" })
+      Tenant.switch(@tenant) { ExportItemsJob.perform_now(@tenant.id, destination.id, { "kind" => "text" }) }
 
       assert_equal "remember the milk", @server.read("#{@resource.key}/notes.txt")
       assert_equal 2, item_at("notes.txt").references.count
@@ -108,7 +108,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
   private
 
     def sync
-      SyncResourceJob.perform_now(@tenant.id, @resource.id)
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
     end
 
     def item_at(locator_key)

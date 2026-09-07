@@ -50,14 +50,11 @@ module Tenancy
 
     def within_tenant(&block)
       return yield if self.class.across_tenants || @tenant_held == EVERY
+      return yield if @tenant_held.blank? && !@tenant_carried
 
-      raise Homeless, self.class.name if @tenant_held.blank? && @tenant_carried
+      raise Homeless, self.class.name if @tenant_held.blank?
 
-      tenant = held_tenant || argued_tenant
-
-      return yield if tenant.nil?
-
-      Tenant.switch(tenant, &block)
+      Tenant.switch(held_tenant, &block)
     end
 
     def held_tenant
@@ -65,12 +62,6 @@ module Tenancy
     end
 
     private
-
-      def argued_tenant
-        held = arguments.first
-
-        Tenant.find_by(id: held) if held.is_a?(Integer)
-      end
 
       def enqueued_in
         return EVERY if self.class.across_tenants

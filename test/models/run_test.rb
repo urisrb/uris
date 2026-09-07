@@ -17,7 +17,7 @@ class RunTest < ActiveSupport::TestCase
     assert_equal "queued", run.status
     assert_nil run.started_at
 
-    SyncResourceJob.perform_now(@tenant.id, @storage.id, run.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id, run.id) }
 
     Tenant.switch(@tenant) do
       run.reload
@@ -33,7 +33,7 @@ class RunTest < ActiveSupport::TestCase
     run = Tenant.switch(@tenant) { @storage.sync! }
     Tenant.switch(@tenant) { run.cancel! }
 
-    SyncResourceJob.perform_now(@tenant.id, @storage.id, run.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id, run.id) }
 
     Tenant.switch(@tenant) do
       run.reload
@@ -51,7 +51,7 @@ class RunTest < ActiveSupport::TestCase
       run.cancel!
     end
 
-    SyncResourceJob.perform_now(@tenant.id, @storage.id, run.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id, run.id) }
 
     Tenant.switch(@tenant) { assert_not @storage.reload.syncing? }
   end
@@ -61,7 +61,7 @@ class RunTest < ActiveSupport::TestCase
       @storage.sync!.tap { |r| r.update_columns(deadline: 1.minute.ago) }
     end
 
-    SyncResourceJob.perform_now(@tenant.id, @storage.id, run.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id, run.id) }
 
     Tenant.switch(@tenant) do
       run.reload
@@ -75,7 +75,7 @@ class RunTest < ActiveSupport::TestCase
     run = Tenant.switch(@tenant) { @storage.sync! }
     Tenant.switch(@tenant) { run.cancel! }
 
-    SyncResourceJob.perform_now(@tenant.id, @storage.id, run.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id, run.id) }
 
     Tenant.switch(@tenant) do
       assert_equal "cancelled", run.reload.status
@@ -110,7 +110,7 @@ class RunTest < ActiveSupport::TestCase
   end
 
   test "a job with no run attached still works" do
-    assert_nothing_raised { SyncResourceJob.perform_now(@tenant.id, @storage.id) }
+    assert_nothing_raised { Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id) } }
 
     Tenant.switch(@tenant) { assert_equal 60, Item.count }
   end

@@ -74,7 +74,7 @@ class RssResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       item = titled("The first post")
-      AnalyzeItemJob.perform_now(@tenant.id, item.id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, item.id) }
 
       analysis = item.references.first.reload.analysis
 
@@ -159,7 +159,7 @@ class RssResourceTest < ActiveSupport::TestCase
   private
 
     def sync
-      SyncResourceJob.perform_now(@tenant.id, @resource.id)
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
     end
 
     def titled(title)

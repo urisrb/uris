@@ -27,7 +27,7 @@ class VisionTest < ActiveSupport::TestCase
       store "animated.gif"
     end
 
-    SyncResourceJob.perform_now(@tenant.id, @storage.id)
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id) }
   end
 
   teardown do
@@ -246,7 +246,7 @@ class VisionTest < ActiveSupport::TestCase
 
     def analyze(key)
       id = Tenant.switch(@tenant) { item(key).id }
-      AnalyzeItemJob.perform_now(@tenant.id, id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) }
     end
 
     def item(key)

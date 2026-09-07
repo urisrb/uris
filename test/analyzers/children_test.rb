@@ -83,7 +83,7 @@ class ChildrenTest < ActiveSupport::TestCase
     child = children.first
 
     perform_enqueued_jobs(only: AnalyzeItemJob) do
-      AnalyzeItemJob.perform_now(@tenant.id, child.id)
+      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, child.id) }
     end
 
     Tenant.switch(@tenant) { assert @item.reload.analyzed_at.present? }

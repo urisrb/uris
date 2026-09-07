@@ -21,7 +21,7 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
 
   def reindex(tenant = @tenant, index: nil)
     run = Tenant.switch(tenant) { Run.start!(kind: "reindex") }
-    ReindexItemsJob.perform_now(tenant.id, index, run.id)
+    Tenant.switch(tenant) { ReindexItemsJob.perform_now(tenant.id, index, run.id) }
     Tenant.switch(tenant) { run.reload }
   end
 
@@ -191,7 +191,7 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
     SearchIndex.client.define_singleton_method(:index) { |**| singles += 1; {} }
 
     begin
-      ReindexItemsJob.perform_now(@tenant.id)
+      Tenant.switch(@tenant) { ReindexItemsJob.perform_now(@tenant.id) }
     ensure
       SearchIndex.client.singleton_class.remove_method(:bulk)
       SearchIndex.client.singleton_class.remove_method(:index)
