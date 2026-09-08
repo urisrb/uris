@@ -5,9 +5,10 @@ class Feed < ApplicationRecord
   NOTE = "uris:note".freeze
   ADDRESS = "uris:feed".freeze
   TAG = "uris:tag".freeze
+  MIME = "uris:mime".freeze
 
-  TYPES = [ FILE, NOTE, ADDRESS, TAG ].freeze
-  SINGLETON = [ TAG, ADDRESS ].freeze
+  TYPES = [ FILE, NOTE, ADDRESS, TAG, MIME ].freeze
+  SINGLETON = [ TAG, ADDRESS, MIME ].freeze
   ORIGINS = %w[resource feed].freeze
 
   DEPTH = 4
@@ -46,6 +47,7 @@ class Feed < ApplicationRecord
   scope :files, -> { where(type: FILE) }
   scope :addresses, -> { where(type: ADDRESS) }
   scope :tags, -> { where(type: TAG) }
+  scope :mimes, -> { where(type: MIME) }
   scope :synced, -> { where(origin: "resource") }
   scope :minted, -> { where(origin: "feed") }
   scope :unembedded, -> { where(embedded_at: nil).order(:id) }
@@ -61,6 +63,7 @@ class Feed < ApplicationRecord
   def note? = type == NOTE
   def address? = type == ADDRESS
   def tag? = type == TAG
+  def mime? = type == MIME
   def singleton? = SINGLETON.include?(type)
   def minted? = origin == "feed"
 
@@ -68,6 +71,10 @@ class Feed < ApplicationRecord
 
   def self.tag!(key)
     tags.find_or_create_by!(key: key.to_s) { |feed| feed.title = key.to_s }
+  end
+
+  def self.mime!(key)
+    mimes.find_or_create_by!(key: key.to_s) { |feed| feed.title = key.to_s }
   end
 
   def self.address(key)
@@ -99,6 +106,13 @@ class Feed < ApplicationRecord
 
   def self.tagged(key)
     held = tags.by_key(key).first
+    return none if held.nil?
+
+    connected_to(held)
+  end
+
+  def self.mimed(key)
+    held = mimes.by_key(key).first
     return none if held.nil?
 
     connected_to(held)
@@ -165,6 +179,10 @@ class Feed < ApplicationRecord
 
   def tags
     connected.tags
+  end
+
+  def mimes
+    connected.mimes
   end
 
   def connect!(other)

@@ -13,14 +13,15 @@ its `Blob` roles are our reference roles, and it replaced Active Storage rather 
 
 ## Decisions still open
 
-- [ ] **Whether a mime type is a tag or a type of its own.** It renders identically to a tag, so
-      it is one shape fewer as `uris:tag` keyed `text/markdown`. Correct this if a mime row
-      should be able to carry things a tag cannot.
+- [x] **A mime type is a feed of its own.** `uris:mime`, keyed `text/markdown`, a singleton like
+      a tag and an address. A content type is a thing in the catalog — it can carry a title, a
+      note and connections a tag has no business holding, and keeping it out of `uris:tag` means
+      the tag facet is what a person filed rather than what a parser guessed. Decided 2026-09-08.
 - [ ] **What re-analysis costs.** An analysis that writes an edge re-analyzes the feed on the
       other side, which cascades without a cooldown. Per-feed cooldown, a depth cap, or a cause
       that refuses to write edges — one of the three, and it decides how lively the catalog is.
-- [x] **Type is a small closed vocabulary, not a mime.** Four values, because the SPA renders by
-      type. Decided 2026-09-08.
+- [x] **Type is a small closed vocabulary, not a mime.** Five values, because the SPA renders by
+      type. Decided 2026-09-08 at four; `uris:mime` made it five the same day.
 - [x] **Edges are symmetric and unlabelled.** Decided 2026-09-08.
 - [x] **Placement is decided per file by the agent**, from what each resource declares it
       accepts, with the reason recorded. No routing table. Decided 2026-09-08.
@@ -159,6 +160,24 @@ A mirror is only as fresh as the last save, so `Resource.restate!` exists for th
 declaration changes in code and the rows do not. Nothing calls it but the migration; when a
 `serves` line changes, that is the thing to run.
 
+## Phase 6a — a mime type is a feed
+
+- [x] `Feed::MIME`, a fifth type, singleton on `(tenant, type, key)` like a tag and an address
+- [x] `Feed.mime!`, `Feed.mimed`, the `mimes` scope and `Feed#mimes` beside their tag twins
+- [x] The pass files a feed under `Feed.mime!(mime)` rather than `Feed.tag!(mime)`
+- [x] `FeedType.mimes` and the `feed` tool report them apart from tags
+- [x] The migration sweeps the mechanically-minted mime tags and their edges
+
+**Phase 6a landed 2026-09-08.** 784 runs, 0 failures. `feed.tags` is now what a person or an
+agent filed, and nothing else — the mime no longer pads the `tags` keyword facet or the
+`tags^2` full-text field. The `mime` column on the reference stays: it is what `Analyzer.for`
+dispatches on, what `Resource#accepts` matches, and what the search facet reads. The feed is
+derived from the column rather than replacing it.
+
+The migration deletes `uris:tag` rows whose key contains a slash. That is a heuristic — a
+hand-made tag with a slash would go with them — but every slashed tag in existence was minted
+by `filed`, and the plan has been greenfield since phase 0.
+
 ## Phase 7 — the upload lane
 
 - [ ] `active_storage:install`; the service is `Disk` locally and S3 where web and worker are
@@ -212,4 +231,5 @@ declaration changes in code and the rows do not. Nothing calls it but the migrat
   the page shows rather than a model one.
 - **The mime facet is filterable but nothing offers it.** `SearchIndex` takes `mime:` and `tag:`
   now, and `Feed.search` passes them, but no GraphQL argument and no tool exposes either.
-  Phase 8 turns the kind facet into a tag facet and can spend them then.
+  Phase 8 turns the kind facet into a tag facet and can spend them then. `FeedType.mimes` and
+  the `feed` tool's `mimes` are the connection-side answer; the search argument is still absent.

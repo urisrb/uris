@@ -55,7 +55,7 @@ class AnalyzeFeedJob < ApplicationJob
       mime = feed.mime
       return if mime.blank?
 
-      feed.connect!(Feed.tag!(mime))
+      feed.connect!(Feed.mime!(mime))
     end
 
     def considered(feed)

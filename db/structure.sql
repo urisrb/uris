@@ -890,7 +890,7 @@ CREATE INDEX index_feeds_awaiting_a_vector ON public.feeds USING btree (tenant_i
 -- Name: index_feeds_on_one_row_per_address; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_feeds_on_one_row_per_address ON public.feeds USING btree (tenant_id, type, key) WHERE ((type)::text = ANY ((ARRAY['uris:tag'::character varying, 'uris:feed'::character varying])::text[]));
+CREATE UNIQUE INDEX index_feeds_on_one_row_per_address ON public.feeds USING btree (tenant_id, type, key) WHERE ((type)::text = ANY ((ARRAY['uris:tag'::character varying, 'uris:feed'::character varying, 'uris:mime'::character varying])::text[]));
 
 
 --
@@ -1451,6 +1451,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260908210000'),
 ('20260908190000'),
 ('20260908180000'),
 ('20260908120000'),

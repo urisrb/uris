@@ -83,6 +83,7 @@ module Tool
         summary: feed.summary,
         keywords: feed.keywords,
         tags: feed.tags.map(&:key),
+        mimes: feed.mimes.map(&:key),
         connected: feed.connected.limit(50).map { |held| { id: held.id.to_s, key: held.key } },
         steps: feed.analysis&.steps.to_h.transform_values { |step|
           step.key?("error") ? { "error" => step["error"]["message"] } : step["result"]

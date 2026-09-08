@@ -9,7 +9,7 @@ module Types
 
     field :id, ID, null: false
     field :type, String, null: false,
-          description: "What it is, and how it renders: uris:file, uris:note, uris:feed, uris:tag."
+          description: "What it is, and how it renders: uris:file, uris:note, uris:feed, uris:tag, uris:mime."
     field :key, String, null: false,
           description: "Its name within its type — README.md, text/markdown, /buy."
     field :origin, String, null: false,
@@ -29,6 +29,8 @@ module Types
     field :connected_count, Integer, null: false
     field :connected, [ Types::FeedType ], null: false
     field :tags, [ Types::FeedType ], null: false
+    field :mimes, [ Types::FeedType ], null: false,
+          description: "The content types it was filed under, as feeds of their own."
     field :schedule, Types::ScheduleType
     field :analyses, [ Types::AnalysisType ], null: false
 
@@ -48,6 +50,10 @@ module Types
 
     def tags
       object.tags.order(:key)
+    end
+
+    def mimes
+      object.mimes.order(:key)
     end
 
     def analyses

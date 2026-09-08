@@ -14,7 +14,7 @@ module Tool
         query: { type: "string", description: "Words to match. All of them must appear." },
         type: {
           type: "string",
-          description: "Restrict to one type: uris:file, uris:note, uris:feed, uris:tag."
+          description: "Restrict to one type: uris:file, uris:note, uris:feed, uris:tag, uris:mime."
         },
         limit: { type: "integer", minimum: 1, maximum: 200 }
       }

@@ -18,6 +18,18 @@ class AnalyzeFeedJobTest < ActiveSupport::TestCase
     end
   end
 
+  test "a pass files the feed under its content type, as a feed of its own" do
+    Tenant.switch(@tenant) { @feed.analyze! }
+
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    Tenant.switch(@tenant) do
+      assert_equal [ "text/plain" ], @feed.reload.mimes.map(&:key)
+      assert_equal 1, Feed.mimes.where(key: "text/plain").count
+      assert_empty @feed.tags
+    end
+  end
+
   test "asking for an analysis opens one before the job is enqueued" do
     analysis = nil
 
