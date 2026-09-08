@@ -285,10 +285,16 @@ class FakeSearchEngine
       case name
       when "match_all" then true
       when "bool" then Array(held["must"]).all? { |one| clause?(document, one) }
-      when "term" then held.all? { |field, value| document[field].to_s == value.to_s }
+      when "term" then held.all? { |field, value| holds?(document[field], value) }
       when "multi_match" then multi_match?(document, held)
       else raise ArgumentError, "the fake engine does not understand #{name}"
       end
+    end
+
+    def holds?(held, value)
+      return held.any? { |one| one.to_s == value.to_s } if held.is_a?(Array)
+
+      held.to_s == value.to_s
     end
 
     def multi_match?(document, held)

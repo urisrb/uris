@@ -5,59 +5,85 @@ class FeedTest < ActiveSupport::TestCase
     @tenant = Tenant.create!(subdomain: "feed-#{SecureRandom.hex(4)}", name: "Feeds")
   end
 
-  test "a slug the application already answers to is refused" do
+  def address(key)
+    Feed.new(type: Feed::ADDRESS, key: key)
+  end
+
+  test "an address the application already answers to is refused" do
     Tenant.switch(@tenant) do
       Feed::RESERVED.first(4).each do |taken|
-        feed = Feed.new(slug: taken, prompt: "find things")
+        feed = address("/#{taken}")
 
         assert_not feed.valid?, "#{taken} should be refused"
-        assert_match(/path uris already answers to/, feed.errors[:slug].first)
+        assert_match(/path uris already answers to/, feed.errors[:key].first)
       end
     end
   end
 
-  test "a slug is letters, numbers and dashes" do
+  test "an address is a slash, then letters, numbers and dashes" do
     Tenant.switch(@tenant) do
-      assert Feed.new(slug: "buy-2024", prompt: "x").valid?
+      assert address("/buy-2024").valid?
 
-      [ "Buy", "buy things", "buy/now", "-buy", "" ].each do |bad|
-        assert_not Feed.new(slug: bad, prompt: "x").valid?, "#{bad.inspect} should be refused"
+      [ "/Buy", "/buy things", "/buy/now", "/-buy", "buy", "/", "" ].each do |bad|
+        assert_not address(bad).valid?, "#{bad.inspect} should be refused"
       end
     end
   end
 
-  test "a slug is unique per tenant and free in another" do
+  test "an address is unique per tenant and free in another" do
     other = Tenant.create!(subdomain: "feed-#{SecureRandom.hex(4)}", name: "Other")
 
-    Tenant.switch(@tenant) { Feed.create!(slug: "buy", prompt: "x") }
-    Tenant.switch(@tenant) { assert_not Feed.new(slug: "buy", prompt: "x").valid? }
-    Tenant.switch(other) { assert Feed.new(slug: "buy", prompt: "x").valid? }
+    Tenant.switch(@tenant) { Feed.create!(type: Feed::ADDRESS, key: "/buy") }
+    Tenant.switch(@tenant) { assert_not address("/buy").valid? }
+    Tenant.switch(other) { assert address("/buy").valid? }
   end
 
-  test "run! opens a feed run pointing back at the feed" do
+  test "a file is not a singleton, so two of them may share a key" do
     Tenant.switch(@tenant) do
-      feed = Feed.create!(slug: "buy", prompt: "x")
-      run = feed.run!
+      Feed.create!(type: Feed::FILE, key: "invoice.pdf", title: "One")
 
-      assert_equal "feed", run.kind
-      assert_equal feed, run.feed
-      assert run.open?
+      assert Feed.new(type: Feed::FILE, key: "invoice.pdf", title: "Another").valid?
+    end
+  end
+
+  test "a schedule opens an analysis of the feed it runs" do
+    Tenant.switch(@tenant) do
+      feed = Feed.create!(type: Feed::ADDRESS, key: "/buy")
+      schedule = feed.create_schedule!(prompt: "find things")
+
+      analysis = schedule.run!
+
+      assert_equal feed, analysis.feed
+      assert_equal "schedule", analysis.cause
+      assert analysis.open?
+    end
+  end
+
+  test "only an address carries a schedule, since nothing else runs itself" do
+    Tenant.switch(@tenant) do
+      file = Feed.create!(type: Feed::FILE, key: "invoice.pdf", title: "An invoice")
+
+      assert_not Schedule.new(feed: file, prompt: "x").valid?
     end
   end
 
   test "a feed acts as itself rather than borrowing anyone's token" do
     Tenant.switch(@tenant) do
-      feed = Feed.create!(slug: "buy", prompt: "x")
+      feed = Feed.create!(type: Feed::ADDRESS, key: "/buy")
 
-      assert_equal "feed:buy", feed.grant.subject
+      assert_equal "feed:/buy", feed.grant.subject
       assert_equal @tenant, feed.grant.tenant
+      assert_equal Feed::AGENT_SCOPES.sort, feed.grant.scopes.sort
+      assert_not feed.grant.permits?("uris:settings:admin")
     end
   end
 
   test "turns fall back to the default" do
     Tenant.switch(@tenant) do
-      assert_equal Feed::TURNS, Feed.new(slug: "buy", prompt: "x").turns_allowed
-      assert_equal 2, Feed.new(slug: "buy", prompt: "x", turns: 2).turns_allowed
+      feed = Feed.create!(type: Feed::ADDRESS, key: "/buy")
+
+      assert_equal Schedule::TURNS, Schedule.new(feed: feed, prompt: "x").turns_allowed
+      assert_equal 2, Schedule.new(feed: feed, prompt: "x", turns: 2).turns_allowed
     end
   end
 
@@ -67,27 +93,41 @@ class FeedTest < ActiveSupport::TestCase
     end.uniq
 
     assert_empty spoken - Feed::RESERVED,
-                 "these are routes a feed slug could shadow"
+                 "these are routes an address could shadow"
   end
 
-  test "kept_by is the items a feed holds and nothing else" do
+  test "what a feed holds is what it is connected to, and nothing else" do
     Tenant.switch(@tenant) do
-      feed = Feed.create!(slug: "buy", prompt: "x")
+      feed = Feed.create!(type: Feed::ADDRESS, key: "/buy")
       kept = Feed.create!(type: Feed::FILE, key: "kept", title: "kept")
       loose = Feed.create!(type: Feed::FILE, key: "loose", title: "loose")
 
-      feed.items << kept
+      feed.connect!(kept)
 
-      assert_equal [ kept ], Feed.kept_by("buy").to_a
-      assert_not_includes Feed.kept_by("buy"), loose
+      assert_equal [ kept ], feed.connected.to_a
+      assert_not_includes feed.connected, loose
     end
   end
 
-  test "kept_by an unknown slug is empty rather than everything" do
+  test "a connection is symmetric, and stored once whichever way it is made" do
+    Tenant.switch(@tenant) do
+      one = Feed.create!(type: Feed::FILE, key: "one", title: "one")
+      other = Feed.create!(type: Feed::FILE, key: "two", title: "two")
+
+      one.connect!(other)
+      other.connect!(one)
+
+      assert_equal 1, Edge.touching(one.id).count
+      assert_equal [ other ], one.connected.to_a
+      assert_equal [ one ], other.connected.to_a
+    end
+  end
+
+  test "an address that holds nothing is empty rather than everything" do
     Tenant.switch(@tenant) do
       Feed.create!(type: Feed::FILE, key: "loose", title: "loose")
 
-      assert_empty Feed.kept_by("nothing-here")
+      assert_empty Feed.create!(type: Feed::ADDRESS, key: "/nothing-here").connected
     end
   end
 end

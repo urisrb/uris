@@ -19,7 +19,7 @@ class FailurePolicyTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       @broken = Reference.discover!(resource: @reachable, locator: { "bucket" => @bucket, "key" => "broken.pdf" },
-                                         locator_key: "broken.pdf", kind: "pdf", title: "broken.pdf").item
+                                         locator_key: "broken.pdf", mime: "application/pdf", title: "broken.pdf").feed
       @stranded = create_feed(mime: "text/plain", title: "stranded.txt", locator_key: "stranded.txt",
                                resource: @unreachable, locator: { "bucket" => "gone", "key" => "stranded.txt" })
     end
@@ -38,10 +38,9 @@ class FailurePolicyTest < ActiveSupport::TestCase
     end
 
     Tenant.switch(@tenant) do
-      reference = @broken.references.first.reload
-
-      assert_equal "Analyzer::Failed", reference.analysis.dig("steps", "info", "error", "class")
-      assert_not_nil reference.analyzed_at
+      assert_equal "Analyzer::Failed",
+                   @broken.reload.analysis.step("info").dig("error", "class")
+      assert_not_nil @broken.references.first.reload.analyzed_at
     end
   end
 

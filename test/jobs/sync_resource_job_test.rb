@@ -42,13 +42,13 @@ class SyncResourceJobTest < ActiveSupport::TestCase
       assert_equal 3, Feed.files.count
 
       pdf = feed_at("invoices/march.pdf")
-      assert_equal "pdf", pdf.kind
+      assert_equal "application/pdf", pdf.mime
       assert_equal "march.pdf", pdf.title
       assert_equal @bucket, pdf.locator["bucket"]
       assert_equal @resource, pdf.resource
 
-      assert_equal "image", feed_at("photos/beach.jpg").kind
-      assert_equal "text", feed_at("notes.txt").kind
+      assert_equal "image/jpeg", feed_at("photos/beach.jpg").mime
+      assert_equal "text/plain", feed_at("notes.txt").mime
     end
   end
 

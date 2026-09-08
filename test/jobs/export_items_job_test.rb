@@ -62,7 +62,7 @@ class ExportItemsJobTest < ActiveSupport::TestCase
   end
 
   test "a selector narrows what is exported" do
-    Tenant.switch(@tenant) { ExportItemsJob.perform_now(@tenant.id, @destination.id, { "kind" => "image" }) }
+    Tenant.switch(@tenant) { ExportItemsJob.perform_now(@tenant.id, @destination.id, { "mime" => "image/jpeg" }) }
 
     assert_equal [ "#{@source_bucket}/photos/beach.jpg" ], exported_keys
   end
@@ -233,7 +233,7 @@ class ExportItemsJobTest < ActiveSupport::TestCase
       assert_nil Feed.find_by(id: squatter.id)
       assert_equal feed_at(@source, "invoices/march.pdf").id,
                    Reference.find_by(resource_id: @destination.id,
-                                          locator_key: "#{@source_bucket}/invoices/march.pdf").item_id
+                                     locator_key: "#{@source_bucket}/invoices/march.pdf").feed_id
     end
   end
 

@@ -12,80 +12,80 @@ class AnalyzeFeedJobTest < ActiveSupport::TestCase
       @storage = Resource::Database.create!(key: "drop", name: "Drop")
       @storage.upload("notes.txt", "remember the milk")
 
-      @item = Feed.create!(type: Feed::FILE, key: "notes.txt", title: "notes.txt")
-      Reference.record!(item: @item, resource: @storage,
-                             locator_key: "notes.txt", locator: { "key" => "notes.txt" })
+      @feed = Feed.create!(type: Feed::FILE, key: "notes.txt", title: "notes.txt")
+      Reference.record!(feed: @feed, resource: @storage,
+                        locator_key: "notes.txt", locator: { "key" => "notes.txt" })
     end
   end
 
-  test "asking for an analysis opens a run before the job is enqueued" do
-    run = nil
+  test "asking for an analysis opens one before the job is enqueued" do
+    analysis = nil
 
     assert_enqueued_with(job: AnalyzeFeedJob) do
-      Tenant.switch(@tenant) { run = AnalyzeFeedJob.start!(@tenant.id, @item.id) }
+      Tenant.switch(@tenant) { analysis = @feed.analyze! }
     end
 
     Tenant.switch(@tenant) do
-      assert_equal "analyze", run.kind
-      assert_equal "queued", run.status
-      assert_equal({ "id" => @item.id }, run.selector)
+      assert_equal "manual", analysis.cause
+      assert_equal "queued", analysis.status
+      assert_equal @feed, analysis.feed
     end
   end
 
-  test "the run finishes when the analysis does, and counts the item it read" do
-    run = Tenant.switch(@tenant) { AnalyzeFeedJob.start!(@tenant.id, @item.id) }
+  test "the analysis finishes when the pass does, and the feed is read" do
+    analysis = Tenant.switch(@tenant) { @feed.analyze! }
 
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
     Tenant.switch(@tenant) do
-      finished = run.reload
+      finished = analysis.reload
 
       assert_equal "done", finished.status
-      assert_equal 1, finished.processed
       assert finished.finished_at.present?
-      assert @item.reload.analyzed_at.present?
+      assert finished.steps.key?("text")
+      assert @feed.reload.analyzed_at.present?
     end
   end
 
-  test "a retry carries its run rather than opening a second one" do
-    run = Tenant.switch(@tenant) { AnalyzeFeedJob.start!(@tenant.id, @item.id) }
+  test "the job carries its analysis rather than opening a second one" do
+    analysis = Tenant.switch(@tenant) { @feed.analyze! }
 
     enqueued = enqueued_jobs.find { |job| job["job_class"] == "AnalyzeFeedJob" }
 
-    assert_equal [ @tenant.id, @item.id, run.id ], enqueued["arguments"]
+    assert_equal [ @tenant.id, @feed.id, analysis.id ], enqueued["arguments"]
   end
 
-  test "a run whose item has gone away is closed rather than left open" do
-    run = Tenant.switch(@tenant) { AnalyzeFeedJob.start!(@tenant.id, @item.id) }
-    Tenant.switch(@tenant) { @item.destroy! }
+  test "an analysis whose feed has gone away goes with it rather than being left open" do
+    Tenant.switch(@tenant) { @feed.analyze! }
+    Tenant.switch(@tenant) { @feed.destroy! }
 
-    perform_enqueued_jobs(only: AnalyzeFeedJob)
+    assert_nothing_raised { perform_enqueued_jobs(only: AnalyzeFeedJob) }
 
-    Tenant.switch(@tenant) { assert_equal "done", run.reload.status }
+    Tenant.switch(@tenant) { assert_equal 0, Analysis.count }
   end
 
-  test "bytes that may come back leave the run open while the job retries" do
-    run = Tenant.switch(@tenant) { AnalyzeFeedJob.start!(@tenant.id, @item.id) }
+  test "bytes that may come back leave the analysis open while the job retries" do
+    analysis = Tenant.switch(@tenant) { @feed.analyze! }
 
     Tenant.switch(@tenant) { ResourceBlob.find_by!(key: "notes.txt").destroy! }
 
     assert_enqueued_with(job: AnalyzeFeedJob) do
-      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, @item.id, run.id) }
+      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, @feed.id, analysis.id) }
     end
 
-    Tenant.switch(@tenant) { assert run.reload.open?, "a run being retried is not finished" }
+    Tenant.switch(@tenant) { assert analysis.reload.open?, "an analysis being retried is not finished" }
   end
 
-  test "giving up on an item closes its run with the reason" do
-    run = Tenant.switch(@tenant) { AnalyzeFeedJob.start!(@tenant.id, @item.id) }
+  test "giving up on a feed closes its analysis with the reason" do
+    analysis = Tenant.switch(@tenant) { @feed.analyze! }
 
     Tenant.switch(@tenant) do
-      job = AnalyzeFeedJob.new(@tenant.id, @item.id, run.id)
-      job.fail_run(Resource::Failed.new("drop: no blob at notes.txt"))
+      job = AnalyzeFeedJob.new(@tenant.id, @feed.id, analysis.id)
+      job.fail_analysis(Resource::Failed.new("drop: no blob at notes.txt"))
     end
 
     Tenant.switch(@tenant) do
-      failed = run.reload
+      failed = analysis.reload
 
       assert_equal "failed", failed.status
       assert_match(/no blob at notes.txt/, failed.error)
@@ -93,26 +93,27 @@ class AnalyzeFeedJobTest < ActiveSupport::TestCase
     end
   end
 
-  test "a run marked running survives the analysis that raised under it" do
-    run = Tenant.switch(@tenant) { AnalyzeFeedJob.start!(@tenant.id, @item.id) }
+  test "an analysis marked running survives the pass that raised under it" do
+    analysis = Tenant.switch(@tenant) { @feed.analyze! }
 
     Tenant.switch(@tenant) { ResourceBlob.find_by!(key: "notes.txt").destroy! }
 
-    Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, @item.id, run.id) }
+    Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, @feed.id, analysis.id) }
 
     Tenant.switch(@tenant) do
-      assert_equal "running", run.reload.status,
-                   "Tenant.switch is a savepoint; marking the run must not roll back with the read"
-      assert_nil @item.reload.analyzed_at
+      assert_equal "running", analysis.reload.status,
+                   "Tenant.switch is a savepoint; marking it running must not roll back with the read"
+      assert_nil @feed.reload.analyzed_at
     end
   end
 
-  test "analysis without a run still reads the item" do
-    Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, @item.id) }
+  test "a job given no analysis opens one rather than reading into nowhere" do
+    Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, @feed.id) }
 
     Tenant.switch(@tenant) do
-      assert @item.reload.analyzed_at.present?
-      assert_equal 0, Run.count
+      assert @feed.reload.analyzed_at.present?
+      assert_equal 1, Analysis.count
+      assert_equal "done", Analysis.last.status
     end
   end
 end

@@ -39,7 +39,7 @@ class SemanticSearchTest < ActiveSupport::TestCase
       SearchIndex.index(semantic.reload)
       SearchIndex.refresh!
 
-      assert_empty SearchIndex.lexical("what did the vet say", tenant: @demo, kind: nil,
+      assert_empty SearchIndex.lexical("what did the vet say", tenant: @demo,
                                        limit: 50, from: 0)[:ids],
                    "no word overlaps, so the lexical side has nothing to offer"
 
@@ -87,7 +87,7 @@ class SemanticSearchTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@demo) do
-      assert_empty SearchIndex.nearest(near, tenant: @demo, kind: nil, limit: 50)
+      assert_empty SearchIndex.nearest(near, tenant: @demo, limit: 50)
     end
   end
 
@@ -103,7 +103,7 @@ class SemanticSearchTest < ActiveSupport::TestCase
 
       SearchIndex.refresh!
 
-      assert_equal [ pdf.id ], SearchIndex.nearest(near, tenant: @demo, kind: "pdf", limit: 50)
+      assert_equal [ pdf.id ], SearchIndex.nearest(near, tenant: @demo, mime: "application/pdf", limit: 50)
     end
   end
 

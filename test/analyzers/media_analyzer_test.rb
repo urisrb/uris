@@ -132,7 +132,7 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
       assert_match(/invoice/i, transcript)
       assert_match(/4,200|4200/, transcript)
 
-      assert_equal [ "standup.m4a" ], Feed.search("invoice", kind: "audio").pluck(:title),
+      assert_equal [ "standup.m4a" ], Feed.search("invoice", mime: "audio/mp4").pluck(:title),
                    "a spoken word is a searchable word or the transcript was for nothing"
     end
   end

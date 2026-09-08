@@ -68,7 +68,7 @@ class SearchIndexTest < ActiveSupport::TestCase
 
   test "kind narrows results" do
     Tenant.switch(@demo) do
-      assert_equal [ "Beach photo" ], Feed.search(nil, kind: "image").pluck(:title)
+      assert_equal [ "Beach photo" ], Feed.search(nil, mime: "image/jpeg").pluck(:title)
     end
   end
 
@@ -78,14 +78,14 @@ class SearchIndexTest < ActiveSupport::TestCase
 
   test "a page of matches says how many there are, not merely how many it handed back" do
     Tenant.switch(@demo) do
-      first = Feed.found(nil, kind: "pdf", limit: 2)
+      first = Feed.found(nil, mime: "application/pdf", limit: 2)
 
       assert_equal 2, first.nodes.length
       assert_equal 3, first.total, "three pdfs match, and a short page must not hide the third"
       assert first.has_more
       assert_equal "2", first.next_cursor
 
-      second = Feed.found(nil, kind: "pdf", limit: 2, from: first.next_cursor.to_i)
+      second = Feed.found(nil, mime: "application/pdf", limit: 2, from: first.next_cursor.to_i)
 
       assert_equal 1, second.nodes.length
       assert_equal 3, second.total
@@ -145,7 +145,7 @@ class SearchIndexTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@demo) do
-      assert_equal items.map(&:id).sort, SearchIndex.search("bulked", kind: "data").sort
+      assert_equal items.map(&:id).sort, SearchIndex.search("bulked", mime: "text/csv").sort
     end
   end
 
