@@ -35,6 +35,7 @@ class Analysis < ApplicationRecord
   end
 
   def open? = OPEN.include?(status)
+  def settled? = SETTLED.include?(status)
 
   def running!
     Analysis.where(id: id, status: OPEN)

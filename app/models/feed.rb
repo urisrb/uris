@@ -69,12 +69,11 @@ class Feed < ApplicationRecord
 
   def to_param = tag? || address? ? key : id.to_s
 
-  def self.tag!(key)
-    tags.find_or_create_by!(key: key.to_s) { |feed| feed.title = key.to_s }
-  end
+  def self.tag!(key) = singleton!(TAG, key)
+  def self.mime!(key) = singleton!(MIME, key)
 
-  def self.mime!(key)
-    mimes.find_or_create_by!(key: key.to_s) { |feed| feed.title = key.to_s }
+  def self.singleton!(type, key)
+    where(type: type).find_or_create_by!(key: key.to_s) { |feed| feed.title = key.to_s }
   end
 
   def self.address(key)
@@ -96,6 +95,10 @@ class Feed < ApplicationRecord
     Page.at(nodes, from: from, total: held[:total])
   end
 
+  def self.for_indexing
+    includes(:references, :analyses, children: :analyses)
+  end
+
   def self.referencing(resource_id)
     where(id: Reference.where(resource_id: resource_id).select(:feed_id))
   end
@@ -104,18 +107,13 @@ class Feed < ApplicationRecord
     where(id: Reference.select(:feed_id))
   end
 
-  def self.tagged(key)
-    held = tags.by_key(key).first
-    return none if held.nil?
+  def self.tagged(key) = filed_under(TAG, key)
+  def self.mimed(key) = filed_under(MIME, key)
 
-    connected_to(held)
-  end
+  def self.filed_under(type, key)
+    held = where(type: type).by_key(key).first
 
-  def self.mimed(key)
-    held = mimes.by_key(key).first
-    return none if held.nil?
-
-    connected_to(held)
+    held.nil? ? none : connected_to(held)
   end
 
   def self.connected_to(feed)
@@ -240,7 +238,18 @@ class Feed < ApplicationRecord
   end
 
   def analysis
-    analyses.settled.last
+    return analyses.settled.last unless analyses.loaded?
+
+    analyses.select(&:settled?).last
+  end
+
+  def family
+    @family ||= [ self, *children ]
+  end
+
+  def reload(*)
+    @family = nil
+    super
   end
 
   def analyzed_at
@@ -259,9 +268,7 @@ class Feed < ApplicationRecord
   end
 
   def body_text(without: [])
-    strings = ([ self ] + children).filter_map do |held|
-      held.analysis&.extracted(without: without)
-    end
+    strings = family.filter_map { |held| held.analysis&.extracted(without: without) }
 
     collected = []
     collect_strings(strings) { |value| collected << value }
@@ -269,7 +276,7 @@ class Feed < ApplicationRecord
   end
 
   def summaries
-    ([ self ] + children).filter_map { |held| held.analysis&.summary }.uniq
+    family.filter_map { |held| held.analysis&.summary }.uniq
   end
 
   def summary
@@ -277,8 +284,7 @@ class Feed < ApplicationRecord
   end
 
   def keywords
-    ([ self ] + children).flat_map { |held| held.analysis&.keywords || [] }
-                         .uniq { |word| word.downcase }
+    family.flat_map { |held| held.analysis&.keywords || [] }.uniq { |word| word.downcase }
   end
 
   def depth
@@ -303,7 +309,7 @@ class Feed < ApplicationRecord
     end
 
     def index_for_search
-      SearchIndex.index(Feed.find_by(id: id) || self)
+      SearchIndex.index(Feed.for_indexing.find_by(id: id) || self)
     end
 
     def reconsider_embedding

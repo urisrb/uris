@@ -41,7 +41,7 @@ class ReindexFeedsJob < ApplicationJob
   private
 
     def page_after(after)
-      scope = Feed.includes(:references, :analyses).order(:id).limit(PAGE)
+      scope = Feed.for_indexing.order(:id).limit(PAGE)
       scope = scope.where("feeds.id > ?", after.to_i) if after.present?
       scope.to_a
     end

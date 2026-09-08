@@ -219,8 +219,13 @@ by `filed`, and the plan has been greenfield since phase 0.
 
 ## Known gaps, recorded rather than fixed
 
-- **`SearchIndex.document` asks for a feed's tags one query at a time**, so a full reindex is an
-  N+1. It wants a join or a preload.
+- **`SearchIndex.document` asks for a feed's tags one query at a time**, so a full reindex is
+  still one extra query per feed. It wants a join, or a batch lookup threaded through
+  `index_all` — which is machinery, so it stays recorded. The family half of this is fixed:
+  `body_text`, `summaries` and `keywords` walked `[self] + children` and asked each one for
+  `analyses.settled.last`, three times over, and `Analysis` was queried even when the
+  association was already loaded. A feed with twenty children cost 64 queries to index and now
+  costs 10, guarded by `test/unit/models/indexing_queries_test.rb`.
 - **An edge does not yet re-analyze the feed on the other side.** The `edge` cause exists and
   nothing raises it, pending the cooldown decision above.
 - **`Schedule#create_schedule!` does not set `next_run_at`** — only `SaveFeed` does, so a schedule
