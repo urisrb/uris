@@ -15,15 +15,14 @@ import {
   IconTrash,
 } from '@tabler/icons-react'
 import {
-  AgentTurnedDocument,
+  AnalysisProgressedDocument,
   CatalogDocument,
   DeleteFeedDocument,
-  FeedDocument,
+  FeedAnalyzedDocument,
+  FeedScheduleDocument,
   FeedsDocument,
-  ItemAnalyzedDocument,
   PauseFeedDocument,
   RunFeedDocument,
-  RunProgressedDocument,
   SearchDocument,
   SetSettingDocument,
   SettingsDocument,
@@ -62,22 +61,27 @@ function asView(value: string | null | undefined): View {
 
 interface Row {
   id: string
-  kind: string
+  type: string
   title?: string | null
   summary?: string | null
   thumbnailUrl?: string | null
   analyzedAt?: string | null
 }
 
-interface Feed {
+interface Schedule {
   id: string
-  slug: string
-  name?: string | null
   prompt: string
   interval?: number | null
   pausedAt?: string | null
   turns?: number | null
-  itemsCount: number
+}
+
+interface Feed {
+  id: string
+  key: string
+  title?: string | null
+  connectedCount: number
+  schedule?: Schedule | null
 }
 
 export function Catalog() {
@@ -102,7 +106,7 @@ export function Catalog() {
   }
 
   const known = (feeds.data?.feeds ?? []) as Feed[]
-  const here = slug ? (known.find((feed) => feed.slug === slug) ?? null) : null
+  const here = slug ? (known.find((feed) => feed.key === slug) ?? null) : null
 
   if (slug && !feeds.data) return <Loader size="sm" color="var(--brass)" />
   if (slug && !here) return <Lost />
@@ -146,37 +150,37 @@ function Listing({
 
   const catalog = useQuery(
     CatalogDocument,
-    { kind, feed: feed?.slug ?? null, after: cursor, limit: PAGE },
+    { type: kind, connectedTo: feed?.id ?? null, after: cursor, limit: PAGE },
     { skip: searching },
   )
   const found = useQuery(
     SearchDocument,
-    { query: term, kind, after: cursor, limit: PAGE },
+    { query: term, type: kind, after: cursor, limit: PAGE },
     { skip: !searching },
   )
-  const { data: analyzed } = useSubscription(ItemAnalyzedDocument)
-  const { data: progressed } = useSubscription(RunProgressedDocument)
+  const { data: analyzed } = useSubscription(FeedAnalyzedDocument)
+  const { data: progressed } = useSubscription(AnalysisProgressedDocument, {})
 
   const thinking = useQuery(
-    FeedDocument,
-    { slug: feed?.slug ?? '' },
+    FeedScheduleDocument,
+    { key: feed?.key ?? '' },
     { skip: !feed },
   )
 
-  const page = searching ? found.data?.search : catalog.data?.items
+  const page = searching ? found.data?.search : catalog.data?.feeds
   const [rows] = usePages<Row>(page, cursor)
 
-  const runs = thinking.data?.feed?.runs ?? []
-  const open = runs.find((run) => OPEN.has(run.status))
+  const analyses = thinking.data?.feed?.analyses ?? []
+  const open = analyses.find((analysis) => OPEN.has(analysis.status))
 
-  const streamed = progressed?.runProgressed.run
+  const streamed = progressed?.analysisProgressed.analysis
   const settled =
     streamed &&
     !OPEN.has(streamed.status) &&
-    runs.some((run) => run.id === streamed.id)
+    analyses.some((analysis) => analysis.id === streamed.id)
 
   useTitle(
-    feed ? `/${feed.slug}` : term ? `${term} — search` : kind ? kind : null,
+    feed ? `/${feed.key}` : term ? `${term} — search` : kind ? kind : null,
   )
 
   useEffect(() => {
@@ -245,10 +249,16 @@ function Listing({
         }}
       />
 
-      {feed && <div className="prompt-line">{feed.prompt}</div>}
+      {feed?.schedule && (
+        <div className="prompt-line">{feed.schedule.prompt}</div>
+      )}
 
       {open && (
-        <Thinking key={open.id} id={open.id} cap={thinking.data?.feed?.turns} />
+        <Thinking
+          key={open.id}
+          id={open.id}
+          cap={thinking.data?.feed?.schedule?.turns}
+        />
       )}
 
       {error && <Alert color="red">{error.message}</Alert>}
@@ -316,13 +326,15 @@ function Shelf({
       {feeds.map((feed) => (
         <Link
           key={feed.id}
-          to={`/${feed.slug}`}
+          to={`/${feed.key}`}
           className="chip"
           data-on={feed.id === here?.id}
           aria-current={feed.id === here?.id ? 'page' : undefined}
         >
-          /{feed.slug}
-          {feed.pausedAt ? <span className="chip-note">paused</span> : null}
+          /{feed.key}
+          {feed.schedule?.pausedAt ? (
+            <span className="chip-note">paused</span>
+          ) : null}
         </Link>
       ))}
 
@@ -338,7 +350,7 @@ function Shelf({
       {here && (
         <Menu position="bottom-start" width={200}>
           <Menu.Target>
-            <button type="button" className="chip" aria-label={`/${here.slug}`}>
+            <button type="button" className="chip" aria-label={`/${here.key}`}>
               <IconDots size={14} stroke={1.8} />
             </button>
           </Menu.Target>
@@ -351,7 +363,7 @@ function Shelf({
 
                 if (!answered) return
 
-                say({ text: `/${here.slug} is running.` })
+                say({ text: `/${here.key} is running.` })
                 onChanged()
               }}
             >
@@ -365,10 +377,10 @@ function Shelf({
               Edit
             </Menu.Item>
 
-            {here.interval ? (
+            {here.schedule?.interval ? (
               <Menu.Item
                 leftSection={
-                  here.pausedAt ? (
+                  here.schedule?.pausedAt ? (
                     <IconPlayerPlay size={15} stroke={1.6} />
                   ) : (
                     <IconPlayerPause size={15} stroke={1.6} />
@@ -377,20 +389,20 @@ function Shelf({
                 onClick={async () => {
                   const answered = await pause.execute({
                     id: here.id,
-                    paused: !here.pausedAt,
+                    paused: !here.schedule?.pausedAt,
                   })
 
                   if (!answered) return
 
                   say({
-                    text: here.pausedAt
-                      ? `/${here.slug} runs on its own again.`
-                      : `/${here.slug} is paused. It will only run by hand.`,
+                    text: here.schedule?.pausedAt
+                      ? `/${here.key} runs on its own again.`
+                      : `/${here.key} is paused. It will only run by hand.`,
                   })
                   onChanged()
                 }}
               >
-                {here.pausedAt ? 'Resume' : 'Pause'}
+                {here.schedule?.pausedAt ? 'Resume' : 'Pause'}
               </Menu.Item>
             ) : null}
 
@@ -413,7 +425,7 @@ function Shelf({
           setMaking(false)
           setEditing(false)
         }}
-        feed={editing ? here : null}
+        feed={editing ? here : undefined}
         onSaved={(saved) => {
           say({ text: `/${saved} is saved.` })
           onChanged()
@@ -425,7 +437,7 @@ function Shelf({
         <Sure
           opened={deleting}
           onClose={() => setDeleting(false)}
-          title={`Delete /${here.slug}?`}
+          title={`Delete /${here.key}?`}
           verb="Delete it"
           loading={remove.loading}
           onSure={async () => {
@@ -438,8 +450,8 @@ function Shelf({
             setDeleting(false)
             say({
               text: kept
-                ? `/${here.slug} is gone. The ${kept} ${kept === 1 ? 'item' : 'items'} it wrote stayed in your catalog.`
-                : `/${here.slug} is gone.`,
+                ? `/${here.key} is gone. The ${kept} ${kept === 1 ? 'item' : 'items'} it wrote stayed in your catalog.`
+                : `/${here.key} is gone.`,
             })
             onChanged()
             navigate('/')
@@ -458,15 +470,15 @@ function Thinking({ id, cap }: { id: string; cap?: number | null }) {
   const [turns, setTurns] = useState<
     { turn: number; calls: string[]; said?: string | null }[]
   >([])
-  const { data } = useSubscription(AgentTurnedDocument, { id })
+  const { data } = useSubscription(AnalysisProgressedDocument, { id })
 
   useEffect(() => {
-    const turn = data?.agentTurned
+    const streamed = data?.analysisProgressed.analysis.turns
 
-    if (!turn) return
+    if (!Array.isArray(streamed)) return
 
-    setTurns((held) =>
-      held.some((past) => past.turn === turn.turn) ? held : [...held, turn],
+    setTurns(
+      streamed as { turn: number; calls: string[]; said?: string | null }[],
     )
   }, [data])
 
@@ -538,7 +550,7 @@ function Rows({ rows, view }: { rows: Row[]; view: View }) {
           <Link key={item.id} to={`/items/${item.id}`} className="card">
             <Cover
               url={item.thumbnailUrl}
-              kind={item.kind}
+              kind={item.type}
               alt={item.title ?? ''}
             />
             <div className="card-body">
@@ -551,7 +563,7 @@ function Rows({ rows, view }: { rows: Row[]; view: View }) {
                 )
               )}
               <div className="card-foot">
-                <KindBadge kind={item.kind} />
+                <KindBadge kind={item.type} />
               </div>
             </div>
           </Link>
@@ -566,7 +578,7 @@ function Rows({ rows, view }: { rows: Row[]; view: View }) {
         <Link key={item.id} to={`/items/${item.id}`} className="entry">
           <Thumb
             url={item.thumbnailUrl}
-            kind={item.kind}
+            kind={item.type}
             alt={item.title ?? ''}
             size={48}
           />
@@ -580,7 +592,7 @@ function Rows({ rows, view }: { rows: Row[]; view: View }) {
               )
             )}
           </div>
-          <KindBadge kind={item.kind} />
+          <KindBadge kind={item.type} />
         </Link>
       ))}
     </div>
@@ -602,7 +614,7 @@ function Kinds() {
   }, [settledAt, addedAt, refetch])
 
   const kind = params.get('kind')
-  const kinds = data?.kinds ?? []
+  const kinds = data?.types ?? []
   const total = kinds.reduce((sum, entry) => sum + entry.count, 0)
 
   const linkTo = (next: string | null) => {
@@ -648,18 +660,18 @@ function Kinds() {
 
         {kinds.map((entry) => (
           <Menu.Item
-            key={entry.kind}
+            key={entry.type}
             component={Link}
-            to={linkTo(entry.kind === kind ? null : entry.kind)}
+            to={linkTo(entry.type === kind ? null : entry.type)}
             leftSection={
               <span
                 className="dot"
-                style={{ '--tone': tone(entry.kind) } as CSSProperties}
+                style={{ '--tone': tone(entry.type) } as CSSProperties}
               />
             }
           >
             <Group justify="space-between" gap="var(--s4)">
-              <span>{entry.kind}</span>
+              <span>{entry.type}</span>
               <span className="figure">{entry.count.toLocaleString()}</span>
             </Group>
           </Menu.Item>
@@ -677,7 +689,7 @@ function Tools({ kind, term }: { kind: string | null; term: string }) {
       <Export
         opened={exporting}
         onClose={() => setExporting(false)}
-        kind={kind}
+        type={kind}
         term={term}
       />
 

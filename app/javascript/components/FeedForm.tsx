@@ -22,18 +22,20 @@ export const EVERY = [
 
 export interface Feed {
   id: string
-  slug: string
-  name?: string | null
-  prompt: string
-  interval?: number | null
-  turns?: number | null
+  key: string
+  title?: string | null
+  schedule?: {
+    prompt: string
+    interval?: number | null
+    turns?: number | null
+  } | null
 }
 
 interface Props {
   opened: boolean
   onClose: () => void
   feed?: Feed | null
-  onSaved: (slug: string) => void
+  onSaved: (key: string) => void
 }
 
 export function FeedForm({ opened, onClose, feed, onSaved }: Props) {
@@ -49,19 +51,19 @@ export function FeedForm({ opened, onClose, feed, onSaved }: Props) {
   useEffect(() => {
     if (!opened) return
 
-    setSlug(feed?.slug ?? '')
-    setName(feed?.name ?? '')
-    setPrompt(feed?.prompt ?? '')
-    setInterval(feed?.interval ?? 0)
-    setTurns(feed?.turns ?? '')
+    setSlug(feed?.key ?? '')
+    setName(feed?.title ?? '')
+    setPrompt(feed?.schedule?.prompt ?? '')
+    setInterval(feed?.schedule?.interval ?? 0)
+    setTurns(feed?.schedule?.turns ?? '')
     setRefused(null)
   }, [opened, feed])
 
   const keep = async () => {
     const answered = await save.execute({
       id: feed?.id ?? null,
-      slug,
-      name: name.trim() || null,
+      key: slug,
+      title: name.trim() || null,
       prompt,
       interval,
       turns: Number(turns) > 0 ? Number(turns) : null,
@@ -73,14 +75,14 @@ export function FeedForm({ opened, onClose, feed, onSaved }: Props) {
     }
 
     onClose()
-    onSaved(answered.saveFeed.feed.slug)
+    onSaved(answered.saveFeed.feed.key)
   }
 
   return (
     <Modal
       opened={opened}
       onClose={onClose}
-      title={feed ? `Edit /${feed.slug}` : 'New feed'}
+      title={feed ? `Edit /${feed.key}` : 'New feed'}
     >
       <Stack gap="var(--s4)">
         <TextInput

@@ -20,8 +20,8 @@ query Runs($status: String, $after: ID, $limit: Int) {
   }
 }
 
-query ContextRuns($feedId: ID, $itemId: ID, $limit: Int) {
-  runs(feedId: $feedId, itemId: $itemId, limit: $limit) {
+query ContextRuns($kind: String, $status: String, $limit: Int) {
+  runs(kind: $kind, status: $status, limit: $limit) {
     nodes {
       id
       kind

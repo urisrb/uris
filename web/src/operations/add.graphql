@@ -1,8 +1,8 @@
 mutation AddNote($title: String, $body: String!) {
   addNote(input: { title: $title, body: $body }) {
-    item {
+    feed {
       id
-      kind
+      type
       title
       createdAt
     }

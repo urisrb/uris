@@ -1,7 +1,6 @@
 import {
   Alert,
   Button,
-  Code,
   Group,
   Loader,
   Stack,
@@ -17,11 +16,11 @@ import {
   IconSparkles,
 } from '@tabler/icons-react'
 import {
-  AnalyzeItemDocument,
-  ForgetItemDocument,
-  ItemDocument,
-  NoteItemDocument,
-  RenameItemDocument,
+  AnalyzeFeedDocument,
+  FeedDetailDocument,
+  ForgetFeedDocument,
+  NoteFeedDocument,
+  RenameFeedDocument,
   SplitReferenceDocument,
 } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
@@ -39,9 +38,9 @@ export function ItemDetail() {
   const navigate = useNavigate()
   const say = useSay()
   const [forgetting, setForgetting] = useState(false)
-  const { data, loading, error, refetch } = useQuery(ItemDocument, { id })
+  const { data, loading, error, refetch } = useQuery(FeedDetailDocument, { id })
   const analyze = useAloud(
-    AnalyzeItemDocument,
+    AnalyzeFeedDocument,
     'That item could not be analyzed.',
   )
   const split = useAloud(
@@ -49,13 +48,13 @@ export function ItemDetail() {
     'That place could not be split off.',
   )
   const forget = useAloud(
-    ForgetItemDocument,
+    ForgetFeedDocument,
     'That item could not be forgotten.',
   )
-  const rename = useAloud(RenameItemDocument, 'That name could not be kept.')
-  const note = useAloud(NoteItemDocument, 'That note could not be kept.')
+  const rename = useAloud(RenameFeedDocument, 'That name could not be kept.')
+  const note = useAloud(NoteFeedDocument, 'That note could not be kept.')
 
-  const item = data?.item
+  const item = data?.feed
 
   useTitle(item?.title ?? 'Item')
 
@@ -100,7 +99,7 @@ export function ItemDetail() {
             }}
           />
           <Group gap="var(--s3)" mt="var(--s3)">
-            <KindBadge kind={item.kind} />
+            <KindBadge kind={item.type} />
             <span className="eyebrow">
               <span className="figure">{item.references.length}</span>{' '}
               {item.references.length === 1 ? 'place' : 'places'} it lives
@@ -178,7 +177,7 @@ export function ItemDetail() {
             >
               <Thumb
                 url={reference.thumbnailUrl}
-                kind={item.kind}
+                kind={item.type}
                 alt={reference.filename}
                 size={230}
               />
@@ -246,21 +245,6 @@ export function ItemDetail() {
                     ? ` · analyzed ${new Date(reference.analyzedAt).toLocaleString()}`
                     : ' · not analyzed'}
                 </Text>
-
-                {Object.keys(reference.analysis ?? {}).length > 0 && (
-                  <Code
-                    block
-                    mt="var(--s3)"
-                    style={{
-                      maxHeight: 220,
-                      overflow: 'auto',
-                      background: 'var(--void)',
-                      color: 'var(--soft)',
-                    }}
-                  >
-                    {JSON.stringify(reference.analysis, null, 2)}
-                  </Code>
-                )}
               </div>
 
               <Group gap="var(--s2)" wrap="nowrap">

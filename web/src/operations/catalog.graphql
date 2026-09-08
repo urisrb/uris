@@ -1,19 +1,19 @@
-query Catalog($kind: String, $feed: String, $after: ID, $limit: Int) {
+query Catalog($type: String, $connectedTo: ID, $after: ID, $limit: Int) {
   tenant {
     id
     name
     subdomain
   }
-  kinds {
-    kind
+  types {
+    type
     count
   }
-  items(kind: $kind, feed: $feed, after: $after, limit: $limit) {
+  feeds(type: $type, connectedTo: $connectedTo, after: $after, limit: $limit) {
     hasMore
     nextCursor
     nodes {
       id
-      kind
+      type
       title
       summary
       thumbnailUrl
@@ -23,14 +23,14 @@ query Catalog($kind: String, $feed: String, $after: ID, $limit: Int) {
   }
 }
 
-query Search($query: String, $kind: String, $after: ID, $limit: Int) {
-  search(query: $query, kind: $kind, after: $after, limit: $limit) {
+query Search($query: String, $type: String, $after: ID, $limit: Int) {
+  search(query: $query, type: $type, after: $after, limit: $limit) {
     hasMore
     nextCursor
     total
     nodes {
       id
-      kind
+      type
       title
       summary
       thumbnailUrl
@@ -40,10 +40,10 @@ query Search($query: String, $kind: String, $after: ID, $limit: Int) {
   }
 }
 
-query Item($id: ID!) {
-  item(id: $id) {
+query FeedDetail($id: ID!) {
+  feed(id: $id) {
     id
-    kind
+    type
     title
     note
     summary
@@ -58,7 +58,6 @@ query Item($id: ID!) {
       contentUrl
       thumbnailUrl
       analyzedAt
-      analysis
       resource {
         id
         key
@@ -68,19 +67,19 @@ query Item($id: ID!) {
   }
 }
 
-subscription ItemAnalyzed {
-  itemAnalyzed {
-    item {
+subscription FeedAnalyzed {
+  feedAnalyzed {
+    feed {
       id
-      kind
+      type
       title
     }
   }
 }
 
-mutation AnalyzeItem($id: ID!) {
-  analyzeItem(input: { id: $id }) {
-    run {
+mutation AnalyzeFeed($id: ID!) {
+  analyzeFeed(input: { id: $id }) {
+    analysis {
       id
       status
     }
@@ -89,31 +88,31 @@ mutation AnalyzeItem($id: ID!) {
 
 mutation SplitReference($id: ID!) {
   splitReference(input: { id: $id }) {
-    item {
+    feed {
       id
     }
   }
 }
 
-mutation ForgetItem($id: ID!) {
-  forgetItem(input: { id: $id }) {
+mutation ForgetFeed($id: ID!) {
+  forgetFeed(input: { id: $id }) {
     forgotten
     places
   }
 }
 
-mutation RenameItem($id: ID!, $title: String!) {
-  renameItem(input: { id: $id, title: $title }) {
-    item {
+mutation RenameFeed($id: ID!, $title: String!) {
+  renameFeed(input: { id: $id, title: $title }) {
+    feed {
       id
       title
     }
   }
 }
 
-mutation NoteItem($id: ID!, $note: String) {
-  noteItem(input: { id: $id, note: $note }) {
-    item {
+mutation NoteFeed($id: ID!, $note: String) {
+  noteFeed(input: { id: $id, note: $note }) {
+    feed {
       id
       note
     }

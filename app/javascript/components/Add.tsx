@@ -154,7 +154,7 @@ export function AddProvider({ children }: { children: ReactNode }) {
         title: given.trim() || null,
         body: written,
       })
-      const item = answered?.addNote?.item
+      const item = answered?.addNote?.feed
 
       if (!item)
         return {

@@ -10,7 +10,7 @@ import {
 import { IconPackageExport } from '@tabler/icons-react'
 import {
   CatalogDocument,
-  ExportItemsDocument,
+  ExportFeedsDocument,
   ResourcesDocument,
 } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
@@ -20,19 +20,19 @@ import { useAloud, useSay } from './Say'
 interface Props {
   opened: boolean
   onClose: () => void
-  kind: string | null
+  type: string | null
   term: string
 }
 
-export function Export({ opened, onClose, kind, term }: Props) {
+export function Export({ opened, onClose, type, term }: Props) {
   const say = useSay()
   const resources = useQuery(ResourcesDocument, undefined, { skip: !opened })
   const catalog = useQuery(
     CatalogDocument,
-    { kind: null, after: null, limit: 1 },
+    { type: null, after: null, limit: 1 },
     { skip: !opened },
   )
-  const start = useAloud(ExportItemsDocument, 'That export could not start.')
+  const start = useAloud(ExportFeedsDocument, 'That export could not start.')
 
   const [destination, setDestination] = useState<string | null>(null)
   const [narrowed, setNarrowed] = useState<string | null>(null)
@@ -42,20 +42,20 @@ export function Export({ opened, onClose, kind, term }: Props) {
     if (!opened) return
 
     setDestination(null)
-    setNarrowed(kind)
+    setNarrowed(type)
     setQuery(term)
-  }, [opened, kind, term])
+  }, [opened, type, term])
 
   const storage = (resources.data?.resources ?? []).filter((resource) =>
     resource.capabilities.includes('storage'),
   )
   const fallback = storage.find((resource) => resource.defaultStorage)
-  const kinds = catalog.data?.kinds ?? []
+  const kinds = catalog.data?.types ?? []
 
   const send = async () => {
     const answered = await start.execute({
       destinationId: destination,
-      kind: narrowed,
+      type: narrowed,
       query: query.trim() || null,
     })
 
@@ -91,20 +91,20 @@ export function Export({ opened, onClose, kind, term }: Props) {
         />
 
         <Select
-          label="Of kind"
-          placeholder="every kind"
+          label="Of type"
+          placeholder="every type"
           value={narrowed}
           onChange={setNarrowed}
           clearable
           data={kinds.map((entry) => ({
-            value: entry.kind,
-            label: `${entry.kind} (${entry.count.toLocaleString()})`,
+            value: entry.type,
+            label: `${entry.type} (${entry.count.toLocaleString()})`,
           }))}
         />
 
         <TextInput
           label="Matching"
-          description="Left empty, everything of that kind goes."
+          description="Left empty, everything of that type goes."
           placeholder="a search, the way you would type it in the bar"
           value={query}
           onChange={(event) => setQuery(event.currentTarget.value)}

@@ -1,45 +1,55 @@
 query Feeds {
   feeds {
-    id
-    slug
-    name
-    prompt
-    interval
-    scheduled
-    pausedAt
-    nextRunAt
-    ranAt
-    itemsCount
+    nodes {
+      id
+      key
+      title
+      type
+      connectedCount
+      schedule {
+        id
+        prompt
+        interval
+        scheduled
+        pausedAt
+        nextRunAt
+        ranAt
+      }
+    }
   }
 }
 
-query Feed($slug: String!) {
-  feed(slug: $slug) {
+query FeedSchedule($key: String!) {
+  feed(key: $key) {
     id
-    slug
-    name
-    prompt
-    turns
-    interval
-    scheduled
-    pausedAt
-    nextRunAt
-    ranAt
-    itemsCount
-    runs {
+    key
+    title
+    type
+    connectedCount
+    analyses {
       id
       status
       error
       createdAt
       finishedAt
     }
+    schedule {
+      id
+      prompt
+      turns
+      interval
+      scheduled
+      pausedAt
+      nextRunAt
+      ranAt
+    }
   }
 }
 
 mutation SaveFeed(
   $id: ID
-  $slug: String
-  $name: String
+  $key: String
+  $title: String
   $prompt: String
   $interval: Int
   $turns: Int
@@ -47,8 +57,8 @@ mutation SaveFeed(
   saveFeed(
     input: {
       id: $id
-      slug: $slug
-      name: $name
+      key: $key
+      title: $title
       prompt: $prompt
       interval: $interval
       turns: $turns
@@ -56,20 +66,23 @@ mutation SaveFeed(
   ) {
     feed {
       id
-      slug
-      name
-      prompt
-      interval
-      scheduled
-      nextRunAt
-      itemsCount
+      key
+      title
+      connectedCount
+      schedule {
+        id
+        prompt
+        interval
+        scheduled
+        nextRunAt
+      }
     }
   }
 }
 
 mutation RunFeed($id: ID!) {
   runFeed(input: { id: $id }) {
-    run {
+    analysis {
       id
       status
     }
@@ -80,18 +93,24 @@ mutation PauseFeed($id: ID!, $paused: Boolean!) {
   pauseFeed(input: { id: $id, paused: $paused }) {
     feed {
       id
-      pausedAt
-      scheduled
-      nextRunAt
+      schedule {
+        id
+        pausedAt
+        scheduled
+        nextRunAt
+      }
     }
   }
 }
 
-subscription AgentTurned($id: ID!) {
-  agentTurned(id: $id) {
-    turn
-    calls
-    said
+subscription AnalysisProgressed($id: ID) {
+  analysisProgressed(id: $id) {
+    analysis {
+      id
+      status
+      turns
+      steps
+    }
   }
 }
 
