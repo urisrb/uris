@@ -24,6 +24,7 @@ class FakeModelServer
     @embedded = []
     @width = WIDTH
     @vectors = {}
+    @busy = 0
     @server = TCPServer.new("127.0.0.1", 0)
     @port = @server.addr[1]
     @thread = Thread.new { serve }
@@ -38,6 +39,8 @@ class FakeModelServer
   end
 
   def reset!
+    drain!
+
     @lock.synchronize do
       @served = []
       @answers = []
@@ -100,6 +103,16 @@ class FakeModelServer
     self
   end
 
+  def drain!(within: 2)
+    deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + within
+
+    while @lock.synchronize { @busy }.positive?
+      break if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+
+      sleep 0.005
+    end
+  end
+
   def prompts
     @lock.synchronize { @prompts.dup }
   end
@@ -121,6 +134,7 @@ class FakeModelServer
     def serve
       loop do
         socket = @server.accept
+        @lock.synchronize { @busy += 1 }
         Thread.new { respond(socket) }
       end
     rescue IOError, Errno::EBADF
@@ -153,6 +167,7 @@ class FakeModelServer
       nil
     ensure
       socket.close rescue nil
+      @lock.synchronize { @busy -= 1 }
     end
 
     def route(path, body)
