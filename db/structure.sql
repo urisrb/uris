@@ -337,7 +337,8 @@ CREATE TABLE public.resources (
     check_error character varying,
     default_storage boolean DEFAULT false NOT NULL,
     default_inference boolean DEFAULT false NOT NULL,
-    via_id bigint
+    via_id bigint,
+    serving jsonb DEFAULT '{}'::jsonb NOT NULL
 );
 
 ALTER TABLE ONLY public.resources FORCE ROW LEVEL SECURITY;
@@ -998,6 +999,13 @@ CREATE UNIQUE INDEX index_resources_on_one_default_storage_per_tenant ON public.
 
 
 --
+-- Name: index_resources_on_serving; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_resources_on_serving ON public.resources USING gin (serving);
+
+
+--
 -- Name: index_resources_on_sync_due; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1443,6 +1451,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260908190000'),
 ('20260908180000'),
 ('20260908120000'),
 ('20260907220000'),

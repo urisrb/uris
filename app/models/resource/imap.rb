@@ -9,10 +9,6 @@ class Resource
 
     Message = Data.define(:uid, :uidvalidity, :mailbox, :subject, :from, :date, :size)
 
-    def self.capabilities
-      []
-    end
-
     def self.attaching
       {
         label: "A mailbox",

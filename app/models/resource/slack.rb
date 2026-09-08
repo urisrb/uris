@@ -21,10 +21,6 @@ class Resource
       "Slack"
     end
 
-    def self.capabilities
-      []
-    end
-
     def self.attaching
       {
         label: "Slack",

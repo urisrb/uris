@@ -10,10 +10,6 @@ class Resource
 
     Entry = Data.define(:path, :sha, :size)
 
-    def self.capabilities
-      []
-    end
-
     def self.attaching
       {
         label: "A git repository",

@@ -8,9 +8,7 @@ class Resource
     MAX_TEXT = 100_000
     LIST = 200
 
-    def self.capabilities
-      [ :browser ]
-    end
+    serves :browser
 
     def self.attaching
       {
@@ -44,7 +42,7 @@ class Resource
     end
 
     def mime_for(_object)
-      "page"
+      MimeType::PAGE
     end
 
     def version_for(locator)

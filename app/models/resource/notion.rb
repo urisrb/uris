@@ -21,10 +21,6 @@ class Resource
       "Notion"
     end
 
-    def self.capabilities
-      []
-    end
-
     def self.attaching
       {
         label: "Notion",

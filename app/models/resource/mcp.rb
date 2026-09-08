@@ -7,9 +7,7 @@ class Resource
     PREFIX = /\A[a-z0-9][a-z0-9-]{0,30}\z/
     MAX_TOOLS = 40
 
-    def self.capabilities
-      [ :tools ]
-    end
+    serves :tools
 
     def self.attaching
       {

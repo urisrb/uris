@@ -30,9 +30,8 @@ class Resource
       </d:prop></d:propfind>
     XML
 
-    def self.capabilities
-      [ :storage ]
-    end
+    serves :storage
+    accepts "*/*"
 
     def self.attaching
       {

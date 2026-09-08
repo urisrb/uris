@@ -36,6 +36,7 @@ class Resource < ApplicationRecord
   validate :a_transport_in_use_is_not_archived
 
   before_save :start_the_schedule, if: :sync_interval_changed?
+  before_save :mirror_what_it_serves
 
   scope :active, -> { where(archived_at: nil) }
   scope :scheduled, -> { active.where.not(sync_interval: nil) }
@@ -57,8 +58,27 @@ class Resource < ApplicationRecord
       const_get("Resource::#{type_name.tr('-', '_').camelize}")
     end
 
+    def serves(*names)
+      @serves = names.map(&:to_s) if names.any?
+      @serves ||= []
+    end
+
+    def accepts(*patterns)
+      @accepts = patterns.map(&:to_s) if patterns.any?
+      @accepts ||= []
+    end
+
+    def up_to(bytes = nil)
+      @up_to = bytes.to_i if bytes
+      @up_to
+    end
+
     def capabilities
-      []
+      serves.map(&:to_sym)
+    end
+
+    def serving
+      { "capabilities" => serves, "accepts" => accepts, "up_to" => up_to }.compact
     end
 
     def command_schema
@@ -94,7 +114,33 @@ class Resource < ApplicationRecord
     end
 
     def capable_of(capability)
-      active.select { |resource| resource.capabilities.include?(capability) }
+      active.where("jsonb_exists(resources.serving -> 'capabilities', ?)", capability.to_s)
+    end
+
+    ACCEPTS = <<~SQL.squish.freeze
+      EXISTS (
+        SELECT 1 FROM jsonb_array_elements_text(resources.serving -> 'accepts') AS pattern
+        WHERE ? LIKE replace(pattern, '*', '%')
+      )
+    SQL
+
+    ROOM = <<~SQL.squish.freeze
+      resources.serving ->> 'up_to' IS NULL OR (resources.serving ->> 'up_to')::bigint >= ?
+    SQL
+
+    def accepting(mime, size: nil)
+      scope = active.where(ACCEPTS, mime.to_s)
+
+      size.nil? ? scope : scope.where(ROOM, size.to_i)
+    end
+
+    def restate!
+      unscoped.in_batches.each_record do |resource|
+        held = resource.class.serving
+        next if resource.serving == held
+
+        resource.update_columns(serving: held)
+      end
     end
 
     def browser
@@ -128,7 +174,7 @@ class Resource < ApplicationRecord
     end
 
     def best_inference
-      candidates = active.select { |resource| resource.inference? && yield(resource) }
+      candidates = capable_of(:inference).select { |resource| yield(resource) }
 
       candidates.find(&:default_inference?) || candidates.first
     end
@@ -186,12 +232,28 @@ class Resource < ApplicationRecord
   def make_default_storage! = make_default_for!(:storage)
   def make_default_inference! = make_default_for!(:inference)
 
+  def accepts
+    self.class.accepts
+  end
+
+  def up_to
+    self.class.up_to
+  end
+
+  def accepts?(mime, size: nil)
+    return false unless accepts.any? { |pattern| File.fnmatch?(pattern, mime.to_s) }
+
+    up_to.nil? || size.nil? || size.to_i <= up_to
+  end
+
   def describe
     {
       type: self.class.sti_name,
       key: key,
       name: name,
       capabilities: capabilities,
+      accepts: accepts,
+      up_to: up_to,
       commands: self.class.command_schema
     }
   end
@@ -272,6 +334,10 @@ class Resource < ApplicationRecord
   end
 
   private
+
+    def mirror_what_it_serves
+      self.serving = self.class.serving
+    end
 
     def record_check(error)
       update_columns(checked_at: Time.current, check_error: error)

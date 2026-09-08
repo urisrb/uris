@@ -13,10 +13,6 @@ class Resource
       "GitHub"
     end
 
-    def self.capabilities
-      []
-    end
-
     def self.attaching
       {
         label: "GitHub",

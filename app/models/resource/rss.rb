@@ -11,10 +11,6 @@ class Resource
 
     Entry = Data.define(:id, :title, :link, :published_at, :content)
 
-    def self.capabilities
-      []
-    end
-
     def self.attaching
       {
         label: "A feed",

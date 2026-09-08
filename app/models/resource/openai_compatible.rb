@@ -39,9 +39,7 @@ class Resource
       }
     }.freeze
 
-    def self.capabilities
-      [ :inference ]
-    end
+    serves :inference
 
     def self.attaching
       {

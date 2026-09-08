@@ -79,6 +79,7 @@ module Tool
         {
           id: resource.id.to_s, type: resource.class.sti_name, key: resource.key,
           name: resource.name, capabilities: resource.capabilities,
+          accepts: resource.accepts, up_to: resource.up_to,
           commands: resource.class.command_schema.keys,
           default_storage: resource.default_storage?,
           default_inference: resource.default_inference?,

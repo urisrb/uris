@@ -2,9 +2,8 @@ require "aws-sdk-s3"
 
 class Resource
   class S3 < Resource
-    def self.capabilities
-      [ :storage ]
-    end
+    serves :storage
+    accepts "*/*"
 
     def self.attaching
       {

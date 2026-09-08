@@ -7,9 +7,8 @@ class Resource
     PAGE = 500
     MAX_TEXT = 100_000
 
-    def self.capabilities
-      [ :storage ]
-    end
+    serves :storage
+    accepts "*/*"
 
     def self.attaching
       return nil if permitted_roots.empty?

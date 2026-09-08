@@ -2,9 +2,9 @@ class Resource
   class Database < Resource
     MAX_TEXT = 100_000
 
-    def self.capabilities
-      [ :storage ]
-    end
+    serves :storage
+    accepts "*/*"
+    up_to 64.megabytes
 
     def self.command_schema
       {

@@ -14,9 +14,7 @@ class Resource
       "Drive"
     end
 
-    def self.capabilities
-      [ :integration ]
-    end
+    serves :integration
 
     def self.attaching
       {

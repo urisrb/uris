@@ -2,10 +2,6 @@ class Resource
   class Caldav < Webdav
     CALENDAR = "text/calendar".freeze
 
-    def self.capabilities
-      []
-    end
-
     def self.attaching
       super.merge(
         label: "Calendars",

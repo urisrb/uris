@@ -3,10 +3,6 @@ class Resource
     VCARD = "text/vcard".freeze
     LEGACY = "text/x-vcard".freeze
 
-    def self.capabilities
-      []
-    end
-
     def self.attaching
       super.merge(
         label: "Contacts",

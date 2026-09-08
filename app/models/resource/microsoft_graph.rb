@@ -15,9 +15,7 @@ class Resource
       "Microsoft Graph"
     end
 
-    def self.capabilities
-      [ :integration ]
-    end
+    serves :integration
 
     def self.broker_provider
       "microsoft"

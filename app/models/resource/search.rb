@@ -19,9 +19,7 @@ class Resource
     MAX_LIMIT = 25
     SNIPPET = 1_000
 
-    def self.capabilities
-      [ :search ]
-    end
+    serves :search
 
     def self.attaching
       {
