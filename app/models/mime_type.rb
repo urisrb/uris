@@ -68,17 +68,5 @@ module MimeType
     def text?(mime)
       mime.to_s.start_with?("text/") && !%w[text/calendar text/vcard].include?(mime.to_s)
     end
-
-    def matches?(pattern, mime)
-      return true if pattern.to_s == "*/*"
-
-      wanted = pattern.to_s.split("/", 2)
-      held = mime.to_s.split("/", 2)
-
-      return false unless wanted.length == 2 && held.length == 2
-
-      (wanted[0] == "*" || wanted[0] == held[0]) &&
-        (wanted[1] == "*" || wanted[1] == held[1])
-    end
   end
 end

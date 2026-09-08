@@ -7,7 +7,6 @@ class Setting < ApplicationRecord
 
   Definition = Data.define(:key, :level, :default, :allowed, :label, :note) do
     def personal? = level == :personal
-    def server? = level == :server
     def permits?(value) = allowed.include?(value)
     def reads = personal? ? "uris:settings:read" : "uris:settings:admin"
     def writes = personal? ? "uris:settings:write" : "uris:settings:admin"

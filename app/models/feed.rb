@@ -65,7 +65,6 @@ class Feed < ApplicationRecord
   def tag? = type == TAG
   def mime? = type == MIME
   def singleton? = SINGLETON.include?(type)
-  def minted? = origin == "feed"
 
   def to_param = tag? || address? ? key : id.to_s
 
@@ -215,10 +214,6 @@ class Feed < ApplicationRecord
     reference&.mime
   end
 
-  def referenced_by?(resource)
-    references.any? { |reference| reference.resource_id == resource.id }
-  end
-
   def source_for(destination)
     references.originals.find { |reference| reference.resource_id != destination.id }
   end
@@ -231,10 +226,6 @@ class Feed < ApplicationRecord
     raise ArgumentError, "no reference" if reference.nil?
 
     reference.download
-  end
-
-  def export_path
-    reference&.path || id.to_s
   end
 
   def analysis

@@ -65,9 +65,6 @@ class Reference < ApplicationRecord
     reference
   end
 
-  def original? = role == ORIGINAL
-  def derived? = DERIVED.include?(role)
-
   def note_version!(reported)
     return self if reported.blank?
 

@@ -44,12 +44,6 @@ class Gate < ApplicationRecord
     gate
   end
 
-  def scope_name
-    return key if reference_type.nil?
-
-    "#{key} · #{reference_type}##{reference_id}"
-  end
-
   private
 
     def a_reference_needs_both_halves
