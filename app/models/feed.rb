@@ -179,6 +179,7 @@ class Feed < ApplicationRecord
 
     transaction do
       keep_note_from(other)
+      Analysis.where(feed_id: other.id).update_all(feed_id: id)
       other.references.to_a.each { |reference| reference.move_to!(self) }
       other.connected.each { |held| connect!(held) unless held.id == id }
       references.reset
