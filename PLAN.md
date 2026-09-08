@@ -137,17 +137,27 @@ work into nowhere.
 
 ## Phase 6 — resources declare themselves
 
-- [ ] `serves` / `accepts` / `up_to` as a class macro, mirrored to a `resources.serving` jsonb
+- [x] `serves` / `accepts` / `up_to` as a class macro, mirrored to a `resources.serving` jsonb
       column on save, so "which resources accept a 4GB video?" is indexed SQL rather than
       `capable_of` loading every active resource into Ruby
-- [ ] `resource(do: "list")` reports what each accepts, which is what the agent reads
-- [ ] Eager-load the subclass directory in development, or the macro never runs
-- [ ] `config/resources.yml` — ERB, per environment, every host and secret through `ENV`
-- [ ] `Resource.declared!` reconciles per tenant, applying only fields that type's `attaching`
-      declares, the way `AttachResource#settle` already refuses undeclared keys
-- [ ] Called from `bin/docker-entrypoint`, which already runs `db:prepare`
-- [ ] A shipped container comes up with a filesystem resource on a declared volume and
+- [x] `resource(do: "list")` reports what each accepts, which is what the agent reads
+- [x] `config/resources.yml` — ERB, per environment, every host and secret through `ENV`
+- [x] `Resource.declare!` reconciles per tenant, applying only fields that type's `attaching`
+      declares — that rule is `Resource::Settings` now, asked by both the file and the form
+- [x] Called from `bin/docker-entrypoint`, which already runs `db:prepare`
+- [x] A shipped container comes up with a filesystem resource on a declared volume and
       `URIS_FILESYSTEM_ROOTS` set to match; `db/seeds.rb` goes back to two dev tenants
+- [x] ~~Eager-load the subclass directory in development, or the macro never runs~~ — not
+      needed. Nothing enumerates `Resource.subclasses`; every reader goes through `TYPES` and
+      `find_sti_class`, which autoloads, and the row is what a query reads rather than the class
+
+**Phase 6 landed 2026-09-08.** `Resource.declared!` is `declare!`, for symmetry with
+`Tenant.declare!`, which it stands beside in the entrypoint. `Resource::Web#mime_for` still
+answered `"page"` — the last of the kind vocabulary anywhere in the app.
+
+A mirror is only as fresh as the last save, so `Resource.restate!` exists for the case where a
+declaration changes in code and the rows do not. Nothing calls it but the migration; when a
+`serves` line changes, that is the thing to run.
 
 ## Phase 7 — the upload lane
 
