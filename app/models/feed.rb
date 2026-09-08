@@ -51,6 +51,8 @@ class Feed < ApplicationRecord
   scope :unembedded, -> { where(embedded_at: nil).order(:id) }
   scope :by_key, ->(value) { where(key: value.to_s) }
 
+  before_destroy :forget_edges
+
   after_commit :index_for_search, on: [ :create, :update ]
   after_commit :reconsider_embedding, on: :update
   after_commit :remove_from_search, on: :destroy
@@ -300,6 +302,10 @@ class Feed < ApplicationRecord
   end
 
   private
+
+    def forget_edges
+      edges.delete_all
+    end
 
     def index_for_search
       SearchIndex.index(Feed.find_by(id: id) || self)

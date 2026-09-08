@@ -50,6 +50,7 @@ class Analysis < ApplicationRecord
       finished_at: Time.current
     )
 
+    Feed.where(id: feed_id).where.not(embedded_at: nil).update_all(embedded_at: nil)
     SearchIndex.index(feed.reload)
     publish!
   end
