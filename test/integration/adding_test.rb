@@ -32,7 +32,7 @@ class AddingTest < ActionDispatch::IntegrationTest
     body = execute(NOTE, variables: { body: "# Pelicans\n\nRather a lot about them." })
     item = body.dig("data", "addNote", "feed")
 
-    assert_equal "text", item["kind"]
+    assert_equal MimeType::NOTE, item["mime"]
     assert_equal "Pelicans", item["title"]
 
     Tenant.switch(@tenant) do
@@ -132,7 +132,7 @@ class AddingTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) do
       item = Feed.find_by(title: "march.pdf")
 
-      assert_equal "pdf", item.kind
+      assert_equal "application/pdf", item.mime
       assert_equal "done", run.reload.status
       assert_equal url, item.references.sole.locator["source_url"]
     end

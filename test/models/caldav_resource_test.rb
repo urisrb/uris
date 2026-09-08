@@ -59,7 +59,7 @@ class CaldavResourceTest < ActiveSupport::TestCase
 
       analysis = item.reload.analysis.steps
 
-      assert_includes analysis.dig("steps", "text", "result"), "Lunch with the pelicans"
+      assert_includes analysis.dig("text", "result"), "Lunch with the pelicans"
     end
   end
 

@@ -35,7 +35,7 @@ class FeedAnalyzedTest < ActionCable::Channel::TestCase
     stream = event_stream
 
     assert_broadcasts(stream, 1) { analyze(@feed) }
-    assert_includes broadcasts(stream).last, @feed.id.to_s
+    assert_includes broadcasts(stream).last, @feed.to_gid_param
   end
 
   test "a second analysis is a second event" do

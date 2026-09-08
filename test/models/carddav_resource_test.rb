@@ -89,8 +89,8 @@ class CarddavResourceTest < ActiveSupport::TestCase
 
       analysis = item.reload.analysis.steps
 
-      assert_includes analysis.dig("steps", "contacts", "result").first["note"], "especially in winter."
-      assert_includes analysis.dig("steps", "text", "result"), "jane@estuary.example"
+      assert_includes analysis.dig("contacts", "result").first["note"], "especially in winter."
+      assert_includes analysis.dig("text", "result"), "jane@estuary.example"
     end
   end
 

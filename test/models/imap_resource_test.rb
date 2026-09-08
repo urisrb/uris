@@ -27,7 +27,7 @@ class ImapResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       assert_equal 2, Feed.files.count
-      assert_equal %w[email email], Feed.pluck(:kind)
+      assert_equal [ "message/rfc822", "message/rfc822" ], Reference.pluck(:mime)
       assert_equal [ "Beach photos", "March invoice" ], Feed.pluck(:title).sort
     end
   end
@@ -102,8 +102,8 @@ class ImapResourceTest < ActiveSupport::TestCase
 
       analysis = item.reload.analysis.steps
 
-      assert_equal "March invoice", analysis.dig("steps", "headers", "result", "subject")
-      assert_includes analysis.dig("steps", "text", "result"), "42 pounds"
+      assert_equal "March invoice", analysis.dig("headers", "result", "subject")
+      assert_includes analysis.dig("text", "result"), "42 pounds"
     end
   end
 

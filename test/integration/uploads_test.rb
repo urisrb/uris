@@ -36,7 +36,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
 
     body = response.parsed_body
 
-    assert_equal "pdf", body["kind"]
+    assert_equal "application/pdf", body["mime"]
     assert_equal "march.pdf", body["path"]
     assert_equal @storage.key, body["resource"]
     assert_equal "contents of march", (@root + "march.pdf").read
@@ -44,13 +44,13 @@ class UploadsTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) do
       item = feed_at("march.pdf")
 
-      assert_equal "pdf", item.kind
+      assert_equal "application/pdf", item.mime
       assert_equal "march.pdf", item.title
       assert_equal @storage.id, item.resource.id
     end
   end
 
-  test "a dropped file is queued for analysis, with a run to watch it by" do
+  test "a dropped file is queued for analysis, with an analysis to watch it by" do
     assert_enqueued_jobs 1, only: AnalyzeFeedJob do
       upload "march.pdf", "contents of march"
     end
@@ -58,11 +58,11 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     Tenant.switch(@tenant) do
-      run = Run.find(response.parsed_body["run_id"])
+      analysis = Analysis.find(response.parsed_body["analysis_id"])
 
-      assert_equal "analyze", run.kind
-      assert_equal "queued", run.status
-      assert_equal({ "id" => feed_at("march.pdf").id }, run.selector)
+      assert_equal "upload", analysis.cause
+      assert_equal "queued", analysis.status
+      assert_equal feed_at("march.pdf").id, analysis.feed_id
     end
   end
 
@@ -73,7 +73,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_equal "photos/2024/beach.jpg", response.parsed_body["path"]
     assert_equal "jpeg bytes", (@root + "photos/2024/beach.jpg").read
 
-    Tenant.switch(@tenant) { assert_equal "image", feed_at("photos/2024/beach.jpg").kind }
+    Tenant.switch(@tenant) { assert_equal "image/jpeg", feed_at("photos/2024/beach.jpg").mime }
   end
 
   test "a path that climbs out of the resource is flattened, not followed" do

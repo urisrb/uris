@@ -74,7 +74,7 @@ class NotionResourceTest < ActiveSupport::TestCase
 
       assert_equal "pages/#{PAGE_ID}", item.locator_key
       assert_equal "Q3 plan", item.title
-      assert_equal "text/plain", item.mime
+      assert_equal "text/markdown", item.mime
     end
   end
 

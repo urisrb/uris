@@ -36,7 +36,7 @@ class RssResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       assert_equal 2, Feed.files.count
-      assert_equal %w[feed feed], Feed.pluck(:kind)
+      assert_equal [ MimeType::ENTRY, MimeType::ENTRY ], Reference.pluck(:mime)
       assert_equal [ "The first post", "The second post" ], Feed.pluck(:title).sort
       assert_equal %w[urn:one urn:two], Reference.pluck(:locator_key).sort
     end
@@ -78,9 +78,9 @@ class RssResourceTest < ActiveSupport::TestCase
 
       analysis = item.reload.analysis.steps
 
-      assert_equal "https://elsewhere.example/one", analysis.dig("steps", "entry", "result", "link")
-      assert_includes analysis.dig("steps", "text", "result"), "Something about pelicans."
-      assert_not_includes analysis.dig("steps", "text", "result"), "<b>"
+      assert_equal "https://elsewhere.example/one", analysis.dig("entry", "result", "link")
+      assert_includes analysis.dig("text", "result"), "Something about pelicans."
+      assert_not_includes analysis.dig("text", "result"), "<b>"
     end
   end
 

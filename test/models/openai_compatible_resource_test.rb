@@ -190,17 +190,23 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     end
   end
 
-  test "a role picks the model declared for it, and records it on the prompt" do
+  test "a role picks the model declared for it, and the turn records which" do
     @server.answer_json({ summary: "ok" })
 
     assert_equal "llama3.1:8b", @resource.model_for(:smart)
     assert_equal "gemma3:4b", @resource.model_for(:fast)
 
     Tenant.switch(@tenant) do
-      @resource.summarize("hello", role: :smart)
+      feed = Feed.create!(type: Feed::NOTE, key: "hello", title: "hello")
+      analysis = Analysis.open!(feed: feed, cause: "manual")
 
-      assert_equal [ "llama3.1:8b" ], Prompt.pluck(:model)
-      assert_equal [ "smart" ], Prompt.pluck(:role)
+      @resource.summarize("hello", role: :smart, analysis: analysis)
+
+      turns = analysis.reload.turns
+
+      assert_equal [ "llama3.1:8b" ], turns.map { |turn| turn["model"] }
+      assert_equal [ "smart" ], turns.map { |turn| turn["role"] }
+      assert_equal [ @resource.key ], turns.map { |turn| turn["resource"] }
     end
   end
 

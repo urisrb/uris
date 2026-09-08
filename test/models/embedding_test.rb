@@ -60,7 +60,7 @@ class EmbeddingTest < ActiveSupport::TestCase
     end
   end
 
-  test "analysis landing on a reference clears the stamp, so the summary reaches the vector" do
+  test "a pass settling clears the stamp, so what it found reaches the vector" do
     Tenant.switch(@tenant) do
       item = create_feed(mime: "application/pdf", title: "scan-0001.pdf")
 
@@ -68,9 +68,7 @@ class EmbeddingTest < ActiveSupport::TestCase
 
       assert_empty Feed.unembedded.to_a
 
-      item.reference.update!(analysis: { "steps" => { "summary" => { "result" => {
-        "summary" => "An invoice from Acme for $4,200."
-      } } } })
+      summarized(item, "An invoice from Acme for $4,200.")
 
       assert_includes Feed.unembedded, item.reload
     end
@@ -82,7 +80,7 @@ class EmbeddingTest < ActiveSupport::TestCase
 
       Embedding.sweep!
 
-      item.update!(run_id: nil)
+      item.update!(origin: item.origin)
 
       assert_empty Feed.unembedded.to_a, "nothing in the gist changed"
 
@@ -162,10 +160,8 @@ class EmbeddingTest < ActiveSupport::TestCase
   test "the gist carries what analysis learned, not only the filename" do
     Tenant.switch(@tenant) do
       item = create_feed(mime: "application/pdf", title: "scan-0001.pdf")
-      item.reference.update!(analysis: { "steps" => { "summary" => { "result" => {
-        "summary" => "An invoice from Acme for $4,200.",
-        "keywords" => [ "acme", "invoice" ]
-      } } } })
+
+      summarized(item, "An invoice from Acme for $4,200.", keywords: %w[acme invoice])
 
       gist = Embedding.gist(item.reload)
 
@@ -200,5 +196,12 @@ class EmbeddingTest < ActiveSupport::TestCase
       assert_raises(Resource::Failed) { Embedding.sweep! }
       assert_nil Embedding.query("invoice"), "a search must not fail because the GPU is asleep"
     end
+  end
+
+  def summarized(feed, summary, keywords: [])
+    analysis = Analysis.open!(feed: feed, cause: "manual")
+    analysis.write_step!("summary", { "result" => { "summary" => summary, "keywords" => keywords } })
+    analysis.finished!
+    analysis
   end
 end

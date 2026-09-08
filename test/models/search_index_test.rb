@@ -145,7 +145,7 @@ class SearchIndexTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@demo) do
-      assert_equal items.map(&:id).sort, SearchIndex.search("bulked", mime: "text/csv").sort
+      assert_equal items.map(&:id).sort, SearchIndex.search("bulked").sort
     end
   end
 

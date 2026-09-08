@@ -116,7 +116,7 @@ class WebResourceTest < ActiveSupport::TestCase
         refute_equal was, again.version
         assert again.changed_at.present?
         assert_nil again.analyzed_at
-        assert_equal "A page about herons", again.item.reload.title
+        assert_equal "A page about herons", again.feed.reload.title
       end
     end
   end
@@ -145,7 +145,7 @@ class WebResourceTest < ActiveSupport::TestCase
     rendering do
       answer = Tenant.switch(@tenant) { @resource.command("snapshot", { "url" => @url }) }
 
-      assert_equal "page", answer["kind"]
+      assert_equal MimeType::PAGE, answer["mime"]
       assert_equal @url, answer["url"]
       assert_equal "A page about pelicans", answer["title"]
       assert answer["digest"].present?

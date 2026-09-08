@@ -1,7 +1,7 @@
 require "test_helper"
 
 class GraphqlTenancyTest < ActionDispatch::IntegrationTest
-  CATALOG = "{ tenant { name subdomain } items { nodes { kind title } } }".freeze
+  CATALOG = "{ tenant { name subdomain } feeds { nodes { mime title } } }".freeze
 
   setup do
     @demo = Tenant.create!(subdomain: "demo", name: "Demo items")
@@ -14,13 +14,13 @@ class GraphqlTenancyTest < ActionDispatch::IntegrationTest
   test "each tenant's catalog contains only its own items" do
     assert_equal(
       { "tenant" => { "name" => "Demo items", "subdomain" => "demo" },
-        "items" => { "nodes" => [ { "kind" => "pdf", "title" => "Demo invoice" } ] } },
+        "feeds" => { "nodes" => [ { "mime" => nil, "title" => "Demo invoice" } ] } },
       query_as("demo")
     )
 
     assert_equal(
       { "tenant" => { "name" => "Acme", "subdomain" => "acme" },
-        "items" => { "nodes" => [ { "kind" => "pdf", "title" => "Acme's invoice" } ] } },
+        "feeds" => { "nodes" => [ { "mime" => nil, "title" => "Acme's invoice" } ] } },
       query_as("acme")
     )
   end
@@ -28,12 +28,12 @@ class GraphqlTenancyTest < ActionDispatch::IntegrationTest
   test "fetching an item by id is bounded by the tenant that asked" do
     assert_equal(
       { "feed" => nil },
-      query_as("demo", "{ item(id: #{@acme_item.id}) { title } }")
+      query_as("demo", "{ feed(id: #{@acme_item.id}) { title } }")
     )
 
     assert_equal(
       { "feed" => { "title" => "Demo invoice" } },
-      query_as("demo", "{ item(id: #{@demo_item.id}) { title } }")
+      query_as("demo", "{ feed(id: #{@demo_item.id}) { title } }")
     )
   end
 

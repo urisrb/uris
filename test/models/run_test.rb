@@ -123,6 +123,28 @@ class RunTest < ActiveSupport::TestCase
     end
   end
 
+  test "a run announces to the tenant and to whoever watches it by id" do
+    Tenant.switch(@tenant) do
+      heard = []
+      run = Run.start!(kind: "sync", resource: @storage)
+      subscriptions = UrisSchema.subscriptions
+
+      subscriptions.define_singleton_method(:trigger) do |name, arguments = {}, *, **|
+        heard << [ name, arguments ]
+      end
+
+      begin
+        run.finished!
+      ensure
+        subscriptions.singleton_class.remove_method(:trigger)
+      end
+
+      assert_equal [ :run_progressed, :run_progressed ], heard.map(&:first)
+      assert_includes heard.map(&:last), {}
+      assert_includes heard.map(&:last), { id: run.id.to_s }
+    end
+  end
+
   test "a run that has already settled announces nothing further" do
     Tenant.switch(@tenant) do
       assert_empty announced { |run|
@@ -134,12 +156,18 @@ class RunTest < ActiveSupport::TestCase
 
   private
 
-    def announced
+    def announced(&block)
+      topics(&block).map(&:first)
+    end
+
+    def topics
       heard = []
       run = Run.start!(kind: "sync", resource: @storage)
       subscriptions = UrisSchema.subscriptions
 
-      subscriptions.define_singleton_method(:trigger) { |name, *, **| heard << name }
+      subscriptions.define_singleton_method(:trigger) do |name, arguments = {}, *, **|
+        heard << [ name, arguments ]
+      end
 
       begin
         yield run
@@ -147,6 +175,6 @@ class RunTest < ActiveSupport::TestCase
         subscriptions.singleton_class.remove_method(:trigger)
       end
 
-      heard
+      heard.reject { |_name, arguments| arguments.present? }
     end
 end

@@ -60,11 +60,11 @@ class SignInTest < ActionDispatch::IntegrationTest
   test "a signed-in browser queries graphql on the cookie alone" do
     sign_in
 
-    post "/graphql", params: { query: "{ items { nodes { title } } }" }, headers: host
+    post "/graphql", params: { query: "{ feeds { nodes { title } } }" }, headers: host
 
     assert_response :success
     assert_equal [ { "title" => "An invoice" } ],
-                 response.parsed_body.dig("data", "items", "nodes")
+                 response.parsed_body.dig("data", "feeds", "nodes")
   end
 
   test "the session fits in a cookie, because three JWTs do not" do
@@ -140,7 +140,7 @@ class SignInTest < ActionDispatch::IntegrationTest
     assert_equal [ "uris:catalog:read" ], response.parsed_body["scopes"] & Grant::SCOPES
 
     post "/graphql",
-         params: { query: "mutation($id: ID!) { analyzeFeed(input: { id: $id }) { run { id } } }",
+         params: { query: "mutation($id: ID!) { analyzeFeed(input: { id: $id }) { analysis { id status } } }",
                    variables: { id: @item.id.to_s } },
          headers: host
 

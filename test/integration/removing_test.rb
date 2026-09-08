@@ -87,9 +87,10 @@ class RemovingTest < ActionDispatch::IntegrationTest
 
   test "deleting a feed keeps the items it wrote and says how many outlived it" do
     Tenant.switch(@tenant) do
-      @feed = Feed.create!(slug: "buy", prompt: "find things worth buying")
-      @minted = Feed.create!(type: Feed::FILE, key: "A thing", title: "A thing", origin: "feed", feed: @feed)
-      @feed.items << @minted
+      @feed = Feed.create!(type: Feed::ADDRESS, key: "/buy")
+      @feed.create_schedule!(prompt: "find things worth buying")
+      @minted = Feed.create!(type: Feed::FILE, key: "A thing", title: "A thing", origin: "feed")
+      @feed.connect!(@minted)
     end
 
     body = execute(DELETE_FEED, variables: { id: @feed.id })
@@ -100,7 +101,8 @@ class RemovingTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) do
       assert_nil Feed.find_by(id: @feed.id)
       assert_equal @minted, Feed.find_by(id: @minted.id)
-      assert_nil @minted.reload.feed_id
+      assert_empty @minted.reload.connected, "the edge went with the feed, the thing did not"
+      assert_nil Schedule.find_by(feed_id: @feed.id)
     end
   end
 
@@ -123,7 +125,7 @@ class RemovingTest < ActionDispatch::IntegrationTest
     execute(ARCHIVE, variables: { id: @storage.id, archived: true })
 
     Tenant.switch(@tenant) do
-      forgotten = AuditEvent.find_by(action: "forget_item")
+      forgotten = AuditEvent.find_by(action: "forget_feed")
       archived = AuditEvent.find_by(action: "archive_resource")
 
       assert_equal "ok", forgotten.status

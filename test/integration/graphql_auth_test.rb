@@ -1,9 +1,9 @@
 require "test_helper"
 
 class GraphqlAuthTest < ActionDispatch::IntegrationTest
-  CATALOG = "{ items { nodes { kind title } } }".freeze
+  CATALOG = "{ feeds { nodes { mime title } } }".freeze
   RESOURCES = "{ resources { key } }".freeze
-  ANALYZE = "mutation($id: ID!) { analyzeFeed(input: { id: $id }) { run { id } } }".freeze
+  ANALYZE = "mutation($id: ID!) { analyzeFeed(input: { id: $id }) { analysis { id status } } }".freeze
 
   setup do
     @tenant = Tenant.create!(subdomain: "auth-#{SecureRandom.hex(4)}", name: "Auth")
@@ -62,8 +62,8 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
                      headers: host_for(@tenant).merge(bearer(@tenant))
 
     assert_response :success
-    assert_equal [ { "kind" => "pdf", "title" => "An invoice" } ],
-                 response.parsed_body.dig("data", "items", "nodes")
+    assert_equal [ { "mime" => "application/pdf", "title" => "An invoice" } ],
+                 response.parsed_body.dig("data", "feeds", "nodes")
   end
 
   test "a read scope does not carry the resource list" do
@@ -84,7 +84,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
                             variables: { id: @item.id.to_s })
 
     assert_nil body["errors"]
-    assert body.dig("data", "analyzeFeed", "run", "id").present?
+    assert body.dig("data", "analyzeFeed", "analysis", "id").present?
   end
 
   test "resource commands want the resource scope, not the write scope" do
@@ -94,22 +94,22 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
   end
 
   test "a read scope cannot walk from an item to a resource" do
-    query = "{ items { nodes { references { resource { key } } } } }"
+    query = "{ feeds { nodes { references { resource { key } } } } }"
 
     body = execute(query, scopes: %w[uris:catalog:read])
 
-    assert_nil body.dig("data", "items"),
+    assert_nil body.dig("data", "feeds"),
                "nesting must not reach past the scope the entry point checked"
     assert body["errors"].present?
   end
 
   test "holding both scopes walks the whole way" do
-    query = "{ items { nodes { references { resource { key } } } } }"
+    query = "{ feeds { nodes { references { resource { key } } } } }"
 
     body = execute(query, scopes: %w[uris:catalog:read uris:resources:read])
 
     assert_nil body["errors"]
-    assert body.dig("data", "items", "nodes", 0, "references", 0, "resource", "key").present?
+    assert body.dig("data", "feeds", "nodes", 0, "references", 0, "resource", "key").present?
   end
 
   test "streaming a reference out needs a grant too" do
@@ -128,8 +128,8 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
                      headers: host_for(@tenant).merge(bearer(@tenant, scopes: [ "uris:catalog:read" ]))
 
     assert_response :success
-    assert_equal [ { "kind" => "pdf", "title" => "An invoice" } ],
-                 response.parsed_body.dig("data", "items", "nodes")
+    assert_equal [ { "mime" => "application/pdf", "title" => "An invoice" } ],
+                 response.parsed_body.dig("data", "feeds", "nodes")
   ensure
     ActionController::Base.allow_forgery_protection = false
   end
