@@ -72,15 +72,15 @@ class Feed < ApplicationRecord
     addresses.by_key(key.to_s.start_with?("/") ? key : "/#{key}").first
   end
 
-  def self.search(query, type: nil, limit: 50)
-    ids = SearchIndex.search(query, type: type, limit: limit)
+  def self.search(query, type: nil, mime: nil, tag: nil, limit: 50)
+    ids = SearchIndex.search(query, type: type, mime: mime, tag: tag, limit: limit)
     return none if ids.empty?
 
     where(id: ids).in_order_of(:id, ids)
   end
 
-  def self.found(query, type: nil, limit: 50, from: 0)
-    held = SearchIndex.page(query, type: type, limit: limit, from: from)
+  def self.found(query, type: nil, mime: nil, tag: nil, limit: 50, from: 0)
+    held = SearchIndex.page(query, type: type, mime: mime, tag: tag, limit: limit, from: from)
     ids = held[:ids]
     nodes = ids.empty? ? [] : where(id: ids).in_order_of(:id, ids).to_a
 

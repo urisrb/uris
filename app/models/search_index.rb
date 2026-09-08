@@ -183,24 +183,25 @@ module SearchIndex
       }.compact
     end
 
-    def search(query, tenant: Current.tenant, type: nil, limit: 50)
-      page(query, tenant: tenant, type: type, limit: limit)[:ids]
+    def search(query, tenant: Current.tenant, type: nil, mime: nil, tag: nil, limit: 50)
+      page(query, tenant: tenant, type: type, mime: mime, tag: tag, limit: limit)[:ids]
     end
 
-    def page(query, tenant: Current.tenant, type: nil, limit: 50, from: 0)
+    def page(query, tenant: Current.tenant, type: nil, mime: nil, tag: nil, limit: 50, from: 0)
       raise ArgumentError, "no tenant" if tenant.nil?
 
+      facets = { type: type, mime: mime, tag: tag }
       vector = wanted_vector(query, limit: limit, from: from)
 
-      return lexical(query, tenant: tenant, type: type, limit: limit, from: from) if vector.nil?
+      return lexical(query, tenant: tenant, limit: limit, from: from, **facets) if vector.nil?
 
-      found = lexical(query, tenant: tenant, type: type, limit: CANDIDATES, from: 0)
-      fused = fuse(found[:ids], nearest(vector, tenant: tenant, type: type, limit: CANDIDATES))
+      found = lexical(query, tenant: tenant, limit: CANDIDATES, from: 0, **facets)
+      fused = fuse(found[:ids], nearest(vector, tenant: tenant, limit: CANDIDATES, **facets))
 
       { ids: fused.drop(from).first(limit), total: [ found[:total], fused.length ].max }
     end
 
-    def lexical(query, tenant:, type:, limit:, from:)
+    def lexical(query, tenant:, limit:, from:, type: nil, mime: nil, tag: nil)
       must = if query.present?
         [ { multi_match: {
           query: query, fields: %w[title^3 key^3 keywords^3 note^2 summary^2 tags^2 locator_key body],
@@ -210,7 +211,7 @@ module SearchIndex
         [ { match_all: {} } ]
       end
 
-      must << { term: { type: type } } if type
+      must.concat(faceted(type: type, mime: mime, tag: tag))
 
       response = client.search(
         index: alias_for(tenant),
@@ -226,9 +227,9 @@ module SearchIndex
       }
     end
 
-    def nearest(vector, tenant:, type:, limit:)
+    def nearest(vector, tenant:, limit:, type: nil, mime: nil, tag: nil)
       must = [ { term: { tenant_id: tenant.id } } ]
-      must << { term: { type: type } } if type
+      must.concat(faceted(type: type, mime: mime, tag: tag))
 
       response = client.search(
         index: alias_for(tenant),
@@ -243,6 +244,11 @@ module SearchIndex
            OpenSearch::Transport::Transport::Errors::NotFound => e
       Rails.logger.warn("the search engine refused a vector query: #{e.message.truncate(200)}")
       []
+    end
+
+    def faceted(type:, mime:, tag:)
+      { type: type, mime: mime, tags: tag }.compact_blank
+                                           .map { |field, value| { term: { field => value } } }
     end
 
     def fuse(lexical, semantic)
