@@ -45,7 +45,7 @@ class CaldavResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       assert_equal 1, Feed.files.count
-      assert_equal "calendar", Feed.first.kind
+      assert_equal "text/calendar", Feed.first.mime
       assert_equal "calendar/lunch.ics", Reference.first.locator_key
     end
   end
@@ -57,7 +57,7 @@ class CaldavResourceTest < ActiveSupport::TestCase
       item = Feed.first
       Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
 
-      analysis = item.references.first.reload.analysis
+      analysis = item.reload.analysis.steps
 
       assert_includes analysis.dig("steps", "text", "result"), "Lunch with the pelicans"
     end
@@ -70,7 +70,7 @@ class CaldavResourceTest < ActiveSupport::TestCase
       item = Feed.first
       Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
 
-      summary = item.references.first.reload.analysis.dig("steps", "events", "result").first["summary"]
+      summary = item.reload.analysis.steps.dig("events", "result").first["summary"]
 
       assert_equal "Lunch with the pelicans, then the tide tables; briefly", summary
     end

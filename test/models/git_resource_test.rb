@@ -56,7 +56,7 @@ class GitResourceTest < ActiveSupport::TestCase
       keys = Feed.all.map(&:locator_key).sort
 
       assert_equal %w[README.md lib/widget.rb], keys
-      assert_equal "text", feed_at("lib/widget.rb").kind, "source is text, not an unknown file"
+      assert_equal "text/plain", feed_at("lib/widget.rb").mime, "source is text, not an unknown file"
     end
   end
 

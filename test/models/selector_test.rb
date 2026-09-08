@@ -11,16 +11,17 @@ class SelectorTest < ActiveSupport::TestCase
 
       @march = place("2024/invoices/march.pdf", at: 3.days.ago)
       @april = place("2024/invoices/april.pdf", at: 2.days.ago)
-      @note = place("2024/notes/scratch.txt", kind: "text", at: 1.day.ago)
-      @root = place("readme.txt", kind: "text", at: 1.hour.ago)
+      @note = place("2024/notes/scratch.txt", at: 1.day.ago)
+      @root = place("readme.txt", at: 1.hour.ago)
     end
   end
 
-  def place(key, kind: "pdf", at: Time.current)
-    item = Feed.create!(type: Feed::FILE, key: File.basename(key), title: File.basename(key),
+  def place(key, at: Time.current)
+    feed = Feed.create!(type: Feed::FILE, key: File.basename(key), title: File.basename(key),
                         created_at: at)
-    Reference.create!(item: item, resource: @resource, locator_key: key, locator: {})
-    item
+    Reference.create!(feed: feed, resource: @resource, locator_key: key, locator: {},
+                      mime: MimeType.for_filename(key))
+    feed
   end
 
   def matching(**selector)
@@ -40,8 +41,8 @@ class SelectorTest < ActiveSupport::TestCase
     assert_includes matching(folder: "2024"), @sibling
   end
 
-  test "a folder narrows with a kind rather than replacing it" do
-    assert_equal [ @note ], matching(folder: "2024", kind: "text")
+  test "a folder narrows with a mime rather than replacing it" do
+    assert_equal [ @note ], matching(folder: "2024", mime: "text/plain")
   end
 
   test "since and before bound the catalog by when an item was catalogued" do

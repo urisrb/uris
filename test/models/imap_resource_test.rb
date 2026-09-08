@@ -100,7 +100,7 @@ class ImapResourceTest < ActiveSupport::TestCase
       item = titled("March invoice")
       Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
 
-      analysis = item.references.first.reload.analysis
+      analysis = item.reload.analysis.steps
 
       assert_equal "March invoice", analysis.dig("steps", "headers", "result", "subject")
       assert_includes analysis.dig("steps", "text", "result"), "42 pounds"

@@ -122,7 +122,7 @@ class GithubResourceTest < ActiveSupport::TestCase
 
       assert_equal "acme/widgets/issues/7", item.locator_key
       assert_equal "acme/widgets#7 Issue 7", item.title
-      assert_equal "text", item.kind
+      assert_equal "text/plain", item.mime
       assert_equal "issue", item.locator["shape"]
     end
   end

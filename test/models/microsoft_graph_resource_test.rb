@@ -97,7 +97,7 @@ class MicrosoftGraphResourceTest < ActiveSupport::TestCase
       assert_equal 1, Feed.files.count
       assert_equal "Invoices/report.pdf", Feed.last.locator_key
       assert_equal "report.pdf", Feed.last.title
-      assert_equal "pdf", Feed.last.kind, "the kind still comes from the name"
+      assert_equal "application/pdf", Feed.last.mime, "the mime still comes from the name"
     end
   end
 

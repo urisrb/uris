@@ -16,7 +16,7 @@ class MergeProposalTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       named = title || File.basename(key)
       item = Feed.create!(type: Feed::FILE, key: named, title: named)
-      Reference.create!(item: item, resource: resource, locator_key: key,
+      Reference.create!(feed: item, resource: resource, locator_key: key,
                              locator: {}, version: version)
       item
     end
@@ -37,14 +37,17 @@ class MergeProposalTest < ActiveSupport::TestCase
 
     assert_equal 1, proposals.length
     assert_equal "same-name", proposals.first.reason
-    assert_equal [ a.id, b.id ].sort, proposals.first.item_ids
+    assert_equal [ a.id, b.id ].sort, proposals.first.feed_ids
   end
 
-  test "the same name of a different kind is not the same item" do
-    item_on(@drive, "notes/report.pdf", kind: "pdf")
-    item_on(@backup, "notes/report.pdf", kind: "text")
+  test "the same name under a different type is not the same feed" do
+    named = Tenant.switch(@tenant) do
+      Feed.create!(type: Feed::NOTE, key: "report.pdf", title: "report.pdf")
+    end
+    item_on(@drive, "notes/report.pdf")
 
-    assert_empty propose!
+    assert_empty propose!, "a note and a file that share a name are not one thing"
+    assert_equal Feed::NOTE, named.type
   end
 
   test "two references reporting the same version on the same type are proposed" do
@@ -54,7 +57,7 @@ class MergeProposalTest < ActiveSupport::TestCase
     proposals = propose!.select { |held| held.reason == "same-bytes" }
 
     assert_equal 1, proposals.length
-    assert_equal [ a.id, b.id ].sort, proposals.first.item_ids
+    assert_equal [ a.id, b.id ].sort, proposals.first.feed_ids
   end
 
   test "the same version string from two different types is not a match" do
@@ -72,7 +75,7 @@ class MergeProposalTest < ActiveSupport::TestCase
     item = item_on(@drive, "one.pdf")
 
     Tenant.switch(@tenant) do
-      Reference.create!(item: item, resource: @backup, locator_key: "one.pdf", locator: {})
+      Reference.create!(feed: item, resource: @backup, locator_key: "one.pdf", locator: {})
     end
 
     assert_empty propose!

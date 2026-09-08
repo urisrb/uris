@@ -35,10 +35,10 @@ class FilesystemResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       assert_equal 3, Feed.files.count
-      assert_equal "pdf", feed_at("invoices/march.pdf").kind
+      assert_equal "application/pdf", feed_at("invoices/march.pdf").mime
       assert_equal "march.pdf", feed_at("invoices/march.pdf").title
-      assert_equal "image", feed_at("photos/beach.jpg").kind
-      assert_equal "text", feed_at("notes.txt").kind
+      assert_equal "image/jpeg", feed_at("photos/beach.jpg").mime
+      assert_equal "text/plain", feed_at("notes.txt").mime
     end
   end
 

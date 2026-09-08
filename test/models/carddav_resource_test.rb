@@ -48,7 +48,7 @@ class CarddavResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       assert_equal 1, Feed.files.count
-      assert_equal "contact", Feed.first.kind
+      assert_equal "text/vcard", Feed.first.mime
       assert_equal "contacts/jane.vcf", Reference.first.locator_key
     end
   end
@@ -69,7 +69,7 @@ class CarddavResourceTest < ActiveSupport::TestCase
       item = Feed.first
       Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
 
-      contact = item.references.first.reload.analysis.dig("steps", "contacts", "result").first
+      contact = item.reload.analysis.steps.dig("contacts", "result").first
 
       assert_equal "Jane Pelican", contact["fn"]
       assert_equal "Pelican Jane", contact["name"]
@@ -87,7 +87,7 @@ class CarddavResourceTest < ActiveSupport::TestCase
       item = Feed.first
       Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
 
-      analysis = item.references.first.reload.analysis
+      analysis = item.reload.analysis.steps
 
       assert_includes analysis.dig("steps", "contacts", "result").first["note"], "especially in winter."
       assert_includes analysis.dig("steps", "text", "result"), "jane@estuary.example"
@@ -95,7 +95,7 @@ class CarddavResourceTest < ActiveSupport::TestCase
   end
 
   test "a .vcf arriving from anywhere else is a contact too" do
-    assert_equal "contact", Kind.for_filename("exported/addresses.vcf")
+    assert_equal "text/vcard", MimeType.for_filename("exported/addresses.vcf")
   end
 
   test "contacts are read-only and cannot be an export destination" do

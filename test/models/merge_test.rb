@@ -33,9 +33,9 @@ class MergeTest < ActiveSupport::TestCase
 
       keep.merge!(gone)
 
-      assert_equal keep.id, moved.reload.item_id
+      assert_equal keep.id, moved.reload.feed_id
       assert_empty Feed.where(id: gone.id)
-      assert_equal 0, Reference.where(item_id: gone.id).count
+      assert_equal 0, Reference.where(feed_id: gone.id).count
     end
   end
 
@@ -59,9 +59,9 @@ class MergeTest < ActiveSupport::TestCase
 
       split = grouped.references.last.split!
 
-      assert_not_equal grouped.id, split.item_id
+      assert_not_equal grouped.id, split.feed_id
       assert_equal 1, grouped.references.reset.count
-      assert_equal 1, split.item.references.count
+      assert_equal 1, split.feed.references.count
     end
   end
 
@@ -77,15 +77,15 @@ class MergeTest < ActiveSupport::TestCase
     end
   end
 
-  test "a merged item carries the analysis of every reference into search" do
+  test "a merge carries the passes made over the absorbed copy rather than deleting them" do
     kept = nil
 
     Tenant.switch(@tenant) do
       one = create_feed(mime: "application/pdf", title: "One", resource: @s3, locator_key: "one.pdf")
       two = create_feed(mime: "application/pdf", title: "Two", resource: @drive, locator_key: "two.pdf")
 
-      one.references.first.update!(analysis: { "steps" => { "text" => { "result" => "kingfisher" } } })
-      two.references.first.update!(analysis: { "steps" => { "text" => { "result" => "salamander" } } })
+      extracted(one, "kingfisher")
+      extracted(two, "salamander")
 
       kept = one.merge!(two)
     end
@@ -93,10 +93,17 @@ class MergeTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      assert_equal [ kept.id ], Feed.search("kingfisher").ids
+      assert_equal 2, kept.analyses.count, "a pass over either copy was a pass over one thing"
       assert_equal [ kept.id ], Feed.search("salamander").ids,
-                   "extraction from the merged-in reference survived the merge"
+                   "the newest pass over the merged feed is what search reads"
     end
+  end
+
+  def extracted(feed, text)
+    analysis = Analysis.open!(feed: feed, cause: "manual")
+    analysis.write_step!("text", { "result" => text })
+    analysis.finished!
+    analysis
   end
 
   test "destroying an item takes its references with it" do

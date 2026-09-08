@@ -76,7 +76,7 @@ class RssResourceTest < ActiveSupport::TestCase
       item = titled("The first post")
       Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
 
-      analysis = item.references.first.reload.analysis
+      analysis = item.reload.analysis.steps
 
       assert_equal "https://elsewhere.example/one", analysis.dig("steps", "entry", "result", "link")
       assert_includes analysis.dig("steps", "text", "result"), "Something about pelicans."

@@ -78,8 +78,8 @@ class WebResourceTest < ActiveSupport::TestCase
 
       Tenant.switch(@tenant) do
         assert_equal 1, Feed.files.count
-        assert_equal "page", reference.item.kind
-        assert_equal "A page about pelicans", reference.item.title
+        assert_equal MimeType::PAGE, reference.feed.mime
+        assert_equal "A page about pelicans", reference.feed.title
         assert_equal @url, reference.locator_key
         assert_equal @resource.id, reference.resource_id
       end
