@@ -2,7 +2,6 @@ module Tool
   class Feeds < Base
     tool_name "feed"
     scope "uris:catalog:read"
-    starts_runs true
 
     EXCERPT = 8_000
 
@@ -53,7 +52,10 @@ module Tool
       case verb
       when "note" then feed.update!(note: note.presence)
       when "rename" then feed.update!(title: title.to_s.strip.presence || feed.title)
-      when "analyze" then return summarize(feed).merge(analysis: feed.analyze!(cause: "manual").id.to_s)
+      when "analyze"
+        within_budget!
+
+        return summarize(feed).merge(analysis: feed.analyze!(cause: "manual").id.to_s)
       end
 
       told(feed)

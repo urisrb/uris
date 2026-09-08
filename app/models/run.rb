@@ -118,8 +118,8 @@ class Run < ApplicationRecord
     end
 
     def publish!
-      UrisSchema.subscriptions.trigger(:run_progressed, { id: to_gid_param }, self,
-                                       scope: tenant_id)
+      UrisSchema.subscriptions.trigger(:run_progressed, { id: id.to_s }, self, scope: tenant_id)
+      UrisSchema.subscriptions.trigger(:run_progressed, {}, self, scope: tenant_id)
     rescue StandardError => e
       Rails.logger.warn "run #{id} could not announce: #{e.message}"
     end

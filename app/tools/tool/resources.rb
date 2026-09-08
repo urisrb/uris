@@ -2,10 +2,10 @@ module Tool
   class Resources < Base
     tool_name "resource"
     scope "uris:resources:read"
-    starts_runs true
 
     READ = %w[list describe check runs get parameters search].freeze
     WRITE = %w[sync export cancel put snapshot].freeze
+    RUNS = %w[sync export].freeze
 
     WRITES = "uris:resources:command".freeze
     WEB = "uris:web:read".freeze
@@ -23,7 +23,6 @@ module Tool
       Class.new(self) do
         tool_name "resource"
         scope "uris:resources:read"
-        starts_runs true
         description Resources.description
 
         input_schema(
@@ -62,6 +61,7 @@ module Tool
                  raise(ArgumentError, "no resource called #{key}")
 
       Current.grant.permit!(WEB) if verb == "search" && resource.capabilities.include?(:search)
+      within_budget! if RUNS.include?(verb)
 
       case verb
       when "describe" then resource.describe.merge(healthy: resource.healthy?)

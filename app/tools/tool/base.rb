@@ -30,16 +30,10 @@ module Tool
         @scope
       end
 
-      def starts_runs(value = nil)
-        @starts_runs = value unless value.nil?
-        @starts_runs
-      end
-
       def respond(_server_context, arguments = {})
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         grant = Current.grant or raise Grant::Denied, "this call carries no grant"
         grant.permit!(scope)
-        within_budget!(grant)
 
         result = yield
 
@@ -55,9 +49,7 @@ module Tool
         error.is_a?(Grant::Denied) || error.is_a?(OverBudget)
       end
 
-      def within_budget!(grant)
-        return unless starts_runs
-
+      def within_budget!(grant = Current.grant)
         limit = Rails.configuration.uris.run_budget
         return if limit.zero?
 
