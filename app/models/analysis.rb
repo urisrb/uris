@@ -24,7 +24,8 @@ class Analysis < ApplicationRecord
 
   def self.open!(feed:, cause:, reference: nil, deadline: nil)
     create!(feed: feed, cause: cause, reference: reference,
-            deadline: deadline || default_deadline)
+            deadline: deadline || default_deadline,
+            steps: feed.analysis&.steps || {})
   end
 
   def self.default_deadline
@@ -49,6 +50,7 @@ class Analysis < ApplicationRecord
       finished_at: Time.current
     )
 
+    SearchIndex.index(feed.reload)
     publish!
   end
 
