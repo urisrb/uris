@@ -54,4 +54,68 @@ class TenantIsolationTest < ActiveSupport::TestCase
       assert_equal @demo_item, Feed.find_by(id: @demo_item.id)
     end
   end
+
+  test "a reference is isolated, since the policy is per table and not inherited" do
+    mine = Tenant.switch(@demo) { referenced(@demo_item, "demo.pdf") }
+    theirs = Tenant.switch(@acme) { referenced(@acme_item, "acme.pdf") }
+
+    Tenant.switch(@demo) { assert_equal [ mine.id ], Reference.unscoped.pluck(:id) }
+    Tenant.switch(@acme) { assert_equal [ theirs.id ], Reference.unscoped.pluck(:id) }
+  end
+
+  test "an analysis is isolated" do
+    mine = Tenant.switch(@demo) { Analysis.open!(feed: @demo_item, cause: "manual") }
+    theirs = Tenant.switch(@acme) { Analysis.open!(feed: @acme_item, cause: "manual") }
+
+    Tenant.switch(@demo) { assert_equal [ mine.id ], Analysis.unscoped.pluck(:id) }
+    Tenant.switch(@acme) { assert_equal [ theirs.id ], Analysis.unscoped.pluck(:id) }
+  end
+
+  test "an edge is isolated" do
+    mine = Tenant.switch(@demo) { connected(@demo_item, "demo tag") }
+    theirs = Tenant.switch(@acme) { connected(@acme_item, "acme tag") }
+
+    Tenant.switch(@demo) { assert_equal [ mine.id ], Edge.unscoped.pluck(:id) }
+    Tenant.switch(@acme) { assert_equal [ theirs.id ], Edge.unscoped.pluck(:id) }
+  end
+
+  test "a schedule is isolated" do
+    mine = Tenant.switch(@demo) { scheduled("/demo") }
+    theirs = Tenant.switch(@acme) { scheduled("/acme") }
+
+    Tenant.switch(@demo) { assert_equal [ mine.id ], Schedule.unscoped.pluck(:id) }
+    Tenant.switch(@acme) { assert_equal [ theirs.id ], Schedule.unscoped.pluck(:id) }
+  end
+
+  test "a reference cannot be written into another tenant either" do
+    assert_raises ActiveRecord::StatementInvalid do
+      Tenant.switch(@demo) do
+        Reference.unscoped.create!(tenant_id: @acme.id, feed_id: @demo_item.id,
+                                   resource_id: storage(@demo).id, locator_key: "smuggled.pdf",
+                                   locator: {})
+      end
+    end
+  end
+
+  private
+
+    def storage(tenant)
+      @storages ||= {}
+      @storages[tenant.id] ||= Tenant.switch(tenant) do
+        Resource::Database.create!(key: "store-#{SecureRandom.hex(4)}")
+      end
+    end
+
+    def referenced(feed, key)
+      Reference.create!(feed: feed, resource: storage(Current.tenant),
+                        locator_key: key, locator: {}, mime: MimeType.for_filename(key))
+    end
+
+    def connected(feed, key)
+      feed.connect!(Feed.tag!(key))
+    end
+
+    def scheduled(key)
+      Feed.create!(type: Feed::ADDRESS, key: key).create_schedule!(prompt: "anything new?")
+    end
 end
