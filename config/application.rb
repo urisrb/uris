@@ -27,6 +27,8 @@ module Uris
     config.solid_queue.connects_to = { database: { writing: :queue } }
 
     config.uris = ActiveSupport::OrderedOptions.new
+    config.uris.tenant = ENV["URIS_TENANT"].presence
+    config.uris.tenants = ENV["URIS_TENANTS"].to_s.split(/[\s,]+/).reject(&:empty?)
     config.uris.mcp_limit = ENV.fetch("URIS_MCP_LIMIT", 120).to_i
     config.uris.run_budget = ENV.fetch("URIS_RUN_BUDGET", 20).to_i
     config.uris.audit_retention = ENV.fetch("URIS_AUDIT_RETENTION_DAYS", 90).to_i.days

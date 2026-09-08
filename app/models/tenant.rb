@@ -58,8 +58,33 @@ class Tenant < ApplicationRecord
     )
   end
 
+  class TenancyConflict < StandardError
+    def initialize(message = "URIS_TENANT and URIS_TENANTS are both set; declare one or the other")
+      super
+    end
+  end
+
   class << self
+    def pinned
+      Rails.configuration.uris.tenant
+    end
+
+    def declared
+      return Rails.configuration.uris.tenants unless pinned
+      raise TenancyConflict if Rails.configuration.uris.tenants.any?
+
+      [ pinned ]
+    end
+
+    def declare!
+      declared.map do |subdomain|
+        find_by(subdomain: subdomain) || create!(subdomain: subdomain, name: subdomain.titleize)
+      end
+    end
+
     def resolve(host)
+      return find_by(subdomain: pinned) if pinned
+
       find_by(subdomain: subdomain_in(host))
     end
 

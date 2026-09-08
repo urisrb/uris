@@ -1,0 +1,127 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "open3"
+require "shellwords"
+
+ROOT = __dir__
+
+APP_PORT = ENV.fetch("URIS_PORT", "8180")
+DOCS_PORT = ENV.fetch("URIS_DOCS_PORT", "8181")
+
+USAGE = <<~TEXT
+  usage: dev [command] [--multi]
+
+    up             build and run the stack in the foreground
+    down           stop it, keeping the volumes
+    reset          throw the volumes away and start over
+    logs [service] follow one service, or all of them
+    ps             what is running
+    psql           a shell on postgres
+    console        a rails console
+    seed           re-run the seeds
+    test [suite]   unit, server, client, corpus
+    fmt [--check]  format everything, or check it
+
+  One tenant answers at http://uris.localhost:#{APP_PORT}, its docs at
+  http://uris.localhost:#{DOCS_PORT}. It authenticates against masks, which
+  MASKS_ISSUER names and which has to be running for sign-in to work.
+TEXT
+
+def die(message)
+  warn message
+  exit 1
+end
+
+def usage
+  warn USAGE
+  exit 64
+end
+
+def run(*command, chdir: ROOT)
+  system(*command, chdir: chdir)
+end
+
+def run!(*command, chdir: ROOT)
+  run(*command, chdir: chdir) || die("failed: #{command.shelljoin}")
+end
+
+def compose(*args, multi: false)
+  files = [ "compose.yml", *("compose.multi.yml" if multi) ]
+
+  [ "docker", "compose", *files.flat_map { |file| [ "-f", file ] }, *args ]
+end
+
+def announce(multi)
+  hosts = multi ? %w[demo acme].map { |t| "#{t}.uris.localhost" } : [ "uris.localhost" ]
+
+  puts
+  hosts.each { |host| puts "  uris    http://#{host}:#{APP_PORT}" }
+  puts "  docs    http://uris.localhost:#{DOCS_PORT}"
+  puts
+end
+
+def up(multi)
+  announce(multi)
+  run!(*compose("up", "--build", "--abort-on-container-failure", multi: multi))
+end
+
+SUITES = %w[unit server corpus].freeze
+
+UNPINNED = [ "-e", "URIS_TENANT=", "-e", "URIS_TENANTS=" ].freeze
+
+def suite(name, multi)
+  return run(*compose("exec", "-T", "uris", "npm", "test", multi: multi)) if name == "client"
+
+  run(*compose("exec", "-T", *UNPINNED, "uris", "bin/rails", "test", "test/#{name}", multi: multi))
+end
+
+def test(names, multi)
+  names = SUITES + [ "client" ] if names.empty?
+  names.each { |name| usage unless SUITES.include?(name) || name == "client" }
+
+  run!(*compose("up", "-d", "--wait", "uris", multi: multi))
+  run!(*compose("exec", "-T", *UNPINNED, "uris", "bin/rails", "db:test:prepare", multi: multi))
+
+  failed = names.reject do |name|
+    puts "\n== #{name}\n\n"
+    suite(name, multi)
+  end
+
+  die("\nfailed: #{failed.join(' ')}") if failed.any?
+  puts "\npassed: #{names.join(' ')}"
+end
+
+def fmt(args)
+  usage unless args.empty? || args == [ "--check" ]
+  check = args.first == "--check"
+
+  ok = [
+    run("bin/rubocop", *(check ? [] : [ "-a" ])),
+    run("npx", "biome", "check", *([ "--write" ] unless check)),
+    run("npx", "--yes", "prettier@3.9.6", check ? "--check" : "--write",
+        "--no-error-on-unmatched-pattern",
+        "*.{yml,yaml,md}", ".github/**/*.{yml,yaml}", "config/**/*.{yml,yaml}")
+  ]
+
+  exit(ok.all? ? 0 : 1)
+end
+
+command = ARGV.shift || "up"
+multi = !ARGV.delete("--multi").nil?
+
+case command
+when "up" then up(multi)
+when "down" then run!(*compose("down", multi: multi))
+when "reset"
+  run!(*compose("down", "-v", "--remove-orphans", multi: multi))
+  up(multi)
+when "logs" then run!(*compose("logs", "-f", *ARGV, multi: multi))
+when "ps" then run!(*compose("ps", multi: multi))
+when "psql" then run!(*compose("exec", "postgres", "psql", "-U", "postgres", multi: multi))
+when "console" then run!(*compose("exec", "uris", "bin/rails", "console", multi: multi))
+when "seed" then run!(*compose("exec", "-T", "uris", "bin/rails", "db:seed", multi: multi))
+when "test" then test(ARGV, multi)
+when "fmt" then fmt(ARGV)
+else usage
+end

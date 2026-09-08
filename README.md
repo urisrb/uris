@@ -54,23 +54,24 @@ and resumes at its cursor rather than starting over.
 
 ## Running it
 
-Rails runs on the host; Postgres, OpenSearch and MinIO run in Docker. The analyzers shell out to
-native binaries and inference runs on the GPU, so containerising the app would buy nothing and cost
-the debugger.
-
 ```sh
-brew bundle          # native dependencies the analyzers need
-bin/setup            # services, database, two tenants, generated API types
-bin/dev              # web, worker, vite, and the codegen watchers
+./dev                # the whole stack, in containers, reloading
+./dev test           # unit, server, corpus and client, in containers
 ```
 
-Tenants are addressed by subdomain, so add these to `/etc/hosts`:
+`./dev` needs docker and nothing else. It runs Rails, vite, the worker, the doc site and the three
+backing services, all reloading, and one tenant answers at <http://uris.localhost:8180> with its
+docs on <http://uris.localhost:8181>. Nothing goes in `/etc/hosts`: `*.localhost` already resolves.
 
-```
-127.0.0.1 uris.test demo.uris.test acme.uris.test
-```
+Sign-in goes through masks, which `MASKS_ISSUER` names and which has to be running for the handshake
+to complete — `../masks/dev`, or both at once with `home/dev`.
 
-Then <http://demo.uris.test:4242> and <http://acme.uris.test:4242>.
+`./dev --multi` declares `demo` and `acme` instead and serves them at
+<http://demo.uris.localhost:8180>, which is what the suite exercises and what a real deployment
+looks like.
+
+Inference still runs on the host GPU: the stack reaches an Ollama on `host.docker.internal`, so
+`brew bundle` is worth running if you want the analyzers to have a model to talk to.
 
 ## Two tenants, always
 
@@ -108,7 +109,7 @@ Neither wraps the other. Exposing GraphQL _as_ an MCP tool is what would collaps
 one — a single passthrough tool cannot be partially granted.
 
 The Ruby schema is the source of truth and the TypeScript is generated from it, so the SPA cannot
-drift from the API without the types going red first. `bin/dev` keeps both watchers running.
+drift from the API without the types going red first. `./dev` keeps both watchers running.
 
 ## The endpoint
 
@@ -191,7 +192,7 @@ Chrome's own sandbox stays on. In a container that needs namespaces it may not h
 
 Solid Queue, in a second database, in development as well as production — a queue that only exists
 in one environment is a queue whose failures are only discovered there. `bin/jobs` runs it and
-`bin/dev` keeps it up; `/jobs` is Mission Control.
+`./dev` keeps it up; `/jobs` is Mission Control.
 
 Two worker pools, because the work is two different shapes:
 
