@@ -3,6 +3,7 @@ uris_image_tag: latest
 uris_image_digest: ""
 
 uris_deploy_path: /srv/uris
+uris_filesystem_root: /data/files
 uris_network: edge
 
 uris_postgres_host: postgres

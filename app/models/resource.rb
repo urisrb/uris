@@ -13,6 +13,8 @@ class Resource < ApplicationRecord
   has_many :reached_through, class_name: "Resource", foreign_key: :via_id,
                              inverse_of: :via, dependent: :restrict_with_error
 
+  DECLARATIONS = Rails.root.join("config/resources.yml")
+
   MINIMUM_SYNC_INTERVAL = 1.minute
   SYNC_ABANDONED_AFTER = 6.hours
   MAX_HOPS = 4
@@ -132,6 +134,46 @@ class Resource < ApplicationRecord
       scope = active.where(ACCEPTS, mime.to_s)
 
       size.nil? ? scope : scope.where(ROOM, size.to_i)
+    end
+
+    def declarations
+      return {} unless DECLARATIONS.exist?
+
+      held = YAML.safe_load(ERB.new(DECLARATIONS.read).result, aliases: true).to_h
+
+      held[Rails.env].to_h
+    end
+
+    # Reconciles what the deployment declares, never what somebody attached — a
+    # declaration this file drops is left standing rather than deleted underneath
+    # whoever is using it.
+    def declare!(held = declarations)
+      held.filter_map do |key, spec|
+        spec = spec.to_h.stringify_keys
+        klass = find_sti_class(spec.fetch("type"))
+
+        settled(klass.find_or_initialize_by(key: key.to_s), klass, spec)
+      end
+    end
+
+    def settled(resource, klass, spec)
+      details, credentials = Settings.for(klass, spec["settings"])
+
+      resource.name = spec["name"].presence || key_titled(resource.key)
+      resource.details = details
+      resource.credentials = credentials
+      resource.sync_interval = spec["sync_interval"] if spec.key?("sync_interval")
+      resource.save!
+
+      DEFAULTABLE.each_key do |capability|
+        resource.make_default_for!(capability) if spec["default_#{capability}"]
+      end
+
+      resource
+    end
+
+    def key_titled(key)
+      key.to_s.tr("-_", "  ").humanize
     end
 
     def restate!

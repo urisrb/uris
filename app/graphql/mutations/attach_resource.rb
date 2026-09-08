@@ -19,7 +19,7 @@ module Mutations
       named = key.to_s.strip
       resource = klass.new(key: named, name: name.presence&.strip || named)
 
-      settle(resource, klass.attaching[:fields], (settings || {}).to_h)
+      settle(resource, klass, settings)
 
       refused(resource.errors.full_messages.to_sentence) unless resource.save
 
@@ -39,44 +39,10 @@ module Mutations
 
       # Only what the type declares is read, so a caller cannot smuggle a key the
       # form never offered into details or credentials.
-      def settle(resource, fields, given)
-        details = {}
-        credentials = {}
-
-        fields.each do |field|
-          offered = given[field[:name]]
-          raw = blank?(offered) ? field[:value] : offered
-
-          if blank?(raw)
-            refused("#{field[:label]} is needed") if field[:required]
-            next
-          end
-
-          place(field[:held] == :credentials ? credentials : details, field[:name],
-                cast(raw, field[:kind]))
-        end
-
-        resource.details = details
-        resource.credentials = credentials
-      end
-
-      def blank?(value)
-        value.nil? || (value.respond_to?(:strip) && value.strip.empty?)
-      end
-
-      def place(held, name, value)
-        steps = name.split(".")
-        leaf = steps.pop
-
-        steps.reduce(held) { |nest, step| nest[step] ||= {} }[leaf] = value
-      end
-
-      def cast(raw, kind)
-        case kind
-        when "integer" then raw.to_s.strip.to_i
-        when "boolean" then ActiveModel::Type::Boolean.new.cast(raw)
-        else raw.to_s.strip
-        end
+      def settle(resource, klass, given)
+        resource.details, resource.credentials = Resource::Settings.for(klass, given || {})
+      rescue Resource::Settings::Missing => e
+        refused(e.message)
       end
 
       # The names of what was set, never the values — a credential does not belong

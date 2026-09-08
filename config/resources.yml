@@ -1,0 +1,13 @@
+shipped: &shipped
+  files:
+    type: filesystem
+    name: Files
+    default_storage: true
+    settings:
+      root: <%= ENV.fetch("URIS_FILESYSTEM_ROOT", "/data/files") %>
+
+development: *shipped
+
+test: {}
+
+production: *shipped
