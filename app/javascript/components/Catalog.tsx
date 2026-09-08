@@ -1,6 +1,5 @@
 import { Alert, Button, Group, Loader, Menu, Stack, Text } from '@mantine/core'
 import {
-  IconArrowMerge,
   IconDots,
   IconFilePlus,
   IconFolderPlus,
@@ -22,7 +21,6 @@ import {
   FeedDocument,
   FeedsDocument,
   ItemAnalyzedDocument,
-  MergeProposalsDocument,
   PauseFeedDocument,
   RunFeedDocument,
   RunProgressedDocument,
@@ -252,8 +250,6 @@ function Listing({
       {open && (
         <Thinking key={open.id} id={open.id} cap={thinking.data?.feed?.turns} />
       )}
-
-      {!searching && !feed && <Doubles />}
 
       {error && <Alert color="red">{error.message}</Alert>}
 
@@ -591,36 +587,6 @@ function Rows({ rows, view }: { rows: Row[]; view: View }) {
   )
 }
 
-const DOUBLES = 25
-
-function Doubles() {
-  const { data } = useQuery(MergeProposalsDocument, {
-    status: 'open',
-    after: null,
-    limit: DOUBLES,
-  })
-
-  const page = data?.mergeProposals
-  const found = page?.nodes.length ?? 0
-
-  if (found === 0) return null
-
-  return (
-    <Link to="/merges" className="double">
-      <IconArrowMerge size={16} stroke={1.7} color="var(--brass)" />
-      <span>
-        <span className="figure">
-          {found}
-          {page?.hasMore ? '+' : ''}
-        </span>{' '}
-        {found === 1 ? 'set of items looks' : 'sets of items look'} like the
-        same thing
-      </span>
-      <span className="double-go">Review</span>
-    </Link>
-  )
-}
-
 function Kinds() {
   const [params] = useSearchParams()
   const { settledAt } = useUploads()
@@ -733,13 +699,6 @@ function Tools({ kind, term }: { kind: string | null; term: string }) {
             onClick={() => setExporting(true)}
           >
             Export these…
-          </Menu.Item>
-          <Menu.Item
-            component={Link}
-            to="/merges"
-            leftSection={<IconArrowMerge size={16} stroke={1.6} />}
-          >
-            Duplicates
           </Menu.Item>
         </Menu.Dropdown>
       </Menu>

@@ -278,44 +278,6 @@ ALTER SEQUENCE public.gates_id_seq OWNED BY public.gates.id;
 
 
 --
--- Name: merge_proposals; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.merge_proposals (
-    id bigint NOT NULL,
-    tenant_id bigint NOT NULL,
-    blocking_key character varying NOT NULL,
-    reason character varying NOT NULL,
-    feed_ids jsonb DEFAULT '[]'::jsonb NOT NULL,
-    status character varying DEFAULT 'open'::character varying NOT NULL,
-    settled_at timestamp(6) without time zone,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
-);
-
-ALTER TABLE ONLY public.merge_proposals FORCE ROW LEVEL SECURITY;
-
-
---
--- Name: merge_proposals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.merge_proposals_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: merge_proposals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.merge_proposals_id_seq OWNED BY public.merge_proposals.id;
-
-
---
 -- Name: resource_blobs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -609,13 +571,6 @@ ALTER TABLE ONLY public.gates ALTER COLUMN id SET DEFAULT nextval('public.gates_
 
 
 --
--- Name: merge_proposals id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.merge_proposals ALTER COLUMN id SET DEFAULT nextval('public.merge_proposals_id_seq'::regclass);
-
-
---
 -- Name: resource_blobs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -711,14 +666,6 @@ ALTER TABLE ONLY public.feeds
 
 ALTER TABLE ONLY public.gates
     ADD CONSTRAINT gates_pkey PRIMARY KEY (id);
-
-
---
--- Name: merge_proposals merge_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.merge_proposals
-    ADD CONSTRAINT merge_proposals_pkey PRIMARY KEY (id);
 
 
 --
@@ -1009,27 +956,6 @@ CREATE INDEX index_gates_on_tenant_id ON public.gates USING btree (tenant_id);
 
 
 --
--- Name: index_merge_proposals_on_tenant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_merge_proposals_on_tenant_id ON public.merge_proposals USING btree (tenant_id);
-
-
---
--- Name: index_merge_proposals_on_tenant_id_and_status_and_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_merge_proposals_on_tenant_id_and_status_and_id ON public.merge_proposals USING btree (tenant_id, status, id);
-
-
---
--- Name: index_open_merge_proposals_on_key; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_open_merge_proposals_on_key ON public.merge_proposals USING btree (tenant_id, blocking_key) WHERE ((status)::text = 'open'::text);
-
-
---
 -- Name: index_resource_blobs_on_resource_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1296,14 +1222,6 @@ ALTER TABLE ONLY public.schedules
 
 
 --
--- Name: merge_proposals fk_rails_cb45b638ed; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.merge_proposals
-    ADD CONSTRAINT fk_rails_cb45b638ed FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
-
-
---
 -- Name: analyses fk_rails_cca65eba28; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1412,12 +1330,6 @@ ALTER TABLE public.feeds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gates ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: merge_proposals; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.merge_proposals ENABLE ROW LEVEL SECURITY;
-
---
 -- Name: resource_blobs; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -1490,13 +1402,6 @@ CREATE POLICY tenant_isolation ON public.gates USING ((tenant_id = (NULLIF(curre
 
 
 --
--- Name: merge_proposals tenant_isolation; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY tenant_isolation ON public.merge_proposals USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
-
-
---
 -- Name: resource_blobs tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -1538,6 +1443,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260908180000'),
 ('20260908120000'),
 ('20260907220000'),
 ('20260907100000'),

@@ -51,37 +51,6 @@ class NotingTest < ActionDispatch::IntegrationTest
     assert_match(/longer than 10000/, body.dig("errors", 0, "message"))
   end
 
-  test "merging carries the absorbed item's note rather than destroying it with the item" do
-    other = Tenant.switch(@tenant) do
-      held = create_feed(mime: "application/pdf", title: "duplicate.pdf", locator_key: "elsewhere/dup.pdf")
-      held.update!(note: "the one from the shoebox")
-      held
-    end
-
-    execute(NOTE, variables: { id: @item.id, note: "paid on the fourth" })
-
-    Tenant.switch(@tenant) do
-      @item.reload.merge!(other.reload)
-
-      assert_nil Feed.find_by(id: other.id), "the emptied item goes"
-      assert_equal "paid on the fourth\n\nthe one from the shoebox", @item.reload.note
-    end
-  end
-
-  test "merging into an item with no note of its own simply takes the other's" do
-    other = Tenant.switch(@tenant) do
-      held = create_feed(mime: "application/pdf", title: "duplicate.pdf", locator_key: "elsewhere/dup.pdf")
-      held.update!(note: "the one from the shoebox")
-      held
-    end
-
-    Tenant.switch(@tenant) do
-      @item.merge!(other.reload)
-
-      assert_equal "the one from the shoebox", @item.reload.note
-    end
-  end
-
   test "noting needs the write scope, not the read one" do
     body = execute(NOTE, scopes: %w[uris:catalog:read],
                          variables: { id: @item.id, note: "nope" })

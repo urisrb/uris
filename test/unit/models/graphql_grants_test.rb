@@ -5,7 +5,7 @@ class GraphqlGrantsTest < ActiveSupport::TestCase
 
   REACHABLE = [ Types::FeedType, Types::ReferenceType, Types::AnalysisType,
                 Types::ScheduleType, Types::ResourceType, Types::RunType,
-                Types::MergeProposalType, Types::AuditEventType ].freeze
+                Types::AuditEventType ].freeze
 
   def scopes_on(field)
     Array(field.instance_variable_get(:@grants))

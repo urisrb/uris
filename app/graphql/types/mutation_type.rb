@@ -10,11 +10,8 @@ module Types
     field :rename_feed, mutation: Mutations::RenameFeed, grants: "uris:catalog:write"
     field :note_feed, mutation: Mutations::NoteFeed, grants: "uris:catalog:write"
     field :forget_feed, mutation: Mutations::ForgetFeed, grants: "uris:catalog:write"
-    field :merge_feeds, mutation: Mutations::MergeFeeds, grants: "uris:catalog:write"
     field :connect_feeds, mutation: Mutations::ConnectFeeds, grants: "uris:catalog:write"
     field :split_reference, mutation: Mutations::SplitReference, grants: "uris:catalog:write"
-    field :propose_merges, mutation: Mutations::ProposeMerges, grants: "uris:catalog:write"
-    field :settle_merge_proposal, mutation: Mutations::SettleMergeProposal, grants: "uris:catalog:write"
 
     field :attach_resource, mutation: Mutations::AttachResource, grants: "uris:resources:command"
     field :archive_resource, mutation: Mutations::ArchiveResource, grants: "uris:resources:command"

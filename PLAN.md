@@ -176,6 +176,18 @@ work into nowhere.
 - [ ] Squash every migration into one initial migration
 - [ ] `bin/ci` green
 
+## Deferred
+
+- **Merge, and the proposals that fed it.** Removed 2026-09-08 rather than carried: `merge!`,
+  `MergeProposal`, `Blocking`, `ProposeMergesJob`, three mutations, the `merges` page and the
+  `merge_proposals` query. Nothing about the collapse needs it, and a proposal that says two
+  feeds are one thing is a question about identity that `(type, key)` has not been asked yet.
+  `Reference#move_to!` and `#split!` stay — a reference moving between feeds is what sync and
+  export already do, and a merge was only ever a loop over that.
+- **`split_reference` is a mutation with nothing to undo.** A feed only ends up with two
+  references through a merge, so the button is unreachable until merge comes back. Kept
+  because the model operation underneath it is not merge's.
+
 ## Known gaps, recorded rather than fixed
 
 - **`SearchIndex.document` asks for a feed's tags one query at a time**, so a full reindex is an

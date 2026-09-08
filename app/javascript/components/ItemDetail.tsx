@@ -10,7 +10,6 @@ import {
 } from '@mantine/core'
 import {
   IconArrowLeft,
-  IconArrowMerge,
   IconCut,
   IconEraser,
   IconNote,
@@ -29,7 +28,6 @@ import { useQuery } from '@uris-to/client/react'
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
-import { Gather } from './Gather'
 import { KindBadge } from './KindBadge'
 import { RunTrail } from './RunTrail'
 import { useAloud, useSay } from './Say'
@@ -40,7 +38,6 @@ export function ItemDetail() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const say = useSay()
-  const [gathering, setGathering] = useState(false)
   const [forgetting, setForgetting] = useState(false)
   const { data, loading, error, refetch } = useQuery(ItemDocument, { id })
   const analyze = useAloud(
@@ -127,15 +124,6 @@ export function ItemDetail() {
 
           <Button
             radius="xl"
-            variant="default"
-            leftSection={<IconArrowMerge size={16} />}
-            onClick={() => setGathering(true)}
-          >
-            Merge in
-          </Button>
-
-          <Button
-            radius="xl"
             color="chalk"
             leftSection={<IconSparkles size={16} />}
             loading={analyze.loading}
@@ -178,14 +166,6 @@ export function ItemDetail() {
         the files stay exactly where they are, and a later sync of the same
         resource will catalogue this again.
       </Sure>
-
-      <Gather
-        opened={gathering}
-        onClose={() => setGathering(false)}
-        id={item.id}
-        title={item.title ?? 'this item'}
-        onGathered={refetch}
-      />
 
       {viewable.length > 0 && (
         <Group align="flex-start" gap="var(--s4)">

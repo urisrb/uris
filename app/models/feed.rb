@@ -17,7 +17,7 @@ class Feed < ApplicationRecord
 
   RESERVED = %w[
     mcp graphql graphiql auth enroll references feeds resources runs settings
-    jobs up assets vite rails cable audit merges uploads analyses
+    jobs up assets vite rails cable audit uploads analyses
     recede resume refresh
   ].freeze
 
@@ -173,29 +173,6 @@ class Feed < ApplicationRecord
 
   def disconnect!(other)
     Edge.between(self, other)&.destroy
-  end
-
-  def merge!(other)
-    raise ArgumentError, "a feed cannot merge into itself" if other.id == id
-    raise ArgumentError, "#{other.type} does not merge into #{type}" unless other.type == type
-
-    transaction do
-      keep_note_from(other)
-      Analysis.where(feed_id: other.id).update_all(feed_id: id)
-      other.references.to_a.each { |reference| reference.move_to!(self) }
-      other.connected.each { |held| connect!(held) unless held.id == id }
-      references.reset
-    end
-
-    self
-  end
-
-  def keep_note_from(other)
-    return if other.note.blank?
-    return update!(note: other.note) if note.blank?
-    return if note.include?(other.note)
-
-    update!(note: [ note, other.note ].join("\n\n"))
   end
 
   def destroy_if_empty!

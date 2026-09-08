@@ -90,7 +90,8 @@ class ExportItemsJobTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      feed_at(@source, "invoices/march.pdf").merge!(feed_at(@destination, "invoices/march.pdf"))
+      copy = feed_at(@destination, "invoices/march.pdf")
+      copy.references.each { |reference| reference.move_to!(feed_at(@source, "invoices/march.pdf")) }
     end
 
     Tenant.switch(@tenant) { ExportItemsJob.perform_now(@tenant.id, @destination.id, {}) }
@@ -206,7 +207,8 @@ class ExportItemsJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @destination.id) }
 
     Tenant.switch(@tenant) do
-      feed_at(@source, "invoices/march.pdf").merge!(feed_at(@destination, "invoices/march.pdf"))
+      copy = feed_at(@destination, "invoices/march.pdf")
+      copy.references.each { |reference| reference.move_to!(feed_at(@source, "invoices/march.pdf")) }
     end
 
     put @source, "invoices/march.pdf", body: "a corrected invoice"

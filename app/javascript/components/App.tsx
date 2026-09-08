@@ -22,7 +22,6 @@ import { Fallen } from './Fallen'
 import { ItemDetail } from './ItemDetail'
 import { Lost } from './Lost'
 import { Mark } from './Mark'
-import { Merges } from './Merges'
 import { Resources } from './Resources'
 import { Runs } from './Runs'
 import { SayProvider } from './Say'
@@ -174,7 +173,6 @@ function Shell({
           <Routes>
             <Route path="/" element={<Catalog />} />
             <Route path="/items/:id" element={<ItemDetail />} />
-            <Route path="/merges" element={<Merges />} />
             <Route element={<Works />}>
               <Route path="/resources" element={<Resources />} />
               <Route path="/resources/:id" element={<Resources />} />
