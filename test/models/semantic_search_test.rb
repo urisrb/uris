@@ -33,7 +33,7 @@ class SemanticSearchTest < ActiveSupport::TestCase
     @server.embeds_as("what did the vet say", near)
 
     Tenant.switch(@demo) do
-      semantic = create_item(kind: "pdf", title: "Rosie annual checkup")
+      semantic = create_feed(mime: "application/pdf", title: "Rosie annual checkup")
 
       semantic.update_columns(embedding: near, embedded_digest: "held", embedded_at: Time.current)
       SearchIndex.index(semantic.reload)
@@ -43,7 +43,7 @@ class SemanticSearchTest < ActiveSupport::TestCase
                                        limit: 50, from: 0)[:ids],
                    "no word overlaps, so the lexical side has nothing to offer"
 
-      assert_equal [ semantic.id ], Item.search("what did the vet say").map(&:id)
+      assert_equal [ semantic.id ], Feed.search("what did the vet say").map(&:id)
     end
   end
 
@@ -51,14 +51,14 @@ class SemanticSearchTest < ActiveSupport::TestCase
     @server.embeds_as("invoice", near)
 
     Tenant.switch(@demo) do
-      lexical = create_item(kind: "pdf", title: "March invoice")
-      semantic = create_item(kind: "pdf", title: "unrelated")
+      lexical = create_feed(mime: "application/pdf", title: "March invoice")
+      semantic = create_feed(mime: "application/pdf", title: "unrelated")
 
       semantic.update_columns(embedding: near, embedded_digest: "held", embedded_at: Time.current)
       SearchIndex.index(semantic.reload)
       SearchIndex.refresh!
 
-      found = Item.search("invoice").map(&:id)
+      found = Feed.search("invoice").map(&:id)
 
       assert_includes found, lexical.id
       assert_includes found, semantic.id
@@ -67,19 +67,19 @@ class SemanticSearchTest < ActiveSupport::TestCase
 
   test "a lexical match still leads when nothing is nearer" do
     Tenant.switch(@demo) do
-      match = create_item(kind: "pdf", title: "March invoice")
-      create_item(kind: "pdf", title: "Beach photo")
+      match = create_feed(mime: "application/pdf", title: "March invoice")
+      create_feed(mime: "application/pdf", title: "Beach photo")
 
       Embedding.sweep!
       SearchIndex.refresh!
 
-      assert_equal match.id, Item.search("March invoice").first.id
+      assert_equal match.id, Feed.search("March invoice").first.id
     end
   end
 
   test "a vector query is filtered by tenant inside the query, not only by the alias" do
     Tenant.switch(@acme) do
-      hidden = create_item(kind: "pdf", title: "Acme secret")
+      hidden = create_feed(mime: "application/pdf", title: "Acme secret")
       hidden.update_columns(embedding: near, embedded_digest: "held", embedded_at: Time.current)
       SearchIndex.index(hidden.reload)
     end
@@ -93,8 +93,8 @@ class SemanticSearchTest < ActiveSupport::TestCase
 
   test "kind narrows a vector query too" do
     Tenant.switch(@demo) do
-      pdf = create_item(kind: "pdf", title: "one")
-      image = create_item(kind: "image", title: "two")
+      pdf = create_feed(mime: "application/pdf", title: "one")
+      image = create_feed(mime: "image/jpeg", title: "two")
 
       [ pdf, image ].each do |item|
         item.update_columns(embedding: near, embedded_digest: "held", embedded_at: Time.current)
@@ -112,20 +112,20 @@ class SemanticSearchTest < ActiveSupport::TestCase
       Resource.find_by!(key: "ollama").update!(details: { "base_url" => @server.base_url,
                                                           "models" => { "fast" => "gemma3:4b" } })
 
-      match = create_item(kind: "pdf", title: "March invoice")
+      match = create_feed(mime: "application/pdf", title: "March invoice")
       SearchIndex.refresh!
 
-      assert_equal [ match.id ], Item.search("March invoice").map(&:id)
+      assert_equal [ match.id ], Feed.search("March invoice").map(&:id)
       assert_empty @server.embedded, "with no embedding model declared, nothing should be asked"
     end
   end
 
   test "paging past the fusion window falls back to the lexical order it can page" do
     Tenant.switch(@demo) do
-      create_item(kind: "pdf", title: "March invoice")
+      create_feed(mime: "application/pdf", title: "March invoice")
       SearchIndex.refresh!
 
-      page = Item.found("invoice", limit: 10, from: SearchIndex::CANDIDATES)
+      page = Feed.found("invoice", limit: 10, from: SearchIndex::CANDIDATES)
 
       assert_empty page.nodes
       assert_empty @server.embedded, "a window past the candidates cannot be fused, so do not embed"
@@ -134,10 +134,10 @@ class SemanticSearchTest < ActiveSupport::TestCase
 
   test "a query is embedded once and then held" do
     Tenant.switch(@demo) do
-      create_item(kind: "pdf", title: "March invoice")
+      create_feed(mime: "application/pdf", title: "March invoice")
       SearchIndex.refresh!
 
-      3.times { Item.search("quarterly report") }
+      3.times { Feed.search("quarterly report") }
 
       assert_equal 1, @server.embedded.count("quarterly report")
     end

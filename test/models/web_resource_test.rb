@@ -77,7 +77,7 @@ class WebResourceTest < ActiveSupport::TestCase
       reference = Tenant.switch(@tenant) { @resource.snapshot!(@url) }
 
       Tenant.switch(@tenant) do
-        assert_equal 1, Item.count
+        assert_equal 1, Feed.files.count
         assert_equal "page", reference.item.kind
         assert_equal "A page about pelicans", reference.item.title
         assert_equal @url, reference.locator_key
@@ -111,7 +111,7 @@ class WebResourceTest < ActiveSupport::TestCase
         @server.serve_body("/page.html", CHANGED, content_type: "text/html")
         again = @resource.snapshot!(@url)
 
-        assert_equal 1, Item.count
+        assert_equal 1, Feed.files.count
         assert_equal first.id, again.id
         refute_equal was, again.version
         assert again.changed_at.present?
@@ -127,7 +127,7 @@ class WebResourceTest < ActiveSupport::TestCase
         @resource.snapshot!("#{@url}#somewhere")
         @resource.snapshot!(@url)
 
-        assert_equal 1, Item.count
+        assert_equal 1, Feed.files.count
         assert_equal @url, Reference.first.locator_key
       end
     end

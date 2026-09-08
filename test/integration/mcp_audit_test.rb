@@ -15,7 +15,7 @@ class McpAuditTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) do
       @resource = Resource::S3.create!(key: "audited-bucket", name: "Bucket",
                                        details: { "endpoint" => "http://127.0.0.1:1" })
-      @item = create_item(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf",
+      @item = create_feed(mime: "application/pdf", title: "March invoice", locator_key: "invoices/march.pdf",
                             resource: @resource, locator: { "bucket" => "audited-bucket" })
     end
 

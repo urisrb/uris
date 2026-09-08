@@ -47,8 +47,8 @@ class CarddavResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 1, Item.count
-      assert_equal "contact", Item.first.kind
+      assert_equal 1, Feed.files.count
+      assert_equal "contact", Feed.first.kind
       assert_equal "contacts/jane.vcf", Reference.first.locator_key
     end
   end
@@ -59,15 +59,15 @@ class CarddavResourceTest < ActiveSupport::TestCase
 
     sync
 
-    Tenant.switch(@tenant) { assert_equal 3, Item.count }
+    Tenant.switch(@tenant) { assert_equal 3, Feed.files.count }
   end
 
   test "the analyzer reads the card, unfolding and ungrouping as it goes" do
     sync
 
     Tenant.switch(@tenant) do
-      item = Item.first
-      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, item.id) }
+      item = Feed.first
+      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
 
       contact = item.references.first.reload.analysis.dig("steps", "contacts", "result").first
 
@@ -84,8 +84,8 @@ class CarddavResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      item = Item.first
-      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, item.id) }
+      item = Feed.first
+      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
 
       analysis = item.references.first.reload.analysis
 

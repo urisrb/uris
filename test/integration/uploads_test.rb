@@ -42,7 +42,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_equal "contents of march", (@root + "march.pdf").read
 
     Tenant.switch(@tenant) do
-      item = item_at("march.pdf")
+      item = feed_at("march.pdf")
 
       assert_equal "pdf", item.kind
       assert_equal "march.pdf", item.title
@@ -51,7 +51,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
   end
 
   test "a dropped file is queued for analysis, with a run to watch it by" do
-    assert_enqueued_jobs 1, only: AnalyzeItemJob do
+    assert_enqueued_jobs 1, only: AnalyzeFeedJob do
       upload "march.pdf", "contents of march"
     end
 
@@ -62,7 +62,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
 
       assert_equal "analyze", run.kind
       assert_equal "queued", run.status
-      assert_equal({ "id" => item_at("march.pdf").id }, run.selector)
+      assert_equal({ "id" => feed_at("march.pdf").id }, run.selector)
     end
   end
 
@@ -73,7 +73,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_equal "photos/2024/beach.jpg", response.parsed_body["path"]
     assert_equal "jpeg bytes", (@root + "photos/2024/beach.jpg").read
 
-    Tenant.switch(@tenant) { assert_equal "image", item_at("photos/2024/beach.jpg").kind }
+    Tenant.switch(@tenant) { assert_equal "image", feed_at("photos/2024/beach.jpg").kind }
   end
 
   test "a path that climbs out of the resource is flattened, not followed" do
@@ -100,7 +100,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_equal "second", (@root + "notes.txt").read
 
     Tenant.switch(@tenant) do
-      assert_equal 1, Item.count
+      assert_equal 1, Feed.files.count
       assert_equal 1, Reference.where(locator_key: "notes.txt").count
     end
   end
@@ -112,14 +112,14 @@ class UploadsTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     assert_match(/no default storage/, response.parsed_body["error"])
-    Tenant.switch(@tenant) { assert_equal 0, Item.count }
+    Tenant.switch(@tenant) { assert_equal 0, Feed.files.count }
   end
 
   test "a token that may read but not write cannot drop anything" do
     upload "march.pdf", "contents", scopes: [ "uris:catalog:read" ]
 
     assert_response :unauthorized
-    Tenant.switch(@tenant) { assert_equal 0, Item.count }
+    Tenant.switch(@tenant) { assert_equal 0, Feed.files.count }
   end
 
   test "a token minted for another tenant cannot drop into this one" do
@@ -128,7 +128,7 @@ class UploadsTest < ActionDispatch::IntegrationTest
          headers: host_for(@tenant).merge(bearer(@other))
 
     assert_response :unauthorized
-    Tenant.switch(@tenant) { assert_equal 0, Item.count }
+    Tenant.switch(@tenant) { assert_equal 0, Feed.files.count }
   end
 
   private

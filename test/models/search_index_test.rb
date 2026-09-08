@@ -8,14 +8,14 @@ class SearchIndexTest < ActiveSupport::TestCase
     @acme = Tenant.create!(subdomain: "acme-#{SecureRandom.hex(4)}", name: "Acme")
 
     Tenant.switch(@demo) do
-      create_item(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf")
-      create_item(kind: "image", title: "Beach photo", locator_key: "photos/beach.jpg")
-      create_item(kind: "pdf", title: "file-1.pdf", locator_key: "docs/file-1.pdf")
-      create_item(kind: "pdf", title: "file-2.pdf", locator_key: "docs/file-2.pdf")
+      create_feed(mime: "application/pdf", title: "March invoice", locator_key: "invoices/march.pdf")
+      create_feed(mime: "image/jpeg", title: "Beach photo", locator_key: "photos/beach.jpg")
+      create_feed(mime: "application/pdf", title: "file-1.pdf", locator_key: "docs/file-1.pdf")
+      create_feed(mime: "application/pdf", title: "file-2.pdf", locator_key: "docs/file-2.pdf")
     end
 
     Tenant.switch(@acme) do
-      create_item(kind: "pdf", title: "Acme invoice", locator_key: "invoices/acme.pdf")
+      create_feed(mime: "application/pdf", title: "Acme invoice", locator_key: "invoices/acme.pdf")
     end
 
     SearchIndex.refresh!
@@ -23,7 +23,7 @@ class SearchIndexTest < ActiveSupport::TestCase
 
   test "search finds items by title" do
     Tenant.switch(@demo) do
-      assert_equal [ "March invoice" ], Item.search("March").pluck(:title)
+      assert_equal [ "March invoice" ], Feed.search("March").pluck(:title)
     end
   end
 
@@ -31,7 +31,7 @@ class SearchIndexTest < ActiveSupport::TestCase
     requires_search_engine!
 
     Tenant.switch(@demo) do
-      assert_equal [ "Beach photo" ], Item.search("beach").pluck(:title)
+      assert_equal [ "Beach photo" ], Feed.search("beach").pluck(:title)
     end
   end
 
@@ -39,11 +39,11 @@ class SearchIndexTest < ActiveSupport::TestCase
     requires_search_engine!
 
     Tenant.switch(@demo) do
-      assert_equal [ "March invoice" ], Item.search("invoice").pluck(:title)
+      assert_equal [ "March invoice" ], Feed.search("invoice").pluck(:title)
     end
 
     Tenant.switch(@acme) do
-      assert_equal [ "Acme invoice" ], Item.search("invoice").pluck(:title)
+      assert_equal [ "Acme invoice" ], Feed.search("invoice").pluck(:title)
     end
   end
 
@@ -62,13 +62,13 @@ class SearchIndexTest < ActiveSupport::TestCase
     requires_search_engine!
 
     Tenant.switch(@demo) do
-      assert_equal [ "file-1.pdf" ], Item.search("file-1").pluck(:title)
+      assert_equal [ "file-1.pdf" ], Feed.search("file-1").pluck(:title)
     end
   end
 
   test "kind narrows results" do
     Tenant.switch(@demo) do
-      assert_equal [ "Beach photo" ], Item.search(nil, kind: "image").pluck(:title)
+      assert_equal [ "Beach photo" ], Feed.search(nil, kind: "image").pluck(:title)
     end
   end
 
@@ -78,14 +78,14 @@ class SearchIndexTest < ActiveSupport::TestCase
 
   test "a page of matches says how many there are, not merely how many it handed back" do
     Tenant.switch(@demo) do
-      first = Item.found(nil, kind: "pdf", limit: 2)
+      first = Feed.found(nil, kind: "pdf", limit: 2)
 
       assert_equal 2, first.nodes.length
       assert_equal 3, first.total, "three pdfs match, and a short page must not hide the third"
       assert first.has_more
       assert_equal "2", first.next_cursor
 
-      second = Item.found(nil, kind: "pdf", limit: 2, from: first.next_cursor.to_i)
+      second = Feed.found(nil, kind: "pdf", limit: 2, from: first.next_cursor.to_i)
 
       assert_equal 1, second.nodes.length
       assert_equal 3, second.total
@@ -100,7 +100,7 @@ class SearchIndexTest < ActiveSupport::TestCase
 
   test "a page past the end is empty rather than an error" do
     Tenant.switch(@demo) do
-      past = Item.found(nil, from: 500)
+      past = Feed.found(nil, from: 500)
 
       assert_empty past.nodes
       assert_not past.has_more
@@ -109,16 +109,16 @@ class SearchIndexTest < ActiveSupport::TestCase
 
   test "a destroyed item leaves the index" do
     Tenant.switch(@demo) do
-      Item.find_by!(title: "March invoice").destroy!
+      Feed.find_by!(title: "March invoice").destroy!
       SearchIndex.refresh!
 
-      assert_equal [], Item.search("March").pluck(:title)
+      assert_equal [], Feed.search("March").pluck(:title)
     end
   end
 
   test "a page is indexed in one request rather than one per document" do
     items = Tenant.switch(@demo) do
-      Array.new(3) { |n| Item.create!(kind: "pdf", title: "bulk #{n}") }
+      Array.new(3) { |n| Feed.create!(kind: "pdf", title: "bulk #{n}") }
     end
 
     calls = []
@@ -137,7 +137,7 @@ class SearchIndexTest < ActiveSupport::TestCase
 
   test "documents written in bulk are the ones that come back" do
     items = Tenant.switch(@demo) do
-      Array.new(3) { |n| Item.create!(kind: "data", title: "bulked-#{n}") }
+      Array.new(3) { |n| Feed.create!(kind: "data", title: "bulked-#{n}") }
     end
 
     assert_equal 3, SearchIndex.index_all(items)
@@ -150,7 +150,7 @@ class SearchIndexTest < ActiveSupport::TestCase
   end
 
   test "a bulk write the engine refused raises rather than reporting success" do
-    item = Tenant.switch(@demo) { Item.create!(kind: "pdf", title: "refused") }
+    item = Tenant.switch(@demo) { Feed.create!(kind: "pdf", title: "refused") }
     refusal = { "items" => [ { "index" => { "error" => { "reason" => "mapper_parsing_exception" } } } ] }
 
     SearchIndex.client.define_singleton_method(:bulk) { |**| refusal }

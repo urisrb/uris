@@ -9,7 +9,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
     @tenant = Tenant.create!(subdomain: "auth-#{SecureRandom.hex(4)}", name: "Auth")
     @other = Tenant.create!(subdomain: "auth-#{SecureRandom.hex(4)}", name: "Elsewhere")
 
-    Tenant.switch(@tenant) { @item = create_item(kind: "pdf", title: "An invoice") }
+    Tenant.switch(@tenant) { @item = create_feed(mime: "application/pdf", title: "An invoice") }
 
     connect!(@tenant)
   end

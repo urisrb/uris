@@ -1,6 +1,6 @@
 require "test_helper"
 
-class ReindexItemsJobTest < ActiveSupport::TestCase
+class ReindexFeedsJobTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
@@ -8,12 +8,12 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
     @other = Tenant.create!(subdomain: "othr-#{SecureRandom.hex(4)}", name: "Other")
 
     Tenant.switch(@tenant) do
-      create_item(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf")
-      create_item(kind: "image", title: "Beach photo", locator_key: "photos/beach.jpg")
+      create_feed(mime: "application/pdf", title: "March invoice", locator_key: "invoices/march.pdf")
+      create_feed(mime: "image/jpeg", title: "Beach photo", locator_key: "photos/beach.jpg")
     end
 
     Tenant.switch(@other) do
-      create_item(kind: "pdf", title: "Acme invoice", locator_key: "invoices/acme.pdf")
+      create_feed(mime: "application/pdf", title: "Acme invoice", locator_key: "invoices/acme.pdf")
     end
 
     SearchIndex.refresh!
@@ -21,13 +21,13 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
 
   def reindex(tenant = @tenant, index: nil)
     run = Tenant.switch(tenant) { Run.start!(kind: "reindex") }
-    Tenant.switch(tenant) { ReindexItemsJob.perform_now(tenant.id, index, run.id) }
+    Tenant.switch(tenant) { ReindexFeedsJob.perform_now(tenant.id, index, run.id) }
     Tenant.switch(tenant) { run.reload }
   end
 
   def titles(tenant = @tenant, query = nil)
     SearchIndex.refresh!
-    Tenant.switch(tenant) { Item.search(query).pluck(:title).sort }
+    Tenant.switch(tenant) { Feed.search(query).pluck(:title).sort }
   end
 
   test "a catalog the index lost is put back" do
@@ -49,8 +49,8 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
 
   test "a document whose body drifted is rewritten from the record" do
     Tenant.switch(@tenant) do
-      item = Item.find_by!(title: "March invoice")
-      Item.where(id: item.id).update_all(title: "April invoice")
+      item = Feed.find_by!(title: "March invoice")
+      Feed.where(id: item.id).update_all(title: "April invoice")
     end
 
     assert_equal [], titles(@tenant, "April")
@@ -99,8 +99,8 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
 
   test "it walks in pages, so a catalog larger than one page is covered whole" do
     Tenant.switch(@tenant) do
-      (ReindexItemsJob::PAGE + 5).times do |n|
-        create_item(kind: "pdf", title: "bulk-#{n}", locator_key: "bulk/#{n}.pdf")
+      (ReindexFeedsJob::PAGE + 5).times do |n|
+        create_feed(mime: "application/pdf", title: "bulk-#{n}", locator_key: "bulk/#{n}.pdf")
       end
 
       SearchIndex.client.delete_by_query(
@@ -111,7 +111,7 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
 
     run = reindex
 
-    assert_equal ReindexItemsJob::PAGE + 7, run.processed
+    assert_equal ReindexFeedsJob::PAGE + 7, run.processed
   end
 
   test "a reindex into another index leaves the one being queried alone" do
@@ -174,14 +174,14 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
 
     late = Tenant.create!(subdomain: "late-#{SecureRandom.hex(4)}", name: "Late")
 
-    Tenant.switch(late) { create_item(kind: "pdf", title: "Late invoice") }
+    Tenant.switch(late) { create_feed(mime: "application/pdf", title: "Late invoice") }
 
     assert_equal [ "Late invoice" ], titles(late)
   end
 
   test "a reindex spends one request per page, not one per item" do
     Tenant.switch(@tenant) do
-      Array.new(5) { |n| create_item(kind: "pdf", title: "paged-#{n}") }
+      Array.new(5) { |n| create_feed(mime: "application/pdf", title: "paged-#{n}") }
     end
 
     bulks = 0
@@ -191,7 +191,7 @@ class ReindexItemsJobTest < ActiveSupport::TestCase
     SearchIndex.client.define_singleton_method(:index) { |**| singles += 1; {} }
 
     begin
-      Tenant.switch(@tenant) { ReindexItemsJob.perform_now(@tenant.id) }
+      Tenant.switch(@tenant) { ReindexFeedsJob.perform_now(@tenant.id) }
     ensure
       SearchIndex.client.singleton_class.remove_method(:bulk)
       SearchIndex.client.singleton_class.remove_method(:index)

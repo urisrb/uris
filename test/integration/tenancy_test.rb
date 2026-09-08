@@ -4,7 +4,7 @@ class TenancyTest < ActionDispatch::IntegrationTest
   setup do
     @tenant = Tenant.create!(subdomain: "demo", name: "Demo items")
 
-    Tenant.switch(@tenant) { Item.create!(kind: "pdf", title: "Demo invoice") }
+    Tenant.switch(@tenant) { Feed.create!(kind: "pdf", title: "Demo invoice") }
   end
 
   test "a hostname that serves no tenant is refused before the request reaches a controller" do
@@ -23,7 +23,7 @@ class TenancyTest < ActionDispatch::IntegrationTest
   test "a request leaves no tenant behind on the connection it borrowed" do
     get "http://demo.uris.test/"
 
-    assert_equal 0, Item.unscoped.count,
+    assert_equal 0, Feed.unscoped.count,
                  "the request left its tenant on the connection, and the next request to " \
                  "borrow it would read this tenant's rows before resolving its own"
   end

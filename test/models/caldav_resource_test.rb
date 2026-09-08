@@ -44,8 +44,8 @@ class CaldavResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 1, Item.count
-      assert_equal "calendar", Item.first.kind
+      assert_equal 1, Feed.files.count
+      assert_equal "calendar", Feed.first.kind
       assert_equal "calendar/lunch.ics", Reference.first.locator_key
     end
   end
@@ -54,8 +54,8 @@ class CaldavResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      item = Item.first
-      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, item.id) }
+      item = Feed.first
+      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
 
       analysis = item.references.first.reload.analysis
 
@@ -67,8 +67,8 @@ class CaldavResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      item = Item.first
-      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, item.id) }
+      item = Feed.first
+      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
 
       summary = item.references.first.reload.analysis.dig("steps", "events", "result").first["summary"]
 

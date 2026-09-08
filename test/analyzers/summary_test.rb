@@ -39,7 +39,7 @@ class SummaryTest < ActiveSupport::TestCase
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
-      steps = reference("notes.txt").analysis.fetch("steps")
+      steps = steps_at("notes.txt")
 
       assert steps.key?("text")
       assert_not steps.key?("summary")
@@ -52,14 +52,14 @@ class SummaryTest < ActiveSupport::TestCase
   test "configuring inference afterwards fills the summary in without recomputing text" do
     analyze "notes.txt"
 
-    before = Tenant.switch(@tenant) { reference("notes.txt").analysis.dig("steps", "text", "finished_at") }
+    before = Tenant.switch(@tenant) { steps_at("notes.txt").dig("text", "finished_at") }
 
     inference!
     @server.answer_json({ summary: "A pelican census.", keywords: %w[pelican census] })
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
-      steps = reference("notes.txt").analysis.fetch("steps")
+      steps = steps_at("notes.txt")
 
       assert_equal before, steps.dig("text", "finished_at")
       assert_equal "A pelican census.", steps.dig("summary", "result", "summary")
@@ -83,7 +83,7 @@ class SummaryTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      assert_equal [ "notes.txt" ], Item.search("estuary").pluck(:title)
+      assert_equal [ "notes.txt" ], Feed.search("estuary").pluck(:title)
     end
   end
 
@@ -94,7 +94,7 @@ class SummaryTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       assert_equal "A pelican census.",
-                   Tool::GetItem.steps(reference("notes.txt")).dig("summary", "summary")
+                   Tool::Feeds.told(feed_at("notes.txt"))[:steps].dig("summary", "summary")
     end
 
     @server.refuse(404, body: "no such model")
@@ -102,7 +102,7 @@ class SummaryTest < ActiveSupport::TestCase
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
-      assert_match(/404/, Tool::GetItem.steps(reference("notes.txt")).dig("summary", "error"))
+      assert_match(/404/, Tool::Feeds.told(feed_at("notes.txt"))[:steps].dig("summary", "error"))
     end
   end
 
@@ -112,14 +112,14 @@ class SummaryTest < ActiveSupport::TestCase
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
-      step = reference("notes.txt").analysis.dig("steps", "summary")
+      step = steps_at("notes.txt").dig("summary")
 
       assert_equal "ollama", step["resource"]
       assert_equal "llama3.1:8b", step["model"]
       assert_equal "smart", step["role"]
 
-      assert_not_includes item("notes.txt").body_text, "llama3.1:8b"
-      assert_not_includes item("notes.txt").body_text, "ollama"
+      assert_not_includes feed_at("notes.txt").body_text, "llama3.1:8b"
+      assert_not_includes feed_at("notes.txt").body_text, "ollama"
     end
   end
 
@@ -148,7 +148,7 @@ class SummaryTest < ActiveSupport::TestCase
     assert_equal 2, @server.count_for("/v1/chat/completions")
 
     Tenant.switch(@tenant) do
-      assert_equal "second", reference("notes.txt").analysis.dig("steps", "summary", "result", "summary")
+      assert_equal "second", steps_at("notes.txt").dig("summary", "result", "summary")
     end
   end
 
@@ -171,7 +171,7 @@ class SummaryTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       assert_equal %w[pelican census estuary],
-                   reference("notes.txt").analysis.dig("steps", "summary", "result", "keywords")
+                   steps_at("notes.txt").dig("summary", "result", "keywords")
     end
   end
 
@@ -187,7 +187,7 @@ class SummaryTest < ActiveSupport::TestCase
     assert_equal 1, @server.count_for("/v1/chat/completions")
 
     Tenant.switch(@tenant) do
-      assert reference("tiny.txt").analysis.dig("steps", "summary", "result", "summary").present?
+      assert steps_at("tiny.txt").dig("summary", "result", "summary").present?
     end
   end
 
@@ -197,7 +197,7 @@ class SummaryTest < ActiveSupport::TestCase
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
-      steps = reference("notes.txt").analysis.fetch("steps")
+      steps = steps_at("notes.txt")
 
       assert_includes steps.dig("text", "result"), "NOTES-4820"
       assert steps.dig("summary", "error").present?
@@ -212,10 +212,10 @@ class SummaryTest < ActiveSupport::TestCase
     inference!
     @server.refuse(500)
 
-    id = Tenant.switch(@tenant) { item("notes.txt").id }
+    id = Tenant.switch(@tenant) { feed_at("notes.txt").id }
 
-    assert_enqueued_jobs 1, only: AnalyzeItemJob do
-      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) }
+    assert_enqueued_jobs 1, only: AnalyzeFeedJob do
+      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, id) }
     end
   end
 
@@ -223,22 +223,23 @@ class SummaryTest < ActiveSupport::TestCase
     inference!
     @server.refuse(404, body: "no such model")
 
-    id = Tenant.switch(@tenant) { item("notes.txt").id }
+    id = Tenant.switch(@tenant) { feed_at("notes.txt").id }
 
     assert_no_enqueued_jobs do
-      assert_nothing_raised { Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) } }
+      assert_nothing_raised { Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, id) } }
     end
   end
 
-  test "every attempt is recorded as its own prompt" do
+  test "every attempt is recorded as its own turn on the analysis" do
     inference!
     3.times { @server.answer("not json at all") }
     analyze "notes.txt"
 
     Tenant.switch(@tenant) do
-      assert_equal 3, Prompt.count
-      assert_equal [ 1, 2, 3 ], Prompt.order(:attempt).pluck(:attempt)
-      assert_equal [ reference("notes.txt").id ] * 3, Prompt.pluck(:promptable_id)
+      turns = summary_turns("notes.txt")
+
+      assert_equal [ 1, 2, 3 ], turns.map { |turn| turn["n"] }
+      assert_equal [ "llama3.1:8b" ], turns.map { |turn| turn["model"] }.uniq
     end
   end
 
@@ -253,7 +254,7 @@ class SummaryTest < ActiveSupport::TestCase
     analyze "mystery.bin"
 
     Tenant.switch(@tenant) do
-      steps = reference("mystery.bin").analysis.fetch("steps")
+      steps = steps_at("mystery.bin")
 
       assert_not steps.key?("text")
       assert_equal "binary", steps.dig("format", "result", "observed")
@@ -274,7 +275,7 @@ class SummaryTest < ActiveSupport::TestCase
     analyze "server.log"
 
     Tenant.switch(@tenant) do
-      steps = reference("server.log").analysis.fetch("steps")
+      steps = steps_at("server.log")
 
       assert_equal "text", steps.dig("format", "result", "observed")
       assert_includes steps.dig("text", "result"), "/orders/4820"
@@ -305,12 +306,11 @@ class SummaryTest < ActiveSupport::TestCase
     end
 
     def analyze(key)
-      id = Tenant.switch(@tenant) { item(key).id }
-      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) }
+      analyze_feed_at(key)
     end
 
-    def item(key)
-      Item.joins(:references).find_by!(item_references: { locator_key: key })
+    def summary_turns(key)
+      feed_at(key).analysis.turns.select { |turn| turn["role"] == "smart" }
     end
 
     def reference(key)

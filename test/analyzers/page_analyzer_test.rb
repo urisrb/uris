@@ -33,14 +33,12 @@ class PageAnalyzerTest < ActiveSupport::TestCase
   end
 
   test "dispatch picks the page analyzer over the one that reads images" do
-    Tenant.switch(@tenant) { assert_instance_of Analyzer::Page, Analyzer.for(@reference.item) }
+    Tenant.switch(@tenant) { assert_instance_of Analyzer::Page, Analyzer.for(@reference.feed) }
   end
 
   test "analysis records where the page was and what it rendered" do
     Tenant.switch(@tenant) do
-      Analyzer.for(@reference.item).run
-
-      steps = @reference.reload.analysis.fetch("steps")
+      steps = analyzed.steps
 
       assert_equal @url, steps.dig("page", "result", "url")
       assert_equal "A page about pelicans", steps.dig("page", "result", "title")
@@ -51,19 +49,31 @@ class PageAnalyzerTest < ActiveSupport::TestCase
 
   test "the text a page rendered is what the catalog searches" do
     Tenant.switch(@tenant) do
-      Analyzer.for(@reference.item).run
+      analyzed
 
-      assert_match(/Rather a lot about pelicans/, @reference.item.reload.body_text)
+      assert_match(/Rather a lot about pelicans/, @reference.feed.reload.body_text)
     end
   end
 
   test "a page thumbnails from its capture rather than from its address" do
     Tenant.switch(@tenant) do
-      assert Thumbnail.available_for?("page")
+      assert Thumbnail.available_for?(MimeType::PAGE)
 
       tile = Thumbnail.for(@reference, size: "small")
 
       assert_equal "\xFF\xD8".b, tile.byteslice(0, 2)
     end
   end
+
+  private
+
+    def analyzed
+      feed = @reference.feed
+      analysis = Analysis.open!(feed: feed, cause: "manual")
+
+      Analyzer.for(feed, analysis: analysis).run
+      analysis.finished!
+
+      analysis.reload
+    end
 end

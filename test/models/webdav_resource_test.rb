@@ -33,11 +33,11 @@ class WebdavResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 3, Item.count
-      assert_equal "pdf", item_at("invoices/march.pdf").kind
-      assert_equal "march.pdf", item_at("invoices/march.pdf").title
-      assert_equal "image", item_at("photos/beach.jpg").kind
-      assert_equal "text", item_at("notes.txt").kind
+      assert_equal 3, Feed.files.count
+      assert_equal "pdf", feed_at("invoices/march.pdf").kind
+      assert_equal "march.pdf", feed_at("invoices/march.pdf").title
+      assert_equal "image", feed_at("photos/beach.jpg").kind
+      assert_equal "text", feed_at("notes.txt").kind
     end
   end
 
@@ -45,7 +45,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert item_at("notes.txt").references.first.locator["etag"].present?
+      assert feed_at("notes.txt").references.first.locator["etag"].present?
     end
   end
 
@@ -53,14 +53,14 @@ class WebdavResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal "remember the milk", item_at("notes.txt").references.first.download.read
+      assert_equal "remember the milk", feed_at("notes.txt").references.first.download.read
     end
   end
 
   test "syncing twice converges rather than accumulating" do
     2.times { sync }
 
-    Tenant.switch(@tenant) { assert_equal 3, Item.count }
+    Tenant.switch(@tenant) { assert_equal 3, Feed.files.count }
   end
 
   test "a cursor resumes where the walk stopped" do
@@ -87,7 +87,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
       Tenant.switch(@tenant) { ExportItemsJob.perform_now(@tenant.id, destination.id, { "kind" => "text" }) }
 
       assert_equal "remember the milk", @server.read("#{@resource.key}/notes.txt")
-      assert_equal 2, item_at("notes.txt").references.count
+      assert_equal 2, feed_at("notes.txt").references.count
     end
   end
 
@@ -111,7 +111,7 @@ class WebdavResourceTest < ActiveSupport::TestCase
       Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
     end
 
-    def item_at(locator_key)
-      Item.joins(:references).find_by!(item_references: { locator_key: locator_key })
+    def feed_at(locator_key)
+      Feed.joins(:references).find_by!(feed_references: { locator_key: locator_key })
     end
 end

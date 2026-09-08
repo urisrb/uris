@@ -7,13 +7,13 @@ class RawTest < ActiveSupport::TestCase
   CORPUS = Rails.root.join("test/fixtures/corpus/image")
 
   test "a camera raw is an image, whatever the camera called it" do
-    assert_equal "image", Kind.for_filename("DSC_0001.NEF")
-    assert_equal "image", Kind.for_filename("IMG_4820.cr3")
-    assert_equal "image", Kind.for_filename("holiday/P1000123.rw2")
+    assert_equal "image/x-dcraw", MimeType.for_filename("DSC_0001.NEF")
+    assert_equal "image/x-dcraw", MimeType.for_filename("IMG_4820.cr3")
+    assert_equal "image/x-dcraw", MimeType.for_filename("holiday/P1000123.rw2")
 
-    assert Kind.raw?("DSC_0001.nef")
-    assert_not Kind.raw?("photo.jpg")
-    assert_not Kind.raw?("notes.txt")
+    assert MimeType.raw?("DSC_0001.nef")
+    assert_not MimeType.raw?("photo.jpg")
+    assert_not MimeType.raw?("notes.txt")
   end
 
   test "a raw is described from the picture inside it, not the thumbnail vips finds first" do
@@ -44,18 +44,18 @@ class RawTest < ActiveSupport::TestCase
     server.answer_json({ summary: "A photograph off a Nikon.", keywords: [ "photograph" ] })
 
     id = Tenant.switch(tenant) do
-      Item.joins(:references).find_by!(item_references: { locator_key: "photo.nef" }).id
+      Feed.joins(:references).find_by!(feed_references: { locator_key: "photo.nef" }).id
     end
-    Tenant.switch(tenant) { AnalyzeItemJob.perform_now(tenant.id, id) }
+    Tenant.switch(tenant) { AnalyzeFeedJob.perform_now(tenant.id, id) }
 
     Tenant.switch(tenant) do
-      reference = Reference.find_by!(locator_key: "photo.nef").reload
-      dimensions = reference.analysis.dig("steps", "dimensions", "result")
+      steps = steps_at("photo.nef")
+      dimensions = steps.dig("dimensions", "result")
 
-      assert_equal "image", reference.kind
+      assert_equal "image/x-dcraw", reference_at("photo.nef").mime
       assert_operator dimensions["width"], :>=, Raw::MINIMUM
       assert_equal "A photograph off a Nikon.",
-                   reference.analysis.dig("steps", "summary", "result", "summary")
+                   steps.dig("summary", "result", "summary")
     end
 
     sent = Base64.strict_decode64(server.attachments.last.first.split(",", 2).last)

@@ -3,8 +3,9 @@ require "test_helper"
 class GraphqlGrantsTest < ActiveSupport::TestCase
   ROOTS = [ Types::QueryType, Types::MutationType, Types::SubscriptionType ].freeze
 
-  REACHABLE = [ Types::ItemType, Types::ReferenceType,
-                Types::ResourceType, Types::RunType ].freeze
+  REACHABLE = [ Types::FeedType, Types::ReferenceType, Types::AnalysisType,
+                Types::ScheduleType, Types::ResourceType, Types::RunType,
+                Types::MergeProposalType, Types::AuditEventType ].freeze
 
   def scopes_on(field)
     Array(field.instance_variable_get(:@grants))
@@ -29,11 +30,11 @@ class GraphqlGrantsTest < ActiveSupport::TestCase
     assert_empty unknown.uniq, "a scope no token can carry refuses everyone"
   end
 
-  test "every type reachable through the node interface guards itself" do
+  test "every type carrying a record guards itself" do
     ungated = REACHABLE.reject { |type| type.grants.any? }
 
     assert_empty ungated.map(&:graphql_name),
-                 "node(id:) resolves any global id, so a field grant alone does not cover these"
+                 "a type is reached through more than one field, so a field grant alone does not cover these"
   end
 
   test "a mutation is never satisfied by a read scope alone" do

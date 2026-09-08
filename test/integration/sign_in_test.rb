@@ -5,7 +5,7 @@ class SignInTest < ActionDispatch::IntegrationTest
     @tenant = Tenant.create!(subdomain: "signin-#{SecureRandom.hex(4)}", name: "Sign in")
     connect!(@tenant)
 
-    Tenant.switch(@tenant) { @item = create_item(kind: "pdf", title: "An invoice") }
+    Tenant.switch(@tenant) { @item = create_feed(mime: "application/pdf", title: "An invoice") }
   end
 
   test "starting a sign-in redirects to this tenant's issuer with pkce" do

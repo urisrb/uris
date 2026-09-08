@@ -53,10 +53,10 @@ class GitResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
     Tenant.switch(@tenant) do
-      keys = Item.all.map(&:locator_key).sort
+      keys = Feed.all.map(&:locator_key).sort
 
       assert_equal %w[README.md lib/widget.rb], keys
-      assert_equal "text", item_at("lib/widget.rb").kind, "source is text, not an unknown file"
+      assert_equal "text", feed_at("lib/widget.rb").kind, "source is text, not an unknown file"
     end
   end
 
@@ -101,7 +101,7 @@ class GitResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
     Tenant.switch(@tenant) do
-      assert_not_includes Item.all.map(&:locator_key), "big.bin"
+      assert_not_includes Feed.all.map(&:locator_key), "big.bin"
     end
   end
 

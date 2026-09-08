@@ -25,18 +25,18 @@ class TenantSwitchingTest < ActiveSupport::TestCase
   def within(tenant = @tenant, &block) = Tenant.switch(tenant, &block)
 
   test "rows created under one tenant are invisible to another" do
-    within(@tenant) { Item.create!(kind: "pdf", title: "Demo invoice") }
+    within(@tenant) { Feed.create!(kind: "pdf", title: "Demo invoice") }
 
     within(@other) do
-      assert_equal 0, Item.count
-      assert_equal 0, Item.unscoped.count,
+      assert_equal 0, Feed.files.count
+      assert_equal 0, Feed.unscoped.count,
                    "the database, not the default scope, must be what isolates tenants"
     end
   end
 
   test "a tenant cannot write a row belonging to another" do
     assert_raises(ActiveRecord::StatementInvalid) do
-      within(@other) { Item.create!(kind: "pdf", title: "Smuggled", tenant_id: @tenant.id) }
+      within(@other) { Feed.create!(kind: "pdf", title: "Smuggled", tenant_id: @tenant.id) }
     end
   end
 
@@ -63,9 +63,9 @@ class TenantSwitchingTest < ActiveSupport::TestCase
   end
 
   test "leaving a tenant leaves nothing behind on the connection" do
-    within(@tenant) { Item.create!(kind: "pdf", title: "Demo invoice") }
+    within(@tenant) { Feed.create!(kind: "pdf", title: "Demo invoice") }
 
-    assert_equal 0, Item.unscoped.count,
+    assert_equal 0, Feed.unscoped.count,
                  "the setting outlived the switch, so the next request to pick up this " \
                  "connection would read the last one's rows"
   end

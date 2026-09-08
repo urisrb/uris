@@ -34,11 +34,11 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 3, Item.count
-      assert_equal "pdf", item_at("invoices/march.pdf").kind
-      assert_equal "march.pdf", item_at("invoices/march.pdf").title
-      assert_equal "image", item_at("photos/beach.jpg").kind
-      assert_equal "text", item_at("notes.txt").kind
+      assert_equal 3, Feed.files.count
+      assert_equal "pdf", feed_at("invoices/march.pdf").kind
+      assert_equal "march.pdf", feed_at("invoices/march.pdf").title
+      assert_equal "image", feed_at("photos/beach.jpg").kind
+      assert_equal "text", feed_at("notes.txt").kind
     end
   end
 
@@ -46,14 +46,14 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal "remember the milk", item_at("notes.txt").references.first.download.read
+      assert_equal "remember the milk", feed_at("notes.txt").references.first.download.read
     end
   end
 
   test "syncing twice converges rather than accumulating" do
     2.times { sync }
 
-    Tenant.switch(@tenant) { assert_equal 3, Item.count }
+    Tenant.switch(@tenant) { assert_equal 3, Feed.files.count }
   end
 
   test "the walk is deterministic, so a cursor resumes where it stopped" do
@@ -118,7 +118,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
 
     sync
 
-    Tenant.switch(@tenant) { assert_equal 3, Item.count }
+    Tenant.switch(@tenant) { assert_equal 3, Feed.files.count }
     assert_raises(Resource::Filesystem::Escaped) { @resource.download("path" => "escape.txt") }
   end
 
@@ -135,7 +135,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
       Tenant.switch(@tenant) { ExportItemsJob.perform_now(@tenant.id, destination.id, {}) }
 
       assert_equal "remember the milk", (backup_root + @resource.key + "notes.txt").read
-      assert_equal 2, item_at("notes.txt").references.count
+      assert_equal 2, feed_at("notes.txt").references.count
     end
   end
 
@@ -155,7 +155,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
       target.write(contents)
     end
 
-    def item_at(locator_key)
-      Item.joins(:references).find_by!(item_references: { locator_key: locator_key })
+    def feed_at(locator_key)
+      Feed.joins(:references).find_by!(feed_references: { locator_key: locator_key })
     end
 end

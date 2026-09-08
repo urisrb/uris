@@ -36,7 +36,7 @@ class AddingTest < ActionDispatch::IntegrationTest
     assert_equal "Pelicans", item["title"]
 
     Tenant.switch(@tenant) do
-      held = Item.find(item["id"])
+      held = Feed.find(item["id"])
 
       assert_equal @storage.id, held.references.sole.resource_id
       assert_match(%r{\Anotes/\d{8}T\d{6}-pelicans\.md\z}, held.references.sole.locator_key)
@@ -57,7 +57,7 @@ class AddingTest < ActionDispatch::IntegrationTest
   end
 
   test "a note is queued for analysis so it becomes searchable" do
-    assert_enqueued_jobs 1, only: AnalyzeItemJob do
+    assert_enqueued_jobs 1, only: AnalyzeFeedJob do
       execute(NOTE, variables: { body: "something worth finding later" })
     end
   end
@@ -130,7 +130,7 @@ class AddingTest < ActionDispatch::IntegrationTest
     perform_enqueued_jobs(only: FetchUrlJob)
 
     Tenant.switch(@tenant) do
-      item = Item.find_by(title: "march.pdf")
+      item = Feed.find_by(title: "march.pdf")
 
       assert_equal "pdf", item.kind
       assert_equal "done", run.reload.status

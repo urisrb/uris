@@ -47,9 +47,9 @@ class CorpusSummaryTest < ActiveSupport::TestCase
       @server.answer_json({ summary: "It concerns CORPUSECHO-7781.", keywords: [ "corpusecho" ] })
 
       id = Tenant.switch(@tenant) do
-        Item.joins(:references).find_by!(item_references: { locator_key: name }).id
+        Feed.joins(:references).find_by!(feed_references: { locator_key: name }).id
       end
-      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) }
+      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, id) }
 
       needle = needle_in(source)
       assert_includes @server.prompts.last, needle if needle
@@ -57,11 +57,10 @@ class CorpusSummaryTest < ActiveSupport::TestCase
       SearchIndex.refresh!
 
       Tenant.switch(@tenant) do
-        assert_includes Reference.find_by!(locator_key: name).analysis
-                                      .dig("steps", "summary", "result", "summary"),
+        assert_includes steps_at(name).dig("summary", "result", "summary"),
                         "CORPUSECHO-7781"
 
-        assert_equal [ name ], Item.search("CORPUSECHO-7781").pluck(:title)
+        assert_equal [ name ], Feed.search("CORPUSECHO-7781").pluck(:title)
       end
     end
   end

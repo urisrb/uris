@@ -14,12 +14,12 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) do
       @resource = Resource::S3.create!(key: "endpoint-bucket", name: "Bucket",
                                        details: { "endpoint" => "http://127.0.0.1:1" })
-      @item = create_item(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf",
+      @item = create_feed(mime: "application/pdf", title: "March invoice", locator_key: "invoices/march.pdf",
                             resource: @resource, locator: { "bucket" => "endpoint-bucket" })
     end
 
     Tenant.switch(@other) do
-      @theirs = create_item(kind: "pdf", title: "Their invoice", locator_key: "invoices/theirs.pdf")
+      @theirs = create_feed(mime: "application/pdf", title: "Their invoice", locator_key: "invoices/theirs.pdf")
     end
 
     SearchIndex.refresh!

@@ -17,7 +17,7 @@ class NotingTest < ActionDispatch::IntegrationTest
     @tenant = Tenant.create!(subdomain: "note-#{SecureRandom.hex(4)}", name: "Noting")
 
     Tenant.switch(@tenant) do
-      @item = create_item(kind: "pdf", title: "scan-0042.pdf",
+      @item = create_feed(mime: "application/pdf", title: "scan-0042.pdf",
                           locator_key: "inbox/scan-0042.pdf")
     end
 
@@ -53,7 +53,7 @@ class NotingTest < ActionDispatch::IntegrationTest
 
   test "merging carries the absorbed item's note rather than destroying it with the item" do
     other = Tenant.switch(@tenant) do
-      held = create_item(kind: "pdf", title: "duplicate.pdf", locator_key: "elsewhere/dup.pdf")
+      held = create_feed(mime: "application/pdf", title: "duplicate.pdf", locator_key: "elsewhere/dup.pdf")
       held.update!(note: "the one from the shoebox")
       held
     end
@@ -63,14 +63,14 @@ class NotingTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) do
       @item.reload.merge!(other.reload)
 
-      assert_nil Item.find_by(id: other.id), "the emptied item goes"
+      assert_nil Feed.find_by(id: other.id), "the emptied item goes"
       assert_equal "paid on the fourth\n\nthe one from the shoebox", @item.reload.note
     end
   end
 
   test "merging into an item with no note of its own simply takes the other's" do
     other = Tenant.switch(@tenant) do
-      held = create_item(kind: "pdf", title: "duplicate.pdf", locator_key: "elsewhere/dup.pdf")
+      held = create_feed(mime: "application/pdf", title: "duplicate.pdf", locator_key: "elsewhere/dup.pdf")
       held.update!(note: "the one from the shoebox")
       held
     end

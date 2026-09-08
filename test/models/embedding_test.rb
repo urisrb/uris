@@ -28,9 +28,9 @@ class EmbeddingTest < ActiveSupport::TestCase
 
   test "an item with no vector is swept up, embedded and re-indexed" do
     Tenant.switch(@tenant) do
-      item = create_item(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf")
+      item = create_feed(mime: "application/pdf", title: "March invoice", locator_key: "invoices/march.pdf")
 
-      assert_includes Item.unembedded, item
+      assert_includes Feed.unembedded, item
 
       assert_equal 1, Embedding.sweep!
 
@@ -38,99 +38,99 @@ class EmbeddingTest < ActiveSupport::TestCase
 
       assert_equal SearchIndex::VECTOR_DIMENSIONS, item.embedding.length
       assert item.embedded_at.present?
-      assert_not_includes Item.unembedded, item
+      assert_not_includes Feed.unembedded, item
     end
   end
 
   test "a stamp cleared over text that did not move is settled without asking the backend" do
     Tenant.switch(@tenant) do
-      create_item(kind: "pdf", title: "March invoice")
+      create_feed(mime: "application/pdf", title: "March invoice")
 
       Embedding.sweep!
 
       asked = @server.embedded.length
 
-      Item.update_all(embedded_at: nil)
+      Feed.update_all(embedded_at: nil)
 
       assert_equal 1, Embedding.sweep!
 
       assert_equal asked, @server.embedded.length,
                    "the text did not change, so it must not be embedded a second time"
-      assert_empty Item.unembedded.to_a
+      assert_empty Feed.unembedded.to_a
     end
   end
 
   test "analysis landing on a reference clears the stamp, so the summary reaches the vector" do
     Tenant.switch(@tenant) do
-      item = create_item(kind: "pdf", title: "scan-0001.pdf")
+      item = create_feed(mime: "application/pdf", title: "scan-0001.pdf")
 
       Embedding.sweep!
 
-      assert_empty Item.unembedded.to_a
+      assert_empty Feed.unembedded.to_a
 
       item.reference.update!(analysis: { "steps" => { "summary" => { "result" => {
         "summary" => "An invoice from Acme for $4,200."
       } } } })
 
-      assert_includes Item.unembedded, item.reload
+      assert_includes Feed.unembedded, item.reload
     end
   end
 
   test "a rename clears the stamp and a touch that cannot move the gist does not" do
     Tenant.switch(@tenant) do
-      item = create_item(kind: "pdf", title: "March invoice")
+      item = create_feed(mime: "application/pdf", title: "March invoice")
 
       Embedding.sweep!
 
       item.update!(run_id: nil)
 
-      assert_empty Item.unembedded.to_a, "nothing in the gist changed"
+      assert_empty Feed.unembedded.to_a, "nothing in the gist changed"
 
       item.update!(title: "April invoice")
 
-      assert_includes Item.unembedded, item.reload
+      assert_includes Feed.unembedded, item.reload
     end
   end
 
   test "naming a different embedding model re-embeds the catalogue rather than mixing two" do
     Tenant.switch(@tenant) do
-      create_item(kind: "pdf", title: "March invoice")
+      create_feed(mime: "application/pdf", title: "March invoice")
 
       Embedding.sweep!
 
-      assert_empty Item.unembedded.to_a
+      assert_empty Feed.unembedded.to_a
 
       @brain.update!(details: @brain.details.merge(
         "models" => MODELS.merge("embedding" => "mxbai-embed-large")
       ))
 
-      assert_equal 1, Item.unembedded.count,
+      assert_equal 1, Feed.unembedded.count,
                    "two models are two vector spaces, and half a catalogue in each answers neither"
     end
   end
 
   test "changing something else about the backend leaves the catalogue alone" do
     Tenant.switch(@tenant) do
-      create_item(kind: "pdf", title: "March invoice")
+      create_feed(mime: "application/pdf", title: "March invoice")
 
       Embedding.sweep!
 
       @brain.update!(name: "Renamed")
 
-      assert_empty Item.unembedded.to_a
+      assert_empty Feed.unembedded.to_a
     end
   end
 
   test "text that changed is embedded again" do
     Tenant.switch(@tenant) do
-      item = create_item(kind: "pdf", title: "March invoice")
+      item = create_feed(mime: "application/pdf", title: "March invoice")
 
       Embedding.sweep!
       first = item.reload.embedded_digest
 
       item.update!(title: "April invoice")
 
-      assert_includes Item.unembedded, item
+      assert_includes Feed.unembedded, item
 
       Embedding.sweep!
 
@@ -140,7 +140,7 @@ class EmbeddingTest < ActiveSupport::TestCase
 
   test "a whole page of items costs one call rather than one call each" do
     Tenant.switch(@tenant) do
-      3.times { |n| Item.create!(kind: "pdf", title: "bulk #{n}") }
+      3.times { |n| Feed.create!(kind: "pdf", title: "bulk #{n}") }
 
       assert_equal 3, Embedding.sweep!
       assert_equal 1, @server.count_for("/v1/embeddings")
@@ -153,7 +153,7 @@ class EmbeddingTest < ActiveSupport::TestCase
 
       assert_nil Embedding.held, "a default model can write a summary, but it is not a vector space"
 
-      create_item(kind: "pdf", title: "March invoice")
+      create_feed(mime: "application/pdf", title: "March invoice")
 
       assert_equal 0, Embedding.sweep!
     end
@@ -161,7 +161,7 @@ class EmbeddingTest < ActiveSupport::TestCase
 
   test "the gist carries what analysis learned, not only the filename" do
     Tenant.switch(@tenant) do
-      item = create_item(kind: "pdf", title: "scan-0001.pdf")
+      item = create_feed(mime: "application/pdf", title: "scan-0001.pdf")
       item.reference.update!(analysis: { "steps" => { "summary" => { "result" => {
         "summary" => "An invoice from Acme for $4,200.",
         "keywords" => [ "acme", "invoice" ]
@@ -193,7 +193,7 @@ class EmbeddingTest < ActiveSupport::TestCase
     ENV["URIS_INFERENCE_ORIGINS"] = [ @server.origin, dead ].join(",")
 
     Tenant.switch(@tenant) do
-      create_item(kind: "pdf", title: "March invoice")
+      create_feed(mime: "application/pdf", title: "March invoice")
 
       @brain.update!(details: @brain.details.merge("base_url" => "#{dead}/v1"))
 

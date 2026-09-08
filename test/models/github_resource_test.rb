@@ -118,7 +118,7 @@ class GithubResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
     Tenant.switch(@tenant) do
-      item = Item.last
+      item = Feed.last
 
       assert_equal "acme/widgets/issues/7", item.locator_key
       assert_equal "acme/widgets#7 Issue 7", item.title

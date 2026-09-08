@@ -90,9 +90,9 @@ class SlackResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
     Tenant.switch(@tenant) do
-      assert_equal 1, Item.count
-      assert_equal "C1/1.0", Item.last.locator_key
-      assert_equal "#general — Widget jams", Item.last.title
+      assert_equal 1, Feed.files.count
+      assert_equal "C1/1.0", Feed.last.locator_key
+      assert_equal "#general — Widget jams", Feed.last.title
     end
   end
 

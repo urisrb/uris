@@ -7,8 +7,8 @@ class RebuildSearchIndexJobTest < ActiveSupport::TestCase
     @tenant = Tenant.create!(subdomain: "rbld-#{SecureRandom.hex(4)}", name: "Rebuild")
     @other = Tenant.create!(subdomain: "othr-#{SecureRandom.hex(4)}", name: "Other")
 
-    Tenant.switch(@tenant) { create_item(kind: "pdf", title: "March invoice", locator_key: "invoices/march.pdf") }
-    Tenant.switch(@other) { create_item(kind: "pdf", title: "Acme invoice", locator_key: "invoices/acme.pdf") }
+    Tenant.switch(@tenant) { create_feed(mime: "application/pdf", title: "March invoice", locator_key: "invoices/march.pdf") }
+    Tenant.switch(@other) { create_feed(mime: "application/pdf", title: "Acme invoice", locator_key: "invoices/acme.pdf") }
 
     SearchIndex.refresh!
   end
@@ -20,7 +20,7 @@ class RebuildSearchIndexJobTest < ActiveSupport::TestCase
 
   def titles(tenant)
     SearchIndex.refresh!
-    Tenant.switch(tenant) { Item.search(nil).pluck(:title).sort }
+    Tenant.switch(tenant) { Feed.search(nil).pluck(:title).sort }
   end
 
   test "an index built from today's mapping is not rebuilt" do
@@ -84,7 +84,7 @@ class RebuildSearchIndexJobTest < ActiveSupport::TestCase
     RebuildSearchIndexJob.perform_now
 
     Tenant.switch(@tenant) do
-      create_item(kind: "pdf", title: "Late invoice", locator_key: "invoices/late.pdf")
+      create_feed(mime: "application/pdf", title: "Late invoice", locator_key: "invoices/late.pdf")
     end
 
     assert_equal [ "Late invoice", "March invoice" ], titles(@tenant)

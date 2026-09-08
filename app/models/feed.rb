@@ -246,7 +246,7 @@ class Feed < ApplicationRecord
   end
 
   def analyzed_at
-    analysis&.finished_at
+    references.maximum(:analyzed_at)
   end
 
   def analyze!(cause: "manual")

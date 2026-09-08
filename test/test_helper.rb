@@ -110,6 +110,14 @@ module ActiveSupport
       Reference.find_by!(locator_key: key).reload
     end
 
+    def analysis_at(key)
+      feed_at(key).analysis
+    end
+
+    def steps_at(key)
+      analysis_at(key).steps
+    end
+
     def analyze_feed_at(key)
       held = Tenant.switch(@tenant) do
         feed = feed_at(key)

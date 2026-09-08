@@ -31,7 +31,7 @@ class RemovingTest < ActionDispatch::IntegrationTest
 
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id) }
 
-    Tenant.switch(@tenant) { @item = item_at("invoice.txt") }
+    Tenant.switch(@tenant) { @item = feed_at("invoice.txt") }
 
     connect!(@tenant)
   end
@@ -53,7 +53,7 @@ class RemovingTest < ActionDispatch::IntegrationTest
     assert_not_nil put_away.first["archivedAt"]
 
     Tenant.switch(@tenant) do
-      assert_equal 1, Item.count, "archiving a resource does not throw away the catalog"
+      assert_equal 1, Feed.files.count, "archiving a resource does not throw away the catalog"
       assert_equal 1, Reference.count
     end
 
@@ -78,7 +78,7 @@ class RemovingTest < ActionDispatch::IntegrationTest
     assert_equal 1, body.dig("data", "forgetItem", "places")
 
     Tenant.switch(@tenant) do
-      assert_equal 0, Item.count
+      assert_equal 0, Feed.files.count
       assert_equal 0, Reference.count
     end
 
@@ -88,7 +88,7 @@ class RemovingTest < ActionDispatch::IntegrationTest
   test "deleting a feed keeps the items it wrote and says how many outlived it" do
     Tenant.switch(@tenant) do
       @feed = Feed.create!(slug: "buy", prompt: "find things worth buying")
-      @minted = Item.create!(kind: "text", title: "A thing", origin: "feed", feed: @feed)
+      @minted = Feed.create!(kind: "text", title: "A thing", origin: "feed", feed: @feed)
       @feed.items << @minted
     end
 
@@ -99,7 +99,7 @@ class RemovingTest < ActionDispatch::IntegrationTest
 
     Tenant.switch(@tenant) do
       assert_nil Feed.find_by(id: @feed.id)
-      assert_equal @minted, Item.find_by(id: @minted.id)
+      assert_equal @minted, Feed.find_by(id: @minted.id)
       assert_nil @minted.reload.feed_id
     end
   end
@@ -113,7 +113,7 @@ class RemovingTest < ActionDispatch::IntegrationTest
     assert_nil archive.dig("data", "archiveResource")
 
     Tenant.switch(@tenant) do
-      assert_equal 1, Item.count
+      assert_equal 1, Feed.files.count
       assert_nil @storage.reload.archived_at
     end
   end

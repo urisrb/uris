@@ -41,27 +41,27 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   end
 
   test "a recording is its own kind rather than an anonymous file" do
-    assert_equal "audio", Kind.for_filename("standup.mp3")
-    assert_equal "video", Kind.for_filename("demo.mov")
+    assert_equal "audio/mpeg", MimeType.for_filename("standup.mp3")
+    assert_equal "video/quicktime", MimeType.for_filename("demo.mov")
 
     Tenant.switch(@tenant) do
-      assert_equal "audio", item_at("tone.m4a").kind
-      assert_equal "video", item_at("clip.mp4").kind
+      assert_equal "audio/mp4", feed_at("tone.m4a").mime
+      assert_equal "video/mp4", feed_at("clip.mp4").mime
     end
   end
 
   test "both kinds reach the media analyzer" do
     Tenant.switch(@tenant) do
-      assert_instance_of Analyzer::Media, Analyzer.for(item_at("tone.m4a"))
-      assert_instance_of Analyzer::Media, Analyzer.for(item_at("clip.mp4"))
+      assert_instance_of Analyzer::Media, Analyzer.for(feed_at("tone.m4a"))
+      assert_instance_of Analyzer::Media, Analyzer.for(feed_at("clip.mp4"))
     end
   end
 
   test "an audio file yields its length and its streams" do
-    analyze_item_at "tone.m4a"
+    analyze_feed_at "tone.m4a"
 
     Tenant.switch(@tenant) do
-      probe = reference_at("tone.m4a").analysis.dig("steps", "probe", "result")
+      probe = steps_at("tone.m4a").dig("probe", "result")
 
       assert_in_delta 1.0, probe["duration"], 0.2
       assert_equal [ "audio" ], probe["streams"].map { |stream| stream["type"] }
@@ -70,10 +70,10 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   end
 
   test "a video yields its picture as well as its sound" do
-    analyze_item_at "clip.mp4"
+    analyze_feed_at "clip.mp4"
 
     Tenant.switch(@tenant) do
-      streams = reference_at("clip.mp4").analysis.dig("steps", "probe", "result", "streams")
+      streams = steps_at("clip.mp4").dig("probe", "result", "streams")
       video = streams.find { |stream| stream["type"] == "video" }
 
       assert_equal 160, video["width"]
@@ -85,10 +85,10 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   test "with no model configured the recording is still catalogued, and says why it is silent" do
     ENV.delete("URIS_WHISPER_MODEL")
 
-    analyze_item_at "tone.m4a"
+    analyze_feed_at "tone.m4a"
 
     Tenant.switch(@tenant) do
-      steps = reference_at("tone.m4a").analysis.fetch("steps")
+      steps = steps_at("tone.m4a")
 
       assert steps.dig("probe", "result").present?, "metadata does not need a model"
       assert_match(/URIS_WHISPER_MODEL/, steps.dig("transcript", "error", "message"))
@@ -99,10 +99,10 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   test "a model that was named but is not there is refused by name" do
     ENV["URIS_WHISPER_MODEL"] = "/tmp/there-is-no-such-model.bin"
 
-    analyze_item_at "tone.m4a"
+    analyze_feed_at "tone.m4a"
 
     Tenant.switch(@tenant) do
-      message = reference_at("tone.m4a").analysis.dig("steps", "transcript", "error", "message")
+      message = steps_at("tone.m4a").dig("transcript", "error", "message")
 
       assert_match(%r{/tmp/there-is-no-such-model\.bin}, message)
       assert_match(/not a file/, message)
@@ -110,11 +110,10 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   end
 
   test "the length reaches the prompt, so a summary can say how long it runs" do
-    analyze_item_at "clip.mp4"
+    analyze_feed_at "clip.mp4"
 
     Tenant.switch(@tenant) do
-      analyzer = Analyzer::Media.new(item_at("clip.mp4"))
-      analyzer.instance_variable_set(:@reference, reference_at("clip.mp4"))
+      analyzer = Analyzer::Media.new(feed_at("clip.mp4"), analysis: analysis_at("clip.mp4"))
 
       assert_match(/Length: 1 second/, analyzer.summary_prompt)
       assert_match(/video h264 160×120/, analyzer.summary_prompt)
@@ -124,16 +123,16 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   test "what was said becomes text, and the text becomes searchable" do
     requires_transcription!
 
-    analyze_item_at "standup.m4a"
+    analyze_feed_at "standup.m4a"
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      transcript = reference_at("standup.m4a").analysis.dig("steps", "transcript", "result")
+      transcript = steps_at("standup.m4a").dig("transcript", "result")
 
       assert_match(/invoice/i, transcript)
       assert_match(/4,200|4200/, transcript)
 
-      assert_equal [ "standup.m4a" ], Item.search("invoice", kind: "audio").pluck(:title),
+      assert_equal [ "standup.m4a" ], Feed.search("invoice", kind: "audio").pluck(:title),
                    "a spoken word is a searchable word or the transcript was for nothing"
     end
   end
@@ -147,10 +146,10 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
     )
 
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
-    analyze_item_at "silent.mp4"
+    analyze_feed_at "silent.mp4"
 
     Tenant.switch(@tenant) do
-      steps = reference_at("silent.mp4").analysis.fetch("steps")
+      steps = steps_at("silent.mp4")
 
       assert steps.dig("probe", "result").present?
       assert_match(/carries no audio/, steps.dig("transcript", "error", "message"))
@@ -158,8 +157,8 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
   end
 
   test "a video has a poster, and an audio file does not pretend to" do
-    assert Thumbnail.available_for?("video")
-    assert_not Thumbnail.available_for?("audio")
+    assert Thumbnail.available_for?("video/mp4")
+    assert_not Thumbnail.available_for?("audio/mp4")
 
     Tenant.switch(@tenant) do
       bytes = Thumbnail.for(reference_at("clip.mp4"), size: "small")

@@ -70,7 +70,7 @@ class NotionResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
     Tenant.switch(@tenant) do
-      item = Item.last
+      item = Feed.last
 
       assert_equal "pages/#{PAGE_ID}", item.locator_key
       assert_equal "Q3 plan", item.title

@@ -41,7 +41,7 @@ class VisionTest < ActiveSupport::TestCase
     analyze "poster.png"
 
     Tenant.switch(@tenant) do
-      summary = reference("poster.png").analysis.dig("steps", "summary", "result")
+      summary = steps_at("poster.png").dig("summary", "result")
 
       assert_equal "A printed sign reading PELICAN CENSUS.", summary["summary"]
       assert_equal %w[sign pelican], summary["keywords"]
@@ -93,7 +93,7 @@ class VisionTest < ActiveSupport::TestCase
     analyze "animated.gif"
 
     Tenant.switch(@tenant) do
-      ocr = reference("animated.gif").analysis.dig("steps", "ocr")
+      ocr = steps_at("animated.gif").dig("ocr")
 
       assert_includes ocr["result"], "FRAME 1"
       assert_nil ocr["error"]
@@ -112,14 +112,14 @@ class VisionTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       assert_equal "A sign.",
-                   reference("animated.gif").analysis.dig("steps", "summary", "result", "summary")
+                   steps_at("animated.gif").dig("summary", "result", "summary")
     end
   end
 
   test "the formats vips reads are catalogued as images" do
-    assert_equal "image", Kind.for_filename("avatar.bmp")
-    assert_equal "image", Kind.for_filename("favicon.ico")
-    assert_equal "image", Kind.for_filename("scan.TIFF")
+    assert_equal "image/bmp", MimeType.for_filename("avatar.bmp")
+    assert_equal "image/vnd.microsoft.icon", MimeType.for_filename("favicon.ico")
+    assert_equal "image/tiff", MimeType.for_filename("scan.TIFF")
   end
 
   test "the description reaches the search index" do
@@ -130,7 +130,7 @@ class VisionTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      assert_equal [ "poster.png" ], Item.search("estuary").pluck(:title)
+      assert_equal [ "poster.png" ], Feed.search("estuary").pluck(:title)
     end
   end
 
@@ -141,7 +141,7 @@ class VisionTest < ActiveSupport::TestCase
     analyze "poster.png"
 
     Tenant.switch(@tenant) do
-      step = reference("poster.png").analysis.dig("steps", "summary")
+      step = steps_at("poster.png").dig("summary")
 
       assert_equal "vision", step["role"]
       assert_equal "gemma3:4b", step["model"]
@@ -157,7 +157,7 @@ class VisionTest < ActiveSupport::TestCase
     assert_equal 0, @server.count_for("/v1/chat/completions")
 
     Tenant.switch(@tenant) do
-      assert_includes reference("pixel.png").analysis.dig("steps", "summary", "result", "summary"),
+      assert_includes steps_at("pixel.png").dig("summary", "result", "summary"),
                       "tracking pixel"
     end
   end
@@ -170,7 +170,7 @@ class VisionTest < ActiveSupport::TestCase
     assert_equal 0, @server.count_for("/v1/chat/completions")
 
     Tenant.switch(@tenant) do
-      summary = reference("photo.png").analysis.dig("steps", "summary", "result")
+      summary = steps_at("photo.png").dig("summary", "result")
 
       assert_includes summary["summary"], "single-colour"
       assert_includes summary["summary"], "120×80"
@@ -182,7 +182,7 @@ class VisionTest < ActiveSupport::TestCase
     analyze "pixel.png"
 
     Tenant.switch(@tenant) do
-      assert reference("pixel.png").analysis.dig("steps", "summary", "result", "summary").present?
+      assert steps_at("pixel.png").dig("summary", "result", "summary").present?
     end
   end
 
@@ -199,7 +199,7 @@ class VisionTest < ActiveSupport::TestCase
     assert_equal 0, @server.count_for("/v1/chat/completions")
 
     Tenant.switch(@tenant) do
-      steps = reference("poster.png").analysis.fetch("steps")
+      steps = steps_at("poster.png")
 
       assert steps.key?("ocr")
       assert_not steps.key?("summary")
@@ -245,12 +245,7 @@ class VisionTest < ActiveSupport::TestCase
     end
 
     def analyze(key)
-      id = Tenant.switch(@tenant) { item(key).id }
-      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) }
-    end
-
-    def item(key)
-      Item.joins(:references).find_by!(item_references: { locator_key: key })
+      analyze_feed_at(key)
     end
 
     def reference(key)

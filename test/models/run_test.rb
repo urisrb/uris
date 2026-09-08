@@ -112,7 +112,7 @@ class RunTest < ActiveSupport::TestCase
   test "a job with no run attached still works" do
     assert_nothing_raised { Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id) } }
 
-    Tenant.switch(@tenant) { assert_equal 60, Item.count }
+    Tenant.switch(@tenant) { assert_equal 60, Feed.files.count }
   end
 
   test "a run announces how it settled, not only what it logged" do

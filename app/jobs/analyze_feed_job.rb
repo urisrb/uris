@@ -95,7 +95,13 @@ class AnalyzeFeedJob < ApplicationJob
     def analysis
       return @analysis if defined?(@analysis)
 
-      @analysis = Analysis.find_by(id: arguments[2])
+      @analysis = Analysis.find_by(id: arguments[2]) || opened
+    end
+
+    def opened
+      feed = Feed.find_by(id: arguments[1])
+
+      feed && Analysis.open!(feed: feed, cause: "manual")
     end
 
     def wake_parent(feed)

@@ -20,7 +20,7 @@ class FailurePolicyTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       @broken = Reference.discover!(resource: @reachable, locator: { "bucket" => @bucket, "key" => "broken.pdf" },
                                          locator_key: "broken.pdf", kind: "pdf", title: "broken.pdf").item
-      @stranded = create_item(kind: "text", title: "stranded.txt", locator_key: "stranded.txt",
+      @stranded = create_feed(mime: "text/plain", title: "stranded.txt", locator_key: "stranded.txt",
                                resource: @unreachable, locator: { "bucket" => "gone", "key" => "stranded.txt" })
     end
   end
@@ -34,7 +34,7 @@ class FailurePolicyTest < ActiveSupport::TestCase
 
   test "a file the analyzer cannot read is discarded, not retried forever" do
     assert_no_enqueued_jobs do
-      assert_nothing_raised { Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, @broken.id) } }
+      assert_nothing_raised { Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, @broken.id) } }
     end
 
     Tenant.switch(@tenant) do
@@ -46,8 +46,8 @@ class FailurePolicyTest < ActiveSupport::TestCase
   end
 
   test "the same failure point retries when the resource is what broke" do
-    assert_enqueued_jobs 1, only: AnalyzeItemJob do
-      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, @stranded.id) }
+    assert_enqueued_jobs 1, only: AnalyzeFeedJob do
+      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, @stranded.id) }
     end
   end
 
@@ -65,13 +65,13 @@ class FailurePolicyTest < ActiveSupport::TestCase
   end
 
   test "analysis is capped per tenant, so one cannot occupy the pool" do
-    assert_equal 2, AnalyzeItemJob.concurrency_limit
-    assert_equal "AnalyzeItemJob/analysis/#{@tenant.id}",
-                 AnalyzeItemJob.new(@tenant.id, @broken.id).concurrency_key
+    assert_equal 2, AnalyzeFeedJob.concurrency_limit
+    assert_equal "AnalyzeFeedJob/analysis/#{@tenant.id}",
+                 AnalyzeFeedJob.new(@tenant.id, @broken.id).concurrency_key
   end
 
   test "analysis and the iterators do not share a queue" do
-    assert_equal "analysis", AnalyzeItemJob.new.queue_name
+    assert_equal "analysis", AnalyzeFeedJob.new.queue_name
     assert_equal "sync", SyncResourceJob.new.queue_name
     assert_equal "export", ExportItemsJob.new.queue_name
   end

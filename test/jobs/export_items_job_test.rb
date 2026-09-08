@@ -90,7 +90,7 @@ class ExportItemsJobTest < ActiveSupport::TestCase
     SearchIndex.refresh!
 
     Tenant.switch(@tenant) do
-      item_at(@source, "invoices/march.pdf").merge!(item_at(@destination, "invoices/march.pdf"))
+      feed_at(@source, "invoices/march.pdf").merge!(feed_at(@destination, "invoices/march.pdf"))
     end
 
     Tenant.switch(@tenant) { ExportItemsJob.perform_now(@tenant.id, @destination.id, {}) }
@@ -102,14 +102,14 @@ class ExportItemsJobTest < ActiveSupport::TestCase
   end
 
   test "the copy is catalogued as another reference to the same item" do
-    assert_no_difference -> { Tenant.switch(@tenant) { Item.count } } do
+    assert_no_difference -> { Tenant.switch(@tenant) { Feed.files.count } } do
       assert_difference -> { Tenant.switch(@tenant) { Reference.count } }, 2 do
         Tenant.switch(@tenant) { ExportItemsJob.perform_now(@tenant.id, @destination.id, {}) }
       end
     end
 
     Tenant.switch(@tenant) do
-      item = item_at(@source, "invoices/march.pdf")
+      item = feed_at(@source, "invoices/march.pdf")
       copy = item.references.find_by(resource_id: @destination.id)
 
       assert_equal "#{@source_bucket}/invoices/march.pdf", copy.locator_key
@@ -132,7 +132,7 @@ class ExportItemsJobTest < ActiveSupport::TestCase
   test "syncing the destination afterwards discovers nothing new" do
     Tenant.switch(@tenant) { ExportItemsJob.perform_now(@tenant.id, @destination.id, {}) }
 
-    assert_no_difference [ -> { Tenant.switch(@tenant) { Item.count } },
+    assert_no_difference [ -> { Tenant.switch(@tenant) { Feed.files.count } },
                            -> { Tenant.switch(@tenant) { Reference.count } } ] do
       Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @destination.id) }
     end
@@ -142,7 +142,7 @@ class ExportItemsJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { ExportItemsJob.perform_now(@tenant.id, @destination.id, {}) }
 
     Tenant.switch(@tenant) do
-      item = item_at(@source, "invoices/march.pdf")
+      item = feed_at(@source, "invoices/march.pdf")
       source = item.source_for(@destination)
       copy = item.copy_at(@destination)
 
@@ -206,7 +206,7 @@ class ExportItemsJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @destination.id) }
 
     Tenant.switch(@tenant) do
-      item_at(@source, "invoices/march.pdf").merge!(item_at(@destination, "invoices/march.pdf"))
+      feed_at(@source, "invoices/march.pdf").merge!(feed_at(@destination, "invoices/march.pdf"))
     end
 
     put @source, "invoices/march.pdf", body: "a corrected invoice"
@@ -225,13 +225,13 @@ class ExportItemsJobTest < ActiveSupport::TestCase
     put @destination, "#{@source_bucket}/invoices/march.pdf"
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @destination.id) }
 
-    squatter = Tenant.switch(@tenant) { item_at(@destination, "#{@source_bucket}/invoices/march.pdf") }
+    squatter = Tenant.switch(@tenant) { feed_at(@destination, "#{@source_bucket}/invoices/march.pdf") }
 
     Tenant.switch(@tenant) { ExportItemsJob.perform_now(@tenant.id, @destination.id, {}) }
 
     Tenant.switch(@tenant) do
-      assert_nil Item.find_by(id: squatter.id)
-      assert_equal item_at(@source, "invoices/march.pdf").id,
+      assert_nil Feed.find_by(id: squatter.id)
+      assert_equal feed_at(@source, "invoices/march.pdf").id,
                    Reference.find_by(resource_id: @destination.id,
                                           locator_key: "#{@source_bucket}/invoices/march.pdf").item_id
     end
@@ -258,9 +258,9 @@ class ExportItemsJobTest < ActiveSupport::TestCase
       resource.client.put_object(bucket: resource.bucket, key: key, body: body || "contents of #{key}")
     end
 
-    def item_at(resource, locator_key)
-      Item.joins(:references)
-           .find_by(item_references: { resource_id: resource.id, locator_key: locator_key })
+    def feed_at(resource, locator_key)
+      Feed.joins(:references)
+           .find_by(feed_references: { resource_id: resource.id, locator_key: locator_key })
     end
 
     def exported_keys

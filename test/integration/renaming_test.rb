@@ -17,7 +17,7 @@ class RenamingTest < ActionDispatch::IntegrationTest
     @tenant = Tenant.create!(subdomain: "name-#{SecureRandom.hex(4)}", name: "Renaming")
 
     Tenant.switch(@tenant) do
-      @item = create_item(kind: "pdf", title: "scan-0042.pdf",
+      @item = create_feed(mime: "application/pdf", title: "scan-0042.pdf",
                           locator_key: "inbox/scan-0042.pdf")
     end
 

@@ -94,10 +94,10 @@ class MicrosoftGraphResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
     Tenant.switch(@tenant) do
-      assert_equal 1, Item.count
-      assert_equal "Invoices/report.pdf", Item.last.locator_key
-      assert_equal "report.pdf", Item.last.title
-      assert_equal "pdf", Item.last.kind, "the kind still comes from the name"
+      assert_equal 1, Feed.files.count
+      assert_equal "Invoices/report.pdf", Feed.last.locator_key
+      assert_equal "report.pdf", Feed.last.title
+      assert_equal "pdf", Feed.last.kind, "the kind still comes from the name"
     end
   end
 

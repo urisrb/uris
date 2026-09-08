@@ -56,15 +56,15 @@ class DatabaseResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @storage.id) }
 
     Tenant.switch(@tenant) do
-      assert_equal 2, Item.referencing(@storage.id).count
-      assert_equal "how to work on this repo", item_at("AGENTS.md").download.read
+      assert_equal 2, Feed.referencing(@storage.id).count
+      assert_equal "how to work on this repo", feed_at("AGENTS.md").download.read
     end
   end
 
   test "an item can hold the raw file and a generated document side by side" do
     Tenant.switch(@tenant) do
       source = Resource::S3.create!(key: "bucket", details: { "endpoint" => "http://127.0.0.1:1" })
-      item = create_item(kind: "pdf", title: "Contract", resource: source, locator_key: "contract.pdf")
+      item = create_feed(mime: "application/pdf", title: "Contract", resource: source, locator_key: "contract.pdf")
 
       @storage.upload("contract.AGENTS.md", "what this contract says")
       item.references.create!(resource: @storage, locator_key: "contract.AGENTS.md",

@@ -26,9 +26,9 @@ class ImapResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 2, Item.count
-      assert_equal %w[email email], Item.pluck(:kind)
-      assert_equal [ "Beach photos", "March invoice" ], Item.pluck(:title).sort
+      assert_equal 2, Feed.files.count
+      assert_equal %w[email email], Feed.pluck(:kind)
+      assert_equal [ "Beach photos", "March invoice" ], Feed.pluck(:title).sort
     end
   end
 
@@ -65,7 +65,7 @@ class ImapResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 4, Item.count
+      assert_equal 4, Feed.files.count
       assert_equal [ "INBOX/1/1", "INBOX/1/2", "INBOX/2/1", "INBOX/2/2" ],
                    Reference.pluck(:locator_key).sort
     end
@@ -98,7 +98,7 @@ class ImapResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       item = titled("March invoice")
-      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, item.id) }
+      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
 
       analysis = item.references.first.reload.analysis
 
@@ -118,7 +118,7 @@ class ImapResourceTest < ActiveSupport::TestCase
   test "syncing twice converges rather than accumulating" do
     2.times { sync }
 
-    Tenant.switch(@tenant) { assert_equal 2, Item.count }
+    Tenant.switch(@tenant) { assert_equal 2, Feed.files.count }
   end
 
   test "a mailbox is not storage and cannot be an export destination" do
@@ -142,6 +142,6 @@ class ImapResourceTest < ActiveSupport::TestCase
     end
 
     def titled(title)
-      Item.find_by!(title: title)
+      Feed.find_by!(title: title)
     end
 end

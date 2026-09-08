@@ -27,7 +27,7 @@ class GatedIterationTest < ActiveSupport::TestCase
     run = start_sync
 
     Tenant.switch(@tenant) do
-      assert_equal 6, Item.count
+      assert_equal 6, Feed.files.count
       assert_equal "done", run.reload.status
     end
   end
@@ -38,7 +38,7 @@ class GatedIterationTest < ActiveSupport::TestCase
     run = start_sync
 
     Tenant.switch(@tenant) do
-      assert_equal 0, Item.count
+      assert_equal 0, Feed.files.count
       assert_equal "gated", run.reload.status
     end
   end
@@ -70,10 +70,10 @@ class GatedIterationTest < ActiveSupport::TestCase
     end
 
     start_sync
-    Tenant.switch(@tenant) { assert_equal 0, Item.count }
+    Tenant.switch(@tenant) { assert_equal 0, Feed.files.count }
 
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, other.id, nil) }
-    Tenant.switch(@tenant) { assert_equal 6, Item.count }
+    Tenant.switch(@tenant) { assert_equal 6, Feed.files.count }
   end
 
   test "a dry run reports what it walked and catalogues none of it" do
@@ -82,7 +82,7 @@ class GatedIterationTest < ActiveSupport::TestCase
     run = start_sync
 
     Tenant.switch(@tenant) do
-      assert_equal 0, Item.count
+      assert_equal 0, Feed.files.count
       assert_equal 6, run.reload.processed
       assert_equal "done", run.status
     end
@@ -95,7 +95,7 @@ class GatedIterationTest < ActiveSupport::TestCase
       run = start_sync
 
       Tenant.switch(@tenant) do
-        assert_equal 0, Item.count
+        assert_equal 0, Feed.files.count
         assert_equal "gated", run.reload.status
       end
     ensure

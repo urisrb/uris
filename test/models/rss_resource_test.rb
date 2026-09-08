@@ -35,9 +35,9 @@ class RssResourceTest < ActiveSupport::TestCase
     sync
 
     Tenant.switch(@tenant) do
-      assert_equal 2, Item.count
-      assert_equal %w[feed feed], Item.pluck(:kind)
-      assert_equal [ "The first post", "The second post" ], Item.pluck(:title).sort
+      assert_equal 2, Feed.files.count
+      assert_equal %w[feed feed], Feed.pluck(:kind)
+      assert_equal [ "The first post", "The second post" ], Feed.pluck(:title).sort
       assert_equal %w[urn:one urn:two], Reference.pluck(:locator_key).sort
     end
   end
@@ -58,7 +58,7 @@ class RssResourceTest < ActiveSupport::TestCase
       @resource.update!(details: { "url" => @server.serve_body("/atom.xml", @server.atom(ITEMS)) })
       sync
 
-      assert_equal 2, Item.count
+      assert_equal 2, Feed.files.count
       assert_equal "https://elsewhere.example/two", titled("The second post").references.first.locator["link"]
     end
   end
@@ -66,7 +66,7 @@ class RssResourceTest < ActiveSupport::TestCase
   test "syncing twice converges rather than accumulating" do
     2.times { sync }
 
-    Tenant.switch(@tenant) { assert_equal 2, Item.count }
+    Tenant.switch(@tenant) { assert_equal 2, Feed.files.count }
   end
 
   test "the analyzer indexes the entry body as text, tags stripped" do
@@ -74,7 +74,7 @@ class RssResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       item = titled("The first post")
-      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, item.id) }
+      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, item.id) }
 
       analysis = item.references.first.reload.analysis
 
@@ -108,7 +108,7 @@ class RssResourceTest < ActiveSupport::TestCase
       @resource.update!(details: { "url" => @server.serve_redirect("/hop", @feed) })
       sync
 
-      assert_equal 2, Item.count
+      assert_equal 2, Feed.files.count
     end
   end
 
@@ -163,6 +163,6 @@ class RssResourceTest < ActiveSupport::TestCase
     end
 
     def titled(title)
-      Item.find_by!(title: title)
+      Feed.find_by!(title: title)
     end
 end

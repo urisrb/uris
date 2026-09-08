@@ -14,7 +14,7 @@ class MergeProposalTest < ActiveSupport::TestCase
 
   def item_on(resource, key, kind: "pdf", version: nil, title: nil)
     Tenant.switch(@tenant) do
-      item = Item.create!(kind: kind, title: title || File.basename(key))
+      item = Feed.create!(kind: kind, title: title || File.basename(key))
       Reference.create!(item: item, resource: resource, locator_key: key,
                              locator: {}, version: version)
       item
@@ -98,7 +98,7 @@ class MergeProposalTest < ActiveSupport::TestCase
 
       assert_equal a.id, kept.id
       assert_equal 2, kept.references.count
-      assert_nil Item.find_by(id: b.id)
+      assert_nil Feed.find_by(id: b.id)
       assert_equal "accepted", proposal.reload.status
       assert proposal.settled_at.present?
     end
@@ -114,8 +114,8 @@ class MergeProposalTest < ActiveSupport::TestCase
       proposal.reject!
 
       assert_equal "rejected", proposal.reload.status
-      assert_equal 1, Item.find(a.id).references.count
-      assert Item.find_by(id: b.id).present?
+      assert_equal 1, Feed.find(a.id).references.count
+      assert Feed.find_by(id: b.id).present?
     end
   end
 
@@ -126,7 +126,7 @@ class MergeProposalTest < ActiveSupport::TestCase
     proposal = propose!.first
 
     Tenant.switch(@tenant) do
-      Item.find(b.id).destroy!
+      Feed.find(b.id).destroy!
 
       assert_not proposal.current?
       assert_raises(MergeProposal::Stale) { proposal.accept! }
