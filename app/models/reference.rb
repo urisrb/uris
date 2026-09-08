@@ -1,15 +1,25 @@
 class Reference < ApplicationRecord
-  # "references" is a reserved word in Postgres.
-  self.table_name = "item_references"
+  self.table_name = "feed_references"
+
+  ORIGINAL = "original".freeze
+  PREVIEW = "preview".freeze
+  THUMBNAIL = "thumbnail".freeze
+
+  ROLES = [ ORIGINAL, PREVIEW, THUMBNAIL ].freeze
+  DERIVED = [ PREVIEW, THUMBNAIL ].freeze
 
   include TenantScoped
 
-  belongs_to :item
+  belongs_to :feed
   belongs_to :resource
 
+  validates :role, inclusion: { in: ROLES }
   validates :locator_key, uniqueness: { scope: [ :tenant_id, :resource_id ] }, allow_nil: true
 
   scope :oldest_first, -> { order(:created_at, :id) }
+  scope :originals, -> { where(role: ORIGINAL) }
+  scope :derived, -> { where(role: DERIVED) }
+  scope :in_role, ->(role) { where(role: role.to_s) }
 
   scope :under, ->(prefix) {
     escaped = sanitize_sql_like(prefix.to_s.delete_prefix("/").chomp("/"))
@@ -18,38 +28,45 @@ class Reference < ApplicationRecord
           exact: prefix, under: "#{escaped}/%")
   }
 
-  after_commit :reindex_item
+  after_commit :reindex_feed
 
-  delegate :kind, to: :item
-
-  def self.discover!(resource:, locator:, locator_key:, kind:, title: nil)
+  def self.discover!(resource:, locator:, locator_key:, mime: nil, title: nil, role: ORIGINAL)
     reference = find_or_initialize_by(resource: resource, locator_key: locator_key)
+    named = title.presence || File.basename(locator_key.to_s).presence || locator_key.to_s
 
-    if reference.item.nil?
-      reference.item = Item.create!(kind: kind, title: title)
+    if reference.feed.nil?
+      reference.feed = Feed.create!(type: Feed::FILE, key: named, title: named)
     end
 
+    reference.role = role
     reference.locator = locator
+    reference.mime = mime.presence || MimeType.for_filename(locator_key)
     reference.note_version!(resource.version_for(locator))
     reference.save!
     reference
   end
 
-  def self.record!(item:, resource:, locator:, locator_key:, source_version: nil)
+  def self.record!(feed:, resource:, locator:, locator_key:, role: ORIGINAL,
+                   mime: nil, source_version: nil)
     reference = find_or_initialize_by(resource: resource, locator_key: locator_key)
 
-    if reference.persisted? && reference.item_id != item.id
-      reference.move_to!(item)
+    if reference.persisted? && reference.feed_id != feed.id
+      reference.move_to!(feed)
     else
-      reference.item = item
+      reference.feed = feed
     end
 
+    reference.role = role
     reference.locator = locator
+    reference.mime = mime.presence || reference.mime || MimeType.for_filename(locator_key)
     reference.version = resource.version_for(locator)
     reference.source_version = source_version
     reference.save!
     reference
   end
+
+  def original? = role == ORIGINAL
+  def derived? = DERIVED.include?(role)
 
   def note_version!(reported)
     return self if reported.blank?
@@ -68,15 +85,15 @@ class Reference < ApplicationRecord
   end
 
   def move_to!(destination)
-    return self if destination.id == item_id
+    return self if destination.id == feed_id
 
-    previous = item
+    previous = feed
 
     transaction do
       if destination.references.exists?(resource_id: resource_id, locator_key: locator_key)
         destroy!
       else
-        update!(item: destination)
+        update!(feed: destination)
       end
 
       previous.reload.destroy_if_empty!
@@ -86,7 +103,7 @@ class Reference < ApplicationRecord
   end
 
   def split!
-    move_to!(Item.create!(kind: item.kind, title: item.title))
+    move_to!(Feed.create!(type: feed.type, key: feed.key, title: feed.title))
   end
 
   def download
@@ -98,48 +115,20 @@ class Reference < ApplicationRecord
   end
 
   def filename
-    File.basename(locator_key.to_s).presence || "item-#{item_id}"
+    File.basename(locator_key.to_s).presence || "feed-#{feed_id}"
   end
 
   def content_type
-    Rack::Mime.mime_type(File.extname(filename), "application/octet-stream")
-  end
-
-  def thumbnail?
-    Thumbnail.available_for?(kind)
-  end
-
-  def extracted(without: [])
-    skipped = Array(without).map(&:to_s)
-
-    analysis.fetch("steps", {}).except(*skipped).values.filter_map { |step| step["result"] }
-  end
-
-  def summary
-    analysis.dig("steps", "summary", "result", "summary").presence
-  end
-
-  def keywords
-    summary_terms("keywords")
-  end
-
-  def entities
-    summary_terms("entities")
-  end
-
-  def summary_terms(key)
-    Array(analysis.dig("steps", "summary", "result", key)).filter_map do |word|
-      word.to_s.strip.presence
-    end
+    mime.presence || Rack::Mime.mime_type(File.extname(filename), "application/octet-stream")
   end
 
   private
 
-    def reindex_item
-      subject = Item.find_by(id: item_id)
+    def reindex_feed
+      subject = Feed.find_by(id: feed_id)
       return if subject.nil?
 
       SearchIndex.index(subject)
-      Item.where(id: item_id).where.not(embedded_at: nil).update_all(embedded_at: nil)
+      Feed.where(id: feed_id).where.not(embedded_at: nil).update_all(embedded_at: nil)
     end
 end

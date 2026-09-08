@@ -2,12 +2,18 @@ require "roo"
 
 module Analyzer
   class Xlsx < Base
+    SHEETS = %w[
+      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      application/vnd.ms-excel
+      application/vnd.oasis.opendocument.spreadsheet
+    ].freeze
+
     SAMPLE_ROWS = 20
     MAX_COLUMNS = 30
     CELL = 200
 
-    def self.handles?(item)
-      item.kind == "xlsx"
+    def self.handles?(feed)
+      SHEETS.include?(feed.mime)
     end
 
     def analyze

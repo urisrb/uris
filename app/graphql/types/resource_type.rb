@@ -29,7 +29,7 @@ module Types
     end
 
     def items_count
-      Reference.where(resource_id: object.id).distinct.count(:item_id)
+      Reference.where(resource_id: object.id).distinct.count(:feed_id)
     end
   end
 end

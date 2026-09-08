@@ -4,7 +4,9 @@ module Tool
   class Base < MCP::Tool
     SELECTOR_SCHEMA = {
       query: { type: "string", description: "Words to match, as in search_items." },
-      kind: { type: "string", description: "Restrict to one kind." },
+      type: { type: "string", description: "Restrict to one type of feed." },
+      mime: { type: "string", description: "Restrict to one content type." },
+      tag: { type: "string", description: "Restrict to feeds connected to this tag." },
       resource_id: { type: "string", description: "Restrict to items from one resource." },
       folder: {
         type: "string",
@@ -81,21 +83,23 @@ module Tool
         MCP::Tool::Response.new([ { type: "text", text: body } ], error: error)
       end
 
-      def item!(id)
-        Item.find_by(id: id) || raise(ArgumentError, "no item with id #{id}")
+      def feed!(id)
+        Feed.find_by(id: id) || raise(ArgumentError, "no feed with id #{id}")
       end
 
       def resource!(id)
         Resource.active.find_by(id: id) || raise(ArgumentError, "no resource with id #{id}")
       end
 
-      def summarize(item)
+      def summarize(feed)
         {
-          id: item.id.to_s,
-          kind: item.kind,
-          title: item.title,
-          analyzed_at: item.analyzed_at,
-          references: item.references.map { |reference| describe_reference(reference) }
+          id: feed.id.to_s,
+          type: feed.type,
+          key: feed.key,
+          title: feed.title,
+          mime: feed.mime,
+          analyzed_at: feed.analyzed_at,
+          references: feed.references.map { |reference| describe_reference(reference) }
         }
       end
 
@@ -104,17 +108,20 @@ module Tool
           id: reference.id.to_s,
           resource_id: reference.resource_id.to_s,
           resource: reference.resource.key,
+          role: reference.role,
+          mime: reference.mime,
           locator_key: reference.locator_key,
           analyzed_at: reference.analyzed_at,
           changed_at: reference.changed_at
         }
       end
 
-      def selector_from(query: nil, kind: nil, resource_id: nil, folder: nil,
-                        since: nil, before: nil)
+      def selector_from(query: nil, type: nil, mime: nil, tag: nil, resource_id: nil,
+                        folder: nil, since: nil, before: nil)
         {
-          "query" => query, "kind" => kind, "resource_id" => resource_id,
-          "folder" => folder, "since" => since, "before" => before
+          "query" => query, "type" => type, "mime" => mime, "tag" => tag,
+          "resource_id" => resource_id, "folder" => folder,
+          "since" => since, "before" => before
         }.compact
       end
     end

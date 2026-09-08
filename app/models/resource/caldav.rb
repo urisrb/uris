@@ -23,8 +23,8 @@ class Resource
       }
     end
 
-    def kind_for(_entry)
-      "calendar"
+    def mime_for(_entry)
+      "text/calendar"
     end
 
     private

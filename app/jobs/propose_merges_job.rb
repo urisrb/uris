@@ -41,15 +41,15 @@ class ProposeMergesJob < ApplicationJob
   private
 
     def propose(group)
-      ids = Array(group["item_ids"]).map(&:to_i).sort
+      ids = Array(group["feed_ids"]).map(&:to_i).sort
       held = MergeProposal.find_by(blocking_key: group["blocking_key"], status: "open")
 
-      return held.update!(item_ids: ids) if held
+      return held.update!(feed_ids: ids) if held
 
       MergeProposal.create!(
         blocking_key: group["blocking_key"],
         reason: group["reason"],
-        item_ids: ids
+        feed_ids: ids
       )
     end
 end

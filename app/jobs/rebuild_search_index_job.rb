@@ -13,9 +13,9 @@ class RebuildSearchIndexJob < ApplicationJob
       Tenant.find_each do |tenant|
         Tenant.switch(tenant) do
           run = Run.start!(kind: "reindex", selector: { "index" => target })
-          expected += Item.count
+          expected += Feed.count
 
-          ReindexItemsJob.perform_now(tenant.id, target, run.id)
+          ReindexFeedsJob.perform_now(tenant.id, target, run.id)
         end
       end
 
@@ -33,7 +33,7 @@ class RebuildSearchIndexJob < ApplicationJob
     def catch_up(started)
       Tenant.find_each do |tenant|
         Tenant.switch(tenant) do
-          Item.where(updated_at: started..).find_each { |item| SearchIndex.index(item) }
+          Feed.where(updated_at: started..).find_each { |feed| SearchIndex.index(feed) }
         end
       end
     end

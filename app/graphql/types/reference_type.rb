@@ -13,7 +13,9 @@ module Types
     field :version, String
     field :changed_at, GraphQL::Types::ISO8601DateTime
     field :analyzed_at, GraphQL::Types::ISO8601DateTime
-    field :analysis, GraphQL::Types::JSON, null: false
+    field :role, String, null: false
+    field :mime, String
+    field :size, GraphQL::Types::BigInt
     field :content_url, String, null: false
     field :thumbnail_url, String
 
@@ -22,7 +24,7 @@ module Types
     end
 
     def thumbnail_url
-      "/references/#{object.id}/thumbnail" if object.thumbnail?
+      "/references/#{object.id}/thumbnail" if Thumbnail.available_for?(object.mime)
     end
   end
 end

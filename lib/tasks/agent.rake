@@ -23,7 +23,7 @@ namespace :agent do
       answered = agent.call(prompt)
 
       puts
-      puts "  #{agent.turns_taken} turn(s) — #{answered}"
+      puts "  #{answered.turns} turn(s), #{answered.reason} — #{answered.said}"
     end
   end
 end

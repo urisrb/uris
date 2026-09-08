@@ -10,7 +10,7 @@ module Types
     field :status, String, null: false
     field :settled_at, GraphQL::Types::ISO8601DateTime
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false
-    field :items, [ Types::ItemType ], null: false
+    field :feeds, [ Types::FeedType ], null: false
     field :current, Boolean, null: false
 
     def current

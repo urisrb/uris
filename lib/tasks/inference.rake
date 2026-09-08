@@ -21,7 +21,7 @@ namespace :inference do
       files = corpus.glob("*/*").reject(&:directory?).sort
       files = files.select { |file| file.to_s.include?(only) } if only.present?
 
-      puts format("%-28s %-9s %8s  %s", "file", "kind", "seconds", "summary")
+      puts format("%-28s %-24s %8s  %s", "file", "mime", "seconds", "summary")
       puts "-" * 110
 
       files.each do |file|
@@ -30,21 +30,22 @@ namespace :inference do
 
         reference = Reference.discover!(
           resource: storage, locator: { "key" => key }, locator_key: key,
-          kind: Kind.for_filename(key), title: file.basename.to_s
+          mime: MimeType.for_filename(key), title: file.basename.to_s
         )
 
-        item = reference.item
+        feed = reference.feed
+        analysis = Analysis.open!(feed: feed, cause: "manual", reference: reference)
         started = Time.current
 
         begin
-          Analyzer.for(item).run
+          Analyzer.for(feed, analysis: analysis).run
         rescue StandardError => e
-          puts format("%-28s %-9s %8s  %s", file.basename, item.kind, "-", "#{e.class}: #{e.message.truncate(60)}")
+          puts format("%-28s %-24s %8s  %s", file.basename, reference.mime, "-", "#{e.class}: #{e.message.truncate(60)}")
           next
         end
 
         elapsed = (Time.current - started).round(1)
-        step = reference.reload.analysis.dig("steps", "summary")
+        step = analysis.reload.step("summary").presence
 
         line =
           if step.nil? then "(no summary — nothing extracted, or below the minimum)"
@@ -52,11 +53,11 @@ namespace :inference do
           else step.dig("result", "summary").to_s.truncate(64)
           end
 
-        puts format("%-28s %-9s %8s  %s", file.basename.to_s.truncate(28), item.kind, elapsed, line)
+        puts format("%-28s %-24s %8s  %s", file.basename.to_s.truncate(28), reference.mime, elapsed, line)
       end
 
       puts
-      puts "prompts: #{Prompt.count}, failed attempts: #{Prompt.where("response ? 'error'").count}"
+      puts "turns: #{Analysis.sum("jsonb_array_length(turns)")}"
     end
   end
 end

@@ -43,7 +43,7 @@ class Resource
       true
     end
 
-    def kind_for(_object)
+    def mime_for(_object)
       "page"
     end
 
@@ -129,7 +129,7 @@ class Resource
           resource: self,
           locator: stored,
           locator_key: canonical(capture.url),
-          kind: "page",
+          mime: MimeType::PAGE,
           title: capture.title.presence || capture.url
         )
 
@@ -159,15 +159,15 @@ class Resource
 
       def retitle!(reference, capture)
         title = capture.title.presence
-        return if title.blank? || reference.item.title == title
+        return if title.blank? || reference.feed.title == title
 
-        reference.item.update!(title: title)
+        reference.feed.update!(title: title)
       end
 
       def analyse!(reference)
         return if reference.analyzed_at.present?
 
-        AnalyzeItemJob.start!(tenant_id, reference.item_id)
+        reference.feed.analyze!(cause: "sync")
       end
 
       def holding(locator)
@@ -179,8 +179,8 @@ class Resource
 
       def described(reference)
         summary(reference.locator).merge(
-          "id" => reference.item_id.to_s,
-          "kind" => reference.item.kind
+          "id" => reference.feed_id.to_s,
+          "mime" => reference.mime
         )
       end
 
@@ -188,7 +188,7 @@ class Resource
         locator.to_h.slice("url", "final_url", "title", "taken_at", "width", "height", "digest")
       end
 
-      # One item per address, so snapshotting the same page twice is a new version
+      # One feed per address, so snapshotting the same page twice is a new version
       # of the same thing rather than a second entry that has to be merged later.
       def canonical(url)
         uri = URI.parse(url.to_s)

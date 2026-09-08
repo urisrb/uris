@@ -4,33 +4,60 @@ module Types
   class FeedType < Types::BaseObject
     grants "uris:catalog:read"
 
+    SUMMARY = 400
+    CONNECTED = 200
+
     field :id, ID, null: false
-    field :slug, String, null: false
-    field :name, String
-    field :prompt, String, null: false
-    field :role, String, null: false
-    field :turns, Integer
-    field :interval, Integer, description: "Seconds between runs. Null when it only runs by hand."
-    field :next_run_at, GraphQL::Types::ISO8601DateTime
-    field :paused_at, GraphQL::Types::ISO8601DateTime
-    field :ran_at, GraphQL::Types::ISO8601DateTime
+    field :type, String, null: false,
+          description: "What it is, and how it renders: uris:file, uris:note, uris:feed, uris:tag."
+    field :key, String, null: false,
+          description: "Its name within its type — README.md, text/markdown, /buy."
+    field :origin, String, null: false,
+          description: "resource when synced from one, feed when an analysis minted it."
+    field :title, String
+    field :mime, String, description: "The content type of the bytes, when it has any."
+    field :references, [ Types::ReferenceType ], null: false
+    field :analyzed_at, GraphQL::Types::ISO8601DateTime
+    field :note, String, description: "What you wrote about it, in your own words."
+    field :summary, String,
+          description: "What a model made of it. The extracted text, until one has run."
+    field :keywords, [ String ], null: false,
+          description: "Search terms a model drew out of it."
+    field :thumbnail_url, String
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false
 
-    field :scheduled, Boolean, null: false
-    field :items_count, Integer, null: false
-    field :items, [ Types::ItemType ], null: false
-    field :runs, [ Types::RunType ], null: false
+    field :connected_count, Integer, null: false
+    field :connected, [ Types::FeedType ], null: false
+    field :tags, [ Types::FeedType ], null: false
+    field :schedule, Types::ScheduleType
+    field :analyses, [ Types::AnalysisType ], null: false
 
-    def scheduled = object.scheduled?
-
-    def items_count = object.feed_items.count
-
-    def items
-      object.items.order(created_at: :desc).limit(200)
+    def summary
+      object.summary || object.body_text&.squish&.truncate(SUMMARY)
     end
 
-    def runs
-      object.runs.order(created_at: :desc).limit(20)
+    def keywords
+      object.keywords
+    end
+
+    def connected_count = object.edges.count
+
+    def connected
+      object.connected.order(created_at: :desc).limit(CONNECTED)
+    end
+
+    def tags
+      object.tags.order(:key)
+    end
+
+    def analyses
+      object.analyses.newest_first.limit(20)
+    end
+
+    def thumbnail_url
+      reference = object.references.find { |held| Thumbnail.available_for?(held.mime) }
+
+      "/references/#{reference.id}/thumbnail" if reference
     end
   end
 end

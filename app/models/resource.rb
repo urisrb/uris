@@ -7,8 +7,7 @@ class Resource < ApplicationRecord
   serialize :credentials, coder: JSON, type: Hash
   encrypts :credentials
 
-  has_many :items, dependent: :nullify
-  has_many :prompts, dependent: :destroy
+  has_many :references, dependent: :destroy
 
   belongs_to :via, class_name: "Resource", optional: true
   has_many :reached_through, class_name: "Resource", foreign_key: :via_id,
@@ -233,8 +232,8 @@ class Resource < ApplicationRecord
     locator.to_h["etag"].presence
   end
 
-  def kind_for(object)
-    Kind.for_filename(locator_key_for(object))
+  def mime_for(object)
+    MimeType.for_filename(locator_key_for(object))
   end
 
   def title_for(object)

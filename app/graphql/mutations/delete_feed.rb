@@ -6,27 +6,27 @@ module Mutations
 
     field :deleted, Boolean, null: false
     field :kept, Integer, null: false,
-          description: "How many items it wrote that outlive it."
+          description: "How many feeds it minted that outlive it."
 
     def resolve(id:)
-      feed = Feed.find_by(id: id) || refused("no feed with id #{id}")
-      slug = feed.slug
-      kept = feed.minted_items.count
+      feed = feed!(id)
+      key = feed.key
+      kept = feed.connected.minted.count
 
       feed.destroy!
 
-      noted(slug, kept)
+      noted(key, kept)
 
       { deleted: true, kept: kept }
     end
 
     private
 
-      def noted(slug, kept)
+      def noted(key, kept)
         AuditEvent.record(
           channel: "graphql", action: "delete_feed", status: "ok",
           grant: context[:grant], context: Current.audit,
-          arguments: { "slug" => slug, "kept" => kept }
+          arguments: { "key" => key, "kept" => kept }
         )
       end
   end

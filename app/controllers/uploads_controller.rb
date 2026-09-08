@@ -12,11 +12,12 @@ class UploadsController < ApplicationController
     )
 
     render json: {
-      item_id: landed.item.id,
-      kind: landed.item.kind,
+      feed_id: landed.feed.id,
+      type: landed.feed.type,
+      mime: landed.reference.mime,
       resource: landed.reference.resource.key,
       path: landed.reference.locator_key,
-      run_id: landed.run.id
+      analysis_id: landed.analysis.id
     }
   rescue Intake::Unusable => e
     unusable(e.message)

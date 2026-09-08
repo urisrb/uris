@@ -4,10 +4,10 @@ class Intake
   MAX_KEY = 900
   MAX_NAME = 180
 
-  Landed = Data.define(:item, :reference, :run)
+  Landed = Data.define(:feed, :reference, :analysis)
 
   class << self
-    def write!(path:, body:, kind: nil, title: nil, source: nil)
+    def write!(path:, body:, mime: nil, title: nil, source: nil, cause: "upload")
       destination = Resource.default_storage
 
       raise Unusable, "no default storage is set — pick one on Resources" if destination.nil?
@@ -20,14 +20,14 @@ class Intake
         resource: destination,
         locator: locator,
         locator_key: key,
-        kind: kind.presence || Kind.for_filename(key),
+        mime: mime.presence || MimeType.for_filename(key),
         title: title.presence || File.basename(key)
       )
 
       Landed.new(
-        item: reference.item,
+        feed: reference.feed,
         reference: reference,
-        run: AnalyzeItemJob.start!(destination.tenant_id, reference.item_id)
+        analysis: reference.feed.analyze!(cause: cause)
       )
     end
 

@@ -71,12 +71,15 @@ module ActiveSupport
 
     fixtures :all
 
-    def create_item(kind:, title: nil, resource: nil, locator_key: nil, locator: {})
-      item = Item.create!(kind: kind, title: title)
-      item.references.create!(resource: resource || scratch_resource,
-                               locator_key: locator_key, locator: locator)
-      item.references.reset
-      item
+    def create_feed(mime: nil, type: Feed::FILE, key: nil, title: nil, resource: nil,
+                    locator_key: nil, locator: {})
+      named = key || title || locator_key.to_s.split("/").last || "untitled"
+      feed = Feed.create!(type: type, key: named, title: title)
+      feed.references.create!(resource: resource || scratch_resource,
+                              locator_key: locator_key, locator: locator,
+                              mime: mime || MimeType.for_filename(locator_key))
+      feed.references.reset
+      feed
     end
 
     def scratch_resource
@@ -88,8 +91,8 @@ module ActiveSupport
       )
     end
 
-    def item_at(locator_key)
-      Item.joins(:references).find_by!(item_references: { locator_key: locator_key })
+    def feed_at(locator_key)
+      Feed.joins(:references).find_by!(feed_references: { locator_key: locator_key })
     end
 
     def json_response(body)
@@ -107,10 +110,13 @@ module ActiveSupport
       Reference.find_by!(locator_key: key).reload
     end
 
-    def analyze_item_at(key)
-      id = Tenant.switch(@tenant) { item_at(key).id }
+    def analyze_feed_at(key)
+      held = Tenant.switch(@tenant) do
+        feed = feed_at(key)
+        [ feed.id, Analysis.open!(feed: feed, cause: "manual").id ]
+      end
 
-      Tenant.switch(@tenant) { AnalyzeItemJob.perform_now(@tenant.id, id) }
+      Tenant.switch(@tenant) { AnalyzeFeedJob.perform_now(@tenant.id, held.first, held.last) }
     end
   end
 end

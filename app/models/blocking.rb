@@ -1,17 +1,16 @@
 module Blocking
   KEYS = {
     "same-name" => <<~SQL.squish,
-      concat('same-name:', items.kind, ':',
-             lower(regexp_replace(item_references.locator_key, '^.*/', '')))
+      concat('same-name:', feeds.type, ':', lower(feeds.key))
     SQL
     "same-bytes" => <<~SQL.squish
-      concat('same-bytes:', resources.type, ':', item_references.version)
+      concat('same-bytes:', resources.type, ':', feed_references.version)
     SQL
   }.freeze
 
   WHERE = {
-    "same-name" => "item_references.locator_key IS NOT NULL AND item_references.locator_key <> ''",
-    "same-bytes" => "item_references.version IS NOT NULL AND item_references.version <> ''"
+    "same-name" => "feeds.key IS NOT NULL AND feeds.key <> ''",
+    "same-bytes" => "feed_references.version IS NOT NULL AND feed_references.version <> ''"
   }.freeze
 
   class << self
@@ -26,20 +25,21 @@ module Blocking
       def query(reason, cursor, limit)
         sql = ActiveRecord::Base.sanitize_sql_array([ <<~SQL.squish, cursor.to_s, limit ])
           SELECT #{KEYS[reason]} AS blocking_key,
-                 array_agg(DISTINCT items.id) AS item_ids
-          FROM items
-          JOIN item_references ON item_references.item_id = items.id
-          JOIN resources ON resources.id = item_references.resource_id
+                 array_agg(DISTINCT feeds.id) AS feed_ids
+          FROM feeds
+          JOIN feed_references ON feed_references.feed_id = feeds.id
+                              AND feed_references.role = 'original'
+          JOIN resources ON resources.id = feed_references.resource_id
           WHERE #{WHERE[reason]}
           GROUP BY blocking_key
-          HAVING count(DISTINCT items.id) > 1 AND #{KEYS[reason]} > ?
+          HAVING count(DISTINCT feeds.id) > 1 AND #{KEYS[reason]} > ?
           ORDER BY blocking_key
           LIMIT ?
         SQL
 
         ActiveRecord::Base.connection.select_all(sql).to_a.each do |row|
           row["reason"] = reason
-          row["item_ids"] = parse_ids(row["item_ids"])
+          row["feed_ids"] = parse_ids(row["feed_ids"])
         end
       end
 

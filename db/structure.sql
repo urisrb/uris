@@ -15,6 +15,51 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: analyses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.analyses (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    feed_id bigint NOT NULL,
+    reference_id bigint,
+    cause character varying NOT NULL,
+    status character varying DEFAULT 'queued'::character varying NOT NULL,
+    steps jsonb DEFAULT '{}'::jsonb NOT NULL,
+    turns jsonb DEFAULT '[]'::jsonb NOT NULL,
+    logs text,
+    lines integer DEFAULT 0 NOT NULL,
+    error character varying,
+    started_at timestamp(6) without time zone,
+    finished_at timestamp(6) without time zone,
+    deadline timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.analyses FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: analyses_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.analyses_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: analyses_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.analyses_id_seq OWNED BY public.analyses.id;
+
+
+--
 -- Name: ar_internal_metadata; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -71,27 +116,27 @@ ALTER SEQUENCE public.audit_events_id_seq OWNED BY public.audit_events.id;
 
 
 --
--- Name: feed_items; Type: TABLE; Schema: public; Owner: -
+-- Name: feed_edges; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.feed_items (
+CREATE TABLE public.feed_edges (
     id bigint NOT NULL,
     tenant_id bigint NOT NULL,
-    feed_id bigint NOT NULL,
-    item_id bigint NOT NULL,
-    run_id bigint,
+    a_id bigint NOT NULL,
+    b_id bigint NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    CONSTRAINT feed_edges_are_canonical CHECK ((a_id < b_id))
 );
 
-ALTER TABLE ONLY public.feed_items FORCE ROW LEVEL SECURITY;
+ALTER TABLE ONLY public.feed_edges FORCE ROW LEVEL SECURITY;
 
 
 --
--- Name: feed_items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: feed_edges_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE public.feed_items_id_seq
+CREATE SEQUENCE public.feed_edges_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -100,10 +145,55 @@ CREATE SEQUENCE public.feed_items_id_seq
 
 
 --
--- Name: feed_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+-- Name: feed_edges_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
-ALTER SEQUENCE public.feed_items_id_seq OWNED BY public.feed_items.id;
+ALTER SEQUENCE public.feed_edges_id_seq OWNED BY public.feed_edges.id;
+
+
+--
+-- Name: feed_references; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.feed_references (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    feed_id bigint NOT NULL,
+    resource_id bigint NOT NULL,
+    role character varying DEFAULT 'original'::character varying NOT NULL,
+    locator jsonb DEFAULT '{}'::jsonb NOT NULL,
+    locator_key character varying,
+    mime character varying,
+    size bigint,
+    digest character varying,
+    version character varying,
+    source_version character varying,
+    changed_at timestamp(6) without time zone,
+    analyzed_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.feed_references FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: feed_references_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.feed_references_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: feed_references_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.feed_references_id_seq OWNED BY public.feed_references.id;
 
 
 --
@@ -113,17 +203,17 @@ ALTER SEQUENCE public.feed_items_id_seq OWNED BY public.feed_items.id;
 CREATE TABLE public.feeds (
     id bigint NOT NULL,
     tenant_id bigint NOT NULL,
-    slug character varying NOT NULL,
-    name character varying,
-    prompt text NOT NULL,
-    role character varying DEFAULT 'agent'::character varying NOT NULL,
-    turns integer,
-    ran_at timestamp(6) without time zone,
+    type character varying NOT NULL,
+    key character varying NOT NULL,
+    title character varying,
+    note text,
+    parent_id bigint,
+    origin character varying DEFAULT 'resource'::character varying NOT NULL,
+    embedding double precision[],
+    embedded_digest character varying,
+    embedded_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
-    "interval" integer,
-    next_run_at timestamp(6) without time zone,
-    paused_at timestamp(6) without time zone
+    updated_at timestamp(6) without time zone NOT NULL
 );
 
 ALTER TABLE ONLY public.feeds FORCE ROW LEVEL SECURITY;
@@ -188,91 +278,6 @@ ALTER SEQUENCE public.gates_id_seq OWNED BY public.gates.id;
 
 
 --
--- Name: item_references; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.item_references (
-    id bigint NOT NULL,
-    tenant_id bigint NOT NULL,
-    item_id bigint NOT NULL,
-    resource_id bigint NOT NULL,
-    locator jsonb DEFAULT '{}'::jsonb NOT NULL,
-    locator_key character varying,
-    analysis jsonb DEFAULT '{}'::jsonb NOT NULL,
-    analyzed_at timestamp(6) without time zone,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
-    version character varying,
-    source_version character varying,
-    changed_at timestamp(6) without time zone
-);
-
-ALTER TABLE ONLY public.item_references FORCE ROW LEVEL SECURITY;
-
-
---
--- Name: item_references_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.item_references_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: item_references_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.item_references_id_seq OWNED BY public.item_references.id;
-
-
---
--- Name: items; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.items (
-    id bigint NOT NULL,
-    tenant_id bigint NOT NULL,
-    kind character varying NOT NULL,
-    title character varying,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL,
-    parent_id bigint,
-    origin character varying DEFAULT 'resource'::character varying NOT NULL,
-    feed_id bigint,
-    run_id bigint,
-    note text,
-    embedding double precision[],
-    embedded_digest character varying,
-    embedded_at timestamp(6) without time zone
-);
-
-ALTER TABLE ONLY public.items FORCE ROW LEVEL SECURITY;
-
-
---
--- Name: items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.items_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.items_id_seq OWNED BY public.items.id;
-
-
---
 -- Name: merge_proposals; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -281,7 +286,7 @@ CREATE TABLE public.merge_proposals (
     tenant_id bigint NOT NULL,
     blocking_key character varying NOT NULL,
     reason character varying NOT NULL,
-    item_ids jsonb DEFAULT '[]'::jsonb NOT NULL,
+    feed_ids jsonb DEFAULT '[]'::jsonb NOT NULL,
     status character varying DEFAULT 'open'::character varying NOT NULL,
     settled_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
@@ -308,49 +313,6 @@ CREATE SEQUENCE public.merge_proposals_id_seq
 --
 
 ALTER SEQUENCE public.merge_proposals_id_seq OWNED BY public.merge_proposals.id;
-
-
---
--- Name: prompts; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.prompts (
-    id bigint NOT NULL,
-    tenant_id bigint NOT NULL,
-    resource_id bigint NOT NULL,
-    promptable_type character varying,
-    promptable_id bigint,
-    role character varying NOT NULL,
-    model character varying NOT NULL,
-    attempt integer DEFAULT 1 NOT NULL,
-    request text NOT NULL,
-    response jsonb DEFAULT '{}'::jsonb NOT NULL,
-    started_at timestamp(6) without time zone,
-    finished_at timestamp(6) without time zone,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
-);
-
-ALTER TABLE ONLY public.prompts FORCE ROW LEVEL SECURITY;
-
-
---
--- Name: prompts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.prompts_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: prompts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.prompts_id_seq OWNED BY public.prompts.id;
 
 
 --
@@ -456,7 +418,6 @@ CREATE TABLE public.runs (
     error character varying,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    feed_id bigint,
     logs text,
     lines integer DEFAULT 0 NOT NULL
 );
@@ -481,6 +442,46 @@ CREATE SEQUENCE public.runs_id_seq
 --
 
 ALTER SEQUENCE public.runs_id_seq OWNED BY public.runs.id;
+
+
+--
+-- Name: schedules; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.schedules (
+    id bigint NOT NULL,
+    tenant_id bigint NOT NULL,
+    feed_id bigint NOT NULL,
+    prompt text NOT NULL,
+    turns integer,
+    "interval" integer,
+    paused_at timestamp(6) without time zone,
+    next_run_at timestamp(6) without time zone,
+    ran_at timestamp(6) without time zone,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.schedules FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: schedules_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.schedules_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: schedules_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.schedules_id_seq OWNED BY public.schedules.id;
 
 
 --
@@ -566,6 +567,13 @@ ALTER SEQUENCE public.tenants_id_seq OWNED BY public.tenants.id;
 
 
 --
+-- Name: analyses id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.analyses ALTER COLUMN id SET DEFAULT nextval('public.analyses_id_seq'::regclass);
+
+
+--
 -- Name: audit_events id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -573,10 +581,17 @@ ALTER TABLE ONLY public.audit_events ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
--- Name: feed_items id; Type: DEFAULT; Schema: public; Owner: -
+-- Name: feed_edges id; Type: DEFAULT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.feed_items ALTER COLUMN id SET DEFAULT nextval('public.feed_items_id_seq'::regclass);
+ALTER TABLE ONLY public.feed_edges ALTER COLUMN id SET DEFAULT nextval('public.feed_edges_id_seq'::regclass);
+
+
+--
+-- Name: feed_references id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feed_references ALTER COLUMN id SET DEFAULT nextval('public.feed_references_id_seq'::regclass);
 
 
 --
@@ -594,31 +609,10 @@ ALTER TABLE ONLY public.gates ALTER COLUMN id SET DEFAULT nextval('public.gates_
 
 
 --
--- Name: item_references id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.item_references ALTER COLUMN id SET DEFAULT nextval('public.item_references_id_seq'::regclass);
-
-
---
--- Name: items id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.items ALTER COLUMN id SET DEFAULT nextval('public.items_id_seq'::regclass);
-
-
---
 -- Name: merge_proposals id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.merge_proposals ALTER COLUMN id SET DEFAULT nextval('public.merge_proposals_id_seq'::regclass);
-
-
---
--- Name: prompts id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.prompts ALTER COLUMN id SET DEFAULT nextval('public.prompts_id_seq'::regclass);
 
 
 --
@@ -643,6 +637,13 @@ ALTER TABLE ONLY public.runs ALTER COLUMN id SET DEFAULT nextval('public.runs_id
 
 
 --
+-- Name: schedules id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.schedules ALTER COLUMN id SET DEFAULT nextval('public.schedules_id_seq'::regclass);
+
+
+--
 -- Name: settings id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -654,6 +655,14 @@ ALTER TABLE ONLY public.settings ALTER COLUMN id SET DEFAULT nextval('public.set
 --
 
 ALTER TABLE ONLY public.tenants ALTER COLUMN id SET DEFAULT nextval('public.tenants_id_seq'::regclass);
+
+
+--
+-- Name: analyses analyses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.analyses
+    ADD CONSTRAINT analyses_pkey PRIMARY KEY (id);
 
 
 --
@@ -673,11 +682,19 @@ ALTER TABLE ONLY public.audit_events
 
 
 --
--- Name: feed_items feed_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: feed_edges feed_edges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.feed_items
-    ADD CONSTRAINT feed_items_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.feed_edges
+    ADD CONSTRAINT feed_edges_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: feed_references feed_references_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feed_references
+    ADD CONSTRAINT feed_references_pkey PRIMARY KEY (id);
 
 
 --
@@ -697,35 +714,11 @@ ALTER TABLE ONLY public.gates
 
 
 --
--- Name: item_references item_references_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.item_references
-    ADD CONSTRAINT item_references_pkey PRIMARY KEY (id);
-
-
---
--- Name: items items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.items
-    ADD CONSTRAINT items_pkey PRIMARY KEY (id);
-
-
---
 -- Name: merge_proposals merge_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.merge_proposals
     ADD CONSTRAINT merge_proposals_pkey PRIMARY KEY (id);
-
-
---
--- Name: prompts prompts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.prompts
-    ADD CONSTRAINT prompts_pkey PRIMARY KEY (id);
 
 
 --
@@ -753,6 +746,14 @@ ALTER TABLE ONLY public.runs
 
 
 --
+-- Name: schedules schedules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.schedules
+    ADD CONSTRAINT schedules_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -774,6 +775,48 @@ ALTER TABLE ONLY public.settings
 
 ALTER TABLE ONLY public.tenants
     ADD CONSTRAINT tenants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: index_analyses_on_feed_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_analyses_on_feed_id ON public.analyses USING btree (feed_id);
+
+
+--
+-- Name: index_analyses_on_reference_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_analyses_on_reference_id ON public.analyses USING btree (reference_id);
+
+
+--
+-- Name: index_analyses_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_analyses_on_tenant_id ON public.analyses USING btree (tenant_id);
+
+
+--
+-- Name: index_analyses_on_tenant_id_and_feed_id_and_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_analyses_on_tenant_id_and_feed_id_and_id ON public.analyses USING btree (tenant_id, feed_id, id);
+
+
+--
+-- Name: index_analyses_on_tenant_id_and_finished_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_analyses_on_tenant_id_and_finished_at ON public.analyses USING btree (tenant_id, finished_at);
+
+
+--
+-- Name: index_analyses_on_tenant_id_and_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_analyses_on_tenant_id_and_status ON public.analyses USING btree (tenant_id, status);
 
 
 --
@@ -812,38 +855,101 @@ CREATE INDEX index_audit_events_on_tenant_id_and_status_and_id ON public.audit_e
 
 
 --
--- Name: index_feed_items_on_feed_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_feed_edges_on_a_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_feed_items_on_feed_id ON public.feed_items USING btree (feed_id);
-
-
---
--- Name: index_feed_items_on_item_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_feed_items_on_item_id ON public.feed_items USING btree (item_id);
+CREATE INDEX index_feed_edges_on_a_id ON public.feed_edges USING btree (a_id);
 
 
 --
--- Name: index_feed_items_on_run_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_feed_edges_on_b_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_feed_items_on_run_id ON public.feed_items USING btree (run_id);
-
-
---
--- Name: index_feed_items_on_tenant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_feed_items_on_tenant_id ON public.feed_items USING btree (tenant_id);
+CREATE INDEX index_feed_edges_on_b_id ON public.feed_edges USING btree (b_id);
 
 
 --
--- Name: index_feed_items_on_tenant_id_and_feed_id_and_item_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_feed_edges_on_tenant_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_feed_items_on_tenant_id_and_feed_id_and_item_id ON public.feed_items USING btree (tenant_id, feed_id, item_id);
+CREATE INDEX index_feed_edges_on_tenant_id ON public.feed_edges USING btree (tenant_id);
+
+
+--
+-- Name: index_feed_edges_on_tenant_id_and_a_id_and_b_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_feed_edges_on_tenant_id_and_a_id_and_b_id ON public.feed_edges USING btree (tenant_id, a_id, b_id);
+
+
+--
+-- Name: index_feed_edges_on_tenant_id_and_b_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feed_edges_on_tenant_id_and_b_id ON public.feed_edges USING btree (tenant_id, b_id);
+
+
+--
+-- Name: index_feed_references_on_feed_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feed_references_on_feed_id ON public.feed_references USING btree (feed_id);
+
+
+--
+-- Name: index_feed_references_on_locator; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_feed_references_on_locator ON public.feed_references USING btree (tenant_id, resource_id, locator_key) WHERE (locator_key IS NOT NULL);
+
+
+--
+-- Name: index_feed_references_on_resource_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feed_references_on_resource_id ON public.feed_references USING btree (resource_id);
+
+
+--
+-- Name: index_feed_references_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feed_references_on_tenant_id ON public.feed_references USING btree (tenant_id);
+
+
+--
+-- Name: index_feed_references_on_tenant_id_and_analyzed_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feed_references_on_tenant_id_and_analyzed_at ON public.feed_references USING btree (tenant_id, analyzed_at);
+
+
+--
+-- Name: index_feed_references_on_tenant_id_and_feed_id_and_role; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feed_references_on_tenant_id_and_feed_id_and_role ON public.feed_references USING btree (tenant_id, feed_id, role);
+
+
+--
+-- Name: index_feeds_awaiting_a_vector; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feeds_awaiting_a_vector ON public.feeds USING btree (tenant_id, id) WHERE (embedded_at IS NULL);
+
+
+--
+-- Name: index_feeds_on_one_row_per_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_feeds_on_one_row_per_address ON public.feeds USING btree (tenant_id, type, key) WHERE ((type)::text = ANY ((ARRAY['uris:tag'::character varying, 'uris:feed'::character varying])::text[]));
+
+
+--
+-- Name: index_feeds_on_parent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feeds_on_parent_id ON public.feeds USING btree (parent_id);
 
 
 --
@@ -854,17 +960,38 @@ CREATE INDEX index_feeds_on_tenant_id ON public.feeds USING btree (tenant_id);
 
 
 --
--- Name: index_feeds_on_tenant_id_and_next_run_at; Type: INDEX; Schema: public; Owner: -
+-- Name: index_feeds_on_tenant_id_and_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_feeds_on_tenant_id_and_next_run_at ON public.feeds USING btree (tenant_id, next_run_at) WHERE ((next_run_at IS NOT NULL) AND (paused_at IS NULL));
+CREATE INDEX index_feeds_on_tenant_id_and_created_at ON public.feeds USING btree (tenant_id, created_at);
 
 
 --
--- Name: index_feeds_on_tenant_id_and_slug; Type: INDEX; Schema: public; Owner: -
+-- Name: index_feeds_on_tenant_id_and_key; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_feeds_on_tenant_id_and_slug ON public.feeds USING btree (tenant_id, slug);
+CREATE INDEX index_feeds_on_tenant_id_and_key ON public.feeds USING btree (tenant_id, key);
+
+
+--
+-- Name: index_feeds_on_tenant_id_and_origin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feeds_on_tenant_id_and_origin ON public.feeds USING btree (tenant_id, origin);
+
+
+--
+-- Name: index_feeds_on_tenant_id_and_parent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feeds_on_tenant_id_and_parent_id ON public.feeds USING btree (tenant_id, parent_id);
+
+
+--
+-- Name: index_feeds_on_tenant_id_and_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feeds_on_tenant_id_and_type ON public.feeds USING btree (tenant_id, type);
 
 
 --
@@ -879,97 +1006,6 @@ CREATE UNIQUE INDEX index_gates_on_scope ON public.gates USING btree (tenant_id,
 --
 
 CREATE INDEX index_gates_on_tenant_id ON public.gates USING btree (tenant_id);
-
-
---
--- Name: index_item_references_on_item_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_item_references_on_item_id ON public.item_references USING btree (item_id);
-
-
---
--- Name: index_item_references_on_locator; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_item_references_on_locator ON public.item_references USING btree (tenant_id, resource_id, locator_key) WHERE (locator_key IS NOT NULL);
-
-
---
--- Name: index_item_references_on_resource_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_item_references_on_resource_id ON public.item_references USING btree (resource_id);
-
-
---
--- Name: index_item_references_on_tenant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_item_references_on_tenant_id ON public.item_references USING btree (tenant_id);
-
-
---
--- Name: index_item_references_on_tenant_id_and_analyzed_at; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_item_references_on_tenant_id_and_analyzed_at ON public.item_references USING btree (tenant_id, analyzed_at);
-
-
---
--- Name: index_items_awaiting_a_vector; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_items_awaiting_a_vector ON public.items USING btree (tenant_id, id) WHERE (embedded_at IS NULL);
-
-
---
--- Name: index_items_on_parent_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_items_on_parent_id ON public.items USING btree (parent_id);
-
-
---
--- Name: index_items_on_tenant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_items_on_tenant_id ON public.items USING btree (tenant_id);
-
-
---
--- Name: index_items_on_tenant_id_and_created_at; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_items_on_tenant_id_and_created_at ON public.items USING btree (tenant_id, created_at);
-
-
---
--- Name: index_items_on_tenant_id_and_feed_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_items_on_tenant_id_and_feed_id ON public.items USING btree (tenant_id, feed_id) WHERE (feed_id IS NOT NULL);
-
-
---
--- Name: index_items_on_tenant_id_and_kind; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_items_on_tenant_id_and_kind ON public.items USING btree (tenant_id, kind);
-
-
---
--- Name: index_items_on_tenant_id_and_origin; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_items_on_tenant_id_and_origin ON public.items USING btree (tenant_id, origin);
-
-
---
--- Name: index_items_on_tenant_id_and_parent_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_items_on_tenant_id_and_parent_id ON public.items USING btree (tenant_id, parent_id);
 
 
 --
@@ -991,41 +1027,6 @@ CREATE INDEX index_merge_proposals_on_tenant_id_and_status_and_id ON public.merg
 --
 
 CREATE UNIQUE INDEX index_open_merge_proposals_on_key ON public.merge_proposals USING btree (tenant_id, blocking_key) WHERE ((status)::text = 'open'::text);
-
-
---
--- Name: index_prompts_on_promptable; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_prompts_on_promptable ON public.prompts USING btree (promptable_type, promptable_id);
-
-
---
--- Name: index_prompts_on_resource_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_prompts_on_resource_id ON public.prompts USING btree (resource_id);
-
-
---
--- Name: index_prompts_on_tenant_and_promptable; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_prompts_on_tenant_and_promptable ON public.prompts USING btree (tenant_id, promptable_type, promptable_id);
-
-
---
--- Name: index_prompts_on_tenant_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_prompts_on_tenant_id ON public.prompts USING btree (tenant_id);
-
-
---
--- Name: index_prompts_on_tenant_id_and_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_prompts_on_tenant_id_and_id ON public.prompts USING btree (tenant_id, id);
 
 
 --
@@ -1099,13 +1100,6 @@ CREATE INDEX index_resources_on_via ON public.resources USING btree (tenant_id, 
 
 
 --
--- Name: index_runs_on_feed_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_runs_on_feed_id ON public.runs USING btree (feed_id);
-
-
---
 -- Name: index_runs_on_resource_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1141,6 +1135,34 @@ CREATE INDEX index_runs_on_tenant_id_and_status_and_id ON public.runs USING btre
 
 
 --
+-- Name: index_schedules_on_feed_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_schedules_on_feed_id ON public.schedules USING btree (feed_id);
+
+
+--
+-- Name: index_schedules_on_tenant_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_schedules_on_tenant_id ON public.schedules USING btree (tenant_id);
+
+
+--
+-- Name: index_schedules_on_tenant_id_and_feed_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_schedules_on_tenant_id_and_feed_id ON public.schedules USING btree (tenant_id, feed_id);
+
+
+--
+-- Name: index_schedules_on_tenant_id_and_next_run_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_schedules_on_tenant_id_and_next_run_at ON public.schedules USING btree (tenant_id, next_run_at) WHERE ((next_run_at IS NOT NULL) AND (paused_at IS NULL));
+
+
+--
 -- Name: index_settings_on_scope; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1170,11 +1192,11 @@ ALTER TABLE ONLY public.resource_blobs
 
 
 --
--- Name: feed_items fk_rails_0b1095a1ad; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: schedules fk_rails_084a346429; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.feed_items
-    ADD CONSTRAINT fk_rails_0b1095a1ad FOREIGN KEY (feed_id) REFERENCES public.feeds(id);
+ALTER TABLE ONLY public.schedules
+    ADD CONSTRAINT fk_rails_084a346429 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
@@ -1186,6 +1208,14 @@ ALTER TABLE ONLY public.runs
 
 
 --
+-- Name: analyses fk_rails_0c7b97356e; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.analyses
+    ADD CONSTRAINT fk_rails_0c7b97356e FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
 -- Name: gates fk_rails_1402937732; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1194,19 +1224,11 @@ ALTER TABLE ONLY public.gates
 
 
 --
--- Name: runs fk_rails_1e6c1e0ed1; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: feed_references fk_rails_2dbee6c560; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.runs
-    ADD CONSTRAINT fk_rails_1e6c1e0ed1 FOREIGN KEY (feed_id) REFERENCES public.feeds(id);
-
-
---
--- Name: feed_items fk_rails_23992f96b3; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.feed_items
-    ADD CONSTRAINT fk_rails_23992f96b3 FOREIGN KEY (run_id) REFERENCES public.runs(id);
+ALTER TABLE ONLY public.feed_references
+    ADD CONSTRAINT fk_rails_2dbee6c560 FOREIGN KEY (resource_id) REFERENCES public.resources(id);
 
 
 --
@@ -1218,59 +1240,59 @@ ALTER TABLE ONLY public.settings
 
 
 --
--- Name: item_references fk_rails_3ba42c6c80; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: feed_references fk_rails_610066d82a; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.item_references
-    ADD CONSTRAINT fk_rails_3ba42c6c80 FOREIGN KEY (resource_id) REFERENCES public.resources(id);
-
-
---
--- Name: prompts fk_rails_49bef51511; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.prompts
-    ADD CONSTRAINT fk_rails_49bef51511 FOREIGN KEY (resource_id) REFERENCES public.resources(id);
+ALTER TABLE ONLY public.feed_references
+    ADD CONSTRAINT fk_rails_610066d82a FOREIGN KEY (feed_id) REFERENCES public.feeds(id);
 
 
 --
--- Name: items fk_rails_7e424238f4; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: feed_edges fk_rails_90f851ca9c; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.items
-    ADD CONSTRAINT fk_rails_7e424238f4 FOREIGN KEY (feed_id) REFERENCES public.feeds(id);
-
-
---
--- Name: item_references fk_rails_89e5ab95a5; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.item_references
-    ADD CONSTRAINT fk_rails_89e5ab95a5 FOREIGN KEY (item_id) REFERENCES public.items(id);
+ALTER TABLE ONLY public.feed_edges
+    ADD CONSTRAINT fk_rails_90f851ca9c FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
 
 
 --
--- Name: feed_items fk_rails_a493424eab; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: analyses fk_rails_9c589bf702; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.feed_items
-    ADD CONSTRAINT fk_rails_a493424eab FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
-
-
---
--- Name: item_references fk_rails_babac667d3; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.item_references
-    ADD CONSTRAINT fk_rails_babac667d3 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+ALTER TABLE ONLY public.analyses
+    ADD CONSTRAINT fk_rails_9c589bf702 FOREIGN KEY (reference_id) REFERENCES public.feed_references(id);
 
 
 --
--- Name: items fk_rails_c04ed73952; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: feed_edges fk_rails_a9d258f3a7; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.items
-    ADD CONSTRAINT fk_rails_c04ed73952 FOREIGN KEY (run_id) REFERENCES public.runs(id);
+ALTER TABLE ONLY public.feed_edges
+    ADD CONSTRAINT fk_rails_a9d258f3a7 FOREIGN KEY (a_id) REFERENCES public.feeds(id);
+
+
+--
+-- Name: feeds fk_rails_be542f409b; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feeds
+    ADD CONSTRAINT fk_rails_be542f409b FOREIGN KEY (parent_id) REFERENCES public.feeds(id);
+
+
+--
+-- Name: feed_references fk_rails_c6d964abb8; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feed_references
+    ADD CONSTRAINT fk_rails_c6d964abb8 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: schedules fk_rails_ca53661ed7; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.schedules
+    ADD CONSTRAINT fk_rails_ca53661ed7 FOREIGN KEY (feed_id) REFERENCES public.feeds(id);
 
 
 --
@@ -1279,6 +1301,14 @@ ALTER TABLE ONLY public.items
 
 ALTER TABLE ONLY public.merge_proposals
     ADD CONSTRAINT fk_rails_cb45b638ed FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: analyses fk_rails_cca65eba28; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.analyses
+    ADD CONSTRAINT fk_rails_cca65eba28 FOREIGN KEY (feed_id) REFERENCES public.feeds(id);
 
 
 --
@@ -1298,35 +1328,19 @@ ALTER TABLE ONLY public.runs
 
 
 --
+-- Name: feed_edges fk_rails_dba2ee0e5c; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.feed_edges
+    ADD CONSTRAINT fk_rails_dba2ee0e5c FOREIGN KEY (b_id) REFERENCES public.feeds(id);
+
+
+--
 -- Name: resources fk_rails_dc32a866bd; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.resources
     ADD CONSTRAINT fk_rails_dc32a866bd FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
-
-
---
--- Name: items fk_rails_e34bd51df4; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.items
-    ADD CONSTRAINT fk_rails_e34bd51df4 FOREIGN KEY (parent_id) REFERENCES public.items(id);
-
-
---
--- Name: items fk_rails_e34f2f4c48; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.items
-    ADD CONSTRAINT fk_rails_e34f2f4c48 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
-
-
---
--- Name: feed_items fk_rails_e363adfb8f; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.feed_items
-    ADD CONSTRAINT fk_rails_e363adfb8f FOREIGN KEY (item_id) REFERENCES public.items(id);
 
 
 --
@@ -1346,14 +1360,6 @@ ALTER TABLE ONLY public.feeds
 
 
 --
--- Name: prompts fk_rails_eaab65bd59; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.prompts
-    ADD CONSTRAINT fk_rails_eaab65bd59 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
-
-
---
 -- Name: audit_events fk_rails_fcd253d0d8; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1370,16 +1376,28 @@ ALTER TABLE ONLY public.resources
 
 
 --
+-- Name: analyses; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.analyses ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: audit_events; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.audit_events ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: feed_items; Type: ROW SECURITY; Schema: public; Owner: -
+-- Name: feed_edges; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
-ALTER TABLE public.feed_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.feed_edges ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: feed_references; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.feed_references ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: feeds; Type: ROW SECURITY; Schema: public; Owner: -
@@ -1394,28 +1412,10 @@ ALTER TABLE public.feeds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gates ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: item_references; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.item_references ENABLE ROW LEVEL SECURITY;
-
---
--- Name: items; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.items ENABLE ROW LEVEL SECURITY;
-
---
 -- Name: merge_proposals; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.merge_proposals ENABLE ROW LEVEL SECURITY;
-
---
--- Name: prompts; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.prompts ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: resource_blobs; Type: ROW SECURITY; Schema: public; Owner: -
@@ -1436,10 +1436,23 @@ ALTER TABLE public.resources ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.runs ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: schedules; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.schedules ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: settings; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: analyses tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.analyses USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+
 
 --
 -- Name: audit_events tenant_isolation; Type: POLICY; Schema: public; Owner: -
@@ -1449,10 +1462,17 @@ CREATE POLICY tenant_isolation ON public.audit_events USING ((tenant_id = (NULLI
 
 
 --
--- Name: feed_items tenant_isolation; Type: POLICY; Schema: public; Owner: -
+-- Name: feed_edges tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY tenant_isolation ON public.feed_items USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+CREATE POLICY tenant_isolation ON public.feed_edges USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
+-- Name: feed_references tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.feed_references USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
@@ -1470,31 +1490,10 @@ CREATE POLICY tenant_isolation ON public.gates USING ((tenant_id = (NULLIF(curre
 
 
 --
--- Name: item_references tenant_isolation; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY tenant_isolation ON public.item_references USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
-
-
---
--- Name: items tenant_isolation; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY tenant_isolation ON public.items USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
-
-
---
 -- Name: merge_proposals tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY tenant_isolation ON public.merge_proposals USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
-
-
---
--- Name: prompts tenant_isolation; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY tenant_isolation ON public.prompts USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
 
 
 --
@@ -1519,6 +1518,13 @@ CREATE POLICY tenant_isolation ON public.runs USING ((tenant_id = (NULLIF(curren
 
 
 --
+-- Name: schedules tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.schedules USING ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint)) WITH CHECK ((tenant_id = (NULLIF(current_setting('uris.tenant_id'::text, true), ''::text))::bigint));
+
+
+--
 -- Name: settings tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -1532,6 +1538,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260908120000'),
 ('20260907220000'),
 ('20260907100000'),
 ('20260906150000'),

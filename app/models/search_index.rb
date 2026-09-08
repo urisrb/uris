@@ -21,7 +21,10 @@ module SearchIndex
     dynamic: false,
     properties: {
       tenant_id: { type: "long" },
-      kind: { type: "keyword" },
+      type: { type: "keyword" },
+      mime: { type: "keyword" },
+      tags: { type: "keyword" },
+      key: { type: "text", analyzer: "path" },
       title: { type: "text", analyzer: "path" },
       locator_key: { type: "text", analyzer: "path" },
       note: { type: "text" },
@@ -132,8 +135,8 @@ module SearchIndex
       target
     end
 
-    def index(item, into: alias_name)
-      client.index(index: into, id: item.id, body: document(item))
+    def index(feed, into: alias_name)
+      client.index(index: into, id: feed.id, body: document(feed))
     end
 
     def index_all(items, into: alias_name)
@@ -161,50 +164,53 @@ module SearchIndex
       nil
     end
 
-    def document(item)
+    def document(feed)
       {
-        tenant_id: item.tenant_id,
-        kind: item.kind,
-        title: item.title,
-        note: item.note,
-        locator_key: item.references.map(&:locator_key).compact.join(" "),
-        summary: item.summaries.join("\n"),
-        keywords: item.keywords,
-        body: item.body_text(without: [ :summary ]),
-        resource_ids: item.references.map(&:resource_id),
-        created_at: item.created_at,
-        embedding: item.embedding.presence
+        tenant_id: feed.tenant_id,
+        type: feed.type,
+        mime: feed.mime,
+        tags: feed.tags.pluck(:key),
+        key: feed.key,
+        title: feed.title,
+        note: feed.note,
+        locator_key: feed.references.map(&:locator_key).compact.join(" "),
+        summary: feed.summaries.join("\n"),
+        keywords: feed.keywords,
+        body: feed.body_text(without: [ :summary ]),
+        resource_ids: feed.references.map(&:resource_id),
+        created_at: feed.created_at,
+        embedding: feed.embedding.presence
       }.compact
     end
 
-    def search(query, tenant: Current.tenant, kind: nil, limit: 50)
-      page(query, tenant: tenant, kind: kind, limit: limit)[:ids]
+    def search(query, tenant: Current.tenant, type: nil, limit: 50)
+      page(query, tenant: tenant, type: type, limit: limit)[:ids]
     end
 
-    def page(query, tenant: Current.tenant, kind: nil, limit: 50, from: 0)
+    def page(query, tenant: Current.tenant, type: nil, limit: 50, from: 0)
       raise ArgumentError, "no tenant" if tenant.nil?
 
       vector = wanted_vector(query, limit: limit, from: from)
 
-      return lexical(query, tenant: tenant, kind: kind, limit: limit, from: from) if vector.nil?
+      return lexical(query, tenant: tenant, type: type, limit: limit, from: from) if vector.nil?
 
-      found = lexical(query, tenant: tenant, kind: kind, limit: CANDIDATES, from: 0)
-      fused = fuse(found[:ids], nearest(vector, tenant: tenant, kind: kind, limit: CANDIDATES))
+      found = lexical(query, tenant: tenant, type: type, limit: CANDIDATES, from: 0)
+      fused = fuse(found[:ids], nearest(vector, tenant: tenant, type: type, limit: CANDIDATES))
 
       { ids: fused.drop(from).first(limit), total: [ found[:total], fused.length ].max }
     end
 
-    def lexical(query, tenant:, kind:, limit:, from:)
+    def lexical(query, tenant:, type:, limit:, from:)
       must = if query.present?
         [ { multi_match: {
-          query: query, fields: %w[title^3 keywords^3 note^2 summary^2 locator_key body],
+          query: query, fields: %w[title^3 key^3 keywords^3 note^2 summary^2 tags^2 locator_key body],
           operator: "and"
         } } ]
       else
         [ { match_all: {} } ]
       end
 
-      must << { term: { kind: kind } } if kind
+      must << { term: { type: type } } if type
 
       response = client.search(
         index: alias_for(tenant),
@@ -220,9 +226,9 @@ module SearchIndex
       }
     end
 
-    def nearest(vector, tenant:, kind:, limit:)
+    def nearest(vector, tenant:, type:, limit:)
       must = [ { term: { tenant_id: tenant.id } } ]
-      must << { term: { kind: kind } } if kind
+      must << { term: { type: type } } if type
 
       response = client.search(
         index: alias_for(tenant),

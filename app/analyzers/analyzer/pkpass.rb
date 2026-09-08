@@ -5,8 +5,8 @@ module Analyzer
     FIELD_GROUPS = %w[headerFields primaryFields secondaryFields auxiliaryFields backFields].freeze
     STYLES = %w[boardingPass coupon eventTicket generic storeCard].freeze
 
-    def self.handles?(item)
-      item.kind == "pkpass"
+    def self.handles?(feed)
+      feed.mime == "application/vnd.apple.pkpass"
     end
 
     def analyze

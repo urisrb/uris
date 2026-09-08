@@ -89,8 +89,8 @@ class Resource
       locator.to_h["last_edited_time"].presence
     end
 
-    def kind_for(_page)
-      "text"
+    def mime_for(_page)
+      "text/markdown"
     end
 
     def title_for(page)

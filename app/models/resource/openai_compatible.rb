@@ -202,12 +202,12 @@ class Resource
     # tool call, because the loop is ours: a model emits a request to run something, never
     # runs it. json_mode is deliberately not set here — response_format and tools fight,
     # and a model forced into a JSON object cannot emit a tool call.
-    def converse(messages:, tools: [], role: AGENT_ROLE, promptable: nil, turn: 1)
+    def converse(messages:, tools: [], role: AGENT_ROLE, analysis: nil, turn: 1)
       model = model_for(role)
       last = messages.last.to_h
       asked = (last[:content] || last["content"] || last[:name] || last["name"]).to_s.presence || "(tool result)"
-      record = Prompt.open!(resource: self, role: role, model: model, request: scrub(asked).truncate(MAX_PROMPT),
-                           promptable: promptable, attempt: turn)
+      request = scrub(asked).truncate(MAX_PROMPT)
+      started = Time.current
 
       begin
         answered = post("/chat/completions", {
@@ -215,12 +215,15 @@ class Resource
           messages: messages, tools: tools
         }.compact_blank, timeout: read_timeout)
       rescue StandardError => e
-        record.fail!(e)
+        noted(analysis, role: role, model: model, number: turn, request: request,
+              started_at: started, error: { "class" => e.class.name, "message" => e.message.truncate(500) })
         raise
       end
 
       message = answered.dig("choices", 0, "message") || {}
-      record.finish!(recorded(message))
+      noted(analysis, role: role, model: model, number: turn, request: request,
+            started_at: started, content: recorded(message),
+            calls: Array(message["tool_calls"]).filter_map { |call| call.dig("function", "name") })
 
       if message["content"].blank? && message["tool_calls"].blank?
         raise Resource::Unusable,
@@ -244,13 +247,21 @@ class Resource
         ("thinking: #{thought.squish.truncate(2000)}" if thought.present?) ].compact.join("\n\n")
     end
 
-    def summarize(prompt, role:, promptable: nil, images: [])
+    def noted(analysis, **held)
+      return if analysis.nil?
+
+      analysis.turn!(resource: self, **held)
+    rescue StandardError => e
+      Rails.logger.warn "#{key}: a turn could not be recorded — #{e.message}"
+    end
+
+    def summarize(prompt, role:, analysis: nil, images: [])
       model = model_for(role)
       tries = attempts_for(role)
       last = nil
 
       tries.times do |index|
-        answer = complete(prompt, model: model, role: role, promptable: promptable,
+        answer = complete(prompt, model: model, role: role, analysis: analysis,
                           attempt: index + 1, images: images)
         parsed = self.class.extract_json(answer)
 
@@ -334,7 +345,7 @@ class Resource
       end
 
       def reconsider_every_vector
-        Item.where.not(embedded_at: nil).update_all(embedded_at: nil)
+        Feed.where.not(embedded_at: nil).update_all(embedded_at: nil)
       end
 
       def it_names_an_endpoint
@@ -345,19 +356,21 @@ class Resource
         get("/models").fetch("data", []).filter_map { |entry| entry["id"] }
       end
 
-      def complete(prompt, model:, role:, promptable:, attempt:, images:)
+      def complete(prompt, model:, role:, analysis:, attempt:, images:)
         body = scrub(prompt).truncate(MAX_PROMPT)
-        record = Prompt.open!(resource: self, role: role, model: model,
-                              request: body, promptable: promptable, attempt: attempt)
+        started = Time.current
 
         begin
           content = ask(body, model, images)
         rescue StandardError => e
-          record.fail!(e)
+          noted(analysis, role: role, model: model, number: attempt, request: body,
+                started_at: started,
+                error: { "class" => e.class.name, "message" => e.message.truncate(500) })
           raise
         end
 
-        record.finish!(content)
+        noted(analysis, role: role, model: model, number: attempt, request: body,
+              started_at: started, content: content)
         content
       end
 

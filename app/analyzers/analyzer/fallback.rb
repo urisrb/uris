@@ -21,7 +21,7 @@ module Analyzer
 
     MARKUP = /\.(html?|xhtml|svg|xml)\z/i
 
-    def self.handles?(_item)
+    def self.handles?(_feed)
       true
     end
 

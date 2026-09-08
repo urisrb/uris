@@ -48,7 +48,7 @@ class SyncResourceJob < ApplicationJob
       title: resource.title_for(object)
     )
 
-    AnalyzeItemJob.start!(tenant_id, reference.item_id) if reference.analyzed_at.nil?
+    reference.feed.analyze!(cause: "sync") if reference.analyzed_at.nil?
 
     track_iteration
   end

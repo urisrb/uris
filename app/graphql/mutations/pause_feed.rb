@@ -8,8 +8,10 @@ module Mutations
     field :feed, Types::FeedType, null: false
 
     def resolve(id:, paused:)
-      feed = Feed.find(id)
-      paused ? feed.pause! : feed.resume!
+      feed = feed!(id)
+      schedule = feed.schedule || refused("#{feed.key} has nothing to pause")
+
+      paused ? schedule.pause! : schedule.resume!
 
       { feed: feed }
     end

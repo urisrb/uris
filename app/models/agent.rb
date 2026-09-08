@@ -2,7 +2,8 @@ class Agent
   class Refused < StandardError; end
 
   TURNS = 6
-  READ_TOOLS = %w[search_items get_item search_web].freeze
+  FLAILING = 3
+  READ_TOOLS = %w[search feed connect resource].freeze
 
   SYSTEM = <<~TEXT.freeze
     You are the uris catalog agent. Use the tools to find what the request asks for.
@@ -10,46 +11,57 @@ class Agent
     or two sentences and stop.
   TEXT
 
-  Turn = Struct.new(:number, :calls, :said, keyword_init: true)
+  LAST_TURN = <<~TEXT.freeze
+    You have no turns left and no tools. Answer the request from what you have already
+    read, in one or two sentences. If you never found it, say so plainly.
+  TEXT
 
-  attr_reader :turns_taken, :looked_at
+  Answer = Data.define(:said, :reason, :turns, :calls) do
+    def answered? = reason == :answered
 
-  def initialize(grant:, inference: nil, tools: nil, promptable: nil, turns: TURNS, halted: nil)
+    def read
+      calls.select { |call| call.ok && call.name == "feed" }
+           .filter_map { |call| call.arguments[:id] || call.arguments["id"] }
+           .uniq
+    end
+  end
+
+  attr_reader :turns_taken, :calls
+
+  def initialize(grant:, inference: nil, tools: nil, analysis: nil, turns: TURNS, halted: nil)
     @grant = grant
     @inference = inference || Resource.for_role(Resource::OpenaiCompatible::AGENT_ROLE)
     @offered = tools || grant.tools.select { |tool| READ_TOOLS.include?(tool.tool_name) }
-    @promptable = promptable
-    @turns = turns
+    @analysis = analysis
+    @turns = turns.to_i.clamp(1, 32)
     @halted = halted
     @turns_taken = 0
-    @looked_at = []
+    @calls = []
+    @flailed = 0
   end
 
   def call(prompt)
     raise Refused, "no inference resource serves the agent role" if @inference.nil?
 
-    messages = [ { role: "system", content: SYSTEM }, { role: "user", content: prompt.to_s } ]
+    transcript = Transcript.new(system: SYSTEM, prompt: prompt)
 
     @turns.times do |index|
-      return :halted if @halted&.call
+      return finished(:halted) if @halted&.call
 
       @turns_taken = index + 1
-      message = @inference.converse(messages: messages, tools: declared, promptable: @promptable, turn: @turns_taken)
-      calls = message["tool_calls"]
+      last = @turns_taken == @turns
+      message = spoke(transcript, last: last)
+      requested = Array(message["tool_calls"])
 
-      if calls.blank?
-        announce(Turn.new(number: @turns_taken, calls: [], said: message["content"].to_s))
+      return finished(:answered, message["content"]) if requested.blank? || last
 
-        return message["content"].to_s
-      end
+      transcript.said(message)
+      requested.each { |raw| answer(transcript, raw) }
 
-      messages << message
-      calls.each { |call| messages << answer(call) }
-
-      announce(Turn.new(number: @turns_taken, calls: calls.map { |c| c.dig("function", "name") }, said: nil))
+      return finished(:flailed) if @flailed >= FLAILING
     end
 
-    :ran_out
+    finished(:ran_out)
   end
 
   def inference_key = @inference&.key
@@ -57,8 +69,17 @@ class Agent
 
   private
 
-    # The same schema an MCP client is given, from the same registry, so a tool cannot
-    # behave one way over /mcp and another here.
+    def spoke(transcript, last:)
+      transcript.closing(LAST_TURN) if last
+
+      @inference.converse(
+        messages: transcript.messages,
+        tools: last ? [] : declared,
+        analysis: @analysis,
+        turn: @turns_taken
+      )
+    end
+
     def declared
       @offered.map do |tool|
         {
@@ -72,52 +93,35 @@ class Agent
       end
     end
 
-    # Dispatches through Tool.call, which re-checks the scope against Current.grant itself.
-    # A model that names a tool it was not offered, or arguments that do not fit, is
-    # refused here rather than trusted.
-    def answer(call)
-      name = call.dig("function", "name")
-      tool = @offered.find { |candidate| candidate.tool_name == name }
+    def answer(transcript, raw)
+      result = dispatch.call(raw)
 
-      args = arguments(call)
-      content =
-        if tool.nil?
-          { error: "no tool named #{name}" }.to_json
-        else
-          noted(name, args, said(tool.call(server_context: context, **args)))
-        end
+      @calls << result
+      @flailed = result.ok ? 0 : @flailed + 1
 
-      { role: "tool", tool_call_id: call["id"].to_s, name: name, content: content }
+      note(result)
+      transcript.answered(raw, result.content)
     end
 
-    # What the agent fetched is what it decided was worth looking at, and the feed keeps
-    # that rather than a list the model reports separately.
-    def noted(name, args, content)
-      @looked_at << args[:id].to_s if name == "get_item" && args[:id].present?
-
-      content
+    def dispatch
+      @dispatch ||= Dispatch.new(offered: @offered, context: context)
     end
 
-    def arguments(call)
-      parsed = JSON.parse(call.dig("function", "arguments").to_s)
-      parsed.is_a?(Hash) ? parsed.symbolize_keys : {}
-    rescue JSON::ParserError
-      {}
+    def note(result)
+      return if @analysis.nil?
+
+      if result.ok
+        @analysis.log_done("agent", "turn #{@turns_taken}", result.name)
+      else
+        @analysis.log_fail("agent", "turn #{@turns_taken}", result.name, result.error)
+      end
     end
 
-    def said(response)
-      Array(response.content).filter_map { |part| part[:text] || part["text"] }.join("\n")
+    def finished(reason, said = nil)
+      Answer.new(said: said.to_s.presence, reason: reason, turns: @turns_taken, calls: @calls)
     end
 
     def context
       { tenant_id: @grant.tenant.id, scopes: @grant.scopes }
-    end
-
-    def announce(turn)
-      return if @promptable.nil?
-
-      UrisSchema.subscriptions.trigger(:agent_turned, { id: @promptable.id.to_s }, turn)
-    rescue StandardError => e
-      Rails.logger.warn "agent could not announce turn #{turn.number}: #{e.message}"
     end
 end

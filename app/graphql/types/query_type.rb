@@ -21,50 +21,54 @@ module Types
       end
     end
 
-    field :item, Types::ItemType, null: true, grants: "uris:catalog:read" do
-      argument :id, ID, required: true
+    field :feed, Types::FeedType, null: true, grants: "uris:catalog:read" do
+      argument :id, ID, required: false
+      argument :key, String, required: false, description: "An address, as /buy."
     end
 
-    def item(id:)
-      Item.find_by(id: id)
+    def feed(id: nil, key: nil)
+      return Feed.find_by(id: id) if id.present?
+
+      Feed.address(key) if key.present?
     end
 
-    field :items, Types::ItemPageType, null: false, grants: "uris:catalog:read" do
-      argument :kind, String, required: false
+    field :feeds, Types::FeedPageType, null: false, grants: "uris:catalog:read" do
+      argument :type, String, required: false
+      argument :mime, String, required: false
       argument :resource_id, ID, required: false
-      argument :feed, String, required: false,
-               description: "The slug of a feed, for the items it keeps."
+      argument :tag, String, required: false,
+               description: "A tag key, for everything connected to it."
+      argument :connected_to, ID, required: false
       argument :after, ID, required: false
       argument :limit, Integer, required: false
     end
 
-    def items(kind: nil, resource_id: nil, feed: nil, after: nil, limit: nil)
-      scope = Item.all
-      scope = scope.where(kind: kind) if kind.present?
-      scope = scope.referencing(resource_id) if resource_id.present?
-      scope = scope.kept_by(feed) if feed.present?
+    def feeds(type: nil, mime: nil, resource_id: nil, tag: nil, connected_to: nil,
+              after: nil, limit: nil)
+      scope = Feed.matching({ type: type, mime: mime, resource_id: resource_id, tag: tag }.compact)
+      scope = scope.merge(Feed.connected_to(Feed.find(connected_to))) if connected_to.present?
 
       Page.of(scope, after: after, limit: limit)
     end
 
-    field :search, Types::ItemPageType, null: false, grants: "uris:catalog:read" do
+    field :search, Types::FeedPageType, null: false, grants: "uris:catalog:read" do
       argument :query, String, required: false
-      argument :kind, String, required: false
+      argument :type, String, required: false
       argument :after, ID, required: false,
                description: "How far into the matches to start. A search is walked by offset."
       argument :limit, Integer, required: false
     end
 
-    def search(query: nil, kind: nil, after: nil, limit: nil)
-      Item.found(query, kind: kind, from: after.to_i,
+    def search(query: nil, type: nil, after: nil, limit: nil)
+      Feed.found(query, type: type, from: after.to_i,
                         limit: (limit || Page::DEFAULT).to_i.clamp(1, Page::MAX))
     end
 
-    field :kinds, [ Types::KindCountType ], null: false, grants: "uris:catalog:read"
+    field :types, [ Types::TypeCountType ], null: false, grants: "uris:catalog:read"
 
-    def kinds
-      Item.group(:kind).order(count_all: :desc).count.map do |kind, count|
-        { kind: kind, count: count }
+    def types
+      Feed.group(:type).order(count_all: :desc).count.map do |type, count|
+        { type: type, count: count }
       end
     end
 
@@ -104,20 +108,37 @@ module Types
     field :runs, Types::RunPageType, null: false, grants: "uris:catalog:read" do
       argument :kind, String, required: false
       argument :status, String, required: false
-      argument :feed_id, ID, required: false,
-               description: "Only runs of this feed."
-      argument :item_id, ID, required: false,
-               description: "Only runs whose work was this item, newest first."
       argument :after, ID, required: false
       argument :limit, Integer, required: false
     end
 
-    def runs(kind: nil, status: nil, feed_id: nil, item_id: nil, after: nil, limit: nil)
+    def runs(kind: nil, status: nil, after: nil, limit: nil)
       scope = Run.all
       scope = scope.where(kind: kind) if kind.present?
       scope = scope.where(status: status) if status.present?
+
+      Page.of(scope, after: after, limit: limit)
+    end
+
+    field :analysis, Types::AnalysisType, null: true, grants: "uris:catalog:read" do
+      argument :id, ID, required: true
+    end
+
+    def analysis(id:)
+      Analysis.find_by(id: id)
+    end
+
+    field :analyses, Types::AnalysisPageType, null: false, grants: "uris:catalog:read" do
+      argument :feed_id, ID, required: false
+      argument :status, String, required: false
+      argument :after, ID, required: false
+      argument :limit, Integer, required: false
+    end
+
+    def analyses(feed_id: nil, status: nil, after: nil, limit: nil)
+      scope = Analysis.all
       scope = scope.where(feed_id: feed_id) if feed_id.present?
-      scope = scope.for_item(item_id) if item_id.present?
+      scope = scope.where(status: status) if status.present?
 
       Page.of(scope, after: after, limit: limit)
     end

@@ -5,8 +5,8 @@ module Analyzer
     FLAT = 1.0
     OCR_CONTEXT = 4_000
 
-    def self.handles?(item)
-      item.kind == "image"
+    def self.handles?(feed)
+      MimeType.image?(feed.mime)
     end
 
     def self.summary_role
@@ -52,7 +52,7 @@ module Analyzer
     private
 
       def viewable(path, &block)
-        return yield(path) unless Kind.raw?(reference.locator_key)
+        return yield(path) unless MimeType.raw?(reference.locator_key)
 
         Raw.preview(path, &block)
       rescue Raw::Unreadable => e

@@ -24,8 +24,8 @@ class Resource
       }
     end
 
-    def kind_for(_entry)
-      "contact"
+    def mime_for(_entry)
+      "text/vcard"
     end
 
     private

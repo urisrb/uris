@@ -4,14 +4,15 @@ module Analyzer
   class Base
     MAX_TEXT = 200_000
 
-    attr_reader :item, :reference, :tracked_run
+    attr_reader :feed, :reference, :analysis
 
-    def initialize(item, run: nil)
-      @item = item
-      @tracked_run = run
+    def initialize(feed, analysis: nil)
+      @feed = feed
+      @analysis = analysis
+      @reference = feed.references.originals.first
     end
 
-    def self.handles?(_item)
+    def self.handles?(_feed)
       false
     end
 
@@ -20,23 +21,21 @@ module Analyzer
     end
 
     def run
-      extract_children! if item.depth < Item::DEPTH
+      extract_children! if feed.depth < Feed::DEPTH
 
-      return item unless item.children_ready?
+      return feed unless feed.children_ready?
 
-      item.references.each do |reference|
-        @reference = reference
+      analysis&.update_columns(reference_id: reference&.id)
 
-        begin
-          attempt { analyze }
-          attempt { summarize! }
-        ensure
-          stamp_analyzed!
-        end
+      begin
+        attempt { analyze } if reference
+        attempt { summarize! }
+      ensure
+        stamp_analyzed!
       end
 
-      item.reload.announce_analyzed!
-      item
+      feed.reload.announce_analyzed!
+      feed
     end
 
     def analyze
@@ -107,8 +106,8 @@ module Analyzer
     UNREAD
 
     def file_facts
-      [ "Filename: #{reference.filename}",
-        "Kind: #{item.kind}",
+      [ ("Filename: #{reference.filename}" if reference),
+        "Type: #{feed.mime.presence || feed.type}",
         file_size ].compact.join("\n")
     end
 
@@ -160,10 +159,10 @@ module Analyzer
       def extract_children!
         return unless has_children?
 
-        made = item.references.flat_map { |reference| catalogue_children(reference) }
+        made = feed.references.originals.flat_map { |held| catalogue_children(held) }
 
-        made.each { |child| AnalyzeItemJob.start!(item.tenant_id, child.id) }
-        item.children.reset
+        made.each { |child| child.analyze!(cause: "sync") }
+        feed.children.reset
       end
 
       def catalogue_children(reference)
@@ -183,14 +182,18 @@ module Analyzer
       def record_child(storage, key, child)
         storage.upload(key, child.fetch(:body))
 
-        held = Item.create!(
-          kind: Kind.for_filename(child.fetch(:filename)) || "file",
-          title: child.fetch(:filename),
-          parent: item
+        named = child.fetch(:filename)
+
+        held = Feed.create!(
+          type: Feed::FILE,
+          key: named,
+          title: named,
+          parent: feed
         )
 
         Reference.record!(
-          item: held, resource: storage, locator_key: key,
+          feed: held, resource: storage, locator_key: key,
+          mime: MimeType.for_filename(named),
           locator: { "key" => key }
         )
 
@@ -201,15 +204,15 @@ module Analyzer
 
     def step(name, force: false, after: nil, about: {})
       name = name.to_s
-      stored = reference.analysis.dig("steps", name) || {}
+      stored = analysis ? analysis.step(name) : {}
 
       if stored.key?("result") && !force && fresh?(stored, after) && !superseded?(stored)
-        tracked_run&.log_skip(log_context, name, "cached")
+        analysis&.log_skip(log_context, name, "cached")
         return stored["result"]
       end
 
       started_at = Time.current
-      tracked_run&.log_info(log_context, name)
+      analysis&.log_info(log_context, name)
 
       begin
         result = yield
@@ -218,7 +221,7 @@ module Analyzer
           "finished_at" => Time.current.iso8601(3),
           "result" => result
         }.merge(about))
-        tracked_run&.log_done(log_context, name, "#{((Time.current - started_at) * 1000).round}ms")
+        analysis&.log_done(log_context, name, "#{((Time.current - started_at) * 1000).round}ms")
         result
       rescue StandardError => e
         write_step!(name, {
@@ -226,7 +229,7 @@ module Analyzer
           "finished_at" => Time.current.iso8601(3),
           "error" => { "class" => e.class.name, "message" => e.message.truncate(500) }
         }.merge(about))
-        tracked_run&.log_fail(log_context, name, e.class.name, e.message)
+        analysis&.log_fail(log_context, name, e.class.name, e.message)
         raise
       end
     end
@@ -236,7 +239,7 @@ module Analyzer
     end
 
     def step_result(name)
-      reference.analysis.dig("steps", name.to_s, "result")
+      analysis&.step_result(name)
     end
 
     private
@@ -264,7 +267,7 @@ module Analyzer
         step(:summary,
              after: [ self.class.summary_after, inference.updated_at ].max,
              about: { "resource" => inference.key, "model" => inference.model_for(role), "role" => role.to_s }) do
-          shaped(inference.summarize(prompt, role: role, promptable: reference, images: summary_images))
+          shaped(inference.summarize(prompt, role: role, analysis: analysis, images: summary_images))
         end
       rescue Resource::Unusable => e
         raise Analyzer::Failed, e.message
@@ -295,34 +298,18 @@ module Analyzer
       end
 
       def children_summaries
-        item.children.flat_map { |child|
-          child.references.filter_map { |ref| ref.analysis.dig("steps", "summary", "result", "summary") }
-               .map { |line| "- #{child.title}: #{line}" }
+        feed.children.filter_map { |child|
+          held = child.analysis&.summary
+          "- #{child.title}: #{held}" if held.present?
         }.join("\n").presence
       end
 
       def write_step!(name, entry)
-        analysis = reference.analysis.deep_dup
-        analysis["steps"] = (analysis["steps"] || {}).merge(name.to_s => storable(entry))
-
-        reference.update!(analysis: analysis)
-      end
-
-      def storable(value)
-        case value
-        when String
-          value.dup.force_encoding(Encoding::UTF_8).scrub.delete("\u0000")
-        when Array
-          value.map { |item| storable(item) }
-        when Hash
-          value.to_h { |key, item| [ storable(key), storable(item) ] }
-        else
-          value
-        end
+        analysis&.write_step!(name, entry)
       end
 
       def stamp_analyzed!
-        reference.update!(analyzed_at: Time.current)
+        reference&.update!(analyzed_at: Time.current)
       end
 
       def fresh?(stored, after)
@@ -335,7 +322,7 @@ module Analyzer
       end
 
       def superseded?(stored)
-        return false if reference.changed_at.nil?
+        return false if reference&.changed_at.nil?
 
         Time.iso8601(stored["finished_at"]) < reference.changed_at
       rescue ArgumentError, TypeError
@@ -343,7 +330,7 @@ module Analyzer
       end
 
       def with_tempfile
-        Tempfile.create([ "item", File.extname(reference.locator_key.to_s) ], binmode: true) do |file|
+        Tempfile.create([ "feed", File.extname(reference.locator_key.to_s) ], binmode: true) do |file|
           IO.copy_stream(reference.download, file)
           file.flush
           yield file.path

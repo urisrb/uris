@@ -6,7 +6,7 @@ class Thumbnail
   SIZES = { "small" => 96, "medium" => 320, "large" => 1024 }.freeze
   DEFAULT_SIZE = "medium"
   PREVIEW_SIZE = "large"
-  KINDS = %w[image pdf page video].freeze
+  PDF = "application/pdf".freeze
   POSTER_AT = "00:00:01".freeze
   CONTENT_TYPE = "image/jpeg"
   RETAIN = 30.days
@@ -15,8 +15,9 @@ class Thumbnail
     new(reference, size).bytes
   end
 
-  def self.available_for?(kind)
-    KINDS.include?(kind)
+  def self.available_for?(mime)
+    MimeType.image?(mime) || MimeType.video?(mime) ||
+      [ PDF, MimeType::PAGE ].include?(mime.to_s)
   end
 
   def initialize(reference, size)
@@ -24,8 +25,8 @@ class Thumbnail
     @size = size
     @width = SIZES[size] || raise(Unavailable, "no thumbnail size called #{size}")
 
-    raise Unavailable, "nothing to render for a #{reference.kind}" unless
-      self.class.available_for?(reference.kind)
+    raise Unavailable, "nothing to render for a #{reference.mime}" unless
+      self.class.available_for?(reference.mime)
   end
 
   def bytes
@@ -44,11 +45,10 @@ class Thumbnail
     def render
       source do |path|
         Dir.mktmpdir do |dir|
-          case reference.kind
-          when "image" then from_image(path, dir)
-          when "page" then from_page(path, dir)
-          when "pdf" then from_pdf(path, dir)
-          when "video" then from_video(path, dir)
+          case reference.mime
+          when MimeType::PAGE then from_page(path, dir)
+          when PDF then from_pdf(path, dir)
+          else MimeType.video?(reference.mime) ? from_video(path, dir) : from_image(path, dir)
           end
         end
       end
@@ -75,7 +75,7 @@ class Thumbnail
     end
 
     def viewable(path, &block)
-      return yield(path) unless Kind.raw?(reference.locator_key)
+      return yield(path) unless MimeType.raw?(reference.locator_key)
 
       Raw.preview(path, &block)
     rescue Raw::Unreadable => e
@@ -115,7 +115,7 @@ class Thumbnail
     # A page's locator key is the address it was taken from, and the tail of a URL
     # says nothing about the bytes — the capture is always a PNG.
     def suffix
-      return ".png" if reference.kind == "page"
+      return ".png" if reference.mime == MimeType::PAGE
 
       File.extname(reference.locator_key.to_s)
     end

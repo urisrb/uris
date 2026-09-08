@@ -16,7 +16,7 @@ class Tenant < ApplicationRecord
   encrypts :client_secret
   encrypts :registration_access_token
 
-  has_many :items, dependent: :destroy
+  has_many :feeds, dependent: :destroy
   has_many :resources, dependent: :destroy
 
   validates :subdomain, presence: true, uniqueness: true,

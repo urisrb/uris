@@ -112,8 +112,8 @@ class Resource
       locator.to_h["updated_at"].presence
     end
 
-    def kind_for(_issue)
-      "text"
+    def mime_for(_issue)
+      "text/markdown"
     end
 
     def title_for(issue)

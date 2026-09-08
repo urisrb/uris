@@ -6,11 +6,12 @@ module Types
     field :snapshot_url, mutation: Mutations::SnapshotUrl, grants: "uris:catalog:write"
     field :fetch_url, mutation: Mutations::FetchUrl, grants: "uris:catalog:write"
 
-    field :analyze_item, mutation: Mutations::AnalyzeItem, grants: "uris:catalog:write"
-    field :rename_item, mutation: Mutations::RenameItem, grants: "uris:catalog:write"
-    field :note_item, mutation: Mutations::NoteItem, grants: "uris:catalog:write"
-    field :forget_item, mutation: Mutations::ForgetItem, grants: "uris:catalog:write"
-    field :merge_items, mutation: Mutations::MergeItems, grants: "uris:catalog:write"
+    field :analyze_feed, mutation: Mutations::AnalyzeFeed, grants: "uris:catalog:write"
+    field :rename_feed, mutation: Mutations::RenameFeed, grants: "uris:catalog:write"
+    field :note_feed, mutation: Mutations::NoteFeed, grants: "uris:catalog:write"
+    field :forget_feed, mutation: Mutations::ForgetFeed, grants: "uris:catalog:write"
+    field :merge_feeds, mutation: Mutations::MergeFeeds, grants: "uris:catalog:write"
+    field :connect_feeds, mutation: Mutations::ConnectFeeds, grants: "uris:catalog:write"
     field :split_reference, mutation: Mutations::SplitReference, grants: "uris:catalog:write"
     field :propose_merges, mutation: Mutations::ProposeMerges, grants: "uris:catalog:write"
     field :settle_merge_proposal, mutation: Mutations::SettleMergeProposal, grants: "uris:catalog:write"
@@ -26,7 +27,7 @@ module Types
 
     field :set_setting, mutation: Mutations::SetSetting, grants: "uris:settings:write"
 
-    field :export_items, mutation: Mutations::ExportItems, grants: "uris:catalog:write"
+    field :export_feeds, mutation: Mutations::ExportFeeds, grants: "uris:catalog:write"
     field :cancel_run, mutation: Mutations::CancelRun, grants: "uris:catalog:write"
     field :save_feed, mutation: Mutations::SaveFeed, grants: "uris:catalog:write"
     field :run_feed, mutation: Mutations::RunFeed, grants: "uris:catalog:write"

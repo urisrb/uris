@@ -6,12 +6,12 @@ module Analyzer
   def self.all
     [
       Analyzer::Pdf, Analyzer::Image, Analyzer::Media, Analyzer::Page, Analyzer::Doc, Analyzer::Xlsx,
-      Analyzer::Calendar, Analyzer::Pkpass, Analyzer::Email, Analyzer::Feed, Analyzer::Contact,
+      Analyzer::Calendar, Analyzer::Pkpass, Analyzer::Email, Analyzer::Entry, Analyzer::Contact,
       Analyzer::Data, Analyzer::Text, Analyzer::Fallback
     ]
   end
 
-  def self.for(item, run: nil)
-    all.find { |analyzer| analyzer.handles?(item) }.new(item, run: run)
+  def self.for(feed, analysis: nil)
+    all.find { |analyzer| analyzer.handles?(feed) }.new(feed, analysis: analysis)
   end
 end

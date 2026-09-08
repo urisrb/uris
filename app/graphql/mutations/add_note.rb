@@ -9,7 +9,7 @@ module Mutations
              description: "Left off, the first line of the note names it."
     argument :body, String, required: true
 
-    field :item, Types::ItemType, null: false
+    field :feed, Types::FeedType, null: false
 
     def resolve(body:, title: nil)
       text = body.to_s
@@ -20,11 +20,11 @@ module Mutations
       landed = Intake.write!(
         path: Intake.filed("notes", "#{named}.md"),
         body: text,
-        kind: "text",
+        mime: MimeType::NOTE,
         title: named
       )
 
-      { item: landed.item }
+      { feed: landed.feed }
     rescue Intake::Unusable, Resource::Failed => e
       refused(e.message)
     end

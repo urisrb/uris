@@ -3,8 +3,8 @@ module Analyzer
     PREVIEW = "large"
     TEXT_CONTEXT = 6_000
 
-    def self.handles?(item)
-      item.kind == "page"
+    def self.handles?(feed)
+      feed.mime == MimeType::PAGE
     end
 
     def self.summary_role

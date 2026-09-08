@@ -63,8 +63,8 @@ class Resource
       locator.to_h["published_at"].presence
     end
 
-    def kind_for(_entry)
-      "feed"
+    def mime_for(_entry)
+      MimeType::ENTRY
     end
 
     def title_for(entry)

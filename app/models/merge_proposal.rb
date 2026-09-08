@@ -12,18 +12,18 @@ class MergeProposal < ApplicationRecord
   scope :open, -> { where(status: "open") }
   scope :newest_first, -> { order(id: :desc) }
 
-  def items
-    Item.where(id: item_ids).order(:created_at, :id)
+  def feeds
+    Feed.where(id: feed_ids).order(:created_at, :id)
   end
 
   def current?
-    items.count == item_ids.length
+    feeds.count == feed_ids.length
   end
 
   def accept!
-    raise Stale, "the items this proposal named are no longer all there" unless current?
+    raise Stale, "the feeds this proposal named are no longer all there" unless current?
 
-    held = items.to_a
+    held = feeds.to_a
     into = held.first
 
     transaction do

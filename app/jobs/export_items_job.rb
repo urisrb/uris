@@ -20,14 +20,14 @@ class ExportItemsJob < ApplicationJob
     enumerator_builder.build_array_enumerator(select(selector).pluck(:id), cursor: cursor)
   end
 
-  def each_iteration(item_id, _tenant_id, destination_id, _selector, _run_id = nil)
+  def each_iteration(feed_id, _tenant_id, destination_id, _selector, _run_id = nil)
     destination = Resource.find(destination_id)
-    item = Item.find_by(id: item_id)
-    source = item&.source_for(destination)
+    feed = Feed.find_by(id: feed_id)
+    source = feed&.source_for(destination)
 
     return track_iteration if source.nil?
 
-    copy = item.copy_at(destination)
+    copy = feed.copy_at(destination)
 
     return track_iteration if copy && !copy.stale_against?(source)
 
@@ -35,7 +35,7 @@ class ExportItemsJob < ApplicationJob
     locator = destination.upload(path, source.download)
 
     Reference.record!(
-      item: item, resource: destination, locator: locator, locator_key: path,
+      feed: feed, resource: destination, locator: locator, locator_key: path,
       source_version: source.version
     )
 
@@ -45,6 +45,6 @@ class ExportItemsJob < ApplicationJob
   private
 
     def select(selector)
-      Item.referenced.matching(selector)
+      Feed.referenced.matching(selector)
     end
 end

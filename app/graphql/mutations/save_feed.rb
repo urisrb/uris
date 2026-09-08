@@ -3,8 +3,8 @@
 module Mutations
   class SaveFeed < BaseMutation
     argument :id, ID, required: false, description: "Left off, a feed is created."
-    argument :slug, String, required: false
-    argument :name, String, required: false
+    argument :key, String, required: false, description: "Its address, as /buy."
+    argument :title, String, required: false
     argument :prompt, String, required: false
     argument :turns, Integer, required: false
     argument :interval, Integer, required: false,
@@ -12,16 +12,36 @@ module Mutations
 
     field :feed, Types::FeedType, null: true
 
-    def resolve(id: nil, interval: nil, **attributes)
-      feed = id ? Feed.find(id) : Feed.new
-      feed.assign_attributes(attributes.compact)
-      feed.interval = interval.to_i.positive? ? interval : nil
+    def resolve(id: nil, key: nil, title: nil, prompt: nil, turns: nil, interval: nil)
+      feed = id ? feed!(id) : Feed.new(type: Feed::ADDRESS)
+      feed.key = addressed(key) if key.present?
+      feed.title = title if title
+      feed.key ||= addressed(title)
 
       refused(feed.errors.full_messages.join(", ")) unless feed.save
 
-      feed.schedule_next!
+      settle(feed, prompt: prompt, turns: turns, interval: interval)
 
       { feed: feed }
     end
+
+    private
+
+      def addressed(given)
+        held = given.to_s.strip.downcase.parameterize
+
+        held.start_with?("/") ? held : "/#{held}"
+      end
+
+      def settle(feed, prompt:, turns:, interval:)
+        held = feed.schedule || feed.build_schedule(prompt: "")
+        held.prompt = prompt if prompt
+        held.turns = turns if turns
+        held.interval = interval.to_i.positive? ? interval : nil
+
+        refused(held.errors.full_messages.join(", ")) unless held.save
+
+        held.schedule_next!
+      end
   end
 end

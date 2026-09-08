@@ -14,13 +14,13 @@ module Embedding
       Resource.for_declared_role(ROLE)
     end
 
-    def gist(item)
+    def gist(feed)
       [
-        item.title,
-        item.keywords.join(", ").presence,
-        item.summaries.join("\n").presence,
-        item.note,
-        item.body_text(without: [ :summary ])&.truncate(BODY_TEXT)
+        feed.title,
+        feed.keywords.join(", ").presence,
+        feed.summaries.join("\n").presence,
+        feed.note,
+        feed.body_text(without: [ :summary ])&.truncate(BODY_TEXT)
       ].compact_blank.join("\n").strip.truncate(MAX_TEXT)
     end
 
@@ -44,7 +44,7 @@ module Embedding
       resource = held
       return 0 if resource.nil?
 
-      items = Item.unembedded.includes(:references, children: :references).limit(limit).to_a
+      items = Feed.unembedded.includes(:analyses, children: :analyses).limit(limit).to_a
       return 0 if items.empty?
 
       model = resource.model_for(ROLE)
@@ -63,7 +63,7 @@ module Embedding
       def settle(items)
         return if items.empty?
 
-        Item.where(id: items.map(&:id)).update_all(embedded_at: Time.current)
+        Feed.where(id: items.map(&:id)).update_all(embedded_at: Time.current)
       end
 
       def write!(resource, items, wanted, digests)

@@ -84,8 +84,8 @@ class Resource
       [ message.mailbox, message.uidvalidity, message.uid ].join("/")
     end
 
-    def kind_for(_message)
-      "email"
+    def mime_for(_message)
+      "message/rfc822"
     end
 
     def title_for(message)

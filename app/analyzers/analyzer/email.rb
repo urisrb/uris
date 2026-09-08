@@ -4,8 +4,8 @@ module Analyzer
   class Email < Base
     HEADERS = %w[from to cc subject date message_id].freeze
 
-    def self.handles?(item)
-      item.kind == "email"
+    def self.handles?(feed)
+      feed.mime == "message/rfc822"
     end
 
     def has_children?

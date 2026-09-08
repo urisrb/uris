@@ -54,6 +54,7 @@ class Grant
 
   def tools
     (Tool.all + proxied).select { |tool| permits?(tool.scope) }
+                        .map { |tool| tool.respond_to?(:for) ? tool.for(self) : tool }
   end
 
   def proxied

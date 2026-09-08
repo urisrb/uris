@@ -2,18 +2,18 @@
 
 module Mutations
   class SplitReference < BaseMutation
-    argument :id, ID, required: true, description: "The reference to move to an item of its own."
+    argument :id, ID, required: true, description: "The reference to move to a feed of its own."
 
-    field :item, Types::ItemType, null: false
+    field :feed, Types::FeedType, null: false
 
     def resolve(id:)
       reference = Reference.find_by(id: id) ||
                   refused("no reference with id #{id}")
 
-      refused("an item with one reference is already split") if
-        reference.item.references.size == 1
+      refused("a feed with one reference is already split") if
+        reference.feed.references.size == 1
 
-      { item: reference.split!.item }
+      { feed: reference.split!.feed }
     end
   end
 end

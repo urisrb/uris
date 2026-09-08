@@ -1,14 +1,13 @@
 module Analyzer
   class Media < Base
-    KINDS = %w[audio video].freeze
     SAMPLE_RATE = "16000".freeze
     CHANNELS = "1".freeze
     DEFAULT_SPAN = 3600
     DEFAULT_BINARY = "whisper-cli".freeze
     STREAMS = 8
 
-    def self.handles?(item)
-      KINDS.include?(item.kind)
+    def self.handles?(feed)
+      MimeType.audio?(feed.mime) || MimeType.video?(feed.mime)
     end
 
     def self.model

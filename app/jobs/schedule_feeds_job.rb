@@ -4,7 +4,7 @@ class ScheduleFeedsJob < ApplicationJob
 
   def perform
     Tenant.find_each do |tenant|
-      Tenant.switch(tenant) { Feed.due.find_each(&:run!) }
+      Tenant.switch(tenant) { Schedule.due.find_each(&:run!) }
     end
   end
 end

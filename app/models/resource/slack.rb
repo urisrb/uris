@@ -93,8 +93,8 @@ class Resource
       [ held["ts"], held["replies"], held["latest_reply"] ].compact.join(":").presence
     end
 
-    def kind_for(_message)
-      "text"
+    def mime_for(_message)
+      "text/markdown"
     end
 
     def title_for(message)

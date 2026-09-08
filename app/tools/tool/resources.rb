@@ -1,0 +1,128 @@
+module Tool
+  class Resources < Base
+    tool_name "resource"
+    scope "uris:resources:read"
+    starts_runs true
+
+    READ = %w[list describe check runs get parameters search].freeze
+    WRITE = %w[sync export cancel put snapshot].freeze
+
+    WRITES = "uris:resources:command".freeze
+    WEB = "uris:web:read".freeze
+
+    description <<~TEXT
+      Ask a place to do something. A resource is an instance — "my B2 bucket" — of a type
+      such as s3, and each type accepts its own commands; describe tells you which. Called
+      with no key it lists the places there are. Credentials never travel through here:
+      connecting a resource is a browser flow.
+    TEXT
+
+    def self.for(grant)
+      allowed = READ + (grant.permits?(WRITES) ? WRITE : [])
+
+      Class.new(self) do
+        tool_name "resource"
+        scope "uris:resources:read"
+        starts_runs true
+        description Resources.description
+
+        input_schema(
+          properties: {
+            key: { type: "string", description: "Which place. Left off, they are all listed." },
+            do: { type: "string", enum: allowed, description: "What to ask of it." },
+            input: { type: "object", description: "Arguments the command takes." }
+          }
+        )
+      end
+    end
+
+    input_schema(
+      properties: {
+        key: { type: "string" },
+        do: { type: "string", enum: READ + WRITE },
+        input: { type: "object" }
+      }
+    )
+
+    def self.call(server_context:, key: nil, input: nil, **held)
+      verb = (held[:do] || held["do"] || (key.present? ? "describe" : "list")).to_s
+      given = (input || {}).to_h
+
+      respond(server_context, { key: key, do: verb }) do
+        raise ArgumentError, "no such action '#{verb}'" unless (READ + WRITE).include?(verb)
+
+        Current.grant.permit!(WRITES) if WRITE.include?(verb)
+
+        verb == "list" && key.blank? ? listed : acted(verb, key, given)
+      end
+    end
+
+    def self.acted(verb, key, given)
+      resource = ::Resource.active.find_by(key: key) ||
+                 raise(ArgumentError, "no resource called #{key}")
+
+      Current.grant.permit!(WEB) if verb == "search" && resource.capabilities.include?(:search)
+
+      case verb
+      when "describe" then resource.describe.merge(healthy: resource.healthy?)
+      when "check" then { key: resource.key, healthy: resource.check, error: resource.check_error }
+      when "sync" then started(resource)
+      when "runs" then { runs: ::Run.where(resource: resource).newest_first.limit(20).map { |run| run_told(run) } }
+      when "cancel" then cancelled(given)
+      when "export" then exported(resource, given)
+      else resource.command(verb, given)
+      end
+    end
+
+    def self.listed
+      resources = ::Resource.active.order(:type, :key).map do |resource|
+        {
+          id: resource.id.to_s, type: resource.class.sti_name, key: resource.key,
+          name: resource.name, capabilities: resource.capabilities,
+          commands: resource.class.command_schema.keys,
+          default_storage: resource.default_storage?,
+          default_inference: resource.default_inference?,
+          syncable: resource.syncable?, syncing: resource.syncing?,
+          synced_at: resource.synced_at, checked_at: resource.checked_at,
+          check_error: resource.check_error
+        }
+      end
+
+      { count: resources.size, resources: resources }
+    end
+
+    def self.started(resource)
+      raise ArgumentError, "#{resource.key} is not syncable" unless resource.syncable?
+
+      run = resource.sync!
+
+      run ? run_told(run) : { started: false, reason: "#{resource.key} is already syncing" }
+    end
+
+    def self.exported(destination, given)
+      destination.storage! || raise(ArgumentError, "#{destination.key} is not storage")
+
+      selector = selector_from(**given.symbolize_keys.slice(*SELECTOR_KEYS))
+      run = ::Run.start!(kind: "export", resource: destination, selector: selector)
+      ExportItemsJob.perform_later(destination.tenant_id, destination.id, selector, run.id)
+
+      run_told(run)
+    end
+
+    def self.cancelled(given)
+      run = ::Run.find_by(id: given[:id] || given["id"]) ||
+            raise(ArgumentError, "no run with that id")
+
+      run_told(run.tap(&:cancel!).reload)
+    end
+
+    SELECTOR_KEYS = %i[query type mime tag resource_id folder since before].freeze
+
+    def self.run_told(run)
+      {
+        id: run.id.to_s, kind: run.kind, status: run.status, processed: run.processed,
+        error: run.error, started_at: run.started_at, finished_at: run.finished_at
+      }
+    end
+  end
+end

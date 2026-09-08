@@ -1,7 +1,7 @@
 module Analyzer
   class Text < Base
-    def self.handles?(reference)
-      reference.kind == "text"
+    def self.handles?(feed)
+      MimeType.text?(feed.mime)
     end
 
     def analyze
