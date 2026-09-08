@@ -27,44 +27,44 @@ class McpAuditTest < ActionDispatch::IntegrationTest
   end
 
   test "every tool call is recorded against the token that made it" do
-    tool(@tenant, ALL, "search_items", query: "invoice")
+    tool(@tenant, ALL, "search", query: "invoice")
 
     event = events.first
 
     assert_equal "mcp", event.channel
-    assert_equal "search_items", event.action
+    assert_equal "search", event.action
     assert_equal "ok", event.status
     assert_equal "uris:catalog:read", event.scope
     assert_equal "test", event.subject
-    assert_equal({ "query" => "invoice", "kind" => nil, "limit" => 50 }, event.arguments)
+    assert_equal({ "query" => "invoice", "type" => nil, "limit" => 50 }, event.arguments)
     assert event.duration_ms >= 0
     assert event.request_id.present?
   end
 
   test "a call the token does not carry the scope for is recorded as denied" do
     call(@tenant, [ "uris:catalog:read" ], "tools/call",
-         name: "search_items", arguments: { query: "invoice" })
+         name: "search", arguments: { query: "invoice" })
 
     assert_equal "ok", events.first.status
 
     Tenant.switch(@tenant) { AuditEvent.delete_all }
 
     call(@tenant, [ "uris:catalog:read" ], "tools/call",
-         name: "sync_resource", arguments: { id: @resource.id.to_s })
+         name: "resource", arguments: { key: @resource.key, do: "sync" })
 
     assert_empty events, "an ungranted tool is not registered, so no grant was exercised"
   end
 
   test "a tool that fails is recorded as an error, with what broke it" do
-    reply = call(@tenant, ALL, "tools/call", name: "get_item", arguments: { id: "999999" })
+    reply = call(@tenant, ALL, "tools/call", name: "feed", arguments: { id: "999999" })
 
     assert reply.dig("result", "isError")
 
     event = events.first
 
-    assert_equal "get_item", event.action
+    assert_equal "feed", event.action
     assert_equal "error", event.status
-    assert_equal "no item with id 999999", event.detail
+    assert_equal "no feed with id 999999", event.detail
   end
 
   test "an unauthenticated call is recorded as denied" do
@@ -83,7 +83,7 @@ class McpAuditTest < ActionDispatch::IntegrationTest
   test "a credential-shaped argument is redacted rather than stored" do
     Tenant.switch(@tenant) do
       AuditEvent.record(
-        channel: "mcp", action: "command_resource", status: "ok",
+        channel: "mcp", action: "resource", status: "ok",
         arguments: { "id" => "1", "arguments" => { "access_key_id" => "AKIA", "path" => "a/b" } }
       )
     end
@@ -96,7 +96,7 @@ class McpAuditTest < ActionDispatch::IntegrationTest
 
   test "a large argument is truncated rather than copied whole" do
     Tenant.switch(@tenant) do
-      AuditEvent.record(channel: "mcp", action: "command_resource", status: "ok",
+      AuditEvent.record(channel: "mcp", action: "resource", status: "ok",
                         arguments: { "body" => "x" * 5_000, "parts" => Array.new(400, "y") })
     end
 
@@ -107,7 +107,7 @@ class McpAuditTest < ActionDispatch::IntegrationTest
   end
 
   test "one tenant's audit log is invisible to another" do
-    tool(@tenant, ALL, "search_items", query: "invoice")
+    tool(@tenant, ALL, "search", query: "invoice")
 
     assert_equal 1, events.length
     assert_empty events(@other)
@@ -119,8 +119,8 @@ class McpAuditTest < ActionDispatch::IntegrationTest
 
   test "the sweep drops what is past retention and keeps what is not" do
     Tenant.switch(@tenant) do
-      AuditEvent.record(channel: "mcp", action: "search_items", status: "ok")
-      AuditEvent.record(channel: "mcp", action: "search_items", status: "ok")
+      AuditEvent.record(channel: "mcp", action: "search", status: "ok")
+      AuditEvent.record(channel: "mcp", action: "search", status: "ok")
         .update!(created_at: 100.days.ago)
     end
 

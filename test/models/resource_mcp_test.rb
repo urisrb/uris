@@ -74,7 +74,7 @@ class ResourceMcpTest < ActiveSupport::TestCase
     offered = Tenant.switch(@tenant) { grant(Grant::SCOPES).tools.map(&:tool_name) }
 
     assert_includes offered, "exa__web_search"
-    assert_includes offered, "search_items"
+    assert_includes offered, "search"
   end
 
   test "a grant without the scope is offered none of them" do

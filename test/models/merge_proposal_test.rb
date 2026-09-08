@@ -14,7 +14,8 @@ class MergeProposalTest < ActiveSupport::TestCase
 
   def item_on(resource, key, kind: "pdf", version: nil, title: nil)
     Tenant.switch(@tenant) do
-      item = Feed.create!(kind: kind, title: title || File.basename(key))
+      named = title || File.basename(key)
+      item = Feed.create!(type: Feed::FILE, key: named, title: named)
       Reference.create!(item: item, resource: resource, locator_key: key,
                              locator: {}, version: version)
       item

@@ -4,7 +4,7 @@ require_relative "../support/fake_feed_server"
 class AddingTest < ActionDispatch::IntegrationTest
   NOTE = <<~GQL.freeze
     mutation($title: String, $body: String!) {
-      addNote(input: { title: $title, body: $body }) { item { id kind title } }
+      addNote(input: { title: $title, body: $body }) { feed { id mime title } }
     }
   GQL
 
@@ -30,7 +30,7 @@ class AddingTest < ActionDispatch::IntegrationTest
 
   test "a note becomes a text item named by its first line" do
     body = execute(NOTE, variables: { body: "# Pelicans\n\nRather a lot about them." })
-    item = body.dig("data", "addNote", "item")
+    item = body.dig("data", "addNote", "feed")
 
     assert_equal "text", item["kind"]
     assert_equal "Pelicans", item["title"]
@@ -46,7 +46,7 @@ class AddingTest < ActionDispatch::IntegrationTest
   test "a note keeps the title it was given" do
     body = execute(NOTE, variables: { title: "Groceries", body: "milk\nbread" })
 
-    assert_equal "Groceries", body.dig("data", "addNote", "item", "title")
+    assert_equal "Groceries", body.dig("data", "addNote", "feed", "title")
   end
 
   test "an empty note is refused" do

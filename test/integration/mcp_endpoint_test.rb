@@ -14,8 +14,8 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) do
       @resource = Resource::S3.create!(key: "endpoint-bucket", name: "Bucket",
                                        details: { "endpoint" => "http://127.0.0.1:1" })
-      @item = create_feed(mime: "application/pdf", title: "March invoice", locator_key: "invoices/march.pdf",
-                            resource: @resource, locator: { "bucket" => "endpoint-bucket" })
+      @feed = create_feed(mime: "application/pdf", title: "March invoice", locator_key: "invoices/march.pdf",
+                          resource: @resource, locator: { "bucket" => "endpoint-bucket" })
     end
 
     Tenant.switch(@other) do
@@ -69,47 +69,56 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
   end
 
   test "the token decides which tools exist at all" do
-    names = call(@tenant, [ "uris:catalog:read" ], "tools/list").dig("result", "tools").map { |t| t["name"] }
-
-    assert_equal %w[search_items get_item], names
+    assert_equal %w[search feed], listed_tools([ "uris:catalog:read" ])
+    assert_equal %w[search feed connect], listed_tools(%w[uris:catalog:read uris:catalog:write])
+    assert_equal %w[search feed connect resource], listed_tools(ALL)
   end
 
   test "a tool outside the grant is not callable, not merely unlisted" do
     reply = call(@tenant, [ "uris:catalog:read" ], "tools/call",
-                 name: "sync_resource", arguments: { id: @resource.id.to_s })
+                 name: "resource", arguments: { key: @resource.key })
 
     assert_nil reply["result"]
     assert_match(/Tool not found/, reply.dig("error", "data"))
   end
 
-  test "search returns this tenant's items and never another's" do
-    result = tool(@tenant, ALL, "search_items", query: "invoice")
+  test "a command outside the grant is absent from the schema rather than refused at the call" do
+    read = tool_schema(%w[uris:resources:read], "resource")
+    both = tool_schema(%w[uris:resources:read uris:resources:command], "resource")
 
-    assert_equal [ @item.id.to_s ], result["items"].map { |t| t["id"] }
+    assert_equal Tool::Resources::READ, read.dig("properties", "do", "enum")
+    assert_includes both.dig("properties", "do", "enum"), "sync"
+    assert_not_includes read.dig("properties", "do", "enum"), "sync"
   end
 
-  test "an item belonging to another tenant cannot be fetched by id" do
+  test "search returns this tenant's feeds and never another's" do
+    result = tool(@tenant, ALL, "search", query: "invoice")
+
+    assert_equal [ @feed.id.to_s ], result["feeds"].map { |feed| feed["id"] }
+  end
+
+  test "a feed belonging to another tenant cannot be fetched by id" do
     reply = call(@tenant, ALL, "tools/call",
-                 name: "get_item", arguments: { id: @theirs.id.to_s })
+                 name: "feed", arguments: { id: @theirs.id.to_s })
 
     assert reply.dig("result", "isError")
-    assert_match(/no item/, reply.dig("result", "content", 0, "text"))
+    assert_match(/no feed with id/, reply.dig("result", "content", 0, "text"))
   end
 
-  test "describe_resource advertises the vocabulary command_resource accepts" do
-    described = tool(@tenant, ALL, "describe_resource", id: @resource.id.to_s)
+  test "describe advertises the vocabulary the resource accepts" do
+    described = tool(@tenant, ALL, "resource", key: @resource.key, do: "describe")
 
     assert_equal "s3", described["type"]
     assert_includes described["commands"].keys, "list"
     assert_not_includes described.to_json, "secret_access_key"
   end
 
-  test "an unknown command is refused before the adapter is reached" do
-    reply = call(@tenant, ALL, "tools/call", name: "command_resource",
-                 arguments: { id: @resource.id.to_s, command: "rm", arguments: {} })
+  test "an unknown action is refused before the adapter is reached" do
+    reply = call(@tenant, ALL, "tools/call", name: "resource",
+                 arguments: { key: @resource.key, do: "rm", input: {} })
 
     assert reply.dig("result", "isError")
-    assert_match(/no command 'rm'/, reply.dig("result", "content", 0, "text"))
+    assert_match(/value at `\/do` is not one of/, reply.dig("result", "content", 0, "text"))
   end
 
   test "sync queues a run against the named resource" do
@@ -117,13 +126,13 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
 
     assert_enqueued_with(job: SyncResourceJob,
                          args: ->(args) { args.first(2) == [ @tenant.id, @resource.id ] }) do
-      result = tool(@tenant, ALL, "sync_resource", id: @resource.id.to_s)
+      result = tool(@tenant, ALL, "resource", key: @resource.key, do: "sync")
 
-      assert result["queued"]
+      assert_equal "sync", result["kind"]
     end
 
     Tenant.switch(@tenant) do
-      run = Run.find(result["run_id"])
+      run = Run.find(result["id"])
 
       assert_equal "sync", run.kind
       assert_equal @resource, run.resource
@@ -131,92 +140,99 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
   end
 
   test "a second sync of a resource already syncing is refused, with no second run" do
-    tool(@tenant, ALL, "sync_resource", id: @resource.id.to_s)
+    tool(@tenant, ALL, "resource", key: @resource.key, do: "sync")
 
     assert_no_difference -> { Tenant.switch(@tenant) { Run.count } } do
-      again = tool(@tenant, ALL, "sync_resource", id: @resource.id.to_s)
+      again = tool(@tenant, ALL, "resource", key: @resource.key, do: "sync")
 
-      assert_not again["queued"]
-      assert_nil again["run_id"]
+      assert_not again["started"]
+      assert_match(/already syncing/, again["reason"])
     end
   end
 
-  test "check_resource answers with the failure instead of becoming one" do
-    checked = tool(@tenant, ALL, "check_resource", id: @resource.id.to_s)
+  test "check answers with the failure instead of becoming one" do
+    checked = tool(@tenant, ALL, "resource", key: @resource.key, do: "check")
 
-    assert_not checked["ok"]
-    assert_not_nil checked["checked_at"]
+    assert_not checked["healthy"]
     assert_not_nil checked["error"]
   end
 
   test "a resource carries what its last check found" do
-    tool(@tenant, ALL, "check_resource", id: @resource.id.to_s)
+    tool(@tenant, ALL, "resource", key: @resource.key, do: "check")
 
-    listed = tool(@tenant, ALL, "list_resources")["resources"].first
+    listed = tool(@tenant, ALL, "resource", do: "list")["resources"].first
 
     assert_not_nil listed["checked_at"]
     assert_not_nil listed["check_error"]
   end
 
   test "a run started through a tool is visible and cancellable through one" do
-    started = tool(@tenant, ALL, "sync_resource", id: @resource.id.to_s)
+    started = tool(@tenant, ALL, "resource", key: @resource.key, do: "sync")
 
-    listed = tool(@tenant, ALL, "list_runs")["runs"]
+    listed = tool(@tenant, ALL, "resource", key: @resource.key, do: "runs")["runs"]
 
-    assert_equal [ started["run_id"] ], listed.map { |run| run["id"] }
+    assert_equal [ started["id"] ], listed.map { |run| run["id"] }
     assert_equal "queued", listed.first["status"]
 
-    cancelled = tool(@tenant, ALL, "cancel_run", id: started["run_id"])
+    cancelled = tool(@tenant, ALL, "resource", key: @resource.key, do: "cancel",
+                     input: { id: started["id"] })
 
-    assert cancelled["cancelled"]
     assert_equal "cancelled", cancelled["status"]
-    assert_equal "cancelled", tool(@tenant, ALL, "list_runs")["runs"].first["status"]
-  end
 
-  test "cancelling a run twice says so rather than pretending" do
-    started = tool(@tenant, ALL, "sync_resource", id: @resource.id.to_s)
-    tool(@tenant, ALL, "cancel_run", id: started["run_id"])
+    again = tool(@tenant, ALL, "resource", key: @resource.key, do: "runs")["runs"]
 
-    again = tool(@tenant, ALL, "cancel_run", id: started["run_id"])
-
-    assert_not again["cancelled"]
-    assert_equal "cancelled", again["status"]
+    assert_equal "cancelled", again.first["status"]
   end
 
   test "one tenant cannot see or cancel another tenant's run" do
-    started = tool(@tenant, ALL, "sync_resource", id: @resource.id.to_s)
+    started = tool(@tenant, ALL, "resource", key: @resource.key, do: "sync")
 
-    assert_empty tool(@other, ALL, "list_runs")["runs"]
+    Tenant.switch(@other) do
+      @elsewhere = Resource::S3.create!(key: "elsewhere-bucket", name: "Bucket",
+                                        details: { "endpoint" => "http://127.0.0.1:1" })
+    end
 
-    reply = call(@other, ALL, "tools/call", name: "cancel_run",
-                 arguments: { id: started["run_id"] })
+    assert_empty tool(@other, ALL, "resource", key: @elsewhere.key, do: "runs")["runs"]
+
+    reply = call(@other, ALL, "tools/call", name: "resource",
+                 arguments: { key: @elsewhere.key, do: "cancel", input: { id: started["id"] } })
 
     assert reply.dig("result", "isError")
-    assert_match(/no run with id/, reply.dig("result", "content", 0, "text"))
+    assert_match(/no run with that id/, reply.dig("result", "content", 0, "text"))
   end
 
   test "export refuses a destination that is not storage" do
-    reply = call(@tenant, ALL, "tools/call", name: "export_items",
-                 arguments: { destination_id: "0" })
+    Tenant.switch(@tenant) { Resource::Web.create!(key: "the-web", name: "The web") }
+
+    reply = call(@tenant, ALL, "tools/call", name: "resource",
+                 arguments: { key: "the-web", do: "export", input: {} })
 
     assert reply.dig("result", "isError")
+    assert_match(/is not storage/, reply.dig("result", "content", 0, "text"))
   end
 
-  test "export with no destination writes to the tenant's default storage" do
+  test "export queues a run against the destination it names" do
     storage = Tenant.switch(@tenant) do
-      Resource::Database.create!(key: "database", name: "Storage").make_default_storage!
+      Resource::Database.create!(key: "database", name: "Storage")
     end
 
     assert_enqueued_with(job: ExportItemsJob,
-                         args: ->(args) { args.first(3) == [ @tenant.id, storage.id, {} ] }) do
-      assert tool(@tenant, ALL, "export_items")["queued"]
+                         args: ->(args) { args.first(2) == [ @tenant.id, storage.id ] }) do
+      queued = tool(@tenant, ALL, "resource", key: storage.key, do: "export")
+
+      assert_equal "export", queued["kind"]
     end
   end
 
-  test "export says so when the tenant has named no default storage" do
-    reply = call(@tenant, ALL, "tools/call", name: "export_items", arguments: {})
+  private
 
-    assert reply.dig("result", "isError")
-    assert_match(/no default storage/, reply.dig("result", "content", 0, "text"))
-  end
+    def listed_tools(scopes)
+      call(@tenant, scopes, "tools/list").dig("result", "tools").map { |tool| tool["name"] }
+    end
+
+    def tool_schema(scopes, name)
+      call(@tenant, scopes, "tools/list").dig("result", "tools")
+                                        .find { |tool| tool["name"] == name }
+                                        .fetch("inputSchema")
+    end
 end

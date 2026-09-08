@@ -68,7 +68,7 @@ class MergeTest < ActiveSupport::TestCase
   test "merging the same place twice keeps one reference, not a duplicate" do
     Tenant.switch(@tenant) do
       keep = create_feed(mime: "application/pdf", title: "Keep", resource: @s3, locator_key: "same.pdf")
-      other = Feed.create!(kind: "pdf", title: "Other")
+      other = Feed.create!(type: Feed::FILE, key: "Other", title: "Other")
       other.references.create!(resource: @drive, locator_key: "same.pdf")
 
       keep.merge!(other)

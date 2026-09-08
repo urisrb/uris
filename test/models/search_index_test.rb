@@ -118,7 +118,7 @@ class SearchIndexTest < ActiveSupport::TestCase
 
   test "a page is indexed in one request rather than one per document" do
     items = Tenant.switch(@demo) do
-      Array.new(3) { |n| Feed.create!(kind: "pdf", title: "bulk #{n}") }
+      Array.new(3) { |n| Feed.create!(type: Feed::FILE, key: "bulk #{n}", title: "bulk #{n}") }
     end
 
     calls = []
@@ -137,7 +137,7 @@ class SearchIndexTest < ActiveSupport::TestCase
 
   test "documents written in bulk are the ones that come back" do
     items = Tenant.switch(@demo) do
-      Array.new(3) { |n| Feed.create!(kind: "data", title: "bulked-#{n}") }
+      Array.new(3) { |n| Feed.create!(type: Feed::FILE, key: "bulked-#{n}", title: "bulked-#{n}") }
     end
 
     assert_equal 3, SearchIndex.index_all(items)
@@ -150,7 +150,7 @@ class SearchIndexTest < ActiveSupport::TestCase
   end
 
   test "a bulk write the engine refused raises rather than reporting success" do
-    item = Tenant.switch(@demo) { Feed.create!(kind: "pdf", title: "refused") }
+    item = Tenant.switch(@demo) { Feed.create!(type: Feed::FILE, key: "refused", title: "refused") }
     refusal = { "items" => [ { "index" => { "error" => { "reason" => "mapper_parsing_exception" } } } ] }
 
     SearchIndex.client.define_singleton_method(:bulk) { |**| refusal }

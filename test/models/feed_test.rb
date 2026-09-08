@@ -73,8 +73,8 @@ class FeedTest < ActiveSupport::TestCase
   test "kept_by is the items a feed holds and nothing else" do
     Tenant.switch(@tenant) do
       feed = Feed.create!(slug: "buy", prompt: "x")
-      kept = Feed.create!(kind: "text", title: "kept")
-      loose = Feed.create!(kind: "text", title: "loose")
+      kept = Feed.create!(type: Feed::FILE, key: "kept", title: "kept")
+      loose = Feed.create!(type: Feed::FILE, key: "loose", title: "loose")
 
       feed.items << kept
 
@@ -85,7 +85,7 @@ class FeedTest < ActiveSupport::TestCase
 
   test "kept_by an unknown slug is empty rather than everything" do
     Tenant.switch(@tenant) do
-      Feed.create!(kind: "text", title: "loose")
+      Feed.create!(type: Feed::FILE, key: "loose", title: "loose")
 
       assert_empty Feed.kept_by("nothing-here")
     end

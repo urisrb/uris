@@ -3,7 +3,7 @@ require "test_helper"
 class GraphqlAuthTest < ActionDispatch::IntegrationTest
   CATALOG = "{ items { nodes { kind title } } }".freeze
   RESOURCES = "{ resources { key } }".freeze
-  ANALYZE = "mutation($id: ID!) { analyzeItem(input: { id: $id }) { run { id } } }".freeze
+  ANALYZE = "mutation($id: ID!) { analyzeFeed(input: { id: $id }) { run { id } } }".freeze
 
   setup do
     @tenant = Tenant.create!(subdomain: "auth-#{SecureRandom.hex(4)}", name: "Auth")
@@ -84,7 +84,7 @@ class GraphqlAuthTest < ActionDispatch::IntegrationTest
                             variables: { id: @item.id.to_s })
 
     assert_nil body["errors"]
-    assert body.dig("data", "analyzeItem", "run", "id").present?
+    assert body.dig("data", "analyzeFeed", "run", "id").present?
   end
 
   test "resource commands want the resource scope, not the write scope" do

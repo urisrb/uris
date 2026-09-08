@@ -12,7 +12,7 @@ class AnalyzeFeedJobTest < ActiveSupport::TestCase
       @storage = Resource::Database.create!(key: "drop", name: "Drop")
       @storage.upload("notes.txt", "remember the milk")
 
-      @item = Feed.create!(kind: "text", title: "notes.txt")
+      @item = Feed.create!(type: Feed::FILE, key: "notes.txt", title: "notes.txt")
       Reference.record!(item: @item, resource: @storage,
                              locator_key: "notes.txt", locator: { "key" => "notes.txt" })
     end

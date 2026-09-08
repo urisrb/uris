@@ -14,7 +14,7 @@ class RemovingTest < ActionDispatch::IntegrationTest
   GQL
 
   FORGET = <<~GQL.freeze
-    mutation($id: ID!) { forgetItem(input: { id: $id }) { forgotten places } }
+    mutation($id: ID!) { forgetFeed(input: { id: $id }) { forgotten places } }
   GQL
 
   DELETE_FEED = <<~GQL.freeze
@@ -74,8 +74,8 @@ class RemovingTest < ActionDispatch::IntegrationTest
   test "forgetting an item drops every place it lived without touching any of them" do
     body = execute(FORGET, variables: { id: @item.id })
 
-    assert_equal true, body.dig("data", "forgetItem", "forgotten")
-    assert_equal 1, body.dig("data", "forgetItem", "places")
+    assert_equal true, body.dig("data", "forgetFeed", "forgotten")
+    assert_equal 1, body.dig("data", "forgetFeed", "places")
 
     Tenant.switch(@tenant) do
       assert_equal 0, Feed.files.count
@@ -88,7 +88,7 @@ class RemovingTest < ActionDispatch::IntegrationTest
   test "deleting a feed keeps the items it wrote and says how many outlived it" do
     Tenant.switch(@tenant) do
       @feed = Feed.create!(slug: "buy", prompt: "find things worth buying")
-      @minted = Feed.create!(kind: "text", title: "A thing", origin: "feed", feed: @feed)
+      @minted = Feed.create!(type: Feed::FILE, key: "A thing", title: "A thing", origin: "feed", feed: @feed)
       @feed.items << @minted
     end
 
@@ -109,7 +109,7 @@ class RemovingTest < ActionDispatch::IntegrationTest
     archive = execute(ARCHIVE, scopes: %w[uris:resources:read],
                                variables: { id: @storage.id, archived: true })
 
-    assert_nil forget.dig("data", "forgetItem")
+    assert_nil forget.dig("data", "forgetFeed")
     assert_nil archive.dig("data", "archiveResource")
 
     Tenant.switch(@tenant) do

@@ -5,8 +5,8 @@ class TenantIsolationTest < ActiveSupport::TestCase
     @demo = Tenant.create!(subdomain: "demo-#{SecureRandom.hex(4)}", name: "Demo items")
     @acme = Tenant.create!(subdomain: "acme-#{SecureRandom.hex(4)}", name: "Acme")
 
-    Tenant.switch(@demo) { @demo_item = Feed.create!(kind: "pdf", title: "Demo invoice") }
-    Tenant.switch(@acme) { @acme_item = Feed.create!(kind: "pdf", title: "Acme's invoice") }
+    Tenant.switch(@demo) { @demo_item = Feed.create!(type: Feed::FILE, key: "Demo invoice", title: "Demo invoice") }
+    Tenant.switch(@acme) { @acme_item = Feed.create!(type: Feed::FILE, key: "Acme's invoice", title: "Acme's invoice") }
   end
 
   test "a tenant sees only its own items" do

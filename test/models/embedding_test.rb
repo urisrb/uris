@@ -140,7 +140,7 @@ class EmbeddingTest < ActiveSupport::TestCase
 
   test "a whole page of items costs one call rather than one call each" do
     Tenant.switch(@tenant) do
-      3.times { |n| Feed.create!(kind: "pdf", title: "bulk #{n}") }
+      3.times { |n| Feed.create!(type: Feed::FILE, key: "bulk #{n}", title: "bulk #{n}") }
 
       assert_equal 3, Embedding.sweep!
       assert_equal 1, @server.count_for("/v1/embeddings")

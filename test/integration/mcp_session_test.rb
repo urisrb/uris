@@ -63,9 +63,9 @@ class McpSessionTest < ActionDispatch::IntegrationTest
     narrow = call(@tenant, [ "uris:catalog:read" ], "tools/list").dig("result", "tools").map { |t| t["name"] }
     wide = call(@tenant, ALL, "tools/list").dig("result", "tools").map { |t| t["name"] }
 
-    assert_equal [ "search_items", "get_item" ].sort, narrow.sort
-    assert_includes wide, "sync_resource"
-    assert_not_includes narrow, "sync_resource"
+    assert_equal [ "search", "feed" ].sort, narrow.sort
+    assert_includes wide, "resource"
+    assert_not_includes narrow, "resource"
   end
 
   test "two scope sets do not share a session" do

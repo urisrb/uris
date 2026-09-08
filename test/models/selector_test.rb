@@ -17,7 +17,8 @@ class SelectorTest < ActiveSupport::TestCase
   end
 
   def place(key, kind: "pdf", at: Time.current)
-    item = Feed.create!(kind: kind, title: File.basename(key), created_at: at)
+    item = Feed.create!(type: Feed::FILE, key: File.basename(key), title: File.basename(key),
+                        created_at: at)
     Reference.create!(item: item, resource: @resource, locator_key: key, locator: {})
     item
   end

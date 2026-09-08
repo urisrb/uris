@@ -29,31 +29,35 @@ class SearchWebTest < ActionDispatch::IntegrationTest
     attach_engine
     stub_exa
 
-    found = tool(@tenant, ALL, "search_web", query: "anything")
+    found = tool(@tenant, ALL, "resource", key: "exa", do: "search",
+                 input: { query: "anything" })
 
     assert_equal 1, found["count"]
     assert_equal "https://example.test/a", found.dig("results", 0, "url")
   end
 
   test "a tenant with nothing to search with is told so rather than answering emptily" do
-    reply = call(@tenant, ALL, "tools/call", name: "search_web", arguments: { query: "anything" })
+    reply = call(@tenant, ALL, "tools/call", name: "resource",
+                 arguments: { key: "exa", do: "search", input: { query: "anything" } })
 
     assert reply.dig("result", "isError")
-    assert_match(/nothing that searches the web/, reply.dig("result", "content", 0, "text"))
+    assert_match(/no resource called exa/, reply.dig("result", "content", 0, "text"))
   end
 
-  test "a token without the web scope is not even offered the tool" do
+  test "a token without the web scope reaches the tool but not a search engine" do
     attach_engine
     stub_exa
 
-    reply = call(@tenant, [ "uris:catalog:read" ], "tools/call",
-                 name: "search_web", arguments: { query: "anything" })
+    reply = call(@tenant, Grant::SCOPES - [ "uris:web:read" ], "tools/call",
+                 arguments: { key: "exa", do: "search", input: { query: "anything" } },
+                 name: "resource")
 
-    assert_match(/Tool not found/, reply.dig("error", "data").to_s)
+    assert reply.dig("result", "isError")
+    assert_match(/uris:web:read/, reply.dig("result", "content", 0, "text"))
   end
 
-  test "the tool is offered only to a token that carries the scope" do
-    assert_includes Tool.all, Tool::SearchWeb
+  test "the web scope still gates a search-capable resource, though the tool is one of four" do
+    attach_engine
 
     granted = ->(scopes) {
       Grant.new(tenant: @tenant,
@@ -61,11 +65,11 @@ class SearchWebTest < ActionDispatch::IntegrationTest
         .tools.map(&:tool_name)
     }
 
-    assert_includes granted.call(ALL), "search_web"
-    assert_not_includes granted.call([ "uris:catalog:read" ]), "search_web"
+    assert_includes granted.call(ALL), "resource"
+    assert_not_includes granted.call([ "uris:catalog:read" ]), "resource"
   end
 
-  test "an agent is offered the web alongside the catalog" do
-    assert_includes Agent::READ_TOOLS, "search_web"
+  test "an agent is offered the places alongside the catalog" do
+    assert_includes Agent::READ_TOOLS, "resource"
   end
 end

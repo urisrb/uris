@@ -140,7 +140,7 @@ class SignInTest < ActionDispatch::IntegrationTest
     assert_equal [ "uris:catalog:read" ], response.parsed_body["scopes"] & Grant::SCOPES
 
     post "/graphql",
-         params: { query: "mutation($id: ID!) { analyzeItem(input: { id: $id }) { run { id } } }",
+         params: { query: "mutation($id: ID!) { analyzeFeed(input: { id: $id }) { run { id } } }",
                    variables: { id: @item.id.to_s } },
          headers: host
 

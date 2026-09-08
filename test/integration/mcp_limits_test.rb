@@ -31,7 +31,8 @@ class McpLimitsTest < ActionDispatch::IntegrationTest
   end
 
   def sync
-    call(@tenant, ALL, "tools/call", name: "sync_resource", arguments: { id: @resource.id.to_s })
+    call(@tenant, ALL, "tools/call", name: "resource",
+         arguments: { key: @resource.key, do: "sync" })
   end
 
   test "a token is bounded at the edge, and the refusal is json-rpc shaped" do
@@ -91,7 +92,9 @@ class McpLimitsTest < ActionDispatch::IntegrationTest
   end
 
   test "a tool that starts no run does not spend the run budget" do
-    (budget + 5).times { call(@tenant, ALL, "tools/call", name: "list_resources", arguments: {}) }
+    (budget + 5).times do
+      call(@tenant, ALL, "tools/call", name: "resource", arguments: { do: "list" })
+    end
 
     reply = sync
 
@@ -103,7 +106,7 @@ class McpLimitsTest < ActionDispatch::IntegrationTest
 
     refused = Tenant.switch(@tenant) { AuditEvent.newest_first.first }
 
-    assert_equal "sync_resource", refused.action
+    assert_equal "resource", refused.action
     assert_equal "denied", refused.status
     assert_match(/is the ceiling/, refused.detail)
   end

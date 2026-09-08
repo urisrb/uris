@@ -4,7 +4,7 @@ class TenancyTest < ActionDispatch::IntegrationTest
   setup do
     @tenant = Tenant.create!(subdomain: "demo", name: "Demo items")
 
-    Tenant.switch(@tenant) { Feed.create!(kind: "pdf", title: "Demo invoice") }
+    Tenant.switch(@tenant) { Feed.create!(type: Feed::FILE, key: "Demo invoice", title: "Demo invoice") }
   end
 
   test "a hostname that serves no tenant is refused before the request reaches a controller" do

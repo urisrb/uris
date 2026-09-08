@@ -3,7 +3,7 @@ require "test_helper"
 class RenamingTest < ActionDispatch::IntegrationTest
   RENAME = <<~GQL.freeze
     mutation($id: ID!, $title: String!) {
-      renameItem(input: { id: $id, title: $title }) { item { id title } }
+      renameFeed(input: { id: $id, title: $title }) { feed { id title } }
     }
   GQL
 
@@ -39,11 +39,11 @@ class RenamingTest < ActionDispatch::IntegrationTest
   test "a name is trimmed, and a blank one is refused rather than quietly clearing it" do
     kept = execute(RENAME, variables: { id: @item.id, title: "  Padded  " })
 
-    assert_equal "Padded", kept.dig("data", "renameItem", "item", "title")
+    assert_equal "Padded", kept.dig("data", "renameFeed", "feed", "title")
 
     blank = execute(RENAME, variables: { id: @item.id, title: "   " })
 
-    assert_nil blank.dig("data", "renameItem")
+    assert_nil blank.dig("data", "renameFeed")
     assert_match(/needs something to be called/, blank.dig("errors", 0, "message"))
     Tenant.switch(@tenant) { assert_equal "Padded", @item.reload.title }
   end
@@ -51,7 +51,7 @@ class RenamingTest < ActionDispatch::IntegrationTest
   test "a name longer than the limit is refused" do
     body = execute(RENAME, variables: { id: @item.id, title: "x" * 201 })
 
-    assert_nil body.dig("data", "renameItem")
+    assert_nil body.dig("data", "renameFeed")
     assert_match(/longer than 200/, body.dig("errors", 0, "message"))
   end
 
@@ -59,7 +59,7 @@ class RenamingTest < ActionDispatch::IntegrationTest
     body = execute(RENAME, scopes: %w[uris:catalog:read],
                            variables: { id: @item.id, title: "Nope" })
 
-    assert_nil body.dig("data", "renameItem")
+    assert_nil body.dig("data", "renameFeed")
     Tenant.switch(@tenant) { assert_equal "scan-0042.pdf", @item.reload.title }
   end
 

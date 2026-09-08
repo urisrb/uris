@@ -1,14 +1,14 @@
 require "test_helper"
 
-class ItemAnalyzedTest < ActionCable::Channel::TestCase
+class FeedAnalyzedTest < ActionCable::Channel::TestCase
   tests GraphqlChannel
 
   EVERY_THING = <<~GRAPHQL
-    subscription ItemAnalyzed { itemAnalyzed { item { id kind title } } }
+    subscription FeedAnalyzed { feedAnalyzed { feed { id mime title } } }
   GRAPHQL
 
   ONE_THING = <<~GRAPHQL
-    subscription ItemAnalyzed($id: ID!) { itemAnalyzed(id: $id) { item { id title } } }
+    subscription FeedAnalyzed($id: ID!) { feedAnalyzed(id: $id) { feed { id title } } }
   GRAPHQL
 
   setup do
@@ -19,8 +19,8 @@ class ItemAnalyzedTest < ActionCable::Channel::TestCase
 
     Tenant.switch(@tenant) do
       @storage = Resource::Database.create!(key: "database", name: "Storage")
-      @item = item_on("notes.txt", "the notes")
-      @unwatched = item_on("other.txt", "other notes")
+      @feed = feed_on("notes.txt", "the notes")
+      @unwatched = feed_on("other.txt", "other notes")
     end
   end
 
@@ -34,8 +34,8 @@ class ItemAnalyzedTest < ActionCable::Channel::TestCase
     subscribe_as(@tenant, EVERY_THING)
     stream = event_stream
 
-    assert_broadcasts(stream, 1) { analyze(@item) }
-    assert_includes broadcasts(stream).last, @item.to_gid_param
+    assert_broadcasts(stream, 1) { analyze(@feed) }
+    assert_includes broadcasts(stream).last, @feed.id.to_s
   end
 
   test "a second analysis is a second event" do
@@ -43,17 +43,17 @@ class ItemAnalyzedTest < ActionCable::Channel::TestCase
     stream = event_stream
 
     assert_broadcasts(stream, 2) do
-      analyze(@item)
+      analyze(@feed)
       analyze(@unwatched)
     end
   end
 
-  test "watching one item hears that item and not the others" do
-    subscribe_as(@tenant, ONE_THING, id: @item.to_gid_param)
+  test "watching one feed hears that feed and not the others" do
+    subscribe_as(@tenant, ONE_THING, id: @feed.id.to_s)
     stream = event_stream
 
     assert_no_broadcasts(stream) { analyze(@unwatched) }
-    assert_broadcasts(stream, 1) { analyze(@item) }
+    assert_broadcasts(stream, 1) { analyze(@feed) }
   end
 
   test "another tenant's subscriber is on a different stream entirely" do
@@ -64,20 +64,22 @@ class ItemAnalyzedTest < ActionCable::Channel::TestCase
     theirs = event_stream
 
     assert_not_equal mine, theirs
-    assert_no_broadcasts(theirs) { analyze(@item) }
+    assert_no_broadcasts(theirs) { analyze(@feed) }
   end
 
   private
 
-    def analyze(item)
-      Tenant.switch(@tenant) { Analyzer.for(item).run }
+    def analyze(feed)
+      Tenant.switch(@tenant) do
+        Analyzer.for(feed, analysis: Analysis.open!(feed: feed, cause: "manual")).run
+      end
     end
 
-    def item_on(key, body)
+    def feed_on(key, body)
       @storage.upload(key, body)
 
       Reference.discover!(resource: @storage, locator: { "key" => key },
-                               locator_key: key, kind: "text", title: key).item
+                          locator_key: key, mime: "text/plain", title: key).feed
     end
 
     def subscribe_as(tenant, query, scopes: Grant::SCOPES, **variables)

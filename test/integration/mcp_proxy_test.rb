@@ -31,7 +31,7 @@ class McpProxyTest < ActionDispatch::IntegrationTest
     listed = call(@tenant, ALL, "tools/list").dig("result", "tools").map { |tool| tool["name"] }
 
     assert_includes listed, "exa__web_search"
-    assert_includes listed, "search_items"
+    assert_includes listed, "search"
   end
 
   test "calling it forwards to the server and hands back what it said" do

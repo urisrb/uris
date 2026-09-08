@@ -3,7 +3,7 @@ require "test_helper"
 class NotingTest < ActionDispatch::IntegrationTest
   NOTE = <<~GQL.freeze
     mutation($id: ID!, $note: String) {
-      noteItem(input: { id: $id, note: $note }) { item { id note } }
+      noteFeed(input: { id: $id, note: $note }) { feed { id note } }
     }
   GQL
 
@@ -40,14 +40,14 @@ class NotingTest < ActionDispatch::IntegrationTest
     execute(NOTE, variables: { id: @item.id, note: "something" })
     cleared = execute(NOTE, variables: { id: @item.id, note: "   " })
 
-    assert_nil cleared.dig("data", "noteItem", "item", "note")
+    assert_nil cleared.dig("data", "noteFeed", "feed", "note")
     Tenant.switch(@tenant) { assert_nil @item.reload.note }
   end
 
   test "a note longer than the limit is refused" do
     body = execute(NOTE, variables: { id: @item.id, note: "x" * 10_001 })
 
-    assert_nil body.dig("data", "noteItem")
+    assert_nil body.dig("data", "noteFeed")
     assert_match(/longer than 10000/, body.dig("errors", 0, "message"))
   end
 
@@ -86,7 +86,7 @@ class NotingTest < ActionDispatch::IntegrationTest
     body = execute(NOTE, scopes: %w[uris:catalog:read],
                          variables: { id: @item.id, note: "nope" })
 
-    assert_nil body.dig("data", "noteItem")
+    assert_nil body.dig("data", "noteFeed")
     Tenant.switch(@tenant) { assert_nil @item.reload.note }
   end
 

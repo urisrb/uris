@@ -14,7 +14,7 @@ class GrantTest < ActiveSupport::TestCase
   test "the tool list is the grant, so an ungranted tool is never registered" do
     names = build(scope: "uris:catalog:read").tools.map(&:tool_name)
 
-    assert_equal %w[search_items get_item], names
+    assert_equal %w[search feed], names
     assert_empty build(scope: "openid").tools
   end
 
