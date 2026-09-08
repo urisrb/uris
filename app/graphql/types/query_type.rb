@@ -171,15 +171,5 @@ module Types
 
       Page.of(scope, after: after, limit: limit)
     end
-    field :feeds, [ Types::FeedType ], null: false, grants: "uris:catalog:read",
-          description: "Every feed in the tenant, newest first."
-
-    field :feed, Types::FeedType, grants: "uris:catalog:read" do
-      argument :slug, String, required: true
-    end
-
-    def feeds = Feed.order(created_at: :desc)
-
-    def feed(slug:) = Feed.by_slug(slug).first
   end
 end

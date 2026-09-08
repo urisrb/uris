@@ -44,7 +44,7 @@ class SyncResourceJob < ApplicationJob
       resource: resource,
       locator: resource.locator_for(object),
       locator_key: locator_key,
-      kind: resource.kind_for(object),
+      mime: resource.mime_for(object),
       title: resource.title_for(object)
     )
 
