@@ -7,6 +7,7 @@ brew "ffmpeg"
 brew "whisper-cpp"
 brew "libyaml"
 brew "postgresql@17"
+brew "shellcheck"
 brew "shfmt"
 brew "ollama"
 

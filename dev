@@ -97,12 +97,22 @@ def fmt(args)
   usage unless args.empty? || args == [ "--check" ]
   check = args.first == "--check"
 
+  %w[shfmt shellcheck].each do |tool|
+    next if system("command -v #{tool} > /dev/null")
+
+    die("#{tool} is not on your PATH, and CI checks with it. brew bundle")
+  end
+
+  scripts = Dir.chdir(ROOT) { `shfmt -f bin script`.split("\n") }
+
   ok = [
     run("bin/rubocop", *(check ? [] : [ "-a" ])),
     run("npx", "biome", "check", *([ "--write" ] unless check)),
     run("npx", "--yes", "prettier@3.9.6", check ? "--check" : "--write",
         "--no-error-on-unmatched-pattern",
-        "*.{yml,yaml,md}", ".github/**/*.{yml,yaml}", "config/**/*.{yml,yaml}")
+        "*.{yml,yaml,md}", ".github/**/*.{yml,yaml}", "config/**/*.{yml,yaml}"),
+    run("shfmt", check ? "-d" : "-w", "-i", "2", "-ci", *scripts),
+    run("shellcheck", *scripts)
   ]
 
   exit(ok.all? ? 0 : 1)
