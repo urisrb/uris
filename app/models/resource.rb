@@ -377,6 +377,13 @@ class Resource < ApplicationRecord
     true
   end
 
+  def abandon_sync!
+    update_columns(
+      sync_started_at: nil,
+      next_sync_at: sync_interval.present? ? next_sync_after(Time.current) : nil
+    )
+  end
+
   def release_sync!
     finished = Time.current
 

@@ -6,8 +6,15 @@ class SyncResourceJob < ApplicationJob
 
   gated_as "sync"
 
+  rescue_from(StandardError) do |error|
+    fail_run(error)
+    abandon_sync
+    raise error
+  end
+
   retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5 do |job, error|
     job.fail_run(error)
+    job.abandon_sync
   end
 
   on_complete :release_sync
@@ -26,6 +33,10 @@ class SyncResourceJob < ApplicationJob
     end
 
     enumerator_builder.wrap(enumerator_builder, objects)
+  end
+
+  def abandon_sync
+    Resource.find_by(id: arguments[1])&.abandon_sync!
   end
 
   def gate_reference

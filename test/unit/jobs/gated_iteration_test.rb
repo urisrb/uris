@@ -1,5 +1,17 @@
 require "test_helper"
 
+module FailsToDiscover
+  mattr_accessor :failing, default: false
+
+  def discover!(**)
+    raise "the disk went away" if FailsToDiscover.failing
+
+    super
+  end
+end
+
+Reference.singleton_class.prepend(FailsToDiscover)
+
 class GatedIterationTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
@@ -56,6 +68,27 @@ class GatedIterationTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       assert_not @resource.reload.syncing?, "the gate stranded the resource lock"
       assert_nil @resource.sync_started_at
+    end
+  end
+
+  teardown do
+    FailsToDiscover.failing = false
+  end
+
+  test "a sync that fails lets go of the resource, without calling it synced" do
+    Tenant.switch(@tenant) { @resource.update!(sync_interval: 1.hour.to_i) }
+    Tenant.switch(@tenant) { @resource.claim_sync! }
+
+    FailsToDiscover.failing = true
+    assert_raises(RuntimeError) { start_sync }
+    FailsToDiscover.failing = false
+
+    Tenant.switch(@tenant) do
+      @resource.reload
+
+      assert_not @resource.syncing?, "a failed sync held the resource for six hours"
+      assert_nil @resource.synced_at
+      assert_in_delta 1.hour.from_now, @resource.next_sync_at, 5
     end
   end
 
