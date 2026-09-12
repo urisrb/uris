@@ -66,6 +66,8 @@ class Grant
   private
 
     def verify_tenant!
+      return unless Tenant.issuer_per_subdomain?
+
       claimed = claims.tenant
       return if claimed.subdomain.blank? || claimed.subdomain == tenant.subdomain
 

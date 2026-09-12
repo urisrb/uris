@@ -36,6 +36,17 @@ class GrantTest < ActiveSupport::TestCase
     assert build(scope: "uris:catalog:read").permits?("uris:catalog:read")
   end
 
+  test "one fixed issuer names its own tenant, which need not share this tenant's subdomain" do
+    held = ENV["MASKS_ISSUER_TEMPLATE"]
+    ENV["MASKS_ISSUER_TEMPLATE"] = "http://masks.localhost:12345"
+
+    grant = build(scope: "uris:catalog:read", tenant: { "subdomain" => "masks" })
+
+    assert grant.permits?("uris:catalog:read")
+  ensure
+    ENV["MASKS_ISSUER_TEMPLATE"] = held
+  end
+
   private
 
     def build(scope:, tenant: nil)
