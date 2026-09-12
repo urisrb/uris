@@ -29,7 +29,7 @@ class Reference < ApplicationRecord
   }
 
   after_commit :reindex_feed
-  after_destroy_commit :forget_derived_bytes, if: :derived?
+  after_destroy_commit :forget_bytes_uris_made
 
   def self.discover!(resource:, locator:, locator_key:, mime: nil, title: nil, role: ORIGINAL)
     reference = find_or_initialize_by(resource: resource, locator_key: locator_key)
@@ -130,9 +130,10 @@ class Reference < ApplicationRecord
 
   private
 
-    def forget_derived_bytes
+    def forget_bytes_uris_made
       store = Resource.find_by(id: resource_id)
       return unless store.is_a?(Resource::Database) && Resource::INTERNAL.key?(store.key.to_sym)
+      return if Reference.exists?(resource_id: resource_id, locator_key: locator_key)
 
       store.blobs.where(key: locator_key).delete_all
     end

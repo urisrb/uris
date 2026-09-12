@@ -65,6 +65,21 @@ class DerivedImagesTest < ActiveSupport::TestCase
     end
   end
 
+  test "forgetting a message takes the attachments uris extracted from it" do
+    Tenant.switch(@tenant) do
+      store = Resource.internal!(:children)
+      message = Feed.create!(type: Feed::FILE, key: "march.eml", title: "march.eml")
+      attachment = Feed.create!(type: Feed::FILE, key: "invoice.pdf", title: "invoice.pdf", parent: message)
+      key = "#{message.id}/0/0/invoice.pdf"
+      Reference.record!(feed: attachment, resource: store, locator: store.upload(key, "pdf bytes"),
+                        locator_key: key)
+
+      assert_difference -> { store.blobs.count }, -1 do
+        message.destroy!
+      end
+    end
+  end
+
   test "a place the app keeps for itself is never offered for a file" do
     Tenant.switch(@tenant) do
       Resource.internal!(:derived)
