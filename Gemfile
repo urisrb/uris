@@ -33,7 +33,7 @@ gem "ferrum"
 gem "job-iteration"
 
 gem "csv"
-gem "json", "~> 2.21"
+gem "json", "~> 3.0"
 
 gem "roo"
 gem "rubyzip", require: "zip"
