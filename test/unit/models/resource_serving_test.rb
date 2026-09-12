@@ -118,6 +118,21 @@ class ResourceServingTest < ActiveSupport::TestCase
     end
   end
 
+  test "restate! outside a tenant reaches no row, so boot restates inside each one" do
+    bucket = Tenant.switch(@tenant) { s3.tap { |held| held.update_columns(serving: {}) } }
+
+    Resource.restate!
+
+    Tenant.switch(@tenant) { assert_equal({}, bucket.reload.serving) }
+
+    require "rake"
+    Rails.application.load_tasks unless Rake::Task.task_defined?("uris:resources")
+    Rake::Task["uris:resources"].reenable
+    capture_io { Rake::Task["uris:resources"].invoke }
+
+    Tenant.switch(@tenant) { assert_equal [ bucket.id ], Resource.capable_of(:storage).ids }
+  end
+
   test "describe carries what it accepts, which is what an agent reads" do
     Tenant.switch(@tenant) do
       described = Resource::Database.create!(key: "blobs").describe
