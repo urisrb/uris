@@ -57,6 +57,16 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     assert_match(/llama3\.1:8b/, error.message)
   end
 
+  test "a model named without a tag is the one served as latest, the way ollama reads it" do
+    @server.serves("gemma3:4b", "llama3.1:latest")
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: { "base_url" => @server.base_url, "models" => { "fast" => "gemma3:4b", "smart" => "llama3.1" } })
+
+      assert @resource.check!
+    end
+  end
+
   test "a resource declaring nothing is unusable rather than vacuously healthy" do
     Tenant.switch(@tenant) do
       bare = Resource::OpenaiCompatible.create!(

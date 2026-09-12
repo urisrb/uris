@@ -112,7 +112,7 @@ class Resource
     def check!
       served = model_names
       wanted = models.values.uniq
-      missing = wanted - served
+      missing = wanted.reject { |name| served.include?(name) || served.include?("#{name}:latest") }
 
       if wanted.empty?
         raise Resource::Unusable, "#{key}: no models are declared — set details.models"

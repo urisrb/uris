@@ -3,9 +3,11 @@ TENANTS = [
   { subdomain: "acme",  name: "Acme" }
 ]
 
-TENANTS.each do |attrs|
-  tenant = Tenant.find_or_create_by!(subdomain: attrs[:subdomain]) { |t| t.name = attrs[:name] }
+seeded = Tenant.declare!.presence || TENANTS.map do |attrs|
+  Tenant.find_or_create_by!(subdomain: attrs[:subdomain]) { |t| t.name = attrs[:name] }
+end
 
+seeded.each do |tenant|
   Tenant.switch(tenant) do
     Resource::Database.find_or_create_by!(key: "database") do |resource|
       resource.name = "Default storage"
