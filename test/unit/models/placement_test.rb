@@ -80,6 +80,17 @@ class PlacementTest < ActiveSupport::TestCase
     end
   end
 
+  test "where a file was put is not part of what it says, so search does not find it by its shelf" do
+    Tenant.switch(@tenant) do
+      feed = staged("receipts/march.txt", "paid")
+      analysis = Analysis.open!(feed: feed, cause: "upload")
+
+      Placement.new(feed, analysis: analysis).place!(@archive, reason: "it is a receipt")
+
+      assert_empty analysis.reload.extracted
+    end
+  end
+
   test "the analysis reads a staged file before it has a reference" do
     Tenant.switch(@tenant) do
       feed = staged("march.txt", "the March rent is paid")

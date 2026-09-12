@@ -3,6 +3,7 @@ class Analysis < ApplicationRecord
   STATUSES = %w[queued running done failed cancelled gated].freeze
   OPEN = %w[queued running].freeze
   SETTLED = %w[done failed].freeze
+  BOOKKEEPING = %w[placement derived].freeze
 
   LOG_LIMIT = 256_000
   LINE_LIMIT = 2_000
@@ -19,7 +20,7 @@ class Analysis < ApplicationRecord
 
   scope :open, -> { where(status: OPEN) }
   scope :settled, -> { where(status: SETTLED) }
-  scope :newest_first, -> { order(id: :desc) }
+  scope :newest_first, -> { reorder(id: :desc) }
   scope :past_deadline, -> { open.where(deadline: ...Time.current) }
 
   def self.open!(feed:, cause:, reference: nil, deadline: nil)
@@ -114,7 +115,7 @@ class Analysis < ApplicationRecord
   end
 
   def extracted(without: [])
-    skipped = Array(without).map(&:to_s)
+    skipped = Array(without).map(&:to_s) + BOOKKEEPING
 
     steps.except(*skipped).values.filter_map { |held| held["result"] }
   end
