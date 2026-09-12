@@ -28,7 +28,7 @@
     "react-router-dom": "^7.15.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.15",
+    "@biomejs/biome": "2.5.12",
     "@graphql-codegen/cli": "^7.0.0",
     "@graphql-codegen/typed-document-node": "^7.1.0",
     "@graphql-codegen/typescript": "^6.0.1",
