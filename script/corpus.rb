@@ -10,6 +10,7 @@ paths = Pathname.glob(root.join(group.presence || "*", "*")).reject(&:directory?
 abort "nothing to load under #{root}/#{group}" if paths.empty?
 
 keys = nil
+started = Time.current
 
 Tenant.switch(tenant) do
   storage = Resource.default_storage!
@@ -34,7 +35,6 @@ Tenant.switch(tenant) do
 end
 
 described = {}
-started = Time.current
 deadline = started + ENV.fetch("CORPUS_TIMEOUT", "1800").to_i
 
 report = lambda do |reference|
@@ -63,7 +63,8 @@ loop do
 
   Tenant.switch(tenant) do
     Reference.where(locator_key: keys).order(:locator_key).each do |reference|
-      next pending << reference.locator_key if reference.analyzed_at.nil?
+      settling = reference.analyzed_at.nil? || reference.feed.analyses.open.exists?
+      next pending << reference.locator_key if settling
       next if described.key?(reference.locator_key)
 
       described[reference.locator_key] = true
