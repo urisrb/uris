@@ -64,7 +64,7 @@ class AgentTest < ActiveSupport::TestCase
   end
 
   test "a missing required argument is refused rather than raised" do
-    @server.answer_tool_call("connect", a: "1")
+    @server.answer_tool_call("connect", b: "1")
     @server.answer("I could not.")
 
     answered = nil
@@ -73,7 +73,7 @@ class AgentTest < ActiveSupport::TestCase
     refused = answered.calls.first
 
     assert_not refused.ok
-    assert_match(/needs b/, refused.error)
+    assert_match(/needs a/, refused.error)
     assert_equal :answered, answered.reason
   end
 

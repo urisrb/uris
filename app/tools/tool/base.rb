@@ -21,6 +21,7 @@ module Tool
       OverBudget,
       ArgumentError,
       ActiveRecord::RecordNotFound,
+      ActiveRecord::RecordInvalid,
       Resource::Failed
     ].freeze
 

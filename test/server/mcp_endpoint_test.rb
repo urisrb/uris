@@ -130,6 +130,34 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     assert_equal [ store.id.to_s ], placed["references"].map { |reference| reference["resource_id"] }
   end
 
+  test "connect files a feed under a tag by its name, making the tag the first time" do
+    filed = tool(@tenant, ALL, "connect", a: @feed.id.to_s, tag: "receipts")
+
+    assert filed["connected"]
+    Tenant.switch(@tenant) do
+      assert_equal [ "receipts" ], @feed.reload.tags.map(&:key)
+      assert_equal 1, Feed.tags.by_key("receipts").count
+    end
+
+    tool(@tenant, ALL, "connect", a: @feed.id.to_s, tag: "tag:receipts")
+    Tenant.switch(@tenant) { assert_equal 1, Feed.tags.count }
+  end
+
+  test "severing a tag that does not exist is refused rather than making it" do
+    reply = call(@tenant, ALL, "tools/call", name: "connect",
+                                             arguments: { a: @feed.id.to_s, tag: "nonexistent", connected: false })
+
+    assert reply.dig("result", "isError")
+    Tenant.switch(@tenant) { assert_equal 0, Feed.tags.count }
+  end
+
+  test "a feed the model makes badly comes back to it as an error instead of failing the run" do
+    reply = call(@tenant, ALL, "tools/call", name: "feed", arguments: { do: "create", title: "" })
+
+    assert reply.dig("result", "isError")
+    assert_match(/can't be blank/, reply.dig("result", "content", 0, "text"))
+  end
+
   test "describe advertises the vocabulary the resource accepts" do
     described = tool(@tenant, ALL, "resource", key: @resource.key, do: "describe")
 

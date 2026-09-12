@@ -50,9 +50,9 @@ class AnalyzeFeedJob < ApplicationJob
 
   FILE_PROMPT = <<~TEXT.freeze
     A new thing has just been catalogued. Read it, then connect it to whatever else in the
-    catalog belongs beside it — the tags it should be filed under, and any feed it is about.
-    Make the connections with the tools rather than describing them, then say in one
-    sentence what you filed it as.
+    catalog belongs beside it: file it under tags with connect, naming each tag with `tag`,
+    and connect it by id to any feed it is about. Make the connections with the tools rather
+    than describing them, then say in one sentence what you filed it as.
   TEXT
 
   private
