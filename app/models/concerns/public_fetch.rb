@@ -26,9 +26,18 @@ module PublicFetch
       raise Resource::Failed, "#{key}: #{e.message}"
     end
 
+    def pinned!(target)
+      PublicAddress.pinned!(target, allow_private: self.class.private_fetches_allowed?)
+    rescue PublicAddress::Blocked => e
+      raise Blocked, "#{key}: #{e.message}"
+    rescue PublicAddress::Unresolvable => e
+      raise Resource::Failed, "#{key}: #{e.message}"
+    end
+
     def over_http(target, redirects: MAX_REDIRECTS, &build)
-      uri = permitted!(target)
-      response = exchange(uri, &build)
+      pinned = pinned!(target)
+      uri = pinned.uri
+      response = exchange(pinned, &build)
 
       case response
       when Net::HTTPRedirection
@@ -44,10 +53,9 @@ module PublicFetch
       raise Resource::Failed, "#{key}: #{e.class} fetching #{target}"
     end
 
-    def exchange(uri, &build)
-      Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
-                      open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT) do |http|
-        http.request(build.call(uri))
+    def exchange(pinned, &build)
+      PublicAddress.start(pinned, open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT) do |http|
+        http.request(build.call(pinned.uri))
       end
     end
 

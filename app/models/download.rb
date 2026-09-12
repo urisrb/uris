@@ -50,7 +50,7 @@ class Download
   end
 
   def get
-    reach(permitted!(url), MAX_REDIRECTS)
+    reach(pinned!(url), MAX_REDIRECTS)
   end
 
   private
@@ -60,18 +60,18 @@ class Download
     # Every hop is checked, not just the one we were handed. A public address
     # that answers with a redirect to 169.254.169.254 is the whole attack, and
     # only re-resolving each Location closes it.
-    def permitted!(target)
-      PublicAddress.permitted!(target)
+    def pinned!(target)
+      PublicAddress.pinned!(target)
     rescue PublicAddress::Blocked => e
       raise Blocked, e.message
     rescue PublicAddress::Unresolvable => e
       raise Failed, e.message
     end
 
-    def reach(uri, redirects)
-      Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https",
-                                          open_timeout: OPEN_TIMEOUT,
-                                          read_timeout: READ_TIMEOUT) do |http|
+    def reach(pinned, redirects)
+      uri = pinned.uri
+
+      PublicAddress.start(pinned, open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT) do |http|
         http.request(get_for(uri)) do |response|
           case response
           when Net::HTTPRedirection then return follow(uri, response, redirects)
@@ -98,7 +98,7 @@ class Download
       location = response["location"].to_s
       raise Failed, "#{uri} redirected without saying where" if location.blank?
 
-      reach(permitted!(URI.join(uri, location).to_s), redirects - 1)
+      reach(pinned!(URI.join(uri, location).to_s), redirects - 1)
     rescue URI::Error
       raise Failed, "#{uri} redirected somewhere unreadable"
     end

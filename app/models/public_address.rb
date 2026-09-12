@@ -1,3 +1,4 @@
+require "net/http"
 require "resolv"
 require "ipaddr"
 
@@ -6,6 +7,8 @@ module PublicAddress
   class Unresolvable < StandardError; end
 
   SCHEMES = %w[http https].freeze
+
+  Pinned = Data.define(:uri, :address)
 
   RESERVED = %w[
     0.0.0.0/8 10.0.0.0/8 100.64.0.0/10 127.0.0.0/8 169.254.0.0/16 172.16.0.0/12
@@ -20,21 +23,27 @@ module PublicAddress
     end
 
     def permitted!(target, allow_private: allowed?)
-      uri = parse(target)
-
-      unless uri.is_a?(URI::HTTP) && uri.hostname.present?
-        raise Blocked, "#{target} is not an http or https URL"
-      end
-
+      uri = http!(target)
       return uri if allow_private
 
-      addresses(uri.hostname).each do |address|
-        next unless reserved?(address)
-
-        raise Blocked, "#{uri.hostname} resolves to #{address}, which is not a public address"
-      end
-
+      vetted(uri.hostname)
       uri
+    end
+
+    def pinned!(target, allow_private: allowed?)
+      uri = http!(target)
+      found = allow_private ? addresses(uri.hostname) : vetted(uri.hostname)
+
+      Pinned.new(uri: uri, address: found.min_by { |address| address.ipv4? ? 0 : 1 }.to_s)
+    end
+
+    def start(pinned, open_timeout:, read_timeout:, &block)
+      http = Net::HTTP.new(pinned.uri.hostname, pinned.uri.port)
+      http.ipaddr = pinned.address
+      http.use_ssl = pinned.uri.scheme == "https"
+      http.open_timeout = open_timeout
+      http.read_timeout = read_timeout
+      http.start(&block)
     end
 
     def permitted?(target, allow_private: allowed?)
@@ -63,6 +72,24 @@ module PublicAddress
     end
 
     private
+
+      def http!(target)
+        uri = parse(target)
+
+        unless uri.is_a?(URI::HTTP) && uri.hostname.present?
+          raise Blocked, "#{target} is not an http or https URL"
+        end
+
+        uri
+      end
+
+      def vetted(host)
+        addresses(host).each do |address|
+          next unless reserved?(address)
+
+          raise Blocked, "#{host} resolves to #{address}, which is not a public address"
+        end
+      end
 
       def parse(target)
         URI.parse(target.to_s)

@@ -200,8 +200,8 @@ class Resource
         errors.add(:details, "must name an endpoint — #{provider} is wherever you run it")
       end
 
-      def permitted!(target)
-        PublicAddress.permitted!(target, allow_private: self.class.named?(target))
+      def pinned!(target)
+        PublicAddress.pinned!(target, allow_private: self.class.named?(target))
       rescue PublicAddress::Blocked => e
         raise PublicFetch::Blocked, "#{key}: #{e.message}"
       rescue PublicAddress::Unresolvable => e

@@ -1,6 +1,20 @@
 require "test_helper"
 require_relative "../../support/fake_feed_server"
 
+module ResolvesOnce
+  mattr_accessor :names, default: {}
+  mattr_accessor :lookups, default: 0
+
+  def addresses(host)
+    return super unless ResolvesOnce.names.key?(host)
+
+    ResolvesOnce.lookups += 1
+    [ IPAddr.new(ResolvesOnce.names.fetch(host)) ]
+  end
+end
+
+PublicAddress.singleton_class.prepend(ResolvesOnce)
+
 class DownloadTest < ActiveSupport::TestCase
   setup do
     @server = FakeFeedServer.current
@@ -9,6 +23,30 @@ class DownloadTest < ActiveSupport::TestCase
 
   teardown do
     ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    ResolvesOnce.names = {}
+    ResolvesOnce.lookups = 0
+  end
+
+  test "the connection goes to the address that was checked, not to a second lookup a resolver could answer differently" do
+    private!
+
+    host = "rebinds-#{SecureRandom.hex(4)}.invalid"
+    ResolvesOnce.names = { host => "127.0.0.1" }
+    url = @server.serve_body("/march.pdf", "pinned", content_type: "application/pdf")
+
+    WebMock.disable!
+    got = Download.of(url.sub("127.0.0.1", host))
+
+    assert_equal "pinned", got.bytes
+    assert_equal 1, ResolvesOnce.lookups
+  ensure
+    WebMock.enable!
+  end
+
+  test "a name that resolves to a private address is refused before it is dialled" do
+    ResolvesOnce.names = { "inside.invalid" => "10.0.0.7" }
+
+    assert_raises(Download::Blocked) { Download.of("http://inside.invalid/secrets") }
   end
 
   test "an address that is not public is refused before anything is dialled" do

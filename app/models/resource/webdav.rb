@@ -219,8 +219,7 @@ class Resource
       def mkcol!(path)
         return if path.blank?
 
-        uri = permitted!(url_for(path))
-        response = exchange(uri) { |target| authorized(Mkcol.new(target)) }
+        response = exchange(pinned!(url_for(path))) { |target| authorized(Mkcol.new(target)) }
 
         return if response.is_a?(Net::HTTPSuccess) || response.code == "405"
 
