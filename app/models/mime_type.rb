@@ -43,7 +43,8 @@ module MimeType
     "vcf" => "text/vcard", "vcard" => "text/vcard",
     "pkpass" => "application/vnd.apple.pkpass",
     "eml" => "message/rfc822",
-    "zip" => "application/zip"
+    "zip" => "application/zip",
+    "epub" => "application/epub+zip"
   }.merge(TEXT.index_with("text/plain"))
    .merge(RAW.index_with("image/x-dcraw"))
    .freeze

@@ -82,7 +82,7 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
     end
   end
 
-  test "with no model configured the recording is still catalogued, and says why it is silent" do
+  test "with no model configured the recording is still catalogued, and the log says why it is silent" do
     ENV.delete("URIS_WHISPER_MODEL")
 
     analyze_feed_at "tone.m4a"
@@ -91,8 +91,8 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
       steps = steps_at("tone.m4a")
 
       assert steps.dig("probe", "result").present?, "metadata does not need a model"
-      assert_match(/URIS_WHISPER_MODEL/, steps.dig("transcript", "error", "message"))
-      assert_equal "Analyzer::Failed", steps.dig("transcript", "error", "class")
+      assert_not steps.key?("transcript"), "an unconfigured transcriber is skipped, not a failed step"
+      assert_match(/transcript : no transcription model/, Analysis.newest_first.first.logs)
     end
   end
 

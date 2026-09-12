@@ -25,7 +25,11 @@ module Analyzer
     def analyze
       with_tempfile do |path|
         step(:probe) { probe(path) }
-        step(:transcript) { transcribe(path) }
+        if self.class.model.blank?
+          analysis&.log_skip(log_context, "transcript", "no transcription model is configured")
+        else
+          step(:transcript) { transcribe(path) }
+        end
       end
     end
 
