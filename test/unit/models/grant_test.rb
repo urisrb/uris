@@ -37,21 +37,29 @@ class GrantTest < ActiveSupport::TestCase
   end
 
   test "one fixed issuer names its own tenant, which need not share this tenant's subdomain" do
-    held = ENV["MASKS_ISSUER_TEMPLATE"]
-    ENV["MASKS_ISSUER_TEMPLATE"] = "http://masks.localhost:12345"
+    issuer = FakeIssuer.current.url_for("masks")
 
-    grant = build(scope: "uris:catalog:read", tenant: { "subdomain" => "masks" })
+    grant = build(scope: "uris:catalog:read", tenant: { "subdomain" => "masks" }, issuer: issuer)
 
     assert grant.permits?("uris:catalog:read")
-  ensure
-    ENV["MASKS_ISSUER_TEMPLATE"] = held
+  end
+
+  test "a token claiming a tenant other than the one its issuer speaks for is refused" do
+    issuer = FakeIssuer.current.url_for("masks")
+
+    error = assert_raises(Grant::Denied) do
+      build(scope: "uris:catalog:read", tenant: { "subdomain" => "acme" }, issuer: issuer)
+    end
+
+    assert_match(/issued for acme, not masks/, error.message)
   end
 
   private
 
-    def build(scope:, tenant: nil)
+    def build(scope:, tenant: nil, issuer: nil)
       claims = { "sub" => "someone", "scope" => scope, "exp" => 1.hour.from_now.to_i }
       claims["tenant"] = tenant if tenant
+      claims["iss"] = issuer if issuer
 
       Grant.new(tenant: @tenant, claims: Masks::Client::Claims.new(claims))
     end

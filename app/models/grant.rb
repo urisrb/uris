@@ -66,11 +66,21 @@ class Grant
   private
 
     def verify_tenant!
-      return unless Tenant.issuer_per_subdomain?
+      claimed = claims.tenant.subdomain
+      return if claimed.blank?
 
-      claimed = claims.tenant
-      return if claimed.subdomain.blank? || claimed.subdomain == tenant.subdomain
+      expected = issuing_tenant
+      return if claimed == expected
 
-      raise Denied, "this token was issued for #{claimed.subdomain}, not #{tenant.subdomain}"
+      raise Denied, "this token was issued for #{claimed}, not #{expected}"
+    end
+
+    def issuing_tenant
+      return tenant.subdomain if claims.issuer.blank?
+
+      Masks::Client::Issuer.resolve(claims.issuer).tenant.to_h["subdomain"].presence ||
+        raise(Denied, "#{claims.issuer} does not say which tenant it is")
+    rescue Masks::Client::Error => e
+      raise Denied, "#{claims.issuer} could not be asked which tenant it is: #{e.message}"
     end
 end

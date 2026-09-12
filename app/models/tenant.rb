@@ -107,10 +107,6 @@ class Tenant < ApplicationRecord
       "#{origin(request)}/mcp"
     end
 
-    def issuer_per_subdomain?
-      ENV["MASKS_ISSUER_TEMPLATE"].to_s.include?("%{subdomain}")
-    end
-
     def issuer_url(request)
       template = ENV["MASKS_ISSUER_TEMPLATE"].presence
       raise Unconfigured, "MASKS_ISSUER_TEMPLATE is not set" if template.nil?
