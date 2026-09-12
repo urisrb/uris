@@ -2,12 +2,14 @@ module McpTransports
   INSTRUCTIONS = <<~TEXT.freeze
     uris is one searchable index across everything its owner keeps, wherever it lives.
 
-    An item is a reference, not the bytes: the catalog holds where something lives and what
+    A feed is a reference, not the bytes: the catalog holds where something lives and what
     analysis understood about it, while the original stays in the resource it came from.
-    So searching is cheap and reading the bytes back means exporting them.
+    Files, notes, addresses, tags and content types are all feeds, and connecting two of them
+    is how something is filed or related.
 
-    Start with search_items. Use list_resources to see where items come from, and
-    describe_resource before command_resource — each resource type has its own vocabulary.
+    Start with search. Read one feed with feed, file it with connect, and use resource to see
+    the places things come from — describe a resource before commanding it, since each type
+    has its own vocabulary.
 
     Credentials never travel through a tool call. Connecting a resource happens in the
     browser, and nothing here will accept a secret as an argument.
