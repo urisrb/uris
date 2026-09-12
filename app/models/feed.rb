@@ -258,7 +258,7 @@ class Feed < ApplicationRecord
 
   def analyze!(cause: "manual")
     Analysis.open!(feed: self, cause: cause).tap do |held|
-      AnalyzeFeedJob.perform_later(tenant_id, id, held.id)
+      AnalyzeFeedJob.set(priority: Analysis.priority_for(cause)).perform_later(tenant_id, id, held.id)
     end
   end
 

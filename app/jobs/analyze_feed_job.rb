@@ -26,8 +26,10 @@ class AnalyzeFeedJob < ApplicationJob
     placement = Placement.new(feed, analysis: analysis)
     placement.returned!
 
-    ActiveRecord::Base.transaction(requires_new: true) do
-      Analyzer.for(feed, analysis: analysis).run
+    unless feed.address?
+      ActiveRecord::Base.transaction(requires_new: true) do
+        Analyzer.for(feed, analysis: analysis).run
+      end
     end
 
     filed(feed)
@@ -72,10 +74,21 @@ class AnalyzeFeedJob < ApplicationJob
       Current.grant = grant
       answered = agent.call(asked(feed))
       analysis&.log_info("agent", answered.reason.to_s, answered.said)
+      noted(answered)
     rescue Agent::Refused, Resource::Unusable => e
       analysis&.log_skip("agent", e.message)
     ensure
       Current.grant = nil
+    end
+
+    def noted(answered)
+      return if analysis.nil?
+
+      now = Time.current.iso8601(3)
+      analysis.write_step!("answer", {
+        "started_at" => now, "finished_at" => now,
+        "result" => { "said" => answered.said.to_s.truncate(4_000), "reason" => answered.reason.to_s }
+      })
     end
 
     def asked(feed)

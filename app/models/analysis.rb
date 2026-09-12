@@ -3,7 +3,10 @@ class Analysis < ApplicationRecord
   STATUSES = %w[queued running done failed cancelled gated].freeze
   OPEN = %w[queued running].freeze
   SETTLED = %w[done failed].freeze
-  BOOKKEEPING = %w[placement derived].freeze
+  BOOKKEEPING = %w[placement derived answer].freeze
+  BULK = %w[sync edge].freeze
+  ASKED_PRIORITY = 0
+  BULK_PRIORITY = 10
 
   LOG_LIMIT = 256_000
   LINE_LIMIT = 2_000
@@ -36,6 +39,8 @@ class Analysis < ApplicationRecord
   end
 
   def open? = OPEN.include?(status)
+
+  def self.priority_for(cause) = BULK.include?(cause.to_s) ? BULK_PRIORITY : ASKED_PRIORITY
   def settled? = SETTLED.include?(status)
 
   def running!

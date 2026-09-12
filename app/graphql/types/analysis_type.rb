@@ -17,5 +17,16 @@ module Types
     field :finished_at, GraphQL::Types::ISO8601DateTime
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false
     field :duration_ms, Integer
+    field :said, String, description: "What the agent answered when the pass finished, if it ran."
+
+    def said
+      object.step_result("answer").to_h["said"].presence || last_agent_word
+    end
+
+    def last_agent_word
+      spoken = object.turns.select { |turn| turn["role"] == "agent" && turn["calls"].blank? }
+
+      spoken.last&.dig("content").presence
+    end
   end
 end

@@ -30,6 +30,30 @@ class AnalyzeFeedJobTest < ActiveSupport::TestCase
     end
   end
 
+  test "a run someone asked for is enqueued ahead of a sync's bulk" do
+    Tenant.switch(@tenant) do
+      @feed.analyze!(cause: "manual")
+      @feed.analyze!(cause: "sync")
+    end
+
+    priorities = enqueued_jobs.select { |job| job["job_class"] == "AnalyzeFeedJob" }.map { |job| job["priority"] }
+
+    assert_equal [ Analysis::ASKED_PRIORITY, Analysis::BULK_PRIORITY ], priorities
+  end
+
+  test "an address has no bytes to read, so its pass goes straight to the agent" do
+    analysis = Tenant.switch(@tenant) do
+      Feed.create!(type: Feed::ADDRESS, key: "/buy").tap { |feed| feed.create_schedule!(prompt: "find things") }.analyze!
+    end
+
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    Tenant.switch(@tenant) do
+      assert_equal "done", analysis.reload.status
+      assert_empty analysis.steps
+    end
+  end
+
   test "asking for an analysis opens one before the job is enqueued" do
     analysis = nil
 
