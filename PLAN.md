@@ -247,7 +247,9 @@ Two server defects surfaced through the screenshots rather than the suite: `plac
 - [ ] `docs/` written again. Every page was deleted 2026-09-12 rather than patched — sixteen of
       eighteen described items, kinds, twelve tools or a feed that was a prompt. The Astro and
       Starlight scaffolding stays; the prose starts over
-- [ ] Squash every migration into one initial migration
+- [x] Squash every migration into one initial migration — `20260912200000_create_uris_schema.rb`,
+      carrying the version of the last migration it replaced, so a database that ran the forty
+      has nothing pending and an empty one builds the same `structure.sql` byte for byte
 - [ ] `./dev test` and `./dev fmt --check` green
 
 ## Deferred
