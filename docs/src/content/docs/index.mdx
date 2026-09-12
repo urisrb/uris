@@ -1,61 +1,17 @@
 ---
 title: uris
-description: Everything you make, see, send and keep — one searchable index, and a way back out.
-template: splash
-head:
-  - tag: title
-    content: uris — everything you own, one index
-hero:
-  tagline: everything you make, see, send and keep — one index, one way out
-  actions:
-    - text: Run it
-      link: /start/running/
-      icon: document
-    - text: Drive it from Claude
-      link: /guides/connector/
-      icon: right-arrow
-      variant: minimal
+description: One searchable index across everything you own, wherever it lives, with a way back out.
 ---
 
-import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
+uris catalogs what you already have. It points at the places your things live — buckets,
+directories, mailboxes, calendars, feeds, wikis — reads each one, and gives you a single index
+over all of them that you can search, ask questions of, and export back out.
 
-<div class="mark-hero">
-  <svg viewBox="0 0 25 28" role="img" aria-label="uris" width="107" height="120">
-    <path d="M0.409 20.181 L4.045 5.636 L6.955 6.364 L3.319 20.909 A1.5 1.5 0 0 1 0.409 20.181 Z" fill="var(--k-pdf)"/>
-    <path d="M6.045 21.636 L9.681 7.091 A1.5 1.5 0 0 1 11.5 6 L12.955 6.364 L8.955 22.364 Z" fill="var(--k-contact)"/>
-    <path d="M12.045 21.636 L16.045 5.636 L18.955 6.364 L14.955 22.364 Z" fill="var(--k-text)"/>
-    <path d="M18.045 21.636 L21.681 7.091 A1.5 1.5 0 0 1 23.5 6 L24.955 6.364 L21.319 20.909 A1.5 1.5 0 0 1 19.5 22 Z" fill="var(--k-image)"/>
-  </svg>
-</div>
+Two interfaces reach the same catalog: a browser app over GraphQL, and an MCP endpoint a model
+can drive. Both authorize the same way, and neither wraps the other.
 
-Yours, together. A Rails application that catalogues your storage accounts, mailboxes, calendars,
-repositories and the places you write things down, analyzes what it finds, indexes it in OpenSearch
-by word and by meaning, and serves the result over MCP and GraphQL.
-
-<CardGrid stagger>
-  <Card title="An item is a reference" icon="seti:db">
-    One `items` row, plus a `item_references` row per place the bytes live. Originals are never
-    copied into the catalog.
-  </Card>
-  <Card title="Types are STI subclasses" icon="puzzle">
-    `Resource::S3`, `Resource::Imap`, `Resource::Github` and fifteen more, each owning its adapter,
-    command schema, locator shape and page enumerator.
-  </Card>
-  <Card title="The grant builds the tool list" icon="seti:config">
-    `POST /mcp`, twelve tools, nine scopes. `Grant#tools` filters `Tool.all` per request, so a tool
-    outside the token's scopes is absent from `tools/list`.
-  </Card>
-  <Card title="Bulk work resumes" icon="approve-check">
-    Sync, export, analyze, reindex and dedupe run through
-    [job-iteration](https://github.com/Shopify/job-iteration) and checkpoint at a cursor.
-  </Card>
-</CardGrid>
-
-<CardGrid>
-  <LinkCard title="Running it" href="/start/running/" description="brew bundle, bin/setup, bin/dev." />
-  <LinkCard title="The four movements" href="/start/movements/" description="sync, analyze, search, export." />
-  <LinkCard title="Items" href="/concepts/items/" description="Columns, kinds, children, deletion." />
-  <LinkCard title="Resources" href="/concepts/resources/" description="Eighteen types, their capabilities, and which can sync." />
-  <LinkCard title="Tenancy" href="/concepts/tenancy/" description="Four isolation layers and the tests that assert them." />
-  <LinkCard title="MCP tools" href="/reference/tools/" description="All twelve, with scopes and arguments." />
-</CardGrid>
+:::caution[These docs are being rewritten]
+The schema underneath uris was rewritten in September 2026 — one record for a thing, one record
+for a pass over it — and every page written against the old shape was removed rather than
+patched. `README.md` and `PLAN.md` in the repository are accurate; this site is not, yet.
+:::

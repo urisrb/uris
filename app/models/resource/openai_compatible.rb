@@ -164,10 +164,6 @@ class Resource
     # because one proves nothing: a model can answer the first call correctly and then
     # break the moment a tool result is in the history, which is every turn after it.
     #
-    # A floor rather than a ceiling. One synthetic tool catches a model that cannot call
-    # tools at all, which is the categorical failure. It will not catch one that degrades
-    # against the real eleven — bin/probe-agent measures that, and the adapter stays out
-    # of the tool registry.
     def chains!
       model = model_for(AGENT_ROLE)
       messages = [ { role: "system", content: CHAIN_SYSTEM }, { role: "user", content: CHAIN_ASK } ]

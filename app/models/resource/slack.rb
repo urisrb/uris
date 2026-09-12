@@ -81,8 +81,6 @@ class Resource
       "#{message.fetch('channel')}/#{message['ts']}"
     end
 
-    # A thread grows after it is written, so its version is the conversation rather than the
-    # moment it started. A new reply is a new version, and the item is read again.
     def version_for(locator)
       held = locator.to_h
 
@@ -236,8 +234,6 @@ class Resource
         people.fetch(id, id)
       end
 
-      # Reached from download, which runs once per item in its own job, so the memo alone
-      # would refetch the whole directory for every thread analysed.
       def people
         @people ||= Rails.cache.fetch(people_key, expires_in: PEOPLE_HELD) do
           gather("/users.list", "members", pages: PEOPLE_PAGES, limit: PEOPLE)

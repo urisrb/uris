@@ -14,9 +14,6 @@ class Download
   READ_TIMEOUT = 30
   AGENT = "uris"
 
-  # What a Content-Type is worth naming the file, when the address it came from
-  # did not carry an extension. Analysis is keyed off the extension, so a PDF
-  # served from /download?id=7 is only a pdf once it is called one.
   EXTENSIONS = {
     "application/pdf" => ".pdf",
     "image/png" => ".png",

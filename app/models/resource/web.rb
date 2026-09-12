@@ -186,8 +186,6 @@ class Resource
         locator.to_h.slice("url", "final_url", "title", "taken_at", "width", "height", "digest")
       end
 
-      # One feed per address, so snapshotting the same page twice is a new version
-      # of the same thing rather than a second entry that has to be merged later.
       def canonical(url)
         uri = URI.parse(url.to_s)
         uri.fragment = nil

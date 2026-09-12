@@ -14,11 +14,12 @@ keys = nil
 Tenant.switch(tenant) do
   storage = Resource.default_storage!
 
-  stale = Item.joins(:references).where("item_references.locator_key LIKE 'corpus/%'").distinct.pluck(:id)
+  stale = Feed.joins(:references)
+              .where("feed_references.locator_key LIKE 'corpus/%'").distinct.pluck(:id)
 
   if stale.any?
-    puts "clearing #{stale.length} item(s) a previous run left behind"
-    Item.where(id: stale).destroy_all
+    puts "clearing #{stale.length} feed(s) a previous run left behind"
+    Feed.where(id: stale).destroy_all
   end
 
   keys = paths.map do |path|
@@ -37,11 +38,11 @@ started = Time.current
 deadline = started + ENV.fetch("CORPUS_TIMEOUT", "1800").to_i
 
 report = lambda do |reference|
-  steps = reference.analysis.fetch("steps", {})
+  steps = reference.feed.analysis&.steps || {}
   summary = steps.dig("summary", "result") || {}
   failures = steps.select { |_name, step| step.key?("error") }
 
-  puts "\n#{reference.locator_key} [#{reference.kind}]"
+  puts "\n#{reference.locator_key} [#{reference.mime}]"
 
   if summary["summary"].present?
     puts "  #{summary['summary']}"
@@ -80,7 +81,9 @@ loop do
   sleep 2
 end
 
-asked = Tenant.switch(tenant) { Prompt.where(created_at: started..).count }
+asked = Tenant.switch(tenant) do
+  Analysis.where(created_at: started..).sum("jsonb_array_length(turns)")
+end
 
 puts "\n#{described.length}/#{keys.length} analyzed in #{(Time.current - started).round}s, " \
      "#{asked} call(s) to a model"

@@ -33,46 +33,7 @@ export default defineConfig({
           href: "https://github.com/urisrb/uris",
         },
       ],
-      sidebar: [
-        {
-          label: "Start here",
-          items: [
-            { label: "Overview", slug: "index" },
-            { label: "Running it", slug: "start/running" },
-            { label: "The four movements", slug: "start/movements" },
-          ],
-        },
-        {
-          label: "Concepts",
-          items: [
-            { label: "Items", slug: "concepts/items" },
-            { label: "Resources", slug: "concepts/resources" },
-            { label: "Tenancy", slug: "concepts/tenancy" },
-            { label: "Analysis", slug: "concepts/analysis" },
-            { label: "Jobs and failure", slug: "concepts/jobs" },
-            { label: "Feeds", slug: "concepts/feeds" },
-          ],
-        },
-        {
-          label: "Guides",
-          items: [
-            { label: "Sync a resource", slug: "guides/sync" },
-            { label: "Search the catalog", slug: "guides/search" },
-            { label: "Export items back out", slug: "guides/export" },
-            { label: "Drive it from Claude", slug: "guides/connector" },
-          ],
-        },
-        {
-          label: "Reference",
-          items: [
-            { label: "MCP tools", slug: "reference/tools" },
-            { label: "GraphQL", slug: "reference/graphql" },
-            { label: "Configuration", slug: "reference/configuration" },
-            { label: "Design", slug: "reference/design" },
-            { label: "Releasing", slug: "reference/releasing" },
-          ],
-        },
-      ],
+      sidebar: [{ label: "Overview", slug: "index" }],
     }),
   ],
 });

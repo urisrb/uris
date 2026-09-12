@@ -43,9 +43,6 @@ its `Blob` roles are our reference roles, and it replaced Active Storage rather 
 
 - [x] `Feed`, `Reference`, `Edge`, `Analysis`, `Schedule`; `Item`, `FeedItem`, `Prompt`,
       `Kind` and `Feed::Harvest` deleted
-- [x] `MimeType` replaces `Kind` as the extension map, and `kind` becomes two things: a `mime`
-      column on the reference, and an edge to a `uris:tag`
-- [x] `Blocking`'s raw SQL rewritten — the same-name key is now `(type, lower(key))`
 - [x] `Analyzer::Feed` renamed to `Analyzer::Entry`, because inside `module Analyzer` it shadowed
       the `Feed` model and every constant lookup would have resolved to the analyzer
 
@@ -60,7 +57,6 @@ written with a doubled backslash — `delete` takes a character _set_, so it str
 - [x] `Analyzer.for` dispatches on mime; `Analyzer::Base#step` writes into `analysis.steps`
 - [x] `converse` and `complete` record turns into `analysis.turns` rather than opening a `Prompt`
 - [x] A feed is analyzed once, reading whichever reference can be read
-- [x] The mime tag is connected mechanically; `Run` keeps `analyze` for the bulk fan-out
 
 **Phase 2 landed 2026-09-08.**
 
@@ -95,12 +91,12 @@ logged to the analysis, so `analysisProgressed` is the one live stream.
 below can be checked until this lands.
 
 - [x] Port the tests whose subject did not change — tenant isolation, RLS, the resource adapters,
-      sync, export, merge, search — because that coverage is expensive to regrow
+      sync, export, search — because that coverage is expensive to regrow
 - [x] Delete the tests whose subject no longer exists: the `kind` vocabulary, feed-as-prompt, and
       the per-tool tests for the eight tools that are gone
 - [x] Regrow MCP coverage against `search`, `feed`, `connect` and `resource`
 - [x] A tenant-isolation case per new table — RLS is per-table and does not come for free
-- [x] `test/models/edge_test.rb`: the canonical-pair constraint refuses a reversed duplicate
+- [x] `test/unit/models/edge_test.rb`: the canonical-pair constraint refuses a reversed duplicate
 
 **Phase 5 landed 2026-09-08.** 767 runs, 0 failures, 6 skips. Only one file ever failed to
 _load_ — a stale constant in a frozen list — because a constant named inside a method body is
@@ -122,15 +118,7 @@ left behind, each now a `fix` of its own:
   places spent from the hourly ceiling.
 - `run_progressed` triggered only the gid topic. It is the raw id and the wildcard now, which
   also closes the gap recorded below.
-- A merge destroyed every pass ever made over the absorbed copy.
-- `feed_edges` has a foreign key and nothing cascaded, so destroying any connected feed — which,
-  since the mime tag is connected mechanically, is every analyzed feed — raised.
 - An embedding was staled by writing to the reference. The pass settling is what stales it.
-
-Two subjects changed rather than moved, and the cases say so. The blocking key is
-`(type, key)`, so two files sharing a name are proposed whatever their bytes are. And a pass
-belongs to the thing rather than to each copy of it, so a merge carries passes rather than a
-per-reference extraction.
 
 `AnalyzeFeedJob` opens its own analysis when it is handed no id. It had one caller, which
 always passed one, and every `analysis&.` in the job meant a pass run any other way did its
@@ -188,22 +176,22 @@ by `filed`, and the plan has been greenfield since phase 0.
 - [ ] Preview and thumbnail become stored references with roles, generated once, rather than
       `Thumbnail` rendering on read into `Rails.cache`
 - [ ] Active Storage's three tables carry no RLS — isolation reaches them only through the
-      attachment's owner, so `tenant_isolation_test.rb` needs the case
+      attachment's owner, so `test/unit/models/tenant_isolation_test.rb` needs the case
 - [ ] Turn off the public redirect controllers; bytes are served through `content_controller`
 
 ## Phase 8 — the surface
 
 - [ ] `codegen` and `web/schema.graphql` regenerated
-- [ ] The SPA: `/items/:id` → `/feeds/:id`, the kind facet becomes a tag facet, `--k-*` custom
-      properties key off the tag rather than a column
-- [ ] `RunTrail` and the feed page read analyses; `analysisProgressed` replaces `agentTurned`
-- [ ] A page for a `uris:tag` — its members are the whole render
+- [ ] The SPA renders by the five types rather than by a `kind` column
+- [ ] The feed page reads analyses rather than runs
 
 ## Phase 9 — finishing
 
-- [ ] `docs/` regenerated; the drift-check script walks the new registries
+- [ ] `docs/` written again. Every page was deleted 2026-09-12 rather than patched — sixteen of
+      eighteen described items, kinds, twelve tools or a feed that was a prompt. The Astro and
+      Starlight scaffolding stays; the prose starts over
 - [ ] Squash every migration into one initial migration
-- [ ] `bin/ci` green
+- [ ] `./dev test` and `./dev fmt --check` green
 
 ## Deferred
 
@@ -234,7 +222,3 @@ by `filed`, and the plan has been greenfield since phase 0.
   analyzer stamps, so an address shows nothing where the SPA used to show a time. What an
   address wants is its last analysis's `finished_at`, which is a phase 8 decision about what
   the page shows rather than a model one.
-- **The mime facet is filterable but nothing offers it.** `SearchIndex` takes `mime:` and `tag:`
-  now, and `Feed.search` passes them, but no GraphQL argument and no tool exposes either.
-  Phase 8 turns the kind facet into a tag facet and can spend them then. `FeedType.mimes` and
-  the `feed` tool's `mimes` are the connection-side answer; the search argument is still absent.
