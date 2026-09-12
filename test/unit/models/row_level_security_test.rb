@@ -16,7 +16,7 @@ class RowLevelSecurityTest < ActiveSupport::TestCase
   setup do
     Rails.application.eager_load!
 
-    @tables = ApplicationRecord.descendants
+    @tables = ActiveRecord::Base.descendants
       .select { |model| model.include?(TenantScoped) }
       .map(&:table_name)
       .uniq
@@ -40,7 +40,7 @@ class RowLevelSecurityTest < ActiveSupport::TestCase
 
   test "every table carrying a tenant_id has a model that scopes itself to one" do
     unscoped = carrying.reject do |table|
-      models = ApplicationRecord.descendants.select { |model| model.table_name == table }
+      models = ActiveRecord::Base.descendants.select { |model| model.table_name == table }
 
       models.any? && models.all? { |model| model.include?(TenantScoped) }
     end

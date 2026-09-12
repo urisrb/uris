@@ -24,6 +24,9 @@ module Uris
     config.active_record.schema_format = :sql
 
     config.active_storage.variant_processor = :disabled
+    config.active_storage.draw_routes = false
+    config.active_storage.analyzers = []
+    config.active_storage.previewers = []
 
     config.active_job.queue_adapter = :solid_queue
     config.solid_queue.connects_to = { database: { writing: :queue } }

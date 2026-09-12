@@ -168,16 +168,17 @@ by `filed`, and the plan has been greenfield since phase 0.
 
 ## Phase 7 — the upload lane
 
-- [ ] `active_storage:install`; the service is `Disk` locally and S3 where web and worker are
-      separate containers
+- [x] `active_storage:install`; the service is `Disk` locally and S3 where web and worker are
+      separate containers, named by `URIS_STAGING_SERVICE`
 - [ ] `POST /uploads` attaches and returns; the pass analyzes the attachment; the agent picks a
       resource; a reference is recorded and the attachment purged
 - [ ] `Intake.write!` stops uploading to `default_storage` inside the request
 - [ ] Preview and thumbnail become stored references with roles, generated once, rather than
       `Thumbnail` rendering on read into `Rails.cache`
-- [ ] Active Storage's three tables carry no RLS — isolation reaches them only through the
-      attachment's owner, so `test/unit/models/tenant_isolation_test.rb` needs the case
-- [ ] Turn off the public redirect controllers; bytes are served through `content_controller`
+- [x] ~~Active Storage's three tables carry no RLS~~ — they carry a `tenant_id` and the same
+      policy as every other table, so a signed blob id minted in one tenant finds nothing in
+      another; `TenantScoped` is mixed into the three models on load
+- [x] Turn off the public redirect controllers; bytes are served through `content_controller`
 
 ## Phase 8 — the surface
 

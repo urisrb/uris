@@ -97,6 +97,34 @@ class TenantIsolationTest < ActiveSupport::TestCase
     end
   end
 
+  test "a staged blob is isolated, and its signed id does not open it from another tenant" do
+    mine = Tenant.switch(@demo) { staged("demo.pdf") }
+    theirs = Tenant.switch(@acme) { staged("acme.pdf") }
+
+    Tenant.switch(@demo) do
+      assert_equal [ mine.id ], ActiveStorage::Blob.unscoped.pluck(:id)
+      assert_nil ActiveStorage::Blob.find_signed(theirs.signed_id)
+    end
+
+    Tenant.switch(@acme) { assert_equal [ theirs.id ], ActiveStorage::Blob.unscoped.pluck(:id) }
+  end
+
+  test "a blob cannot be written into another tenant" do
+    assert_raises ActiveRecord::StatementInvalid do
+      Tenant.switch(@demo) do
+        ActiveStorage::Blob.unscoped.create!(tenant_id: @acme.id, key: SecureRandom.base36(28),
+                                             filename: "smuggled.pdf", byte_size: 1,
+                                             service_name: "test", checksum: "x")
+      end
+    end
+  end
+
+  test "active storage draws no routes that would serve a blob around the grant check" do
+    served = Rails.application.routes.routes.map { |route| route.path.spec.to_s }
+
+    assert_empty served.grep(%r{/rails/active_storage})
+  end
+
   private
 
     def storage(tenant)
@@ -113,6 +141,10 @@ class TenantIsolationTest < ActiveSupport::TestCase
 
     def connected(feed, key)
       feed.connect!(Feed.tag!(key))
+    end
+
+    def staged(name)
+      ActiveStorage::Blob.create_and_upload!(io: StringIO.new(name), filename: name, identify: false)
     end
 
     def scheduled(key)

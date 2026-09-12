@@ -11,7 +11,7 @@ Rails.application.configure do
 
   config.public_file_server.headers = { "cache-control" => "public, max-age=#{1.year.to_i}" }
 
-  config.active_storage.service = :local
+  config.active_storage.service = ENV.fetch("URIS_STAGING_SERVICE", "local").to_sym
 
   config.assume_ssl = ENV.fetch("RAILS_ASSUME_SSL", "true") == "true"
 
