@@ -256,7 +256,12 @@ Two server defects surfaced through the screenshots rather than the suite: `plac
 - [x] Squash every migration into one initial migration — `20260912200000_create_uris_schema.rb`,
       carrying the version of the last migration it replaced, so a database that ran the forty
       has nothing pending and an empty one builds the same `structure.sql` byte for byte
-- [ ] `./dev test` and `./dev fmt --check` green
+- [x] `./dev test` and `./dev fmt --check` green — 654 unit, 159 server, 5 corpus and 22 client
+      runs on 2026-09-12, locally; CI could not confirm it, because GitHub refused to start jobs
+      for the account's billing
+
+**Phase 9 landed 2026-09-12**, and with it the plan. What is left is below: the open decision
+about what re-analysis costs, and the gaps recorded rather than fixed.
 
 ## Deferred
 
