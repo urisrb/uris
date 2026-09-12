@@ -22,6 +22,7 @@ USAGE = <<~TEXT
     seed           re-run the seeds
     corpus [group] load the reference corpus and analyse what comes back
     test [suite]   unit, server, client, corpus
+    reference      regenerate the reference pages under docs/ from the code
     fmt [--check]  format everything, or check it
 
   One tenant answers at http://uris.localhost:#{APP_PORT}, its docs at
@@ -137,6 +138,9 @@ when "corpus"
   run!(*compose("exec", "-T", "-e", "CORPUS_TENANT=#{tenant}", "-e", "CORPUS_GROUP=#{ARGV.first}",
                 "uris", "bin/rails", "runner", "script/corpus.rb", multi: multi))
 when "test" then test(ARGV, multi)
+when "reference"
+  run!(*compose("up", "-d", "--wait", "uris", multi: multi))
+  run!(*compose("exec", "-T", *UNPINNED, "uris", "bin/rails", "docs:reference", multi: multi))
 when "fmt" then fmt(ARGV)
 else usage
 end

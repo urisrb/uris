@@ -145,6 +145,30 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+  reference:
+    needs: [format, actions, lint, lint_js]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: The generated reference pages still match the code
+        env:
+          RAILS_ENV: test
+        run: |
+          bin/rails docs:reference
+          git diff --exit-code -- docs ||
+            {
+              echo "::error::The reference pages are stale. Run ./dev reference and commit."
+              exit 1
+            }
+
   test:
     needs: [format, actions, lint, lint_js]
     runs-on: ubuntu-latest
@@ -164,7 +188,7 @@ jobs:
         run: ./dev test ${{ matrix.suite }}
 
   image:
-    needs: [test, boot, scan_ruby]
+    needs: [test, boot, scan_ruby, reference]
     runs-on: ubuntu-latest
 
     permissions:

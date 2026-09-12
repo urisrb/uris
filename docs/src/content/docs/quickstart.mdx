@@ -1,0 +1,69 @@
+---
+title: Quickstart
+description: Run uris locally, connect it to masks, and put the first file in the catalog.
+---
+
+`./dev` runs the whole stack in containers and needs docker and nothing else. Rails, vite, the
+worker, this site and the three backing services all reload as you edit.
+
+```sh
+./dev          # build and run in the foreground
+./dev down     # stop, keeping the volumes
+./dev reset    # throw the volumes away and start over
+./dev test     # unit, server, client and corpus suites
+```
+
+`logs`, `ps`, `psql`, `console`, `seed`, `corpus` and `fmt` are the rest; `./dev help` lists them.
+
+| Port | What answers | Override |
+| --- | --- | --- |
+| 8180 | uris, at `http://uris.localhost:8180` | `URIS_PORT` |
+| 8181 | these docs | `URIS_DOCS_PORT` |
+| 8182 | vite | `URIS_VITE_PORT` |
+| 5434 | Postgres | `URIS_POSTGRES_PORT` |
+| 9201 | OpenSearch | `URIS_OPENSEARCH_PORT` |
+| 9000, 9001 | MinIO, and its console | `URIS_MINIO_PORT`, `URIS_MINIO_CONSOLE_PORT` |
+
+Nothing goes in `/etc/hosts`; `*.localhost` already resolves. One tenant, `uris`, answers on every
+host. `./dev --multi` declares `demo` and `acme` instead, at `http://demo.uris.localhost:8180`, each
+signing in against the matching masks tenant. See [tenants](/concepts/tenants/).
+
+## Sign in
+
+uris has no accounts of its own. It signs people in through masks, which has to be running first —
+`../masks/dev`, or both at once with `home/dev`. `MASKS_ISSUER` names it and defaults to
+`http://masks.localhost:12345`.
+
+1. Open `http://uris.localhost:8180` and choose **Connect a sign-in server**.
+2. masks asks you to sign in there, as an account allowed to approve connections, and to approve
+   uris. The credentials come back to uris server to server.
+3. uris goes straight on to sign you in. Afterwards the button reads **Sign in**.
+
+## Somewhere to keep things, something to think
+
+A new tenant has no resources. Open **Resources** and attach two.
+
+**Storage.** Choose object storage, and point it at the MinIO in the stack: endpoint
+`http://minio:9000`, access key `uris`, secret key `urisuris`, addressed by path. The name is the
+bucket's, and the bucket has to exist — create one in the MinIO console on port 9001 with the same
+credentials. **Take drops** makes it where uploads go.
+
+**Inference.** Run Ollama on the host (`brew bundle` installs it), then attach a model backend with
+base URL `http://host.docker.internal:11434/v1` — the only origin the stack permits, through
+`URIS_INFERENCE_ORIGINS`. Name a model for each role; the agent model has to call tools. **Take
+questions** makes it the default.
+
+## The first file
+
+Drop a file anywhere on the catalog. The upload answers as soon as the file is staged, and the
+worker does the rest: it analyzes the file, the [agent](/concepts/agents/) files it and chooses a
+resource that accepts it, and the bytes are written there. Watch the pass on the file's page. An
+upload nothing active can accept is refused with a message saying so. More in
+[adding](/concepts/adding/) and [analysis](/concepts/analysis/).
+
+## An MCP client
+
+Point any MCP client that speaks OAuth at `http://uris.localhost:8180/mcp`. The first request is
+answered `401` with the protected-resource metadata, which names masks; the client registers there
+and asks for a token itself, so whether it can depends on the masks tenant allowing dynamic
+registration. The tools it sees depend on the scopes it is granted.

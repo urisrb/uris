@@ -10,6 +10,10 @@ module Types
       super(*args, **kwargs, &block)
     end
 
+    def grants
+      @grants || []
+    end
+
     def authorized?(object, args, context)
       return false unless super
 

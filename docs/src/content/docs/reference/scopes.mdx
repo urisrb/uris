@@ -1,0 +1,22 @@
+---
+title: Scopes
+description: Every scope a token can carry for uris, and what each one opens.
+---
+
+uris publishes its scopes beneath the `uris:` namespace of the masks tenant it
+signs in with. A token carries the ones its holder was granted; anything outside the namespace
+is ignored. `uris:settings:admin` is never asked for at sign-in.
+
+Generated from the code by `./dev reference`. CI fails when this page and the code disagree.
+
+| Scope | Means | Asked at sign-in | MCP tools | GraphQL |
+| --- | --- | --- | --- | --- |
+| `uris:catalog:read` | Read your catalog | yes | `search` `feed` | 13 root fields |
+| `uris:catalog:write` | Change your catalog | yes | `connect` | 15 root fields |
+| `uris:web:read` | Search the web | yes | — | — |
+| `uris:mcp:call` | Use the servers you have added | yes | proxied tools | — |
+| `uris:resources:read` | Read your places | yes | `resource` | 2 root fields |
+| `uris:resources:command` | Act on your places | yes | `resource` writes | 8 root fields |
+| `uris:settings:read` | Read your settings | yes | — | 1 root field |
+| `uris:settings:write` | Change your settings | yes | — | 1 root field |
+| `uris:settings:admin` | Change everyone's settings | no | — | — |

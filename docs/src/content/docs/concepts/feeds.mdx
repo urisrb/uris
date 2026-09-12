@@ -1,0 +1,77 @@
+---
+title: Feeds
+description: The one record for a thing in the catalog, and the edges between them.
+---
+
+A feed is the root record. A file, a note, an address, a tag and a content type are all feeds,
+told apart by a `type` column rather than by a table each. Where a feed's bytes live is held by its
+[references](/concepts/references/), and what a pass over it found is held by its
+[analyses](/concepts/analysis/).
+
+The type is a small closed vocabulary, not a mime, because the browser app renders by type.
+
+| Type | What it is | Singleton |
+| --- | --- | --- |
+| `uris:file` | bytes that live in a resource, or are staged waiting for one | no |
+| `uris:note` | something written into the catalog directly | no |
+| `uris:feed` | an address, such as `/buy`, that can run on a schedule | yes |
+| `uris:tag` | what a person or an agent filed something under | yes |
+| `uris:mime` | a content type, keyed `text/markdown` | yes |
+
+## Keys
+
+Every feed has a `key` of at most 900 characters. A file's key is its filename and a note's is its
+title, and neither has to be unique — two files called `invoice.pdf` are two feeds. A singleton is
+unique on `(tenant, type, key)`, enforced by a partial unique index as well as the model, so there
+is one `/buy`, one tag called `receipts` and one `text/markdown` per tenant. `Feed.tag!` and
+`Feed.mime!` find that row or create it, and a tag or an address is addressed by its key rather
+than its id.
+
+An address key is a slash, then up to 63 lowercase letters, digits and dashes, starting with a
+letter or digit. It cannot be a path uris already answers to — `/graphql`, `/mcp`, `/uploads`,
+`/feeds` and the rest of that list are refused.
+
+A content type is a feed of its own rather than a tag, so the tag facet holds only what someone
+filed and never what a parser guessed.
+
+## Origin
+
+`origin` is `resource` by default — the feed came from syncing a resource — or `feed`, for one an
+analysis minted. A synced feed cannot later be relabelled as minted.
+
+## Parents and children
+
+Some files hold other files, as an email holds its attachments. When an analyzer can extract
+them, each becomes a `uris:file` feed with `parent` pointing at the one it came out of, its bytes
+written to the internal `children` store and keyed by the parent's id, a position and the filename.
+Each child is analyzed in turn. Extraction stops four levels below a top-level feed, so extraction
+cannot recurse without end. Destroying a feed destroys its children.
+
+## Edges
+
+An edge connects two feeds. It is symmetric and unlabelled: it says two feeds belong together and
+nothing about how. Each pair is stored once, as `a_id < b_id` — the model sorts the pair before it
+writes, and a check constraint refuses a row that is not sorted — so a reversed duplicate cannot
+exist and a feed cannot connect to itself.
+
+Tags and content types need nothing more than this. Filing a file under `receipts` is an edge
+between the file and the `uris:tag` feed keyed `receipts`, and a pass connects every file it reads
+to the `uris:mime` feed for its content type. "Everything tagged `receipts`" is every feed on the
+other end of that tag's edges. Destroying a feed deletes every edge that touches it.
+
+## Schedules
+
+An address is a feed with nothing to read, so what it does is a prompt. Its `schedule` holds that
+prompt, how many turns the agent may take (six unless it says otherwise), and an interval in
+seconds. Only a `uris:feed` can hold a schedule, and it holds at most one.
+
+| Field | |
+| --- | --- |
+| `prompt` | what the address should find; required |
+| `turns` | the agent's turn budget for one run |
+| `interval` | at least 60 seconds, or empty to run only by hand |
+| `paused_at` | set to stop a running schedule without losing its interval |
+| `next_run_at` | kept by the model; cleared while paused or unscheduled |
+
+A recurring job checks every minute for schedules that are due and opens an analysis on each with
+the cause `schedule`, then moves `next_run_at` one interval on.

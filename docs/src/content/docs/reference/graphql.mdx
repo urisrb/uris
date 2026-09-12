@@ -1,0 +1,822 @@
+---
+title: GraphQL
+description: The schema served at /graphql, and the scope every field needs.
+---
+
+Everything the browser app reads and changes. `/graphql` takes the session cookie the app
+signs in with, or a bearer token issued for this tenant. A field that names a scope refuses a
+caller whose token does not carry it; an object that names one resolves to nothing for them.
+Subscriptions are delivered over Action Cable at `/cable`.
+
+Generated from the code by `./dev reference`. CI fails when this page and the code disagree.
+
+## Queries
+
+### Query
+
+| Field | Type | Needs | Description |
+| --- | --- | --- | --- |
+| `analyses`<br />`feedId: ID`<br />`status: String`<br />`after: ID`<br />`limit: Int` | [`AnalysisPage!`](#analysispage) | `uris:catalog:read` |  |
+| `analysis`<br />`id: ID!` | [`Analysis`](#analysis) | `uris:catalog:read` |  |
+| `auditEvents`<br />`action: String`<br />`status: String`<br />`subject: String`<br />`after: ID`<br />`limit: Int` | [`AuditEventPage!`](#auditeventpage) | `uris:catalog:read` |  |
+| `feed`<br />`id: ID`<br />`key: String` | [`Feed`](#feed) | `uris:catalog:read` |  |
+| `feeds`<br />`type: String`<br />`types: [String!]`<br />`mime: String`<br />`resourceId: ID`<br />`tag: String`<br />`connectedTo: ID`<br />`topLevel: Boolean`<br />`after: ID`<br />`limit: Int` | [`FeedPage!`](#feedpage) | `uris:catalog:read` |  |
+| `resourceTypes` | [`[Attaching!]!`](#attaching) | `uris:resources:read` | Every type that can be attached, and what each of them needs. |
+| `resources`<br />`archived: Boolean` | [`[Resource!]!`](#resource) | `uris:resources:read` |  |
+| `run`<br />`id: ID!` | [`Run`](#run) | `uris:catalog:read` |  |
+| `runs`<br />`kind: String`<br />`status: String`<br />`after: ID`<br />`limit: Int` | [`RunPage!`](#runpage) | `uris:catalog:read` |  |
+| `search`<br />`query: String`<br />`type: String`<br />`types: [String!]`<br />`after: ID`<br />`limit: Int` | [`FeedPage!`](#feedpage) | `uris:catalog:read` |  |
+| `settings` | [`[Setting!]!`](#setting) | `uris:settings:read` |  |
+| `tenant` | [`Tenant`](#tenant) | `uris:catalog:read` |  |
+| `types` | [`[TypeCount!]!`](#typecount) | `uris:catalog:read` |  |
+
+## Mutations
+
+### Mutation
+
+| Field | Type | Needs |
+| --- | --- | --- |
+| `addNote`<br />`input: AddNoteInput!` | [`AddNotePayload`](#addnotepayload) | `uris:catalog:write` |
+| `analyzeFeed`<br />`input: AnalyzeFeedInput!` | [`AnalyzeFeedPayload`](#analyzefeedpayload) | `uris:catalog:write` |
+| `archiveResource`<br />`input: ArchiveResourceInput!` | [`ArchiveResourcePayload`](#archiveresourcepayload) | `uris:resources:command` |
+| `attachResource`<br />`input: AttachResourceInput!` | [`AttachResourcePayload`](#attachresourcepayload) | `uris:resources:command` |
+| `cancelRun`<br />`input: CancelRunInput!` | [`CancelRunPayload`](#cancelrunpayload) | `uris:catalog:write` |
+| `checkResource`<br />`input: CheckResourceInput!` | [`CheckResourcePayload`](#checkresourcepayload) | `uris:resources:command` |
+| `connectFeeds`<br />`input: ConnectFeedsInput!` | [`ConnectFeedsPayload`](#connectfeedspayload) | `uris:catalog:write` |
+| `deleteFeed`<br />`input: DeleteFeedInput!` | [`DeleteFeedPayload`](#deletefeedpayload) | `uris:catalog:write` |
+| `enrollResource`<br />`input: EnrollResourceInput!` | [`EnrollResourcePayload`](#enrollresourcepayload) | `uris:resources:command` |
+| `exportFeeds`<br />`input: ExportFeedsInput!` | [`ExportFeedsPayload`](#exportfeedspayload) | `uris:catalog:write` |
+| `fetchUrl`<br />`input: FetchUrlInput!` | [`FetchUrlPayload`](#fetchurlpayload) | `uris:catalog:write` |
+| `forgetFeed`<br />`input: ForgetFeedInput!` | [`ForgetFeedPayload`](#forgetfeedpayload) | `uris:catalog:write` |
+| `noteFeed`<br />`input: NoteFeedInput!` | [`NoteFeedPayload`](#notefeedpayload) | `uris:catalog:write` |
+| `pauseFeed`<br />`input: PauseFeedInput!` | [`PauseFeedPayload`](#pausefeedpayload) | `uris:catalog:write` |
+| `renameFeed`<br />`input: RenameFeedInput!` | [`RenameFeedPayload`](#renamefeedpayload) | `uris:catalog:write` |
+| `runFeed`<br />`input: RunFeedInput!` | [`RunFeedPayload`](#runfeedpayload) | `uris:catalog:write` |
+| `saveFeed`<br />`input: SaveFeedInput!` | [`SaveFeedPayload`](#savefeedpayload) | `uris:catalog:write` |
+| `setDefaultInference`<br />`input: SetDefaultInferenceInput!` | [`SetDefaultInferencePayload`](#setdefaultinferencepayload) | `uris:resources:command` |
+| `setDefaultStorage`<br />`input: SetDefaultStorageInput!` | [`SetDefaultStoragePayload`](#setdefaultstoragepayload) | `uris:resources:command` |
+| `setSetting`<br />`input: SetSettingInput!` | [`SetSettingPayload`](#setsettingpayload) | `uris:settings:write` |
+| `setSyncInterval`<br />`input: SetSyncIntervalInput!` | [`SetSyncIntervalPayload`](#setsyncintervalpayload) | `uris:resources:command` |
+| `snapshotUrl`<br />`input: SnapshotUrlInput!` | [`SnapshotUrlPayload`](#snapshoturlpayload) | `uris:catalog:write` |
+| `splitReference`<br />`input: SplitReferenceInput!` | [`SplitReferencePayload`](#splitreferencepayload) | `uris:catalog:write` |
+| `syncResource`<br />`input: SyncResourceInput!` | [`SyncResourcePayload`](#syncresourcepayload) | `uris:resources:command` |
+
+## Subscriptions
+
+### Subscription
+
+| Field | Type | Needs |
+| --- | --- | --- |
+| `analysisProgressed`<br />`id: ID` | [`AnalysisProgressedPayload!`](#analysisprogressedpayload) | `uris:catalog:read` |
+| `feedAnalyzed`<br />`id: ID` | [`FeedAnalyzedPayload!`](#feedanalyzedpayload) | `uris:catalog:read` |
+| `runProgressed`<br />`id: ID` | [`RunProgressedPayload!`](#runprogressedpayload) | `uris:catalog:read` |
+
+## Objects
+
+### AddNotePayload
+
+Autogenerated return type of AddNote.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `feed` | [`Feed!`](#feed) |  |
+
+### Analysis
+
+Resolves only for a token carrying `uris:catalog:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `cause` | `String!` |  |
+| `createdAt` | `ISO8601DateTime!` |  |
+| `durationMs` | `Int` |  |
+| `error` | `String` |  |
+| `finishedAt` | `ISO8601DateTime` |  |
+| `id` | `ID!` |  |
+| `lines` | `Int!` |  |
+| `logs` | `String` | Everything the pass has logged so far, newest last. |
+| `startedAt` | `ISO8601DateTime` |  |
+| `status` | `String!` |  |
+| `steps` | `JSON!` |  |
+| `turns` | `JSON!` |  |
+
+### AnalysisPage
+
+| Field | Type |
+| --- | --- |
+| `hasMore` | `Boolean!` |
+| `nextCursor` | `ID` |
+| `nodes` | [`[Analysis!]!`](#analysis) |
+| `total` | `Int` |
+
+### AnalysisProgressedPayload
+
+Autogenerated return type of AnalysisProgressed.
+
+| Field | Type |
+| --- | --- |
+| `analysis` | [`Analysis!`](#analysis) |
+
+### AnalyzeFeedPayload
+
+Autogenerated return type of AnalyzeFeed.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `analysis` | [`Analysis!`](#analysis) |  |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `feed` | [`Feed!`](#feed) |  |
+
+### ArchiveResourcePayload
+
+Autogenerated return type of ArchiveResource.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `resource` | [`Resource!`](#resource) |  |
+
+### AttachResourcePayload
+
+Autogenerated return type of AttachResource.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `checkError` | `String` | What the first check said, if it did not pass. |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `resource` | [`Resource!`](#resource) |  |
+
+### Attaching
+
+What one type of resource needs before it can answer. Resolves only for a token carrying `uris:resources:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `blurb` | `String!` |  |
+| `brokered` | `Boolean!` | Connected in the browser rather than by typing a credential. |
+| `capabilities` | `[String!]!` |  |
+| `fields` | [`[AttachingField!]!`](#attachingfield) |  |
+| `label` | `String!` |  |
+| `names` | `String!` | What the key means for this type. |
+| `syncs` | `Boolean!` |  |
+| `type` | `String!` |  |
+
+### AttachingField
+
+Resolves only for a token carrying `uris:resources:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `help` | `String` |  |
+| `kind` | `String!` | string, integer or boolean. |
+| `label` | `String!` |  |
+| `name` | `String!` |  |
+| `placeholder` | `String` |  |
+| `required` | `Boolean!` |  |
+| `secret` | `Boolean!` | Masked here, encrypted there, never read back. |
+| `value` | `String` | What it holds until something is typed. |
+
+### AuditEvent
+
+Resolves only for a token carrying `uris:catalog:read`.
+
+| Field | Type |
+| --- | --- |
+| `action` | `String!` |
+| `arguments` | `JSON!` |
+| `channel` | `String!` |
+| `clientId` | `String` |
+| `createdAt` | `ISO8601DateTime!` |
+| `detail` | `String` |
+| `durationMs` | `Int` |
+| `id` | `ID!` |
+| `remoteIp` | `String` |
+| `requestId` | `String` |
+| `run` | [`Run`](#run) |
+| `scope` | `String` |
+| `status` | `String!` |
+| `subject` | `String` |
+
+### AuditEventPage
+
+| Field | Type |
+| --- | --- |
+| `hasMore` | `Boolean!` |
+| `nextCursor` | `ID` |
+| `nodes` | [`[AuditEvent!]!`](#auditevent) |
+
+### CancelRunPayload
+
+Autogenerated return type of CancelRun.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `cancelled` | `Boolean!` |  |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `run` | [`Run!`](#run) |  |
+
+### CheckResourcePayload
+
+Autogenerated return type of CheckResource.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `ok` | `Boolean!` |  |
+| `resource` | [`Resource!`](#resource) |  |
+
+### ConnectFeedsPayload
+
+Autogenerated return type of ConnectFeeds.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `feed` | [`Feed!`](#feed) |  |
+
+### DeleteFeedPayload
+
+Autogenerated return type of DeleteFeed.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `deleted` | `Boolean!` |  |
+| `kept` | `Int!` | How many feeds it minted that outlive it. |
+
+### EnrollResourcePayload
+
+Autogenerated return type of EnrollResource.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `expiresIn` | `Int!` |  |
+| `url` | `String!` | Open it in a browser. Nothing exists until it is followed. |
+
+### ExportFeedsPayload
+
+Autogenerated return type of ExportFeeds.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `run` | [`Run!`](#run) |  |
+
+### Feed
+
+Resolves only for a token carrying `uris:catalog:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `analyses` | [`[Analysis!]!`](#analysis) |  |
+| `analyzedAt` | `ISO8601DateTime` |  |
+| `children` | [`[Feed!]!`](#feed) | What was extracted from it — the attachments of a message, the files of an archive. |
+| `connected` | [`[Feed!]!`](#feed) |  |
+| `connectedCount` | `Int!` |  |
+| `createdAt` | `ISO8601DateTime!` |  |
+| `id` | `ID!` |  |
+| `key` | `String!` | Its name within its type — README.md, text/markdown, /buy. |
+| `keywords` | `[String!]!` | Search terms a model drew out of it. |
+| `mime` | `String` | The content type of the bytes, when it has any. |
+| `mimes` | [`[Feed!]!`](#feed) | The content types it was filed under, as feeds of their own. |
+| `note` | `String` | What you wrote about it, in your own words. |
+| `origin` | `String!` | resource when synced from one, feed when an analysis minted it. |
+| `parent` | [`Feed`](#feed) | The file it was extracted from, when it was. |
+| `references` | [`[Reference!]!`](#reference) |  |
+| `schedule` | [`Schedule`](#schedule) |  |
+| `staged` | `Boolean!` | Uploaded, and still waiting for the pass to decide where it is stored. |
+| `summary` | `String` | What a model made of it. The extracted text, until one has run. |
+| `tags` | [`[Feed!]!`](#feed) |  |
+| `thumbnailUrl` | `String` |  |
+| `title` | `String` |  |
+| `type` | `String!` | What it is, and how it renders: uris:file, uris:note, uris:feed, uris:tag, uris:mime. |
+
+### FeedAnalyzedPayload
+
+Autogenerated return type of FeedAnalyzed.
+
+| Field | Type |
+| --- | --- |
+| `feed` | [`Feed!`](#feed) |
+
+### FeedPage
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `hasMore` | `Boolean!` |  |
+| `nextCursor` | `ID` |  |
+| `nodes` | [`[Feed!]!`](#feed) |  |
+| `total` | `Int` | How many match altogether, where the source can count them. A search can; walking the catalog by cursor cannot. |
+
+### FetchUrlPayload
+
+Autogenerated return type of FetchUrl.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `run` | [`Run!`](#run) |  |
+
+### ForgetFeedPayload
+
+Autogenerated return type of ForgetFeed.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `forgotten` | `Boolean!` |  |
+| `places` | `Int!` | How many places it lived that uris stopped pointing at. |
+
+### NoteFeedPayload
+
+Autogenerated return type of NoteFeed.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `feed` | [`Feed!`](#feed) |  |
+
+### PauseFeedPayload
+
+Autogenerated return type of PauseFeed.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `feed` | [`Feed!`](#feed) |  |
+
+### Reference
+
+Resolves only for a token carrying `uris:catalog:read`.
+
+| Field | Type |
+| --- | --- |
+| `analyzedAt` | `ISO8601DateTime` |
+| `changedAt` | `ISO8601DateTime` |
+| `contentType` | `String!` |
+| `contentUrl` | `String!` |
+| `filename` | `String!` |
+| `id` | `ID!` |
+| `locator` | `JSON!` |
+| `locatorKey` | `String` |
+| `mime` | `String` |
+| `resource` | [`Resource!`](#resource) |
+| `role` | `String!` |
+| `size` | `BigInt` |
+| `thumbnailUrl` | `String` |
+| `version` | `String` |
+
+### RenameFeedPayload
+
+Autogenerated return type of RenameFeed.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `feed` | [`Feed!`](#feed) |  |
+
+### Resource
+
+Resolves only for a token carrying `uris:resources:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `archivedAt` | `ISO8601DateTime` |  |
+| `capabilities` | `[String!]!` |  |
+| `checkError` | `String` |  |
+| `checkedAt` | `ISO8601DateTime` |  |
+| `defaultInference` | `Boolean!` |  |
+| `defaultStorage` | `Boolean!` |  |
+| `healthy` | `Boolean!` |  |
+| `id` | `ID!` |  |
+| `itemsCount` | `Int!` |  |
+| `key` | `String!` |  |
+| `name` | `String` |  |
+| `nextSyncAt` | `ISO8601DateTime` |  |
+| `syncInterval` | `Int` |  |
+| `syncable` | `Boolean!` | Whether it enumerates what it holds. One that does not, like a browser, can neither be synced nor kept on a schedule. |
+| `syncedAt` | `ISO8601DateTime` |  |
+| `syncing` | `Boolean!` |  |
+| `type` | `String!` |  |
+
+### Run
+
+Resolves only for a token carrying `uris:catalog:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `createdAt` | `ISO8601DateTime!` |  |
+| `deadline` | `ISO8601DateTime` |  |
+| `error` | `String` |  |
+| `finishedAt` | `ISO8601DateTime` |  |
+| `id` | `ID!` |  |
+| `kind` | `String!` |  |
+| `lines` | `Int!` | How many log lines this run has written. |
+| `logs` | `String` | Everything the run has logged so far, newest last. |
+| `processed` | `Int!` |  |
+| `resource` | [`Resource`](#resource) |  |
+| `selector` | `JSON!` |  |
+| `startedAt` | `ISO8601DateTime` |  |
+| `status` | `String!` |  |
+
+### RunFeedPayload
+
+Autogenerated return type of RunFeed.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `analysis` | [`Analysis!`](#analysis) |  |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+
+### RunPage
+
+| Field | Type |
+| --- | --- |
+| `hasMore` | `Boolean!` |
+| `nextCursor` | `ID` |
+| `nodes` | [`[Run!]!`](#run) |
+
+### RunProgressedPayload
+
+Autogenerated return type of RunProgressed.
+
+| Field | Type |
+| --- | --- |
+| `run` | [`Run!`](#run) |
+
+### SaveFeedPayload
+
+Autogenerated return type of SaveFeed.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `feed` | [`Feed`](#feed) |  |
+
+### Schedule
+
+Resolves only for a token carrying `uris:catalog:read`.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `id` | `ID!` |  |
+| `interval` | `Int` | Seconds between runs. Null when it only runs by hand. |
+| `nextRunAt` | `ISO8601DateTime` |  |
+| `pausedAt` | `ISO8601DateTime` |  |
+| `prompt` | `String!` |  |
+| `ranAt` | `ISO8601DateTime` |  |
+| `scheduled` | `Boolean!` |  |
+| `turns` | `Int` |  |
+
+### SetDefaultInferencePayload
+
+Autogenerated return type of SetDefaultInference.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `resource` | [`Resource!`](#resource) |  |
+
+### SetDefaultStoragePayload
+
+Autogenerated return type of SetDefaultStorage.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `resource` | [`Resource!`](#resource) |  |
+
+### SetSettingPayload
+
+Autogenerated return type of SetSetting.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `setting` | [`Setting!`](#setting) |  |
+
+### SetSyncIntervalPayload
+
+Autogenerated return type of SetSyncInterval.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `resource` | [`Resource!`](#resource) |  |
+
+### Setting
+
+| Field | Type |
+| --- | --- |
+| `allowed` | `[String!]!` |
+| `defaultValue` | `String!` |
+| `key` | `String!` |
+| `label` | `String!` |
+| `level` | `String!` |
+| `note` | `String` |
+| `value` | `String!` |
+
+### SnapshotUrlPayload
+
+Autogenerated return type of SnapshotUrl.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `run` | [`Run!`](#run) |  |
+
+### SplitReferencePayload
+
+Autogenerated return type of SplitReference.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `feed` | [`Feed!`](#feed) |  |
+
+### SyncResourcePayload
+
+Autogenerated return type of SyncResource.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `resource` | [`Resource!`](#resource) |  |
+| `run` | [`Run`](#run) |  |
+
+### Tenant
+
+| Field | Type |
+| --- | --- |
+| `id` | `ID!` |
+| `name` | `String!` |
+| `subdomain` | `String!` |
+
+### TypeCount
+
+| Field | Type |
+| --- | --- |
+| `count` | `Int!` |
+| `type` | `String!` |
+
+## Inputs
+
+### AddNoteInput
+
+Autogenerated input type of AddNote
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `body` | `String!` |  |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `title` | `String` | Left off, the first line of the note names it. |
+
+### AnalyzeFeedInput
+
+Autogenerated input type of AnalyzeFeed
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+
+### ArchiveResourceInput
+
+Autogenerated input type of ArchiveResource
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `archived` | `Boolean!` | Put it away, or bring it back. |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+
+### AttachResourceInput
+
+Autogenerated input type of AttachResource
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `key` | `String!` |  |
+| `name` | `String` |  |
+| `settings` | `JSON` | One entry per field the type declares. Anything else is dropped. |
+| `type` | `String!` |  |
+
+### CancelRunInput
+
+Autogenerated input type of CancelRun
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+
+### CheckResourceInput
+
+Autogenerated input type of CheckResource
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+
+### ConnectFeedsInput
+
+Autogenerated input type of ConnectFeeds
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `connected` | `Boolean` | False severs the edge instead of making it. |
+| `id` | `ID!` |  |
+| `otherId` | `ID!` |  |
+
+### DeleteFeedInput
+
+Autogenerated input type of DeleteFeed
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+
+### EnrollResourceInput
+
+Autogenerated input type of EnrollResource
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `key` | `String!` |  |
+| `name` | `String` |  |
+| `type` | `String!` |  |
+
+### ExportFeedsInput
+
+Autogenerated input type of ExportFeeds
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `destinationId` | `ID` | Where to write. Left off, this tenant's default storage. |
+| `query` | `String` |  |
+| `resourceId` | `ID` |  |
+| `type` | `String` |  |
+
+### FetchUrlInput
+
+Autogenerated input type of FetchUrl
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `url` | `String!` |  |
+
+### ForgetFeedInput
+
+Autogenerated input type of ForgetFeed
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+
+### NoteFeedInput
+
+Autogenerated input type of NoteFeed
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+| `note` | `String` | Left off or blank, whatever was there is cleared. |
+
+### PauseFeedInput
+
+Autogenerated input type of PauseFeed
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+| `paused` | `Boolean!` |  |
+
+### RenameFeedInput
+
+Autogenerated input type of RenameFeed
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+| `title` | `String!` |  |
+
+### RunFeedInput
+
+Autogenerated input type of RunFeed
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+
+### SaveFeedInput
+
+Autogenerated input type of SaveFeed
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID` | Left off, a feed is created. |
+| `interval` | `Int` | Seconds between runs. Zero or null runs it only by hand. |
+| `key` | `String` | Its address, as /buy. |
+| `prompt` | `String` |  |
+| `title` | `String` |  |
+| `turns` | `Int` |  |
+
+### SetDefaultInferenceInput
+
+Autogenerated input type of SetDefaultInference
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+
+### SetDefaultStorageInput
+
+Autogenerated input type of SetDefaultStorage
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+
+### SetSettingInput
+
+Autogenerated input type of SetSetting
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `key` | `String!` |  |
+| `value` | `String!` |  |
+
+### SetSyncIntervalInput
+
+Autogenerated input type of SetSyncInterval
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+| `seconds` | `Int` | How often to sync. Left off, the resource syncs only when asked. |
+
+### SnapshotUrlInput
+
+Autogenerated input type of SnapshotUrl
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `url` | `String!` |  |
+
+### SplitReferenceInput
+
+Autogenerated input type of SplitReference
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` | The reference to move to a feed of its own. |
+
+### SyncResourceInput
+
+Autogenerated input type of SyncResource
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `clientMutationId` | `String` | A unique identifier for the client performing the mutation. |
+| `id` | `ID!` |  |
+
+## Scalars
+
+### BigInt
+
+Represents non-fractional signed whole numeric values. Since the value may exceed the size of a 32-bit integer, it's encoded as a string.
+
+A scalar, serialized as a string.
+
+### ISO8601DateTime
+
+An ISO 8601-encoded datetime
+
+A scalar, serialized as a string.
+
+### JSON
+
+Represents untyped JSON
+
+A scalar, serialized as a string.

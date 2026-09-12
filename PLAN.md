@@ -244,9 +244,15 @@ Two server defects surfaced through the screenshots rather than the suite: `plac
 
 ## Phase 9 — finishing
 
-- [ ] `docs/` written again. Every page was deleted 2026-09-12 rather than patched — sixteen of
-      eighteen described items, kinds, twelve tools or a feed that was a prompt. The Astro and
-      Starlight scaffolding stays; the prose starts over
+- [x] `docs/` written again. Every page was deleted 2026-09-12 rather than patched — sixteen of
+      eighteen described items, kinds, twelve tools or a feed that was a prompt. Rewritten the same
+      day the way masks' are: five reference pages generated from the code by `./dev reference`
+      (`lib/reference_pages/`) — GraphQL, MCP tools, resource types, scopes and environment — with a
+      CI job that fails on drift, and eight concept pages and a quickstart written against the
+      source. Writing them turned up four defects, each fixed on its own: the MCP instructions
+      named tools that no longer exist, a failed sync held its resource for six hours, forgetting a
+      message left its extracted attachments' bytes behind, and a fetch resolved a host twice, so a
+      rebinding resolver could steer the connection past the address check
 - [x] Squash every migration into one initial migration — `20260912200000_create_uris_schema.rb`,
       carrying the version of the last migration it replaced, so a database that ran the forty
       has nothing pending and an empty one builds the same `structure.sql` byte for byte
@@ -265,6 +271,15 @@ Two server defects surfaced through the screenshots rather than the suite: `plac
   because the model operation underneath it is not merge's.
 
 ## Known gaps, recorded rather than fixed
+
+- **The headless browser, the MCP client and git resolve hosts for themselves**, so the DNS
+  pinning `Download` and `PublicFetch` do stops short of them. The browser checks every request it
+  makes, which narrows the window but does not close it.
+- **Nothing sets an analysis `gated`, and nothing sweeps one past its deadline.** `Analysis#gated!`
+  exists and no caller does; the deadline is checked when the job starts and before each agent
+  turn, so a pass that is never picked up again stays open.
+- **`origin: "feed"` is never written.** The column and its immutability are enforced; nothing
+  mints a feed with that origin yet.
 
 - **`SearchIndex.document` asks for a feed's tags one query at a time**, so a full reindex is
   still one extra query per feed. It wants a join, or a batch lookup threaded through

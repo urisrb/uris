@@ -33,7 +33,33 @@ export default defineConfig({
           href: "https://github.com/urisrb/uris",
         },
       ],
-      sidebar: [{ label: "Overview", link: "/" }],
+      sidebar: [
+        { label: "Overview", slug: "index" },
+        { label: "Quickstart", slug: "quickstart" },
+        {
+          label: "Concepts",
+          items: [
+            { label: "Feeds", slug: "concepts/feeds" },
+            { label: "References", slug: "concepts/references" },
+            { label: "Adding things", slug: "concepts/adding" },
+            { label: "Analysis", slug: "concepts/analysis" },
+            { label: "Resources", slug: "concepts/resources" },
+            { label: "Search", slug: "concepts/search" },
+            { label: "Agents and MCP", slug: "concepts/agents" },
+            { label: "Tenants", slug: "concepts/tenants" },
+          ],
+        },
+        {
+          label: "Reference",
+          items: [
+            { label: "GraphQL", slug: "reference/graphql" },
+            { label: "MCP tools", slug: "reference/mcp" },
+            { label: "Resource types", slug: "reference/resources" },
+            { label: "Scopes", slug: "reference/scopes" },
+            { label: "Environment", slug: "reference/environment" },
+          ],
+        },
+      ],
     }),
   ],
 });

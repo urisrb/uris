@@ -1,0 +1,93 @@
+---
+title: Resources
+description: A place uris reads from, writes to, or asks something of.
+---
+
+A resource is one instance of a type — a bucket, a directory, a mailbox, an inference endpoint, an
+MCP server — keyed uniquely within its tenant and type. What each type needs and what it can do is
+listed in [the resource reference](/reference/resources/); this page is what they all share.
+
+## What a type declares
+
+A type states what it is with three class macros, and nothing else decides it:
+
+| | |
+| --- | --- |
+| `serves` | capabilities — `storage`, `inference`, `browser`, `search`, `tools`, `integration` |
+| `accepts` | mime patterns it will hold, such as `*/*` |
+| `up_to` | the largest file it will take, in bytes, or nothing for no limit |
+
+Every save copies the declaration into the `serving` jsonb column, so "which active stores accept a
+4GB video" is a SQL query rather than loading every resource into Ruby to ask it. A copy is only as
+fresh as its last save, so `bin/rails uris:resources`, which the production entrypoint runs before
+the server starts, restates every row inside every tenant before it reconciles declarations.
+
+A tenant has at most one default storage and one default inference resource, and only a resource
+that serves the capability can hold it. Making one the default clears the flag on the other.
+Snapshots from the web go to default storage unless told otherwise, an upload nobody placed lands
+there, and inference prefers the default when more than one resource could answer a role.
+
+## Where they come from
+
+`config/resources.yml` is ERB, keyed by environment, with every host and secret read from the
+environment. The shipped file declares a `files` filesystem resource as default storage.
+`Resource.declare!` reconciles it per tenant: it creates or updates each declared key and never
+deletes, so a resource dropped from the file is left standing rather than removed from under
+whoever is using it.
+
+The browser attaches the rest. A type that can be attached returns an `attaching` description — a
+label and a list of fields — and the form is rendered from it. `Resource::Settings` reads the given
+values against those fields for both the file and the form: anything the type does not declare is
+dropped, a missing required field is refused, and each value lands in `details` or, when the field
+is a secret, in `credentials`. Credentials are encrypted at rest, and the audit trail records which
+fields were set, never their values. Attaching runs a first check and reports what it said.
+
+A filesystem resource is only attachable when `URIS_FILESYSTEM_ROOTS` names directories, and it
+refuses to read or check a root outside all of them.
+
+## Brokered resources
+
+Google Drive and OneDrive are connected in the browser, not through a form, so no secret is typed
+into uris. Enrolling opens a signed link, valid for thirty minutes and bound to the tenant, which
+sends the person to the sign-in server's `/connections/<provider>/start`. What comes back is a
+connection id, and that is all the resource holds. When it needs a token it asks the broker to
+release one, authenticated by the credentials of the request it is serving.
+
+## Syncing
+
+A type that implements `each_page` can sync; one that does not, like the browser, can neither sync
+nor keep a schedule. `sync_interval` is at least a minute, and `ScheduleSyncsJob` looks every minute
+for resources that are due.
+
+Starting a sync claims the resource with a single conditional update, so two workers cannot both
+start one, and opens a run of kind `sync`. The job walks pages with job-iteration, recording a
+[reference](/concepts/references/) for each object and analyzing any [feed](/concepts/feeds/) not
+yet analyzed, and resumes at its cursor after a deploy. A `Resource::Failed` gets five attempts
+before the run fails. Finishing clears the claim and sets the next sync on the original
+cadence, skipping slots that were missed. A sync that fails clears the claim too, without recording
+the resource as synced. One whose worker died holds its claim for six hours, after which it counts as
+abandoned and another may start.
+
+A run can be cancelled, and stops when it passes its deadline.
+
+## Reaching through another resource
+
+`via` points a resource at a transport — a resource that serves `transport` and answers `reach!` —
+and an OpenAI-compatible endpoint dials its base URL through it instead of directly. Validation refuses a `via` that does
+not serve `transport`, belongs to another tenant, points at itself, loops, or sits more than four
+hops from anything that answers. The foreign key is composite — `(via_id, tenant_id)` references
+`(id, tenant_id)` — so the database itself cannot join a resource to another tenant's transport,
+whatever the application does. A transport cannot be archived while an active resource is reached
+through it.
+
+## Health, internal stores and archiving
+
+A check calls the type's `check!` and records `checked_at` and `check_error`; a resource is healthy
+when it has been checked and the last check raised nothing.
+
+uris keeps two stores for itself: `children`, for what is extracted from a file, and `derived`, for
+previews and thumbnails. They are database resources, and they are never offered as a place to put
+an upload.
+
+Archiving sets `archived_at` and deletes nothing. An archived resource drops out of capability
+queries, placement, the defaults and the sync schedule, and restoring it clears the timestamp.

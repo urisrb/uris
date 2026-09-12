@@ -1,0 +1,100 @@
+---
+title: Analysis
+description: One pass over a feed, recorded as one row with its steps, its turns and its log.
+---
+
+Every time uris reads a [feed](/concepts/feeds/), it writes one `Analysis` record for that pass.
+The record holds what caused the pass, where it got to, each step's result, every turn the model
+took and a running log. A feed's current analysis is its last settled one. When a new pass opens,
+it copies that analysis's steps, so work that is still valid is not paid for twice.
+
+| Cause | Raised by |
+| --- | --- |
+| `upload` | an upload, a note or a fetched URL coming in through [adding](/concepts/adding/) |
+| `sync` | a resource sync, a snapshot, an extracted child, or a parent whose children have all finished |
+| `schedule` | an address feed's schedule coming due |
+| `manual` | `runFeed`, the `feed` tool's `analyze`, or a job started without an analysis |
+| `edge` | nothing yet |
+
+Status is `queued` or `running` while the pass is open. It ends as `done` or `failed`, which
+count as settled, or as `cancelled` or `gated`, which do not. When a pass settles, the feed's
+embedding is marked stale and the feed is indexed again for [search](/concepts/search/). Each
+log line and each status change is published on `analysisProgressed`.
+
+Every analysis gets a deadline, `URIS_RUN_DEADLINE_HOURS` from when it opens (6 by default, 0 for
+none). The job checks it before starting and the agent checks it before every turn. A pass past
+its deadline is cancelled with the error `deadline passed`. The log keeps growing until it passes
+256,000 characters, and each line is cut at 2,000. A turn stores its request cut at 40,000
+characters and the model's reply cut at 4,000.
+
+## Steps
+
+A step is a named block whose result goes into `steps`, along with when it started and finished.
+If the block raises, the step stores the error and no result, so the next pass tries it again.
+A stored result is reused, and logged as `cached`, unless one of these is true:
+
+- the step was forced;
+- its `after` time is later than the step's `finished_at`. The summary step sets `after` to
+  whichever is later: the last prompt change or the inference resource's last update;
+- the reference it read has a `changed_at` later than the step. This is how a file stored again
+  at the same path makes the steps that described its old bytes stale.
+
+Two steps are bookkeeping: `placement` and `derived`. They record where a file went and which
+previews were rendered. Neither step is included in the text the feed extracts, so the search body
+does not index a storage path.
+
+## The pass
+
+`Analyzer.for` picks an analyzer by the feed's mime. It walks `Analyzer.all` in order and takes
+the first analyzer that claims the mime:
+
+`Pdf`, `Image`, `Media`, `Page`, `Doc`, `Xlsx`, `Calendar`, `Pkpass`, `Email`, `Entry`, `Contact`,
+`Data`, `Text`, `Fallback`
+
+Order matters. `text/calendar` and `text/csv` are both text, and they reach `Calendar` and `Data`
+only because those come before `Text`. `Fallback` claims everything else. It records the size,
+sniffs the format from magic bytes, reads the file as text if it looks printable, and lists the
+entries if it is a zip.
+
+Every analyzer inherits the same pass from `Analyzer::Base`:
+
+1. **Extract children** if the analyzer has any and the feed is less than four levels deep. For
+   example, an email's attachments become child feeds in the internal `children` store and are
+   analyzed on their own. Until every child has been analyzed, the analyzer stops here. When the
+   last child finishes, it re-analyzes the parent.
+2. **Derive** a thumbnail and a preview for images, video, PDFs and pages. They are stored as
+   references in the internal `derived` store, under the step `derived`.
+3. **Analyze**: the analyzer's own steps, such as `text`, `info` or `listing`.
+4. **Summarize** with whichever inference [resource](/concepts/resources/) serves the analyzer's
+   role. The role is `smart` by default, `vision` for images and pages, and `fast` for email and
+   the fallback. The file's text is fenced as data, not instructions. The answer is reduced to a
+   summary, up to 20 entities and up to 20 keywords. Stopwords and keywords longer than four words
+   are dropped. If no resource serves the role, there is no summary.
+
+A failure in derive, analyze or summarize skips that part and the pass continues. The reference is
+stamped analyzed either way.
+
+## After the analyzer
+
+`AnalyzeFeedJob` wraps the analyzer. It checks for [placement](/concepts/adding/) first: a file
+uploaded to a path it already occupies goes back to the same place. Then it runs the analyzer, and
+then three more steps:
+
+- **Filing.** The feed is connected to the `uris:mime` feed for its content type.
+- **Considering.** The [agent](/concepts/agents/) runs under the feed's own grant
+  (`uris:catalog:read`, `uris:catalog:write`, `uris:web:read`, `uris:resources:read`) with the
+  `search`, `feed`, `connect` and `resource` tools. An address with a schedule sends the schedule's
+  prompt. Anything else sends `FILE_PROMPT`, which asks the agent to connect the feed to the tags
+  and feeds it belongs beside. If the file is still staged, the prompt also lists the places that
+  would accept it. The agent gets the schedule's turn allowance or six turns, and stops early after
+  three bad tool calls in a row. If no resource serves the `agent` role, this step is skipped.
+- **Settling.** A file the agent did not place goes to default storage.
+
+Analysis jobs run on the `analysis` queue, with at most `ANALYSIS_PER_TENANT` (2 by default)
+running per tenant. A `Resource::Failed` is retried five times with growing waits, and the
+analysis fails if the last retry does too. An `Analyzer::Failed`, or a file with nowhere to go, is
+discarded and fails the analysis. Any other error fails the analysis and is raised again.
+
+One question is still open. Connecting two feeds does not yet re-analyze the feed on the other
+side. The `edge` cause exists, but nothing raises it until there is a decision on how to keep that
+from cascading: a cooldown, a depth cap, or a cause that cannot write edges.

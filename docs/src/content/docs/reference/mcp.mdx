@@ -1,0 +1,99 @@
+---
+title: MCP tools
+description: The tools /mcp offers, the scope each needs, and what each takes.
+---
+
+`/mcp` speaks the Model Context Protocol over streamable HTTP, behind OAuth. A tool the token's
+scopes do not reach is absent from `tools/list`, not refused when it is called, and a
+`resource` command that needs `uris:resources:command` is left out of that tool's schema
+in the same way. A token carrying `uris:mcp:call` also sees the tools of every MCP
+server attached as a resource, under that server's own names.
+
+Generated from the code by `./dev reference`. CI fails when this page and the code disagree.
+
+| Tool | Needs |
+| --- | --- |
+| [`search`](#search) | `uris:catalog:read` |
+| [`feed`](#feed) | `uris:catalog:read` |
+| [`connect`](#connect) | `uris:catalog:write` |
+| [`resource`](#resource) | `uris:resources:read` |
+
+## search
+
+Needs `uris:catalog:read`.
+
+Search the whole catalog at once — every resource that has been synced, not one provider at a time. Matches titles, keys, paths, tags and text drawn out by analysis. Omit the query to list the most recent feeds of a type.
+
+| Argument | Type | Required | Description |
+| --- | --- | --- | --- |
+| `query` | string |  | Words to match. All of them must appear. |
+| `type` | string |  | Restrict to one type: uris:file, uris:note, uris:feed, uris:tag, uris:mime. |
+| `limit` | integer, 1–200 |  |  |
+
+
+## feed
+
+Needs `uris:catalog:read`.
+
+One feed: everything known about it, every place it lives, what analysis drew out of each, and an excerpt of its text. With `do` it also acts — note it, rename it, analyze it again, or place a file that is staged and waiting for somewhere to live. A feed is a reference, not the bytes; the originals stay in the resources they came from.
+
+| Argument | Type | Required | Description |
+| --- | --- | --- | --- |
+| `id` | string |  | The feed's id, as returned by search. |
+| `key` | string |  | An address, as /buy, instead of an id. |
+| `do` | string, one of `get` `note` `rename` `analyze` `create` `place` |  | What to do. Defaults to get. |
+| `type` | string |  | For create: uris:note, uris:feed or uris:tag. |
+| `title` | string |  |  |
+| `note` | string |  | For note: what to write about it. |
+| `prompt` | string |  | For create of a uris:feed: what it should find. |
+| `resource` | string |  | For place: the key of the resource to store it in. |
+| `reason` | string |  | For place: why it belongs there, in one sentence. |
+
+
+## connect
+
+Needs `uris:catalog:write`.
+
+Connect two feeds, or sever the connection. A connection is symmetric and carries no direction — what it means is read from the two things joined. Connecting a document to a tag is how it is filed; connecting it to another document is how they are related.
+
+| Argument | Type | Required | Description |
+| --- | --- | --- | --- |
+| `a` | string | yes | One feed's id. |
+| `b` | string | yes | The other feed's id. |
+| `connected` | boolean |  | False severs the connection instead of making it. Defaults to true. |
+
+
+## resource
+
+Needs `uris:resources:read`.
+
+Ask a place to do something. A resource is an instance — "my B2 bucket" — of a type such as s3, and each type accepts its own commands; describe tells you which. Called with no key it lists the places there are. Credentials never travel through here: connecting a resource is a browser flow.
+
+| Argument | Type | Required | Description |
+| --- | --- | --- | --- |
+| `key` | string |  |  |
+| `do` | string, one of `list` `describe` `check` `runs` `get` `parameters` `search` `sync` `export` `cancel` `put` `snapshot` |  |  |
+| `input` | object |  |  |
+
+
+## Resource commands
+
+What `resource` accepts as `do`. `list`, `describe`, `check`, `runs`, `sync`, `export` and
+`cancel` are answered by uris itself; the rest are passed to the resource, and a type
+accepts only the ones its [reference entry](/reference/resources/) lists. A command that
+starts a run counts against the token's hourly run budget.
+
+| Command | Needs | Starts a run |
+| --- | --- | --- |
+| `list` | `uris:resources:read` |  |
+| `describe` | `uris:resources:read` |  |
+| `check` | `uris:resources:read` |  |
+| `runs` | `uris:resources:read` |  |
+| `get` | `uris:resources:read` |  |
+| `parameters` | `uris:resources:read` |  |
+| `search` | `uris:resources:read` and `uris:web:read` on a search resource |  |
+| `sync` | `uris:resources:read` and `uris:resources:command` | yes |
+| `export` | `uris:resources:read` and `uris:resources:command` | yes |
+| `cancel` | `uris:resources:read` and `uris:resources:command` |  |
+| `put` | `uris:resources:read` and `uris:resources:command` |  |
+| `snapshot` | `uris:resources:read` and `uris:resources:command` |  |

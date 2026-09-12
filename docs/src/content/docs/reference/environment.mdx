@@ -1,0 +1,65 @@
+---
+title: Environment
+description: Every environment variable uris reads, where it is read, and its default.
+---
+
+Every variable the application reads, found by reading the source for them. A default is shown
+where the code names one inline; a variable with none is unset unless the deployment sets it.
+Rails' own variables are listed only where uris reads them itself.
+
+Generated from the code by `./dev reference`. CI fails when this page and the code disagree.
+
+| Variable | Default | Read in |
+| --- | --- | --- |
+| `ANALYSIS_CONCURRENCY` | `1` | `config/queue.yml` |
+| `ANALYSIS_PER_TENANT` | `2` | `app/jobs/analyze_feed_job.rb` |
+| `ANALYSIS_THREADS` | `4` | `config/queue.yml` |
+| `BULK_CONCURRENCY` | `1` | `config/queue.yml` |
+| `ENCRYPTION_DETERMINISTIC_KEY` |  | `config/application.rb` |
+| `ENCRYPTION_KEY_DERIVATION_SALT` |  | `config/application.rb` |
+| `ENCRYPTION_PRIMARY_KEY` |  | `config/application.rb` |
+| `MASKS_ISSUER_TEMPLATE` |  | `app/models/tenant.rb` |
+| `ONLY` |  | `lib/tasks/inference.rake` |
+| `OPENSEARCH_URL` | `"http://127.0.0.1:9201"` | `app/models/search_index.rb` |
+| `PG_BIN_PATH` |  | `config/application.rb` |
+| `PIDFILE` |  | `config/puma.rb` |
+| `PORT` | `3000` | `config/puma.rb` |
+| `POSTGRES_HOST` | `"localhost"` | `config/database.yml` |
+| `POSTGRES_PASSWORD` | `"uris"` | `config/database.yml` |
+| `POSTGRES_PORT` | `5432` | `config/database.yml` |
+| `POSTGRES_USER` | `"uris"` | `config/database.yml` |
+| `RAILS_ASSUME_SSL` | `"true"` | `config/environments/production.rb` |
+| `RAILS_FORCE_SSL` | `"true"` | `config/environments/production.rb` |
+| `RAILS_LOG_LEVEL` | `"info"` | `config/environments/production.rb` |
+| `RAILS_MAX_THREADS` | `3` | `config/database.yml` `config/puma.rb` |
+| `SOLID_QUEUE_IN_PUMA` |  | `config/puma.rb` |
+| `TENANT` | `"demo"` | `lib/tasks/inference.rake` |
+| `URIS_ALLOW_PRIVATE_FETCH` |  | `app/models/public_address.rb` |
+| `URIS_AUDIT_RETENTION_DAYS` | `90` | `config/application.rb` |
+| `URIS_CHROME_NO_SANDBOX` |  | `app/models/snapshot.rb` |
+| `URIS_CHROME_PATH` |  | `app/models/snapshot.rb` |
+| `URIS_DATABASE_PASSWORD` |  | `config/database.yml` |
+| `URIS_EMBEDDING_DIMENSIONS` | `768` | `app/models/search_index.rb` |
+| `URIS_FILESYSTEM_ROOT` | `"/data/files"` | `config/resources.yml` |
+| `URIS_FILESYSTEM_ROOTS` | `""` | `app/models/resource/filesystem.rb` |
+| `URIS_GIT_PROTOCOLS` |  | `app/models/resource/git.rb` |
+| `URIS_GIT_ROOT` |  | `app/models/resource/git.rb` |
+| `URIS_HOST_SUFFIX` |  | `app/models/resource/mcp.rb` `config/environments/production.rb` |
+| `URIS_INFERENCE_ORIGINS` | `""` | `app/models/resource/openai_compatible.rb` |
+| `URIS_MCP_LIMIT` | `120` | `config/application.rb` |
+| `URIS_PUBLIC_ORIGIN` |  | `app/models/tenant.rb` |
+| `URIS_RUN_BUDGET` | `20` | `config/application.rb` |
+| `URIS_RUN_DEADLINE_HOURS` | `6` | `config/application.rb` |
+| `URIS_RUN_RETENTION_DAYS` | `14` | `config/application.rb` |
+| `URIS_SEARCH_ORIGINS` | `""` | `app/models/resource/search.rb` |
+| `URIS_STAGING_ACCESS_KEY_ID` |  | `config/storage.yml` |
+| `URIS_STAGING_BUCKET` |  | `config/storage.yml` |
+| `URIS_STAGING_ENDPOINT` |  | `config/storage.yml` |
+| `URIS_STAGING_REGION` | `"us-east-1"` | `config/storage.yml` |
+| `URIS_STAGING_SECRET_ACCESS_KEY` |  | `config/storage.yml` |
+| `URIS_STAGING_SERVICE` | `"local"` | `config/environments/production.rb` |
+| `URIS_TENANT` |  | `config/application.rb` |
+| `URIS_TENANTS` |  | `config/application.rb` |
+| `URIS_TRANSCRIBE_SECONDS` |  | `app/analyzers/analyzer/media.rb` |
+| `URIS_WHISPER_BIN` |  | `app/analyzers/analyzer/media.rb` |
+| `URIS_WHISPER_MODEL` |  | `app/analyzers/analyzer/media.rb` |

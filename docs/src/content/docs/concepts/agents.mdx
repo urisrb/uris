@@ -1,0 +1,92 @@
+---
+title: Agents and MCP
+description: Four tools at /mcp, shaped by the token that calls them, and the loop a feed runs over the same four.
+---
+
+`/mcp` is a Model Context Protocol endpoint over streamable HTTP. It takes the same masks access
+token as the browser app — see [tenants](/concepts/tenants/) — and a request without one is answered
+`401` with a `WWW-Authenticate` challenge naming
+`/.well-known/oauth-protected-resource`. That document lists the resource URL, the masks issuer as
+its authorization server, and every `uris:` scope with a description, which is what an OAuth-aware
+client needs to find masks and ask for a token on its own.
+
+Calls are rate-limited per token, or per address when there is none, at `URIS_MCP_LIMIT` a minute
+(120 by default). An `Mcp-Session-Id` belongs to the subject that opened it and is refused to anyone
+else.
+
+## Four tools
+
+| Tool | Scope to see it | What it is for |
+| --- | --- | --- |
+| `search` | `uris:catalog:read` | the whole catalog at once, or the newest feeds of a type |
+| `feed` | `uris:catalog:read` | one [feed](/concepts/feeds/) in full; with `do`, note, rename, analyze, create or place it |
+| `connect` | `uris:catalog:write` | join two feeds, or sever them |
+| `resource` | `uris:resources:read` | list the [resources](/concepts/resources/), and ask one to run a command |
+
+Inputs are generated into the [MCP reference](/reference/mcp/).
+
+A token sees only the tools its scopes permit, and the `resource` tool is built per token by
+`Tool::Resources.for`: `list`, `describe`, `check`, `runs`, `get`, `parameters` and `search` are
+always in its schema, and `sync`, `export`, `cancel`, `put` and `snapshot` appear only when the token
+carries `uris:resources:command`. An ungranted command is absent from `tools/list`, not refused when
+called. Calls are still checked: `feed`'s writing verbs need `uris:catalog:write`, and searching a
+search-capable resource needs `uris:web:read`. A token with `uris:mcp:call` also sees the tools of
+any MCP server added as a resource, passed through.
+
+## The agent
+
+`Agent` runs a prompt against an inference resource that serves the `agent` role, offering it the
+same four tools. It runs for a fixed number of turns — six by default, a feed's schedule can set
+its own, never more than 32 — and each turn asks the model for a reply.
+
+- A reply with no tool calls is the answer.
+- Each tool call is checked against the tool's own input schema before it runs. An unknown tool,
+  arguments that are not JSON, or arguments the schema refuses come back to the model as an error
+  it can correct, rather than raising out of the loop.
+- A tool result longer than 8,000 characters is cut, with a note saying how much was left off.
+- Three failed calls in a row end the run as `flailed`. A call that succeeds resets the count.
+- The last turn is offered no tools and told to answer from what it has already read.
+- A run whose analysis is cancelled, or past its deadline, stops at the start of its next turn as
+  `halted`.
+
+It returns an `Answer` holding what was said, why it stopped, the turns taken and every call made.
+
+When a feed is analyzed, the agent is asked to file it — connect it to tags and related feeds, and
+choose a resource for a file still waiting for one. An address feed with a schedule runs its own
+prompt instead. See [analysis](/concepts/analysis/).
+
+That agent is not acting as a person, so it does not borrow one's token. `Feed#grant` gives it a
+grant of its own, subject `feed:` followed by the feed's key, holding `Feed::AGENT_SCOPES`:
+
+```
+uris:catalog:read  uris:catalog:write  uris:web:read  uris:resources:read
+```
+
+It can search, read, file and place, and ask resources read-only questions. It cannot sync, export
+or write into a resource, reach an added MCP server, or touch settings.
+
+## Budgets and gates
+
+Starting work that can run long spends from a budget: `feed` with `do: analyze`, and `resource` with
+`sync` or `export`. Each subject in a tenant may start `URIS_RUN_BUDGET` of them in a clock hour, 20
+by default; `0` removes the ceiling. A feed's agent spends from its own subject's budget, not a
+person's.
+
+A gate is a row that stops a kind of job. The iterating jobs name theirs — `sync`, `analyze`,
+`export` and `reindex` — and a gate can apply to the whole key or to one record, such as a single
+resource for `sync`; the record's gate wins over the key's. A disabled gate marks the run gated and
+does nothing; a gate that is enabled but not live lets `sync` and `reindex` walk and count without
+writing. Gates are read again every 50 iterations, so closing one stops a run already under way.
+`URIS_ITERATORS_DISABLED` closes every gate at once. Gates have no screen yet; they are set with
+`Gate.set!` from a console.
+
+## Audit
+
+Every tool call writes an audit event: the tool, the scope, `ok`, `error` or `denied`, the subject and
+client, the address and request id, and the duration. Arguments are summarized rather than stored —
+strings cut to 200 characters, arrays counted, one level of nesting kept — and any key naming a
+secret, password, token, credential, authorization or access key is replaced with `[redacted]`.
+Refused authorizations, rate-limited calls, and some GraphQL mutations are recorded the same way.
+
+Events are readable through the `auditEvents` query with `uris:catalog:read`. A daily job deletes
+those older than `URIS_AUDIT_RETENTION_DAYS`, 90 by default; `0` keeps them forever.

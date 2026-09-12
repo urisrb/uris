@@ -4,14 +4,26 @@ description: One searchable index across everything you own, wherever it lives, 
 ---
 
 uris catalogs what you already have. It points at the places your things live — buckets,
-directories, mailboxes, calendars, feeds, wikis — reads each one, and gives you a single index
-over all of them that you can search, ask questions of, and export back out.
+directories, mailboxes, calendars, feeds, wikis, repositories — reads each one, and gives you one
+index over all of them that you can search, ask questions of, and export back out. The bytes stay
+where they are; uris keeps where they live and what a pass over them understood.
 
-Two interfaces reach the same catalog: a browser app over GraphQL, and an MCP endpoint a model
-can drive. Both authorize the same way, and neither wraps the other.
+Two interfaces reach the same catalog: a browser app over [GraphQL](/reference/graphql/), and an
+[MCP endpoint](/concepts/agents/) a model can drive. Both take the same token, issued by
+[masks](https://github.com/urisrb/masks), and neither wraps the other.
 
-:::caution[These docs are being rewritten]
-The schema underneath uris was rewritten in September 2026 — one record for a thing, one record
-for a pass over it — and every page written against the old shape was removed rather than
-patched. `README.md` and `PLAN.md` in the repository are accurate; this site is not, yet.
-:::
+## The shape of it
+
+| | |
+| --- | --- |
+| [Feeds](/concepts/feeds/) | the one record for a thing — a file, a note, an address, a tag, a content type — and the edges between them |
+| [References](/concepts/references/) | where a feed's bytes live, and how a change to them is noticed |
+| [Adding things](/concepts/adding/) | uploads, notes, fetched pages and syncs, and how a file is placed |
+| [Analysis](/concepts/analysis/) | one pass over a feed: its steps, its summary, and the agent that files it |
+| [Resources](/concepts/resources/) | the places uris reads from, writes to and asks things of |
+| [Search](/concepts/search/) | one index, lexical and semantic, fused |
+| [Agents and MCP](/concepts/agents/) | the four tools, and the loop that runs over them |
+| [Tenants](/concepts/tenants/) | isolation, and signing in through masks |
+
+Start with the [quickstart](/quickstart/). The reference pages are generated from the code, so they
+say what it does rather than what it once did.

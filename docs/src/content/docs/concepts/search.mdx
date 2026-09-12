@@ -1,0 +1,83 @@
+---
+title: Search
+description: One OpenSearch index over every feed, lexical and semantic, fused.
+---
+
+Every [feed](/concepts/feeds/) is a document in OpenSearch, at `OPENSEARCH_URL`. A feed is indexed
+again whenever it or one of its [references](/concepts/references/) commits and whenever an
+[analysis](/concepts/analysis/) of it finishes, and removed when it is destroyed. The index is a derived copy: Postgres holds the record, and
+search answers with ids that are loaded back from it in the order they ranked.
+
+## What a document holds
+
+| Field | From | Analyzed as |
+| --- | --- | --- |
+| `tenant_id` | the feed's tenant | long |
+| `type`, `mime` | the feed | keyword |
+| `tags` | the keys of its tags | keyword |
+| `key`, `title` | the feed | path |
+| `locator_key` | its original references, joined | path |
+| `keywords` | the summary's keywords and entities, across the feed and its children | path, and `keywords.raw` as keyword |
+| `note` | the feed | standard |
+| `summary` | every summary across the feed and its children | standard |
+| `body` | everything its analyses extracted, across the feed and its children | standard |
+| `resource_ids` | where its original references live | long |
+| `created_at` | the feed | date |
+| `embedding` | the feed's vector, when it has one | `knn_vector`, HNSW, cosine |
+
+The `path` analyzer splits on slashes, backslashes, dashes, underscores, dots and whitespace, then
+lowercases, so `invoices/2026/acme-q3.pdf` is found by `acme`. Only original references contribute
+a locator or a resource id; a preview or thumbnail never does. The body leaves out the summary step, which
+has its own field, and the two bookkeeping steps, `placement` and `derived`, whose results are
+paths and store names rather than anything the file says. The mapping is not dynamic: a field not
+listed here is not indexed.
+
+## Lexical and semantic
+
+A query with text is a `multi_match` with every term required, boosted `title`, `key` and
+`keywords` three times, `note`, `summary` and `tags` twice, and `locator_key` and `body` once. No
+text matches everything. Facets narrow either way, each taking one value or a list:
+
+| Facet | Field |
+| --- | --- |
+| `type` | `type` |
+| `mime` | `mime` |
+| `tag` | `tags` |
+
+Semantic search joins in when the query has text, an inference resource declares a model for the
+`embedding` role, and the page asked for ends within the first 200 results. The query is embedded —
+cached for a day per tenant, resource, model and text — and the top 200 lexical hits and top 200
+nearest neighbours under the same facets are fused by reciprocal rank fusion: each list adds
+`1 / (60 + rank)` to a feed's score, counting ranks from one, and the fused list is ordered by
+score. Fusion reads only positions, never the two engines' scores, which are not on the same scale.
+
+Past 200, or when there is no embedding resource, or when embedding the query fails, search is
+lexical only. A vector query the engine refuses is logged and contributes nothing. Pages are
+offsets: `from` and `limit` slice the fused list, and the reported total is the larger of the
+lexical hit count and the fused length.
+
+## Embeddings
+
+`EmbedItemsJob` runs every minute in every tenant and embeds up to fifty feeds with no
+`embedded_at`. What is embedded is a gist — title, keywords, summaries, note and the first 2,000
+characters of the body, capped at 8,000 — and a digest of that gist and the model is kept beside
+the vector. A feed whose digest has not moved is stamped rather than embedded again. Changing a
+title or note, finishing an analysis, or committing a reference clears the stamp; changing the
+embedding model clears every stamp in the tenant, because two models do not share a vector space.
+The vector's dimension is `URIS_EMBEDDING_DIMENSIONS`, 768 by default.
+
+## Tenants
+
+Every tenant's documents share one index. Each tenant searches through its own alias, created when
+the tenant is, which carries a filter on `tenant_id`, and the nearest-neighbour query repeats that
+filter inside itself. A search with no tenant is refused.
+
+## Rebuilding
+
+The index's settings and mapping are hashed into a stamp stored in the index's metadata.
+`RebuildSearchIndexJob` runs daily at 3am and does nothing unless the live stamp differs. When it
+does, it builds a new versioned index, reindexes every tenant into it in pages of 200 under a run
+of kind `reindex`, and refuses to promote it holding fewer documents than there are feeds. Promotion
+moves the main alias and every tenant alias in one request and deletes the old index; a failure
+deletes the new one and leaves the old one serving. Feeds that changed during the rebuild are
+indexed again afterwards.
