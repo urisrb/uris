@@ -8,7 +8,7 @@ import { useQuery, useSubscription } from '@uris-to/client/react'
 import { type CSSProperties, useEffect, useState } from 'react'
 import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
-import { RUN_OPEN, RUN_TONES, RunLog } from './RunTrail'
+import { RUN_OPEN, RUN_TONES, RunLog } from './RunLog'
 import { useAloud, useSay } from './Say'
 
 const PAGE = 50

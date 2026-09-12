@@ -1,5 +1,5 @@
 query Feeds {
-  feeds {
+  feeds(type: "uris:feed", limit: 200) {
     nodes {
       id
       key
@@ -108,8 +108,13 @@ subscription AnalysisProgressed($id: ID) {
     analysis {
       id
       status
+      error
       turns
       steps
+      lines
+      logs
+      finishedAt
+      durationMs
     }
   }
 }

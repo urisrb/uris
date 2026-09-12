@@ -1,11 +1,7 @@
-import { Group, Loader, Table, Text } from '@mantine/core'
-import {
-  ContextRunsDocument,
-  RunLogDocument,
-  RunProgressedDocument,
-} from '@uris-to/client'
-import { useQuery, useSubscription } from '@uris-to/client/react'
-import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { Loader, Text } from '@mantine/core'
+import { RunLogDocument } from '@uris-to/client'
+import { useQuery } from '@uris-to/client/react'
+import { useEffect, useRef } from 'react'
 
 export const RUN_TONES: Record<string, string> = {
   queued: 'var(--edge)',
@@ -18,7 +14,7 @@ export const RUN_TONES: Record<string, string> = {
 
 export const RUN_OPEN = new Set(['queued', 'running'])
 
-const TONE_FOR_LINE: Record<string, string> = {
+export const TONE_FOR_LINE: Record<string, string> = {
   '[x]': 'var(--bad)',
   '[✓]': 'var(--ok)',
   '[-]': 'var(--muted)',
@@ -59,125 +55,6 @@ export function RunLog({ id, live }: { id: string; live: string | null }) {
         </div>
       ))}
       <div ref={bottom} />
-    </div>
-  )
-}
-
-function when(value?: string | null) {
-  return value ? new Date(value).toLocaleString() : '—'
-}
-
-// The runs behind whatever you are already looking at. Feeds own theirs
-// through a column; analysis names its item in the selector.
-export function RunTrail({
-  feedId,
-  itemId,
-  empty,
-}: {
-  feedId?: string
-  itemId?: string
-  empty: string
-}) {
-  const [open, setOpen] = useState<string | null>(null)
-  const { data, loading, refetch } = useQuery(ContextRunsDocument, {
-    feedId: feedId ?? null,
-    itemId: itemId ?? null,
-    limit: 20,
-  })
-  const { data: progressed } = useSubscription(RunProgressedDocument)
-
-  const rows = data?.runs.nodes ?? []
-
-  const streamed = progressed?.runProgressed.run
-  const live = streamed?.id === open ? (streamed?.logs ?? null) : null
-
-  // Every refetch hands back a fresh nodes array, so reacting to the rows
-  // themselves would refetch forever. A run reaching a new status is the only
-  // thing the trail has to redraw for; the open log streams on its own.
-  const answered = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (!streamed) return
-
-    const reached = `${streamed.id} ${streamed.status}`
-
-    if (answered.current === reached) return
-
-    answered.current = reached
-    refetch()
-  }, [streamed, refetch])
-
-  if (loading && !data) return <Loader size="xs" color="var(--brass)" />
-
-  if (rows.length === 0) {
-    return (
-      <Text c="dimmed" size="sm">
-        {empty}
-      </Text>
-    )
-  }
-
-  return (
-    <div className="panel">
-      <Table verticalSpacing="xs" horizontalSpacing="lg">
-        <Table.Tbody>
-          {rows.flatMap((run) => [
-            <Table.Tr key={run.id}>
-              <Table.Td width="1%">
-                <span
-                  className="tag"
-                  style={
-                    {
-                      '--tone': RUN_TONES[run.status] ?? 'var(--edge)',
-                    } as CSSProperties
-                  }
-                >
-                  {run.status}
-                </span>
-              </Table.Td>
-              <Table.Td>
-                <Group gap="var(--s2)" wrap="nowrap">
-                  <Text size="xs" fw={600}>
-                    {run.kind}
-                  </Text>
-                  {run.lines > 0 && (
-                    <button
-                      type="button"
-                      className="tag"
-                      data-dot="false"
-                      data-on={open === run.id}
-                      aria-expanded={open === run.id}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => setOpen(open === run.id ? null : run.id)}
-                    >
-                      {open === run.id ? 'hide' : `${run.lines} lines`}
-                    </button>
-                  )}
-                </Group>
-              </Table.Td>
-              <Table.Td>
-                <Text size="xs" c="dimmed">
-                  {when(run.createdAt)}
-                </Text>
-              </Table.Td>
-              <Table.Td>
-                {run.error && (
-                  <Text size="xs" style={{ color: 'var(--bad)' }}>
-                    {run.error}
-                  </Text>
-                )}
-              </Table.Td>
-            </Table.Tr>,
-            open === run.id ? (
-              <Table.Tr key={`${run.id}-log`}>
-                <Table.Td colSpan={4} style={{ paddingTop: 0 }}>
-                  <RunLog id={run.id} live={live} />
-                </Table.Td>
-              </Table.Tr>
-            ) : null,
-          ])}
-        </Table.Tbody>
-      </Table>
     </div>
   )
 }

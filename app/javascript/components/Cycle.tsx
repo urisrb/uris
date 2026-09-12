@@ -1,6 +1,6 @@
 import { useReducedMotion } from '@mantine/hooks'
 import { Fragment, useEffect, useState } from 'react'
-import { toned } from '../kinds'
+import { toned, toneOf } from '../looks'
 
 const BEAT = 2100
 
@@ -22,9 +22,9 @@ export function Cycle({ words }: { words: [string, string][] }) {
   if (still) {
     return (
       <span className="cycle-still">
-        {words.map(([word, kind], index) => (
+        {words.map(([word, family], index) => (
           <Fragment key={word}>
-            <span style={toned(kind)}>{word}</span>
+            <span style={toned(toneOf(family))}>{word}</span>
             {index < words.length - 1 ? ', ' : ''}
           </Fragment>
         ))}
@@ -37,8 +37,13 @@ export function Cycle({ words }: { words: [string, string][] }) {
       <span className="offscreen">
         {words.map(([word]) => word).join(', ')}
       </span>
-      {words.map(([word, kind], index) => (
-        <span key={word} aria-hidden data-on={index === at} style={toned(kind)}>
+      {words.map(([word, family], index) => (
+        <span
+          key={word}
+          aria-hidden
+          data-on={index === at}
+          style={toned(toneOf(family))}
+        >
           {word}
         </span>
       ))}

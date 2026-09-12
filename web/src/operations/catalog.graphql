@@ -1,57 +1,92 @@
-query Catalog($type: String, $connectedTo: ID, $after: ID, $limit: Int) {
+fragment Row on Feed {
+  id
+  type
+  key
+  title
+  mime
+  summary
+  thumbnailUrl
+  staged
+  analyzedAt
+  createdAt
+}
+
+query Catalog(
+  $types: [String!]
+  $connectedTo: ID
+  $topLevel: Boolean
+  $after: ID
+  $limit: Int
+) {
   tenant {
     id
     name
     subdomain
   }
+  feeds(
+    types: $types
+    connectedTo: $connectedTo
+    topLevel: $topLevel
+    after: $after
+    limit: $limit
+  ) {
+    hasMore
+    nextCursor
+    nodes {
+      ...Row
+    }
+  }
+}
+
+query Types {
   types {
     type
     count
   }
-  feeds(type: $type, connectedTo: $connectedTo, after: $after, limit: $limit) {
-    hasMore
-    nextCursor
-    nodes {
-      id
-      type
-      title
-      summary
-      thumbnailUrl
-      analyzedAt
-      createdAt
-    }
-  }
 }
 
-query Search($query: String, $type: String, $after: ID, $limit: Int) {
-  search(query: $query, type: $type, after: $after, limit: $limit) {
+query Search($query: String, $types: [String!], $after: ID, $limit: Int) {
+  search(query: $query, types: $types, after: $after, limit: $limit) {
     hasMore
     nextCursor
     total
     nodes {
-      id
-      type
-      title
-      summary
-      thumbnailUrl
-      analyzedAt
-      createdAt
+      ...Row
     }
   }
 }
 
+fragment Pass on Analysis {
+  id
+  cause
+  status
+  error
+  steps
+  lines
+  createdAt
+  startedAt
+  finishedAt
+  durationMs
+}
+
 query FeedDetail($id: ID!) {
   feed(id: $id) {
-    id
-    type
-    title
+    ...Row
     note
-    summary
-    thumbnailUrl
-    analyzedAt
-    createdAt
+    keywords
+    connectedCount
+    parent {
+      ...Row
+    }
+    children {
+      ...Row
+    }
+    connected {
+      ...Row
+    }
     references {
       id
+      role
       locatorKey
       filename
       contentType
@@ -64,6 +99,18 @@ query FeedDetail($id: ID!) {
         type
       }
     }
+    analyses {
+      ...Pass
+    }
+  }
+}
+
+query AnalysisLog($id: ID!) {
+  analysis(id: $id) {
+    id
+    status
+    lines
+    logs
   }
 }
 

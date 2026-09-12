@@ -24,14 +24,24 @@ import {
   SplitReferenceDocument,
 } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
-import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
-import { KindBadge } from './KindBadge'
-import { RunTrail } from './RunTrail'
+import { hrefFor, lookOf, TYPE, toned } from '../looks'
+import { Passes, placementOf, why } from './Passes'
+import { Rows } from './Rows'
 import { useAloud, useSay } from './Say'
 import { Sure } from './Sure'
 import { Thumb } from './Thumb'
+import { TypeBadge } from './TypeBadge'
+
+const FACETS = new Set<string>([TYPE.tag, TYPE.mime])
+
+const ABOUT: Record<string, string> = {
+  [TYPE.tag]: 'Everything filed under this tag.',
+  [TYPE.mime]: 'Everything whose bytes are of this content type.',
+  [TYPE.feed]: 'What this feed has kept.',
+}
 
 export function ItemDetail() {
   const { id = '' } = useParams()
@@ -53,19 +63,26 @@ export function ItemDetail() {
   )
   const rename = useAloud(RenameFeedDocument, 'That name could not be kept.')
   const note = useAloud(NoteFeedDocument, 'That note could not be kept.')
+  const settled = useCallback(() => refetch(), [refetch])
 
   const item = data?.feed
 
-  useTitle(item?.title ?? 'Item')
+  useTitle(item?.title ?? item?.key ?? 'Item')
 
   if (loading && !data) return <Loader size="sm" color="var(--brass)" />
   if (error) return <Alert color="red">{error.message}</Alert>
 
   if (!item) return <Text c="dimmed">No such item.</Text>
 
-  const viewable = item.references.filter((reference) =>
-    /^(image|application\/pdf)/.test(reference.contentType),
+  const facet = FACETS.has(item.type)
+  const originals = item.references.filter(
+    (reference) => reference.role === 'original',
   )
+  const viewable = originals.filter((reference) => reference.thumbnailUrl)
+  const filed = item.connected.filter((held) => FACETS.has(held.type))
+  const related = item.connected.filter((held) => !FACETS.has(held.type))
+  const placement = placementOf(item.analyses)
+  const name = item.title ?? item.key
 
   return (
     <Stack gap="var(--s5)">
@@ -81,69 +98,79 @@ export function ItemDetail() {
         Catalog
       </Button>
 
-      <Group justify="space-between" align="flex-start" wrap="nowrap">
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <Naming
-            title={item.title ?? ''}
-            busy={rename.loading}
-            onName={async (next) => {
-              const answered = await rename.execute({
-                id: item.id,
-                title: next,
-              })
+      <Group justify="space-between" align="flex-start" gap="var(--s4)">
+        <Group
+          gap="var(--s4)"
+          align="flex-start"
+          wrap="nowrap"
+          style={{ minWidth: 'min(100%, 16rem)', flex: 1 }}
+        >
+          {facet && <Thumb looked={item} alt="" size={48} />}
+          <div style={{ minWidth: 0, flex: 1 }}>
+            {facet ? (
+              <h1 className="page-title mono-title">{item.key}</h1>
+            ) : (
+              <Naming
+                title={name}
+                busy={rename.loading}
+                onName={async (next) => {
+                  const answered = await rename.execute({
+                    id: item.id,
+                    title: next,
+                  })
 
-              if (!answered) return false
+                  if (!answered) return false
 
-              refetch()
-              return true
-            }}
-          />
-          <Group gap="var(--s3)" mt="var(--s3)">
-            <KindBadge kind={item.type} />
-            <span className="eyebrow">
-              <span className="figure">{item.references.length}</span>{' '}
-              {item.references.length === 1 ? 'place' : 'places'} it lives
-              {item.analyzedAt
-                ? ` · analyzed ${new Date(item.analyzedAt).toLocaleString()}`
-                : ' · never analyzed'}
-            </span>
-          </Group>
-        </div>
-
-        <Group gap="var(--s2)" wrap="nowrap">
-          <Button
-            radius="xl"
-            variant="subtle"
-            color="gray"
-            leftSection={<IconEraser size={16} />}
-            onClick={() => setForgetting(true)}
-          >
-            Forget
-          </Button>
-
-          <Button
-            radius="xl"
-            color="chalk"
-            leftSection={<IconSparkles size={16} />}
-            loading={analyze.loading}
-            onClick={async () => {
-              const answered = await analyze.execute({ id: item.id })
-
-              if (!answered) return
-
-              say({ text: `Analyzing ${item.title ?? 'this item'}.` })
-              refetch()
-            }}
-          >
-            Analyze
-          </Button>
+                  refetch()
+                  return true
+                }}
+              />
+            )}
+            <Group gap="var(--s3)" mt="var(--s3)">
+              <TypeBadge type={item.type} mime={item.mime} />
+              <span className="eyebrow">
+                {standing(item, originals.length)}
+              </span>
+            </Group>
+          </div>
         </Group>
+
+        {!facet && (
+          <Group gap="var(--s2)" wrap="nowrap">
+            <Button
+              radius="xl"
+              variant="subtle"
+              color="gray"
+              leftSection={<IconEraser size={16} />}
+              onClick={() => setForgetting(true)}
+            >
+              Forget
+            </Button>
+
+            <Button
+              radius="xl"
+              color="chalk"
+              leftSection={<IconSparkles size={16} />}
+              loading={analyze.loading}
+              onClick={async () => {
+                const answered = await analyze.execute({ id: item.id })
+
+                if (!answered) return
+
+                say({ text: `Analyzing ${name}.` })
+                refetch()
+              }}
+            >
+              Analyze
+            </Button>
+          </Group>
+        )}
       </Group>
 
       <Sure
         opened={forgetting}
         onClose={() => setForgetting(false)}
-        title={`Forget ${item.title ?? 'this item'}?`}
+        title={`Forget ${name}?`}
         verb="Forget it"
         loading={forget.loading}
         onSure={async () => {
@@ -152,19 +179,27 @@ export function ItemDetail() {
           if (!answered) return
 
           setForgetting(false)
-          say({ text: `${item.title ?? 'That item'} is out of the catalog.` })
+          say({ text: `${name} is out of the catalog.` })
           navigate('/')
         }}
       >
         uris stops pointing at the{' '}
         <strong>
-          {item.references.length}{' '}
-          {item.references.length === 1 ? 'place' : 'places'}
+          {originals.length} {originals.length === 1 ? 'place' : 'places'}
         </strong>{' '}
         it lives and drops it from search. Not one of those places is touched —
         the files stay exactly where they are, and a later sync of the same
         resource will catalogue this again.
       </Sure>
+
+      {item.parent && (
+        <Text size="sm" c="dimmed">
+          Extracted from{' '}
+          <Link to={hrefFor(item.parent)} className="inline-link">
+            {item.parent.title ?? item.parent.key}
+          </Link>
+        </Text>
+      )}
 
       {viewable.length > 0 && (
         <Group align="flex-start" gap="var(--s4)">
@@ -177,7 +212,7 @@ export function ItemDetail() {
             >
               <Thumb
                 url={reference.thumbnailUrl}
-                kind={item.type}
+                looked={item}
                 alt={reference.filename}
                 size={230}
               />
@@ -186,126 +221,234 @@ export function ItemDetail() {
         </Group>
       )}
 
-      <Noting
-        note={item.note ?? ''}
-        busy={note.loading}
-        onNote={async (next) => {
-          const answered = await note.execute({ id: item.id, note: next })
+      {filed.length > 0 && (
+        <div className="filed">
+          {filed.map((held) => (
+            <Link
+              key={held.id}
+              to={hrefFor(held)}
+              className="tag"
+              style={toned(lookOf(held).tone)}
+            >
+              {held.key}
+            </Link>
+          ))}
+        </div>
+      )}
 
-          if (!answered) return false
+      {!facet && (
+        <Noting
+          note={item.note ?? ''}
+          busy={note.loading}
+          onNote={async (next) => {
+            const answered = await note.execute({ id: item.id, note: next })
 
-          say({ text: next ? 'Noted.' : 'The note is gone.' })
-          refetch()
-          return true
-        }}
-      />
+            if (!answered) return false
 
-      {item.summary && (
+            say({ text: next ? 'Noted.' : 'The note is gone.' })
+            refetch()
+            return true
+          }}
+        />
+      )}
+
+      {!facet && item.summary && (
         <Stack gap="var(--s2)">
           <div className="label">What uris made of it</div>
           <div className="panel" style={{ padding: 'var(--s4) var(--s5)' }}>
             <Text size="sm" style={{ lineHeight: 1.6, maxWidth: '72ch' }}>
               {item.summary}
             </Text>
+            {item.keywords.length > 0 && (
+              <div className="filed" style={{ marginTop: 'var(--s3)' }}>
+                {item.keywords.map((word) => (
+                  <Link
+                    key={word}
+                    to={`/?q=${encodeURIComponent(word)}`}
+                    className="tag"
+                    data-dot="false"
+                  >
+                    {word}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </Stack>
       )}
 
-      <Stack gap="var(--s3)">
-        <div className="label">Where it lives</div>
+      {item.children.length > 0 && (
+        <Stack gap="var(--s3)">
+          <div className="label">Inside it</div>
+          <Rows rows={item.children} />
+        </Stack>
+      )}
 
-        <div className="panel">
-          {item.references.map((reference) => (
-            <div
-              key={reference.id}
-              className="entry"
-              data-spine="true"
-              style={{ '--tone': 'var(--edge)' } as CSSProperties}
-            >
-              <div style={{ minWidth: 0 }}>
-                <Group gap="var(--s2)">
-                  <span className="entry-title">{reference.resource.key}</span>
-                  <span className="tag" data-dot="false">
-                    {reference.resource.type}
-                  </span>
-                </Group>
+      {related.length > 0 && (
+        <Stack gap="var(--s3)">
+          <div className="label">
+            {ABOUT[item.type] ? 'In it' : 'Beside it'}
+          </div>
+          {ABOUT[item.type] && (
+            <Text size="sm" c="dimmed">
+              {ABOUT[item.type]}
+            </Text>
+          )}
+          <Rows rows={related} />
+        </Stack>
+      )}
 
-                <Text
-                  size="xs"
-                  mt="var(--s2)"
-                  className="mono"
-                  style={{ color: 'var(--soft)', wordBreak: 'break-all' }}
-                >
-                  {reference.locatorKey ?? '—'}
-                </Text>
+      {facet && related.length === 0 && (
+        <Text size="sm" c="dimmed">
+          Nothing is filed under this yet.
+        </Text>
+      )}
 
-                <Text size="xs" c="dimmed" mt="var(--s1)">
-                  {reference.contentType}
-                  {reference.analyzedAt
-                    ? ` · analyzed ${new Date(reference.analyzedAt).toLocaleString()}`
-                    : ' · not analyzed'}
-                </Text>
+      {(originals.length > 0 || item.staged) && (
+        <Stack gap="var(--s3)">
+          <div className="label">Where it lives</div>
+
+          <div className="panel">
+            {item.staged && (
+              <div
+                className="entry"
+                data-spine="true"
+                style={toned('var(--brass)')}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <span className="entry-title">Not stored yet</span>
+                  <Text size="xs" c="dimmed" mt="var(--s1)">
+                    It is held while the pass reads it and decides which of your
+                    places it belongs in.
+                  </Text>
+                </div>
               </div>
+            )}
 
-              <Group gap="var(--s2)" wrap="nowrap">
-                <Button
-                  component="a"
-                  href={reference.contentUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  variant="default"
-                  radius="xl"
-                  size="xs"
-                >
-                  Open
-                </Button>
-                <Button
-                  component="a"
-                  href={`${reference.contentUrl}?download=1`}
-                  variant="default"
-                  radius="xl"
-                  size="xs"
-                >
-                  Download
-                </Button>
-                {item.references.length > 1 && (
+            {originals.map((reference) => (
+              <div
+                key={reference.id}
+                className="entry"
+                data-spine="true"
+                style={toned('var(--edge)')}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <Group gap="var(--s2)">
+                    <span className="entry-title">
+                      {reference.resource.key}
+                    </span>
+                    <span className="tag" data-dot="false">
+                      {reference.resource.type}
+                    </span>
+                  </Group>
+
+                  <Text
+                    size="xs"
+                    mt="var(--s2)"
+                    className="mono"
+                    style={{ color: 'var(--soft)', wordBreak: 'break-all' }}
+                  >
+                    {reference.locatorKey ?? '—'}
+                  </Text>
+
+                  <Text size="xs" c="dimmed" mt="var(--s1)">
+                    {reference.contentType}
+                    {reference.analyzedAt
+                      ? ` · analyzed ${new Date(reference.analyzedAt).toLocaleString()}`
+                      : ' · not analyzed'}
+                  </Text>
+
+                  {placement &&
+                    placement.resource === reference.resource.key &&
+                    placement.path === reference.locatorKey && (
+                      <Text size="xs" mt="var(--s1)" className="placed">
+                        {why(placement)}
+                      </Text>
+                    )}
+                </div>
+
+                <Group gap="var(--s2)" wrap="nowrap">
                   <Button
-                    variant="subtle"
-                    color="gray"
+                    component="a"
+                    href={reference.contentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    variant="default"
                     radius="xl"
                     size="xs"
-                    leftSection={<IconCut size={14} />}
-                    onClick={async () => {
-                      const answered = await split.execute({ id: reference.id })
-
-                      if (!answered) return
-
-                      say({
-                        text: `${reference.resource.key} is its own item now.`,
-                      })
-                      refetch()
-                    }}
                   >
-                    Split
+                    Open
                   </Button>
-                )}
-              </Group>
-            </div>
-          ))}
-        </div>
+                  <Button
+                    component="a"
+                    href={`${reference.contentUrl}?download=1`}
+                    variant="default"
+                    radius="xl"
+                    size="xs"
+                  >
+                    Download
+                  </Button>
+                  {originals.length > 1 && (
+                    <Button
+                      variant="subtle"
+                      color="gray"
+                      radius="xl"
+                      size="xs"
+                      leftSection={<IconCut size={14} />}
+                      onClick={async () => {
+                        const answered = await split.execute({
+                          id: reference.id,
+                        })
 
-        <div>
-          <div className="eyebrow" style={{ marginBottom: 'var(--s3)' }}>
-            Analysis
+                        if (!answered) return
+
+                        say({
+                          text: `${reference.resource.key} is its own item now.`,
+                        })
+                        refetch()
+                      }}
+                    >
+                      Split
+                    </Button>
+                  )}
+                </Group>
+              </div>
+            ))}
           </div>
-          <RunTrail
-            itemId={item.id}
-            empty="This item has not been analyzed yet."
-          />
-        </div>
-      </Stack>
+        </Stack>
+      )}
+
+      {!facet && (
+        <Stack gap="var(--s3)">
+          <div className="label">Analysis</div>
+          <Passes passes={item.analyses} onSettled={settled} />
+        </Stack>
+      )}
     </Stack>
   )
+}
+
+function standing(
+  item: {
+    type: string
+    analyzedAt?: string | null
+    connectedCount: number
+    staged: boolean
+  },
+  places: number,
+) {
+  if (FACETS.has(item.type)) {
+    return `${item.connectedCount} filed under it`
+  }
+
+  const where = item.staged
+    ? 'waiting for somewhere to live'
+    : `${places} ${places === 1 ? 'place' : 'places'} it lives`
+  const when = item.analyzedAt
+    ? `analyzed ${new Date(item.analyzedAt).toLocaleString()}`
+    : 'never analyzed'
+
+  return `${where} · ${when}`
 }
 
 function Naming({

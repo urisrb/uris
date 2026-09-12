@@ -215,9 +215,32 @@ staged file has no reference and the same file placed later must not extract twi
 
 ## Phase 8 — the surface
 
-- [ ] `codegen` and `web/schema.graphql` regenerated
-- [ ] The SPA renders by the five types rather than by a `kind` column
-- [ ] The feed page reads analyses rather than runs
+- [x] `codegen` and `web/schema.graphql` regenerated — both are ignored build output, so this was
+      only ever a step; what was stale was the operations, which asked `ContextRuns` for
+      variables it did not take and passed `kind` where `Catalog` takes none
+- [x] The SPA renders by the five types rather than by a `kind` column
+- [x] The feed page reads analyses rather than runs
+
+**Phase 8 landed 2026-09-12.** Before it, the catalog fell over the moment a tenant had a feed:
+the shelf mapped over a `FeedPage` as though it were a list. Every file rendered as a grey
+`uris:file`, since the tones and glyphs were keyed by the old kind names, and addresses linked
+to `//buy`, since the key carries its slash now.
+
+`looks.ts` is the one place a type becomes a glyph, a tone and a label. A file is looked at by
+the family of its mime — the same families the analyzers dispatch on, so the spectrum survives —
+and a note, a feed, a tag and a content type each look like what they are. The catalog lists
+files and notes by default, top-level only (`feeds(types:, topLevel:)`), and the type menu reaches
+the other three. A tag or a content type opens as a page of what is filed under it; a file shows
+its tags and content type as links, what was extracted from it, and what it was extracted from.
+
+The analysis trail is `Passes`: each pass with its cause, its steps and its log, live over
+`analysisProgressed`, and the placement shown against the reference it produced — chosen by the
+agent and why, put back where it was, or sent to default storage because nobody chose.
+
+Two server defects surfaced through the screenshots rather than the suite: `placement` and
+`derived` steps were feeding `extracted`, so a file's search body read "default storage shelf
+10/preview.jpg"; and `Analysis.newest_first` was an `order` appended to the association's own
+`order(:id)`, so a feed's analyses came oldest first.
 
 ## Phase 9 — finishing
 

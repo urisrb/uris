@@ -51,7 +51,7 @@ export function FeedForm({ opened, onClose, feed, onSaved }: Props) {
   useEffect(() => {
     if (!opened) return
 
-    setSlug(feed?.key ?? '')
+    setSlug(feed?.key.replace(/^\//, '') ?? '')
     setName(feed?.title ?? '')
     setPrompt(feed?.schedule?.prompt ?? '')
     setInterval(feed?.schedule?.interval ?? 0)
@@ -82,7 +82,7 @@ export function FeedForm({ opened, onClose, feed, onSaved }: Props) {
     <Modal
       opened={opened}
       onClose={onClose}
-      title={feed ? `Edit /${feed.key}` : 'New feed'}
+      title={feed ? `Edit ${feed.key}` : 'New feed'}
     >
       <Stack gap="var(--s4)">
         <TextInput

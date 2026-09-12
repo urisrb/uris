@@ -1,10 +1,10 @@
-import { KIND_ORDER, toned } from '../kinds'
+import { FAMILIES, toned, toneOf } from '../looks'
 
 export function Spectrum() {
   return (
     <div className="spectrum">
-      {KIND_ORDER.map((kind) => (
-        <span key={kind} style={toned(kind)} />
+      {FAMILIES.map((family) => (
+        <span key={family} style={toned(toneOf(family))} />
       ))}
     </div>
   )

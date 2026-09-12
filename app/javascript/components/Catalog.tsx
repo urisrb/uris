@@ -26,28 +26,26 @@ import {
   SearchDocument,
   SetSettingDocument,
   SettingsDocument,
+  TypesDocument,
 } from '@uris-to/client'
 import { useQuery, useSubscription } from '@uris-to/client/react'
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
-import { tone } from '../kinds'
+import { KEPT, lookOf, pluralOf, type Short, TYPE, toned } from '../looks'
 import { useAdd } from './Add'
 import { Export } from './Export'
 import { FeedForm } from './FeedForm'
-import { KindBadge } from './KindBadge'
 import { Lost } from './Lost'
+import { type Row, Rows, type View } from './Rows'
 import { useAloud, useSay } from './Say'
 import { Sure } from './Sure'
-import { Cover, Thumb } from './Thumb'
 import { useUploads } from './Uploads'
 
 const PAGE = 40
 
-const VIEWS = ['list', 'cards'] as const
-
-type View = (typeof VIEWS)[number]
+const VIEWS: View[] = ['list', 'cards']
 
 const VIEW_SETTING = 'catalog_view'
 
@@ -57,15 +55,6 @@ const OPEN = new Set(['queued', 'running'])
 
 function asView(value: string | null | undefined): View {
   return value === 'cards' ? 'cards' : 'list'
-}
-
-interface Row {
-  id: string
-  type: string
-  title?: string | null
-  summary?: string | null
-  thumbnailUrl?: string | null
-  analyzedAt?: string | null
 }
 
 interface Schedule {
@@ -87,7 +76,7 @@ interface Feed {
 export function Catalog() {
   const { slug } = useParams()
   const [params] = useSearchParams()
-  const kind = params.get('kind')
+  const type = typeFrom(params.get('type'))
   const term = (params.get('q') ?? '').trim()
 
   const settings = useQuery(SettingsDocument)
@@ -105,16 +94,18 @@ export function Catalog() {
     save.execute({ key: VIEW_SETTING, value: next })
   }
 
-  const known = (feeds.data?.feeds ?? []) as Feed[]
-  const here = slug ? (known.find((feed) => feed.key === slug) ?? null) : null
+  const known = (feeds.data?.feeds.nodes ?? []) as Feed[]
+  const here = slug
+    ? (known.find((feed) => feed.key === `/${slug}`) ?? null)
+    : null
 
   if (slug && !feeds.data) return <Loader size="sm" color="var(--brass)" />
   if (slug && !here) return <Lost />
 
   return (
     <Listing
-      key={`${slug ?? ''} ${kind ?? ''} ${term}`}
-      kind={kind}
+      key={`${slug ?? ''} ${type ?? ''} ${term}`}
+      type={type}
       term={term}
       feed={here}
       feeds={known}
@@ -125,8 +116,12 @@ export function Catalog() {
   )
 }
 
+function typeFrom(given: string | null): string | null {
+  return given && given in TYPE ? TYPE[given as Short] : null
+}
+
 function Listing({
-  kind,
+  type,
   term,
   feed,
   feeds,
@@ -134,7 +129,7 @@ function Listing({
   onPick,
   onChanged,
 }: {
-  kind: string | null
+  type: string | null
   term: string
   feed: Feed | null
   feeds: Feed[]
@@ -150,12 +145,18 @@ function Listing({
 
   const catalog = useQuery(
     CatalogDocument,
-    { type: kind, connectedTo: feed?.id ?? null, after: cursor, limit: PAGE },
+    {
+      types: type ? [type] : feed ? null : KEPT,
+      connectedTo: feed?.id ?? null,
+      topLevel: !feed,
+      after: cursor,
+      limit: PAGE,
+    },
     { skip: searching },
   )
   const found = useQuery(
     SearchDocument,
-    { query: term, type: kind, after: cursor, limit: PAGE },
+    { query: term, types: type ? [type] : KEPT, after: cursor, limit: PAGE },
     { skip: !searching },
   )
   const { data: analyzed } = useSubscription(FeedAnalyzedDocument)
@@ -180,7 +181,7 @@ function Listing({
     analyses.some((analysis) => analysis.id === streamed.id)
 
   useTitle(
-    feed ? `/${feed.key}` : term ? `${term} — search` : kind ? kind : null,
+    feed ? feed.key : term ? `${term} — search` : type ? pluralOf(type) : null,
   )
 
   useEffect(() => {
@@ -220,12 +221,12 @@ function Listing({
                 </>
               )}{' '}
               {total === 1 ? 'match' : 'matches'}
-              {kind ? ` of kind ${kind}` : ''}
+              {type ? ` among ${pluralOf(type)}` : ''}
             </>
           ) : (
             <>
               <span className="figure">{rows.length.toLocaleString()}</span>{' '}
-              {kind ? kind : 'items'}
+              {type ? pluralOf(type) : rows.length === 1 ? 'item' : 'items'}
               {page?.hasMore ? ' so far' : ''}
               {feed ? ' kept by this feed' : ''}
             </>
@@ -233,9 +234,9 @@ function Listing({
         </div>
 
         <Group gap="var(--s2)" wrap="nowrap">
-          <Kinds />
+          <Types />
           <Switcher view={view} onPick={onPick} />
-          <Tools kind={kind} term={term} />
+          <Tools type={type} term={term} />
         </Group>
       </div>
 
@@ -270,7 +271,7 @@ function Listing({
       )}
 
       {!loading && rows.length === 0 && (
-        <Empty searching={searching} kind={kind} feed={feed} />
+        <Empty searching={searching} type={type} feed={feed} />
       )}
 
       {page?.hasMore && (
@@ -326,12 +327,12 @@ function Shelf({
       {feeds.map((feed) => (
         <Link
           key={feed.id}
-          to={`/${feed.key}`}
+          to={feed.key}
           className="chip"
           data-on={feed.id === here?.id}
           aria-current={feed.id === here?.id ? 'page' : undefined}
         >
-          /{feed.key}
+          {feed.key}
           {feed.schedule?.pausedAt ? (
             <span className="chip-note">paused</span>
           ) : null}
@@ -350,7 +351,7 @@ function Shelf({
       {here && (
         <Menu position="bottom-start" width={200}>
           <Menu.Target>
-            <button type="button" className="chip" aria-label={`/${here.key}`}>
+            <button type="button" className="chip" aria-label={here.key}>
               <IconDots size={14} stroke={1.8} />
             </button>
           </Menu.Target>
@@ -363,7 +364,7 @@ function Shelf({
 
                 if (!answered) return
 
-                say({ text: `/${here.key} is running.` })
+                say({ text: `${here.key} is running.` })
                 onChanged()
               }}
             >
@@ -396,8 +397,8 @@ function Shelf({
 
                   say({
                     text: here.schedule?.pausedAt
-                      ? `/${here.key} runs on its own again.`
-                      : `/${here.key} is paused. It will only run by hand.`,
+                      ? `${here.key} runs on its own again.`
+                      : `${here.key} is paused. It will only run by hand.`,
                   })
                   onChanged()
                 }}
@@ -427,9 +428,9 @@ function Shelf({
         }}
         feed={editing ? here : undefined}
         onSaved={(saved) => {
-          say({ text: `/${saved} is saved.` })
+          say({ text: `${saved} is saved.` })
           onChanged()
-          navigate(`/${saved}`)
+          navigate(saved)
         }}
       />
 
@@ -437,7 +438,7 @@ function Shelf({
         <Sure
           opened={deleting}
           onClose={() => setDeleting(false)}
-          title={`Delete /${here.key}?`}
+          title={`Delete ${here.key}?`}
           verb="Delete it"
           loading={remove.loading}
           onSure={async () => {
@@ -450,8 +451,8 @@ function Shelf({
             setDeleting(false)
             say({
               text: kept
-                ? `/${here.key} is gone. The ${kept} ${kept === 1 ? 'item' : 'items'} it wrote stayed in your catalog.`
-                : `/${here.key} is gone.`,
+                ? `${here.key} is gone. The ${kept} ${kept === 1 ? 'item' : 'items'} it wrote stayed in your catalog.`
+                : `${here.key} is gone.`,
             })
             onChanged()
             navigate('/')
@@ -542,137 +543,75 @@ function Thinking({ id, cap }: { id: string; cap?: number | null }) {
   )
 }
 
-function Rows({ rows, view }: { rows: Row[]; view: View }) {
-  if (view === 'cards') {
-    return (
-      <div className="grid">
-        {rows.map((item) => (
-          <Link key={item.id} to={`/items/${item.id}`} className="card">
-            <Cover
-              url={item.thumbnailUrl}
-              kind={item.type}
-              alt={item.title ?? ''}
-            />
-            <div className="card-body">
-              <div className="card-title">{item.title ?? 'Untitled'}</div>
-              {item.summary ? (
-                <div className="card-summary">{item.summary}</div>
-              ) : (
-                !item.analyzedAt && (
-                  <div className="card-summary">Not analyzed yet</div>
-                )
-              )}
-              <div className="card-foot">
-                <KindBadge kind={item.type} />
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-    )
-  }
+const MENU: Short[] = ['file', 'note', 'feed', 'tag', 'mime']
 
-  return (
-    <div className="panel">
-      {rows.map((item) => (
-        <Link key={item.id} to={`/items/${item.id}`} className="entry">
-          <Thumb
-            url={item.thumbnailUrl}
-            kind={item.type}
-            alt={item.title ?? ''}
-            size={48}
-          />
-          <div style={{ minWidth: 0 }}>
-            <div className="entry-title">{item.title ?? 'Untitled'}</div>
-            {item.summary ? (
-              <div className="entry-summary">{item.summary}</div>
-            ) : (
-              !item.analyzedAt && (
-                <div className="entry-summary">Not analyzed yet</div>
-              )
-            )}
-          </div>
-          <KindBadge kind={item.type} />
-        </Link>
-      ))}
-    </div>
-  )
-}
-
-function Kinds() {
+function Types() {
   const [params] = useSearchParams()
   const { settledAt } = useUploads()
   const { addedAt } = useAdd()
-  const { data, refetch } = useQuery(CatalogDocument, {
-    kind: null,
-    after: null,
-    limit: 1,
-  })
+  const { data, refetch } = useQuery(TypesDocument)
 
   useEffect(() => {
     if (settledAt || addedAt) refetch()
   }, [settledAt, addedAt, refetch])
 
-  const kind = params.get('kind')
-  const kinds = data?.types ?? []
-  const total = kinds.reduce((sum, entry) => sum + entry.count, 0)
+  const type = typeFrom(params.get('type'))
+  const counts = new Map(
+    (data?.types ?? []).map((entry) => [entry.type, entry.count]),
+  )
+  const kept = KEPT.reduce((sum, held) => sum + (counts.get(held) ?? 0), 0)
 
-  const linkTo = (next: string | null) => {
+  const linkTo = (next: Short | null) => {
     const held = new URLSearchParams(params)
 
-    if (next) held.set('kind', next)
-    else held.delete('kind')
+    if (next) held.set('type', next)
+    else held.delete('type')
 
     const query = held.toString()
 
     return query ? `/?${query}` : '/'
   }
 
+  const dot = (full: string) => (
+    <span className="dot" style={toned(lookOf({ type: full }).tone)} />
+  )
+
   return (
     <Menu position="bottom-end" width={230}>
       <Menu.Target>
         <Button
-          variant={kind ? 'light' : 'default'}
+          variant={type ? 'light' : 'default'}
           color="gray"
           size="compact-sm"
           radius="xl"
-          leftSection={
-            kind ? (
-              <span
-                className="dot"
-                style={{ '--tone': tone(kind) } as CSSProperties}
-              />
-            ) : undefined
-          }
+          leftSection={type ? dot(type) : undefined}
         >
-          {kind ?? 'All kinds'}
+          {type ? pluralOf(type) : 'Files and notes'}
         </Button>
       </Menu.Target>
       <Menu.Dropdown>
         <Menu.Item component={Link} to={linkTo(null)}>
           <Group justify="space-between" gap="var(--s4)">
-            <span>everything</span>
-            <span className="figure">{total.toLocaleString()}</span>
+            <span>files and notes</span>
+            <span className="figure">{kept.toLocaleString()}</span>
           </Group>
         </Menu.Item>
 
-        {kinds.length > 0 && <Menu.Divider />}
+        <Menu.Divider />
 
-        {kinds.map((entry) => (
+        {MENU.map((short) => (
           <Menu.Item
-            key={entry.type}
+            key={short}
             component={Link}
-            to={linkTo(entry.type === kind ? null : entry.type)}
-            leftSection={
-              <span
-                className="dot"
-                style={{ '--tone': tone(entry.type) } as CSSProperties}
-              />
-            }
+            to={linkTo(TYPE[short] === type ? null : short)}
+            leftSection={dot(TYPE[short])}
+            disabled={!counts.get(TYPE[short])}
           >
             <Group justify="space-between" gap="var(--s4)">
-              <span>{entry.type}</span>
-              <span className="figure">{entry.count.toLocaleString()}</span>
+              <span>{pluralOf(TYPE[short])}</span>
+              <span className="figure">
+                {(counts.get(TYPE[short]) ?? 0).toLocaleString()}
+              </span>
             </Group>
           </Menu.Item>
         ))}
@@ -681,7 +620,7 @@ function Kinds() {
   )
 }
 
-function Tools({ kind, term }: { kind: string | null; term: string }) {
+function Tools({ type, term }: { type: string | null; term: string }) {
   const [exporting, setExporting] = useState(false)
 
   return (
@@ -689,7 +628,7 @@ function Tools({ kind, term }: { kind: string | null; term: string }) {
       <Export
         opened={exporting}
         onClose={() => setExporting(false)}
-        type={kind}
+        type={type}
         term={term}
       />
 
@@ -749,11 +688,11 @@ function Switcher({
 
 function Empty({
   searching,
-  kind,
+  type,
   feed,
 }: {
   searching: boolean
-  kind: string | null
+  type: string | null
   feed: Feed | null
 }) {
   const { add } = useUploads()
@@ -795,7 +734,7 @@ function Empty({
           color: 'var(--soft)',
         }}
       >
-        {kind ? `Nothing of kind ${kind} yet` : 'Nothing indexed yet'}
+        {type ? `No ${pluralOf(type)} yet` : 'Nothing kept yet'}
       </div>
       <Text c="dimmed" size="sm" mt="var(--s3)" mx="auto" maw="46ch">
         Drop a file or a whole folder anywhere on this page, paste an address or

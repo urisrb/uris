@@ -9,12 +9,13 @@ import {
 } from '@mantine/core'
 import { IconPackageExport } from '@tabler/icons-react'
 import {
-  CatalogDocument,
   ExportFeedsDocument,
   ResourcesDocument,
+  TypesDocument,
 } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
 import { useEffect, useState } from 'react'
+import { pluralOf } from '../looks'
 import { useAloud, useSay } from './Say'
 
 interface Props {
@@ -27,11 +28,7 @@ interface Props {
 export function Export({ opened, onClose, type, term }: Props) {
   const say = useSay()
   const resources = useQuery(ResourcesDocument, undefined, { skip: !opened })
-  const catalog = useQuery(
-    CatalogDocument,
-    { type: null, after: null, limit: 1 },
-    { skip: !opened },
-  )
+  const catalog = useQuery(TypesDocument, undefined, { skip: !opened })
   const start = useAloud(ExportFeedsDocument, 'That export could not start.')
 
   const [destination, setDestination] = useState<string | null>(null)
@@ -98,7 +95,7 @@ export function Export({ opened, onClose, type, term }: Props) {
           clearable
           data={kinds.map((entry) => ({
             value: entry.type,
-            label: `${entry.type} (${entry.count.toLocaleString()})`,
+            label: `${pluralOf(entry.type)} (${entry.count.toLocaleString()})`,
           }))}
         />
 

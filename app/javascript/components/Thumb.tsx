@@ -1,46 +1,14 @@
-import {
-  IconCalendarEvent,
-  IconFile,
-  IconFileSpreadsheet,
-  IconFileText,
-  IconFileTypeDoc,
-  IconFileTypePdf,
-  IconMail,
-  IconMovie,
-  IconMusic,
-  IconPhoto,
-  IconTable,
-  IconTicket,
-  IconUser,
-  IconWorld,
-} from '@tabler/icons-react'
 import { useState } from 'react'
-import { toned } from '../kinds'
-
-const GLYPHS: Record<string, typeof IconFile> = {
-  pdf: IconFileTypePdf,
-  image: IconPhoto,
-  text: IconFileText,
-  data: IconTable,
-  email: IconMail,
-  xlsx: IconFileSpreadsheet,
-  doc: IconFileTypeDoc,
-  audio: IconMusic,
-  video: IconMovie,
-  calendar: IconCalendarEvent,
-  contact: IconUser,
-  page: IconWorld,
-  pkpass: IconTicket,
-}
+import { type Looked, lookOf, toned } from '../looks'
 
 interface Props {
   url?: string | null
-  kind: string
+  looked: Looked
   alt: string
   size: number
 }
 
-export function Thumb({ url, kind, alt, size }: Props) {
+export function Thumb({ url, looked, alt, size }: Props) {
   const [broken, setBroken] = useState<string | null>(null)
 
   if (url && broken !== url) {
@@ -58,19 +26,19 @@ export function Thumb({ url, kind, alt, size }: Props) {
     )
   }
 
-  const Glyph = GLYPHS[kind] ?? IconFile
+  const { tone, glyph: Glyph } = lookOf(looked)
 
   return (
     <div
       className="thumb-blank"
-      style={{ ...toned(kind), width: size, height: size }}
+      style={{ ...toned(tone), width: size, height: size }}
     >
       <Glyph size={Math.round(size * 0.42)} stroke={1.5} />
     </div>
   )
 }
 
-export function Cover({ url, kind, alt }: Omit<Props, 'size'>) {
+export function Cover({ url, looked, alt }: Omit<Props, 'size'>) {
   const [broken, setBroken] = useState<string | null>(null)
 
   if (url && broken !== url) {
@@ -85,10 +53,10 @@ export function Cover({ url, kind, alt }: Omit<Props, 'size'>) {
     )
   }
 
-  const Glyph = GLYPHS[kind] ?? IconFile
+  const { tone, glyph: Glyph } = lookOf(looked)
 
   return (
-    <div className="card-blank" style={toned(kind)}>
+    <div className="card-blank" style={toned(tone)}>
       <Glyph size={30} stroke={1.4} />
     </div>
   )

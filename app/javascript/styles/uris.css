@@ -1362,3 +1362,152 @@ a.entry:hover {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.mono-title {
+  font-family: var(--mono);
+  font-size: var(--t-title);
+  font-weight: 500;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.inline-link {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--edge);
+  text-underline-offset: 3px;
+}
+
+.inline-link:hover {
+  text-decoration-color: var(--soft);
+}
+
+.filed {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+a.tag {
+  text-decoration: none;
+}
+
+a.tag:hover {
+  color: var(--bright);
+  border-color: var(--edge);
+}
+
+.placed {
+  color: var(--soft);
+}
+
+.pass {
+  border-bottom: 1px solid var(--line);
+}
+
+.pass:last-child {
+  border-bottom: 0;
+}
+
+.pass-head {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--s4);
+  width: 100%;
+  padding: var(--s3) var(--s4);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pass-head:hover {
+  background: var(--lifted);
+}
+
+.pass-head .tag {
+  justify-self: start;
+}
+
+.pass-cause {
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pass-when,
+.pass-steps {
+  font-size: var(--t-micro);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pass-error {
+  padding: 0 var(--s4) var(--s3) calc(5.5rem + var(--s4) * 2);
+  font-size: var(--t-small);
+  color: var(--bad);
+  overflow-wrap: anywhere;
+}
+
+.pass-body {
+  display: grid;
+  gap: var(--s3);
+  padding: 0 var(--s4) var(--s4);
+}
+
+.pass-grid {
+  display: grid;
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+  column-gap: var(--s4);
+  row-gap: var(--s1);
+  font-size: var(--t-small);
+}
+
+.pass-step {
+  display: contents;
+}
+
+.pass-name {
+  color: var(--soft);
+}
+
+.pass-took {
+  color: var(--muted);
+  text-align: right;
+}
+
+.pass-said {
+  color: var(--soft);
+  overflow-wrap: anywhere;
+}
+
+.pass-step[data-failed="true"] .pass-name,
+.pass-step[data-failed="true"] .pass-said {
+  color: var(--bad);
+}
+
+@media (max-width: 640px) {
+  .pass-head {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+  }
+
+  .pass-when,
+  .pass-steps {
+    grid-column: 2;
+  }
+
+  .pass-error {
+    padding-left: var(--s4);
+  }
+
+  .pass-grid {
+    grid-template-columns: max-content minmax(0, 1fr);
+  }
+
+  .pass-took {
+    display: none;
+  }
+}
