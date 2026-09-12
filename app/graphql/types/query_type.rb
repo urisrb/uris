@@ -34,18 +34,23 @@ module Types
 
     field :feeds, Types::FeedPageType, null: false, grants: "uris:catalog:read" do
       argument :type, String, required: false
+      argument :types, [ String ], required: false, description: "Any of these types, instead of one."
       argument :mime, String, required: false
       argument :resource_id, ID, required: false
       argument :tag, String, required: false,
                description: "A tag key, for everything connected to it."
       argument :connected_to, ID, required: false
+      argument :top_level, Boolean, required: false,
+               description: "Only what was not extracted from something else."
       argument :after, ID, required: false
       argument :limit, Integer, required: false
     end
 
-    def feeds(type: nil, mime: nil, resource_id: nil, tag: nil, connected_to: nil,
-              after: nil, limit: nil)
-      scope = Feed.matching({ type: type, mime: mime, resource_id: resource_id, tag: tag }.compact)
+    def feeds(type: nil, types: nil, mime: nil, resource_id: nil, tag: nil, connected_to: nil,
+              top_level: false, after: nil, limit: nil)
+      scope = Feed.matching({ type: types.presence || type, mime: mime, resource_id: resource_id,
+                              tag: tag }.compact)
+      scope = scope.where(parent_id: nil) if top_level
       scope = scope.merge(Feed.connected_to(Feed.find(connected_to))) if connected_to.present?
 
       Page.of(scope, after: after, limit: limit)
@@ -54,13 +59,14 @@ module Types
     field :search, Types::FeedPageType, null: false, grants: "uris:catalog:read" do
       argument :query, String, required: false
       argument :type, String, required: false
+      argument :types, [ String ], required: false, description: "Any of these types, instead of one."
       argument :after, ID, required: false,
                description: "How far into the matches to start. A search is walked by offset."
       argument :limit, Integer, required: false
     end
 
-    def search(query: nil, type: nil, after: nil, limit: nil)
-      Feed.found(query, type: type, from: after.to_i,
+    def search(query: nil, type: nil, types: nil, after: nil, limit: nil)
+      Feed.found(query, type: types.presence || type, from: after.to_i,
                         limit: (limit || Page::DEFAULT).to_i.clamp(1, Page::MAX))
     end
 

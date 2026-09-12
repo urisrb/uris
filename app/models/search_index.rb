@@ -248,7 +248,7 @@ module SearchIndex
 
     def faceted(type:, mime:, tag:)
       { type: type, mime: mime, tags: tag }.compact_blank
-                                           .map { |field, value| { term: { field => value } } }
+                                           .map { |field, value| { (value.is_a?(Array) ? :terms : :term) => { field => value } } }
     end
 
     def fuse(lexical, semantic)

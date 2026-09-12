@@ -31,6 +31,11 @@ module Types
     field :tags, [ Types::FeedType ], null: false
     field :mimes, [ Types::FeedType ], null: false,
           description: "The content types it was filed under, as feeds of their own."
+    field :parent, Types::FeedType, description: "The file it was extracted from, when it was."
+    field :children, [ Types::FeedType ], null: false,
+          description: "What was extracted from it — the attachments of a message, the files of an archive."
+    field :staged, Boolean, null: false,
+          description: "Uploaded, and still waiting for the pass to decide where it is stored."
     field :schedule, Types::ScheduleType
     field :analyses, [ Types::AnalysisType ], null: false
 
@@ -43,6 +48,12 @@ module Types
     end
 
     def connected_count = object.edges.count
+
+    def staged = object.staged?
+
+    def children
+      object.children.limit(CONNECTED)
+    end
 
     def connected
       object.connected.order(created_at: :desc).limit(CONNECTED)
