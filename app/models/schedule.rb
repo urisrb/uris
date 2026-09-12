@@ -12,6 +12,8 @@ class Schedule < ApplicationRecord
                        allow_nil: true
   validate :only_an_address_runs_itself
 
+  before_save :keep_next_run
+
   scope :running, -> { where.not(interval: nil).where(paused_at: nil) }
   scope :due, -> { running.where(next_run_at: ..Time.current) }
 
@@ -21,21 +23,29 @@ class Schedule < ApplicationRecord
 
   def paused? = paused_at.present?
 
-  def pause! = update!(paused_at: Time.current, next_run_at: nil)
+  def pause! = update!(paused_at: Time.current)
 
-  def resume! = update!(paused_at: nil).then { schedule_next! }
+  def resume! = update!(paused_at: nil)
 
   def run!
     feed.analyze!(cause: "schedule").tap { schedule_next! }
   end
 
   def schedule_next!
-    return if interval.blank? || paused?
+    return unless scheduled?
 
     update_columns(next_run_at: Time.current + interval.seconds)
   end
 
   private
+
+    def keep_next_run
+      if !scheduled?
+        self.next_run_at = nil
+      elsif !next_run_at_changed? && (next_run_at.nil? || interval_changed?)
+        self.next_run_at = Time.current + interval.seconds
+      end
+    end
 
     def only_an_address_runs_itself
       return if feed.nil? || feed.address?

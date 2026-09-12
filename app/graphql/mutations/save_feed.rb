@@ -40,8 +40,6 @@ module Mutations
         held.interval = interval.to_i.positive? ? interval : nil
 
         refused(held.errors.full_messages.join(", ")) unless held.save
-
-        held.schedule_next!
       end
   end
 end

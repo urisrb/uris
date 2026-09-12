@@ -216,8 +216,6 @@ by `filed`, and the plan has been greenfield since phase 0.
   costs 10, guarded by `test/unit/models/indexing_queries_test.rb`.
 - **An edge does not yet re-analyze the feed on the other side.** The `edge` cause exists and
   nothing raises it, pending the cooldown decision above.
-- **`Schedule#create_schedule!` does not set `next_run_at`** — only `SaveFeed` does, so a schedule
-  made any other way never becomes due. Phase 5 works around it in a test rather than fixing it.
 - **A feed with no reference has no `analyzed_at`.** It reads the references, which is what the
   analyzer stamps, so an address shows nothing where the SPA used to show a time. What an
   address wants is its last analysis's `finished_at`, which is a phase 8 decision about what
