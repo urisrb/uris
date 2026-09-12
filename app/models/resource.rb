@@ -19,6 +19,7 @@ class Resource < ApplicationRecord
   SYNC_ABANDONED_AFTER = 6.hours
   MAX_HOPS = 4
   DEFAULTABLE = { storage: :default_storage, inference: :default_inference }.freeze
+  INTERNAL = { children: "Extracted children" }.freeze
 
   TYPES = %w[
     s3 filesystem webdav caldav carddav imap rss web openai-compatible oauth-google database
@@ -134,6 +135,21 @@ class Resource < ApplicationRecord
       scope = active.where(ACCEPTS, mime.to_s)
 
       size.nil? ? scope : scope.where(ROOM, size.to_i)
+    end
+
+    def stores
+      capable_of(:storage).where.not(key: INTERNAL.keys.map(&:to_s))
+    end
+
+    def placeable(mime, size: nil)
+      stores.accepting(mime, size: size)
+    end
+
+    def internal!(key)
+      Resource::Database.find_or_create_by!(key: key.to_s) do |resource|
+        resource.name = INTERNAL.fetch(key)
+        resource.details = {}
+      end
     end
 
     def declarations

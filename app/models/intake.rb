@@ -4,31 +4,25 @@ class Intake
   MAX_KEY = 900
   MAX_NAME = 180
 
-  Landed = Data.define(:feed, :reference, :analysis)
+  Landed = Data.define(:feed, :staged, :analysis)
 
   class << self
     def write!(path:, body:, mime: nil, title: nil, source: nil, cause: "upload")
-      destination = Resource.default_storage
-
-      raise Unusable, "no default storage is set — pick one on Resources" if destination.nil?
-
       key = key_for(path)
-      locator = destination.storage!.upload(key, body)
-      locator = locator.merge("source_url" => source.to_s) if source.present?
+      type = mime.presence || MimeType.for_filename(key)
+      size = body.is_a?(String) ? body.bytesize : body.size
 
-      reference = Reference.discover!(
-        resource: destination,
-        locator: locator,
-        locator_key: key,
-        mime: mime.presence || MimeType.for_filename(key),
-        title: title.presence || File.basename(key)
-      )
+      unless Resource.placeable(type, size: size).exists?
+        raise Unusable, "nowhere accepts a #{type} of #{size} bytes — attach storage on Resources"
+      end
 
-      Landed.new(
-        feed: reference.feed,
-        reference: reference,
-        analysis: reference.feed.analyze!(cause: cause)
-      )
+      feed, staged = ActiveRecord::Base.transaction do
+        held = already_at(key) || created(title.presence || File.basename(key))
+
+        [ held, Staged.stage!(held, path: key, body: body, mime: type, source: source) ]
+      end
+
+      Landed.new(feed: feed, staged: staged, analysis: feed.analyze!(cause: cause))
     end
 
     def key_for(given)
@@ -58,5 +52,28 @@ class Intake
 
       "#{stem.first(MAX_NAME)}#{extension.downcase.first(16)}"
     end
+
+    private
+
+      def already_at(key)
+        placed = Reference.originals.where(locator_key: key, resource: Resource.stores)
+                          .joins(:resource).order("resources.default_storage DESC", :id).first
+
+        placed&.feed || waiting_at(key)
+      end
+
+      def waiting_at(key)
+        attachment = ActiveStorage::Attachment
+          .where(name: "upload", record_type: "Feed")
+          .joins(:blob)
+          .where("active_storage_blobs.metadata::jsonb ->> ? = ?", Staged::PATH, key)
+          .order(:id).last
+
+        attachment && Feed.files.find_by(id: attachment.record_id)
+      end
+
+      def created(named)
+        Feed.create!(type: Feed::FILE, key: named, title: named)
+      end
   end
 end

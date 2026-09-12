@@ -7,13 +7,13 @@ module Tool
 
     description <<~TEXT
       One feed: everything known about it, every place it lives, what analysis drew out of
-      each, and an excerpt of its text. With `do` it also acts — note it, rename it, or
-      analyze it again. A feed is a reference, not the bytes; the originals stay in the
-      resources they came from.
+      each, and an excerpt of its text. With `do` it also acts — note it, rename it, analyze
+      it again, or place a file that is staged and waiting for somewhere to live. A feed is a
+      reference, not the bytes; the originals stay in the resources they came from.
     TEXT
 
     READ = %w[get].freeze
-    WRITE = %w[note rename analyze create].freeze
+    WRITE = %w[note rename analyze create place].freeze
 
     input_schema(
       properties: {
@@ -27,12 +27,14 @@ module Tool
         type: { type: "string", description: "For create: uris:note, uris:feed or uris:tag." },
         title: { type: "string" },
         note: { type: "string", description: "For note: what to write about it." },
-        prompt: { type: "string", description: "For create of a uris:feed: what it should find." }
+        prompt: { type: "string", description: "For create of a uris:feed: what it should find." },
+        resource: { type: "string", description: "For place: the key of the resource to store it in." },
+        reason: { type: "string", description: "For place: why it belongs there, in one sentence." }
       }
     )
 
     def self.call(server_context:, id: nil, key: nil, title: nil, note: nil,
-                  type: nil, prompt: nil, **held)
+                  type: nil, prompt: nil, resource: nil, reason: nil, **held)
       verb = (held[:do] || held["do"] || "get").to_s
 
       respond(server_context, { id: id, key: key, do: verb }) do
@@ -40,11 +42,12 @@ module Tool
 
         Current.grant.permit!("uris:catalog:write") if WRITE.include?(verb)
 
-        act(verb, id: id, key: key, title: title, note: note, type: type, prompt: prompt)
+        act(verb, id: id, key: key, title: title, note: note, type: type, prompt: prompt,
+                  resource: resource, reason: reason)
       end
     end
 
-    def self.act(verb, id:, key:, title:, note:, type:, prompt:)
+    def self.act(verb, id:, key:, title:, note:, type:, prompt:, resource: nil, reason: nil)
       return made(type: type, key: key, title: title, prompt: prompt) if verb == "create"
 
       feed = found(id, key)
@@ -52,6 +55,7 @@ module Tool
       case verb
       when "note" then feed.update!(note: note.presence)
       when "rename" then feed.update!(title: title.to_s.strip.presence || feed.title)
+      when "place" then placed(feed, resource, reason)
       when "analyze"
         within_budget!
 
@@ -59,6 +63,15 @@ module Tool
       end
 
       told(feed)
+    end
+
+    def self.placed(feed, key, reason)
+      raise ArgumentError, "place needs a reason" if reason.blank?
+
+      destination = ::Resource.active.find_by(key: key.to_s) ||
+                    raise(ArgumentError, "no resource called #{key}")
+
+      Placement.new(feed).place!(destination, reason: reason)
     end
 
     def self.found(id, key)
@@ -77,6 +90,14 @@ module Tool
       told(feed)
     end
 
+    def self.staged(feed)
+      held = feed.staged
+      return nil if held.nil?
+
+      { path: held.path, mime: held.mime, size: held.size,
+        accepted_by: Placement.candidates(feed).pluck(:key) }
+    end
+
     def self.told(feed)
       summarize(feed).merge(
         note: feed.note,
@@ -84,6 +105,7 @@ module Tool
         keywords: feed.keywords,
         tags: feed.tags.map(&:key),
         mimes: feed.mimes.map(&:key),
+        staged: staged(feed),
         connected: feed.connected.limit(50).map { |held| { id: held.id.to_s, key: held.key } },
         steps: feed.analysis&.steps.to_h.transform_values { |step|
           step.key?("error") ? { "error" => step["error"]["message"] } : step["result"]

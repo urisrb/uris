@@ -35,6 +35,8 @@ class AddingTest < ActionDispatch::IntegrationTest
     assert_equal MimeType::NOTE, item["mime"]
     assert_equal "Pelicans", item["title"]
 
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
     Tenant.switch(@tenant) do
       held = Feed.find(item["id"])
 
@@ -109,13 +111,13 @@ class AddingTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "fetching is refused where nothing has been named to hold it" do
-    Tenant.switch(@tenant) { @storage.update!(default_storage: false) }
+  test "fetching is refused where there is no storage to keep it in" do
+    Tenant.switch(@tenant) { @storage.update!(archived_at: Time.current) }
 
     body = execute(FETCH, variables: { url: "https://example.com/march.pdf" })
 
     assert_nil body.dig("data", "fetchUrl")
-    assert_match(/no default storage/, body.dig("errors", 0, "message"))
+    assert_match(/no storage to keep it in/, body.dig("errors", 0, "message"))
   end
 
   test "a fetched file lands in the catalog under the name it was served as" do
@@ -128,6 +130,7 @@ class AddingTest < ActionDispatch::IntegrationTest
     run = Tenant.switch(@tenant) { FetchUrlJob.start!(@tenant.id, url) }
 
     perform_enqueued_jobs(only: FetchUrlJob)
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
 
     Tenant.switch(@tenant) do
       item = Feed.find_by(title: "march.pdf")

@@ -9,7 +9,7 @@ module Mutations
     def resolve(url:)
       address = PublicAddress.permitted!(url)
 
-      refused("no default storage is set — pick one on Resources") if Resource.default_storage.nil?
+      refused("there is no storage to keep it in — attach one on Resources") unless Resource.stores.exists?
 
       { run: FetchUrlJob.start!(Current.tenant.id, address.to_s) }
     rescue PublicAddress::Blocked, PublicAddress::Unresolvable => e

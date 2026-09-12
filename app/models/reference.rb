@@ -77,6 +77,10 @@ class Reference < ApplicationRecord
     self
   end
 
+  def analyzed!
+    update!(analyzed_at: Time.current)
+  end
+
   def stale_against?(source)
     source_version.present? && source.version.present? && source_version != source.version
   end

@@ -10,7 +10,7 @@ class AnalyzeFeedJob < ApplicationJob
     raise error
   end
 
-  discard_on(Analyzer::Failed) { |job, error| job.fail_analysis(error) }
+  discard_on(Analyzer::Failed, Placement::Nowhere) { |job, error| job.fail_analysis(error) }
   retry_on Resource::Failed, wait: :polynomially_longer, attempts: 5 do |job, error|
     job.fail_analysis(error)
   end
@@ -23,12 +23,16 @@ class AnalyzeFeedJob < ApplicationJob
     return finish if feed.nil?
     return gate_out if analysis&.halted?
 
+    placement = Placement.new(feed, analysis: analysis)
+    placement.returned!
+
     ActiveRecord::Base.transaction(requires_new: true) do
       Analyzer.for(feed, analysis: analysis).run
     end
 
     filed(feed)
     considered(feed)
+    placement.settled!
 
     finish
 
@@ -77,7 +81,25 @@ class AnalyzeFeedJob < ApplicationJob
     def asked(feed)
       return feed.schedule.prompt if feed.address? && feed.schedule
 
-      "#{FILE_PROMPT}\n\nIt is feed #{feed.id}, called #{feed.title || feed.key}."
+      [ FILE_PROMPT, "It is feed #{feed.id}, called #{feed.title || feed.key}.", unplaced(feed) ]
+        .compact.join("\n\n")
+    end
+
+    def unplaced(feed)
+      return nil unless feed.reload.staged?
+
+      offered = Placement.candidates(feed).map do |resource|
+        "- #{resource.key}: #{resource.name}#{' (default storage)' if resource.default_storage?}"
+      end
+
+      <<~TEXT
+        It has not been stored anywhere yet. Choose where it belongs with feed, do=place, naming
+        the resource and saying in one sentence why. These are the places that accept it:
+
+        #{offered.join("\n")}
+
+        If none is clearly right, leave it; it goes to default storage.
+      TEXT
     end
 
     def turns_for(feed)

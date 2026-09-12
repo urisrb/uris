@@ -105,6 +105,31 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     assert_match(/no feed with id/, reply.dig("result", "content", 0, "text"))
   end
 
+  test "an agent places a staged file with the feed tool, and must say why" do
+    staged = Tenant.switch(@tenant) do
+      store = Resource::Database.create!(key: "shelf", name: "Shelf")
+      feed = Feed.create!(type: Feed::FILE, key: "note.txt", title: "note.txt")
+      Staged.stage!(feed, path: "note.txt", body: "hello", mime: "text/plain")
+
+      assert_equal %w[endpoint-bucket shelf], tool(@tenant, ALL, "feed", id: feed.id.to_s)["staged"]["accepted_by"]
+
+      [ feed, store ]
+    end
+
+    feed, store = staged
+
+    reasonless = call(@tenant, ALL, "tools/call", name: "feed",
+                                                  arguments: { id: feed.id.to_s, do: "place", resource: store.key })
+
+    assert reasonless.dig("result", "isError")
+
+    placed = tool(@tenant, ALL, "feed", id: feed.id.to_s, do: "place", resource: store.key,
+                                        reason: "it is a note")
+
+    assert_nil placed["staged"]
+    assert_equal [ store.id.to_s ], placed["references"].map { |reference| reference["resource_id"] }
+  end
+
   test "describe advertises the vocabulary the resource accepts" do
     described = tool(@tenant, ALL, "resource", key: @resource.key, do: "describe")
 

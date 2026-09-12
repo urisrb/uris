@@ -31,6 +31,7 @@ class Feed < ApplicationRecord
   has_many :resources, through: :references
   has_many :analyses, -> { order(:id) }, dependent: :destroy, inverse_of: :feed
   has_one :schedule, dependent: :destroy
+  has_one_attached :upload, dependent: :purge
 
   belongs_to :parent, class_name: "Feed", optional: true
   has_many :children, -> { order(:id) }, class_name: "Feed", foreign_key: :parent_id,
@@ -211,7 +212,15 @@ class Feed < ApplicationRecord
   end
 
   def mime
-    reference&.mime
+    reference&.mime || staged&.mime
+  end
+
+  def staged
+    upload.attached? ? Staged.new(self) : nil
+  end
+
+  def staged?
+    upload.attached?
   end
 
   def source_for(destination)
@@ -244,7 +253,7 @@ class Feed < ApplicationRecord
   end
 
   def analyzed_at
-    references.maximum(:analyzed_at)
+    references.maximum(:analyzed_at) || staged&.analyzed_at
   end
 
   def analyze!(cause: "manual")

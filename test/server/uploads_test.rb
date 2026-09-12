@@ -29,57 +29,62 @@ class UploadsTest < ActionDispatch::IntegrationTest
     FileUtils.remove_entry(@allowed) if @allowed.exist?
   end
 
-  test "a dropped file lands in default storage and is catalogued" do
-    upload "march.pdf", "contents of march"
+  test "a dropped file is staged and answered at once, before it is stored anywhere" do
+    assert_enqueued_jobs 1, only: AnalyzeFeedJob do
+      upload "march.txt", "contents of march"
+    end
 
-    assert_response :success
+    assert_response :accepted
 
     body = response.parsed_body
 
-    assert_equal "application/pdf", body["mime"]
-    assert_equal "march.pdf", body["path"]
-    assert_equal @storage.key, body["resource"]
-    assert_equal "contents of march", (@root + "march.pdf").read
+    assert_equal "text/plain", body["mime"]
+    assert_equal "march.txt", body["path"]
+    assert_not (@root + "march.txt").exist?
 
     Tenant.switch(@tenant) do
-      item = feed_at("march.pdf")
+      feed = Feed.find(body["feed_id"])
+      analysis = Analysis.find(body["analysis_id"])
 
-      assert_equal "application/pdf", item.mime
-      assert_equal "march.pdf", item.title
-      assert_equal @storage.id, item.resource.id
+      assert feed.staged?
+      assert_empty feed.references
+      assert_equal "upload", analysis.cause
+      assert_equal feed.id, analysis.feed_id
     end
   end
 
-  test "a dropped file is queued for analysis, with an analysis to watch it by" do
-    assert_enqueued_jobs 1, only: AnalyzeFeedJob do
-      upload "march.pdf", "contents of march"
-    end
+  test "the pass stores a staged file in default storage, records why, and lets the staged copy go" do
+    upload "march.txt", "contents of march"
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
 
-    assert_response :success
+    assert_equal "contents of march", (@root + "march.txt").read
 
     Tenant.switch(@tenant) do
-      analysis = Analysis.find(response.parsed_body["analysis_id"])
+      feed = feed_at("march.txt")
+      placed = Analysis.find(response.parsed_body["analysis_id"]).step_result("placement")
 
-      assert_equal "upload", analysis.cause
-      assert_equal "queued", analysis.status
-      assert_equal feed_at("march.pdf").id, analysis.feed_id
+      assert_equal @storage.id, feed.resource.id
+      assert_equal "text/plain", feed.mime
+      assert_not feed.staged?
+      assert_equal 0, ActiveStorage::Blob.count
+      assert_equal({ "resource" => @storage.key, "path" => "march.txt", "by" => "default",
+                     "reason" => "default storage" }, placed)
+      assert_not_nil feed.analyzed_at
     end
   end
 
   test "a dropped folder keeps its shape as the locator key" do
-    upload "beach.jpg", "jpeg bytes", path: "photos/2024/beach.jpg"
+    upload "beach.txt", "sand", path: "photos/2024/beach.txt"
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
 
-    assert_response :success
-    assert_equal "photos/2024/beach.jpg", response.parsed_body["path"]
-    assert_equal "jpeg bytes", (@root + "photos/2024/beach.jpg").read
-
-    Tenant.switch(@tenant) { assert_equal "image/jpeg", feed_at("photos/2024/beach.jpg").mime }
+    assert_equal "photos/2024/beach.txt", response.parsed_body["path"]
+    assert_equal "sand", (@root + "photos/2024/beach.txt").read
   end
 
   test "a path that climbs out of the resource is flattened, not followed" do
     upload "escape.txt", "nope", path: "../../etc/escape.txt"
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
 
-    assert_response :success
     assert_equal "etc/escape.txt", response.parsed_body["path"]
     assert_equal "nope", (@root + "etc/escape.txt").read
     assert_not (@allowed.parent + "etc/escape.txt").exist?
@@ -92,11 +97,11 @@ class UploadsTest < ActionDispatch::IntegrationTest
     assert_match(/not a usable path/, response.parsed_body["error"])
   end
 
-  test "dropping the same path twice updates one item rather than making two" do
+  test "dropping the same path twice before the pass runs stages one feed, holding the second" do
     upload "notes.txt", "first"
     upload "notes.txt", "second"
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
 
-    assert_response :success
     assert_equal "second", (@root + "notes.txt").read
 
     Tenant.switch(@tenant) do
@@ -105,14 +110,43 @@ class UploadsTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test "a tenant with no default storage is told so rather than guessing one" do
-    Tenant.switch(@tenant) { @storage.update!(default_storage: false) }
+  test "dropping a path again once it is stored replaces the file and marks it changed" do
+    upload "notes.txt", "first"
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+    upload "notes.txt", "second"
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    assert_equal "second", (@root + "notes.txt").read
+
+    Tenant.switch(@tenant) do
+      reference = Reference.find_by!(locator_key: "notes.txt")
+
+      assert_equal 1, Feed.files.count
+      assert_not_nil reference.changed_at
+      assert_equal "return", Analysis.newest_first.first.step_result("placement")["by"]
+    end
+  end
+
+  test "a tenant with nowhere that accepts the file is told so rather than staging it" do
+    Tenant.switch(@tenant) { @storage.update!(archived_at: Time.current) }
 
     upload "march.pdf", "contents"
 
     assert_response :unprocessable_content
-    assert_match(/no default storage/, response.parsed_body["error"])
-    Tenant.switch(@tenant) { assert_equal 0, Feed.files.count }
+    assert_match(/nowhere accepts/, response.parsed_body["error"])
+    Tenant.switch(@tenant) do
+      assert_equal 0, Feed.files.count
+      assert_equal 0, ActiveStorage::Blob.count
+    end
+  end
+
+  test "a tenant with storage but no default still stores the file somewhere that accepts it" do
+    Tenant.switch(@tenant) { @storage.update!(default_storage: false) }
+
+    upload "march.txt", "contents"
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    assert_equal "contents", (@root + "march.txt").read
   end
 
   test "a token that may read but not write cannot drop anything" do

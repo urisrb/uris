@@ -170,15 +170,37 @@ by `filed`, and the plan has been greenfield since phase 0.
 
 - [x] `active_storage:install`; the service is `Disk` locally and S3 where web and worker are
       separate containers, named by `URIS_STAGING_SERVICE`
-- [ ] `POST /uploads` attaches and returns; the pass analyzes the attachment; the agent picks a
+- [x] `POST /uploads` attaches and returns; the pass analyzes the attachment; the agent picks a
       resource; a reference is recorded and the attachment purged
-- [ ] `Intake.write!` stops uploading to `default_storage` inside the request
+- [x] `Intake.write!` stops uploading to `default_storage` inside the request
 - [ ] Preview and thumbnail become stored references with roles, generated once, rather than
       `Thumbnail` rendering on read into `Rails.cache`
 - [x] ~~Active Storage's three tables carry no RLS~~ — they carry a `tenant_id` and the same
       policy as every other table, so a signed blob id minted in one tenant finds nothing in
       another; `TenantScoped` is mixed into the three models on load
 - [x] Turn off the public redirect controllers; bytes are served through `content_controller`
+
+The upload lane landed 2026-09-12. `POST /uploads` answers 202 with the feed and the analysis
+before a byte reaches a resource, and refuses only when nothing active accepts that mime at that
+size — a default storage is no longer required, only somewhere to go. `Staged` is what an
+analyzer reads when a feed has no original yet; it answers the handful of `Reference` methods
+the analyzers call. `Placement` is the rest:
+
+- `returned!` runs before the analyzer: a path that is already stored goes back where it was,
+  with `changed_at` set, so the cached steps are superseded rather than describing old bytes.
+- The agent is shown the places that accept the file and asked to `feed(do: "place")` with a
+  reason. The tool refuses a place without one.
+- `settled!` runs after the agent: whatever is still staged goes to default storage, or to the
+  first place that accepts it, and the analysis fails loudly with the file still staged when
+  there is none.
+- Each writes a `placement` step — resource, path, `by` (`agent`, `return`, `default`) and the
+  reason — which the feed tool reports with the other steps.
+- A path another feed already holds in the chosen place is suffixed with the feed id rather
+  than overwritten. `Resource::INTERNAL` names the stores the app keeps for itself, which are
+  never offered.
+
+Extracted children are keyed by feed and position now rather than by reference id, since a
+staged file has no reference and the same file placed later must not extract twice.
 
 ## Phase 8 — the surface
 

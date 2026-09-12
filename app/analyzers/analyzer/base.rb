@@ -9,7 +9,7 @@ module Analyzer
     def initialize(feed, analysis: nil)
       @feed = feed
       @analysis = analysis
-      @reference = feed.references.originals.first
+      @reference = feed.references.originals.first || feed.staged
     end
 
     def self.handles?(_feed)
@@ -148,10 +148,7 @@ module Analyzer
     end
 
     def child_storage
-      Resource::Database.find_or_create_by!(key: "children") do |resource|
-        resource.name = "Extracted children"
-        resource.details = {}
-      end
+      Resource.internal!(:children)
     end
 
     private
@@ -159,18 +156,19 @@ module Analyzer
       def extract_children!
         return unless has_children?
 
-        made = feed.references.originals.flat_map { |held| catalogue_children(held) }
+        readable = feed.references.originals.to_a.presence || [ feed.staged ].compact
+        made = readable.flat_map.with_index { |held, place| catalogue_children(held, place) }
 
         made.each { |child| child.analyze!(cause: "sync") }
         feed.children.reset
       end
 
-      def catalogue_children(reference)
+      def catalogue_children(reference, place)
         @reference = reference
         storage = child_storage
 
         children_of(reference).filter_map.with_index do |child, index|
-          key = "#{reference.id}/#{index}/#{child.fetch(:filename)}"
+          key = "#{feed.id}/#{place}/#{index}/#{child.fetch(:filename)}"
           next if Reference.exists?(resource: storage, locator_key: key)
 
           record_child(storage, key, child)
@@ -309,7 +307,7 @@ module Analyzer
       end
 
       def stamp_analyzed!
-        reference&.update!(analyzed_at: Time.current)
+        reference&.analyzed!
       end
 
       def fresh?(stored, after)
