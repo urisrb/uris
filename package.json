@@ -37,7 +37,7 @@
     "@types/node": "^25.9.1",
     "@types/rails__actioncable": "^8.0.3",
     "@types/react": "^19.2.15",
-    "@types/react-dom": "^19.2.3",
+    "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.0.2",
     "autoprefixer": "^10.5.0",
     "chokidar-cli": "^3.0.0",
