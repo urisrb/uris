@@ -1342,6 +1342,10 @@ a.entry:hover {
 }
 
 .thinking-said {
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   color: var(--text);
   font-size: var(--t-small);
   line-height: 1.6;
@@ -1510,4 +1514,53 @@ a.tag:hover {
   .pass-took {
     display: none;
   }
+}
+
+.feed-head {
+  display: grid;
+  gap: var(--s3);
+}
+
+.feed-head-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s4);
+}
+
+.feed-head-name {
+  margin-top: var(--s1);
+  color: var(--soft);
+  font-size: var(--t-body);
+}
+
+.feed-head-prompt {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--text);
+  font-size: var(--t-lead);
+  line-height: 1.55;
+}
+
+.run-card {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--tone);
+  border-radius: var(--radius);
+  background: var(--raised);
+  padding: var(--s3) var(--s4);
+}
+
+.run-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.run-card-said {
+  margin-top: var(--s2);
+  max-width: 72ch;
+  color: var(--soft);
+  line-height: 1.6;
+  white-space: pre-wrap;
 }

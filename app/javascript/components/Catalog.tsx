@@ -7,29 +7,21 @@ import {
   IconLayoutList,
   IconLink,
   IconPackageExport,
-  IconPencil,
-  IconPlayerPause,
-  IconPlayerPlay,
   IconPlus,
-  IconRefresh,
-  IconTrash,
 } from '@tabler/icons-react'
 import {
   AnalysisProgressedDocument,
   CatalogDocument,
-  DeleteFeedDocument,
   FeedAnalyzedDocument,
   FeedScheduleDocument,
   FeedsDocument,
-  PauseFeedDocument,
-  RunFeedDocument,
   SearchDocument,
   SetSettingDocument,
   SettingsDocument,
   TypesDocument,
 } from '@uris-to/client'
 import { useQuery, useSubscription } from '@uris-to/client/react'
-import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
@@ -37,10 +29,10 @@ import { KEPT, lookOf, pluralOf, type Short, TYPE, toned } from '../looks'
 import { useAdd } from './Add'
 import { Export } from './Export'
 import { FeedForm } from './FeedForm'
+import { FeedHead } from './FeedHead'
 import { Lost } from './Lost'
 import { type Row, Rows, type View } from './Rows'
 import { useAloud, useSay } from './Say'
-import { Sure } from './Sure'
 import { useUploads } from './Uploads'
 
 const PAGE = 40
@@ -172,7 +164,6 @@ function Listing({
   const [rows] = usePages<Row>(page, cursor)
 
   const analyses = thinking.data?.feed?.analyses ?? []
-  const open = analyses.find((analysis) => OPEN.has(analysis.status))
 
   const streamed = progressed?.analysisProgressed.analysis
   const settled =
@@ -209,6 +200,20 @@ function Listing({
 
   return (
     <Stack gap="var(--s5)">
+      <Shelf feeds={feeds} here={feed} onChanged={onChanged} />
+
+      {feed && (
+        <FeedHead
+          feed={feed}
+          passes={analyses}
+          cap={thinking.data?.feed?.schedule?.turns}
+          onChanged={() => {
+            onChanged()
+            thinking.refetch()
+          }}
+        />
+      )}
+
       <div className="page-head">
         <div className="eyebrow">
           {searching ? (
@@ -234,33 +239,11 @@ function Listing({
         </div>
 
         <Group gap="var(--s2)" wrap="nowrap">
-          <Types />
+          {!feed && <Types />}
           <Switcher view={view} onPick={onPick} />
-          <Tools type={type} term={term} />
+          {!feed && <Tools type={type} term={term} />}
         </Group>
       </div>
-
-      <Shelf
-        feeds={feeds}
-        here={feed}
-        running={Boolean(open)}
-        onChanged={() => {
-          onChanged()
-          thinking.refetch()
-        }}
-      />
-
-      {feed?.schedule && (
-        <div className="prompt-line">{feed.schedule.prompt}</div>
-      )}
-
-      {open && (
-        <Thinking
-          key={open.id}
-          id={open.id}
-          cap={thinking.data?.feed?.schedule?.turns}
-        />
-      )}
 
       {error && <Alert color="red">{error.message}</Alert>}
 
@@ -295,23 +278,15 @@ function Listing({
 function Shelf({
   feeds,
   here,
-  running,
   onChanged,
 }: {
   feeds: Feed[]
   here: Feed | null
-  running?: boolean
   onChanged: () => void
 }) {
   const say = useSay()
   const navigate = useNavigate()
   const [making, setMaking] = useState(false)
-  const [editing, setEditing] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-
-  const start = useAloud(RunFeedDocument, 'That feed could not be run.')
-  const pause = useAloud(PauseFeedDocument, 'That feed could not be paused.')
-  const remove = useAloud(DeleteFeedDocument, 'That feed could not be deleted.')
 
   return (
     <div className="shelf">
@@ -348,197 +323,15 @@ function Shelf({
         <IconPlus size={14} stroke={2} />
       </button>
 
-      {here && (
-        <Menu position="bottom-start" width={200}>
-          <Menu.Target>
-            <button type="button" className="chip" aria-label={here.key}>
-              <IconDots size={14} stroke={1.8} />
-            </button>
-          </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Item
-              leftSection={<IconRefresh size={15} stroke={1.6} />}
-              disabled={running || start.loading}
-              onClick={async () => {
-                const answered = await start.execute({ id: here.id })
-
-                if (!answered) return
-
-                say({ text: `${here.key} is running.` })
-                onChanged()
-              }}
-            >
-              {running ? 'Running' : 'Run now'}
-            </Menu.Item>
-
-            <Menu.Item
-              leftSection={<IconPencil size={15} stroke={1.6} />}
-              onClick={() => setEditing(true)}
-            >
-              Edit
-            </Menu.Item>
-
-            {here.schedule?.interval ? (
-              <Menu.Item
-                leftSection={
-                  here.schedule?.pausedAt ? (
-                    <IconPlayerPlay size={15} stroke={1.6} />
-                  ) : (
-                    <IconPlayerPause size={15} stroke={1.6} />
-                  )
-                }
-                onClick={async () => {
-                  const answered = await pause.execute({
-                    id: here.id,
-                    paused: !here.schedule?.pausedAt,
-                  })
-
-                  if (!answered) return
-
-                  say({
-                    text: here.schedule?.pausedAt
-                      ? `${here.key} runs on its own again.`
-                      : `${here.key} is paused. It will only run by hand.`,
-                  })
-                  onChanged()
-                }}
-              >
-                {here.schedule?.pausedAt ? 'Resume' : 'Pause'}
-              </Menu.Item>
-            ) : null}
-
-            <Menu.Divider />
-
-            <Menu.Item
-              color="red"
-              leftSection={<IconTrash size={15} stroke={1.6} />}
-              onClick={() => setDeleting(true)}
-            >
-              Delete
-            </Menu.Item>
-          </Menu.Dropdown>
-        </Menu>
-      )}
-
       <FeedForm
-        opened={making || editing}
-        onClose={() => {
-          setMaking(false)
-          setEditing(false)
-        }}
-        feed={editing ? here : undefined}
+        opened={making}
+        onClose={() => setMaking(false)}
         onSaved={(saved) => {
           say({ text: `${saved} is saved.` })
           onChanged()
           navigate(saved)
         }}
       />
-
-      {here && (
-        <Sure
-          opened={deleting}
-          onClose={() => setDeleting(false)}
-          title={`Delete ${here.key}?`}
-          verb="Delete it"
-          loading={remove.loading}
-          onSure={async () => {
-            const answered = await remove.execute({ id: here.id })
-
-            if (!answered) return
-
-            const kept = answered.deleteFeed?.kept ?? 0
-
-            setDeleting(false)
-            say({
-              text: kept
-                ? `${here.key} is gone. The ${kept} ${kept === 1 ? 'item' : 'items'} it wrote stayed in your catalog.`
-                : `${here.key} is gone.`,
-            })
-            onChanged()
-            navigate('/')
-          }}
-        >
-          The prompt and its run history go. Anything it wrote stays in your
-          catalog as an ordinary item — deleting the feed that found something
-          is not the same as throwing the something away.
-        </Sure>
-      )}
-    </div>
-  )
-}
-
-function Thinking({ id, cap }: { id: string; cap?: number | null }) {
-  const [turns, setTurns] = useState<
-    { turn: number; calls: string[]; said?: string | null }[]
-  >([])
-  const { data } = useSubscription(AnalysisProgressedDocument, { id })
-
-  useEffect(() => {
-    const streamed = data?.analysisProgressed.analysis.turns
-
-    if (!Array.isArray(streamed)) return
-
-    setTurns(
-      streamed as { turn: number; calls: string[]; said?: string | null }[],
-    )
-  }, [data])
-
-  const latest = turns[turns.length - 1]
-
-  return (
-    <div className="thinking">
-      <div className="thinking-head">
-        <span className="thinking-pulse" />
-        <span className="label">Thinking</span>
-        <span className="eyebrow">
-          turn <span className="figure">{latest?.turn ?? 1}</span>
-          {cap ? (
-            <>
-              {' '}
-              of <span className="figure">{cap}</span>
-            </>
-          ) : null}
-        </span>
-      </div>
-
-      {turns.length === 0 ? (
-        <Text size="sm" c="dimmed" px="var(--s4)" pb="var(--s4)">
-          Waiting on the first turn. What it reasons through will show up here
-          as it goes.
-        </Text>
-      ) : (
-        <div className="thinking-turns">
-          {turns.map((turn) => (
-            <div key={turn.turn} className="thinking-turn">
-              <span className="thinking-count figure">{turn.turn}</span>
-
-              <div style={{ minWidth: 0 }}>
-                {turn.said && <div className="thinking-said">{turn.said}</div>}
-
-                {turn.calls.length > 0 && (
-                  <Group gap="var(--s2)" mt="var(--s2)">
-                    {turn.calls.map((call) => (
-                      <span
-                        key={call}
-                        className="tag mono"
-                        style={{ '--tone': 'var(--brass)' } as CSSProperties}
-                      >
-                        {call}
-                      </span>
-                    ))}
-                  </Group>
-                )}
-
-                {!turn.said && turn.calls.length === 0 && (
-                  <Text size="xs" c="dimmed">
-                    thought without saying anything
-                  </Text>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }
@@ -714,8 +507,7 @@ function Empty({
     return (
       <div className="panel" style={{ padding: 'var(--s6)' }}>
         <Text c="dimmed" size="sm">
-          Nothing kept yet. Run it and it will search your catalog for what the
-          sentence above describes.
+          Nothing kept yet. What a run connects to this feed shows up here.
         </Text>
       </div>
     )

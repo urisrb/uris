@@ -28,9 +28,13 @@ query FeedSchedule($key: String!) {
     connectedCount
     analyses {
       id
+      cause
       status
       error
+      said
+      turns
       createdAt
+      startedAt
       finishedAt
     }
     schedule {
