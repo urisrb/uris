@@ -145,8 +145,9 @@ work into nowhere.
 answered `"page"` — the last of the kind vocabulary anywhere in the app.
 
 A mirror is only as fresh as the last save, so `Resource.restate!` exists for the case where a
-declaration changes in code and the rows do not. Nothing calls it but the migration; when a
-`serves` line changes, that is the thing to run.
+declaration changes in code and the rows do not. `uris:resources` runs it inside every tenant on
+boot — the migration's own call ran outside one, where row-level security hands back no rows, and
+restated nothing until that was found on 2026-09-12.
 
 ## Phase 6a — a mime type is a feed
 
