@@ -17,7 +17,7 @@ if File.file?(File.join(masks_client, "masks.gemspec"))
 elsif Bundler.default_gemfile.basename.to_s == "Gemfile.local"
   gem "masks", path: "../masks/client"
 else
-  gem "masks", "~> 0.6"
+  gem "masks", git: "https://github.com/masksrb/masks.git", glob: "client/*.gemspec"
 end
 
 gem "vite_rails"

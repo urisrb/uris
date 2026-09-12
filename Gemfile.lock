@@ -1,3 +1,11 @@
+GIT
+  remote: https://github.com/masksrb/masks.git
+  revision: 003faaff8a85b0180ffa9102d1c835a36205a6f6
+  glob: client/*.gemspec
+  specs:
+    masks (0.6.0)
+      jwt (~> 3.1)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -200,8 +208,6 @@ GEM
       net-pop
       net-smtp
     marcel (1.2.1)
-    masks (0.6.0)
-      jwt (~> 3.1)
     matrix (0.4.3)
     mcp (1.5.1)
       json_schemer (>= 2.4)
@@ -466,7 +472,7 @@ DEPENDENCIES
   json (~> 2.21)
   jwt
   mail
-  masks (~> 0.6)
+  masks!
   mcp
   mission_control-jobs
   net-imap
@@ -557,7 +563,7 @@ CHECKSUMS
   loofah (2.25.2) sha256=2007f746959ac65552456e04b433e83deb22759ab38c838b4445c70e43425918
   mail (2.9.1) sha256=06574eca475253d6c18145dd70af80d0eb970182d55053497c5f4d797ea160e8
   marcel (1.2.1) sha256=1678e9360e32f9eafa917c80029e2f6d10b2715c66a4b87b6d0da9b9cd1f859f
-  masks (0.6.0) sha256=c49d60a40b91dea06845eb793b6fcc2c14ffb2b4e84c7f6c3a4332c531e675d4
+  masks (0.6.0)
   matrix (0.4.3) sha256=a0d5ab7ddcc1973ff690ab361b67f359acbb16958d1dc072b8b956a286564c5b
   mcp (1.5.1) sha256=883ddd0f59e5bf43805e300158c7ecc4b6a559d126d584d41bd241355545bedf
   mini_mime (1.1.5) sha256=8681b7e2e4215f2a159f9400b5816d85e9d8c6c6b491e96a12797e798f8bccef
