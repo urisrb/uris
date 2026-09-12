@@ -160,7 +160,7 @@ jobs:
 
       - name: ${{ matrix.suite }}, in the container it ships in
         env:
-          MASKS_CLIENT_DIR: compose/masks-client
+          MASKS_CLIENT_DIR: ./compose/masks-client
         run: ./dev test ${{ matrix.suite }}
 
   image:
