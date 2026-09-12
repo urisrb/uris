@@ -28,6 +28,7 @@ module Analyzer
       analysis&.update_columns(reference_id: reference&.id)
 
       begin
+        attempt { derive! } if reference && Thumbnail.available_for?(reference.mime)
         attempt { analyze } if reference
         attempt { summarize! }
       ensure
@@ -137,6 +138,24 @@ module Analyzer
 
     def summary_images
       []
+    end
+
+    def derive!
+      step(:derived) { Thumbnail.stored!(feed, reference) }
+    rescue Thumbnail::Unavailable => e
+      raise Analyzer::Failed, e.message
+    end
+
+    def preview
+      @preview ||= stored_preview || Thumbnail.for(reference, size: Thumbnail::PREVIEW_SIZE)
+    rescue Thumbnail::Unavailable => e
+      raise Analyzer::Failed, e.message
+    end
+
+    def stored_preview
+      feed.references.in_role(Reference::PREVIEW).first&.download&.read
+    rescue Resource::Failed
+      nil
     end
 
     def has_children?

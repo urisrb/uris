@@ -29,6 +29,7 @@ class Reference < ApplicationRecord
   }
 
   after_commit :reindex_feed
+  after_destroy_commit :forget_derived_bytes, if: :derived?
 
   def self.discover!(resource:, locator:, locator_key:, mime: nil, title: nil, role: ORIGINAL)
     reference = find_or_initialize_by(resource: resource, locator_key: locator_key)
@@ -75,6 +76,10 @@ class Reference < ApplicationRecord
 
     self.version = reported
     self
+  end
+
+  def derived?
+    DERIVED.include?(role)
   end
 
   def analyzed!
@@ -124,6 +129,13 @@ class Reference < ApplicationRecord
   end
 
   private
+
+    def forget_derived_bytes
+      store = Resource.find_by(id: resource_id)
+      return unless store.is_a?(Resource::Database) && Resource::INTERNAL.key?(store.key.to_sym)
+
+      store.blobs.where(key: locator_key).delete_all
+    end
 
     def reindex_feed
       subject = Feed.find_by(id: feed_id)

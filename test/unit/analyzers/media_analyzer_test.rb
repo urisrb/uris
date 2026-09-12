@@ -161,7 +161,7 @@ class MediaAnalyzerTest < ActiveSupport::TestCase
     assert_not Thumbnail.available_for?("audio/mp4")
 
     Tenant.switch(@tenant) do
-      bytes = Thumbnail.for(reference_at("clip.mp4"), size: "small")
+      bytes = Thumbnail.for(reference_at("clip.mp4"), size: "medium")
 
       assert bytes.bytesize.positive?
       assert_equal "\xFF\xD8".b, bytes[0, 2].b, "a jpeg, not whatever ffmpeg felt like"

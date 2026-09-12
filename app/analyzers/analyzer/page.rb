@@ -1,6 +1,5 @@
 module Analyzer
   class Page < Base
-    PREVIEW = "large"
     TEXT_CONTEXT = 6_000
 
     def self.handles?(feed)
@@ -65,12 +64,6 @@ module Analyzer
           #{found.truncate(TEXT_CONTEXT)}
           ---
         TEXT
-      end
-
-      def preview
-        @preview ||= Thumbnail.for(reference, size: PREVIEW)
-      rescue Thumbnail::Unavailable => e
-        raise Analyzer::Failed, e.message
       end
   end
 end

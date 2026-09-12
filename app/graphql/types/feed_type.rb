@@ -61,9 +61,9 @@ module Types
     end
 
     def thumbnail_url
-      reference = object.references.find { |held| Thumbnail.available_for?(held.mime) }
+      thumbnail = object.references.find { |held| held.role == Reference::THUMBNAIL }
 
-      "/references/#{reference.id}/thumbnail" if reference
+      "/references/#{thumbnail.id}/content" if thumbnail
     end
   end
 end

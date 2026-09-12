@@ -173,11 +173,11 @@ module SearchIndex
         key: feed.key,
         title: feed.title,
         note: feed.note,
-        locator_key: feed.references.map(&:locator_key).compact.join(" "),
+        locator_key: originals(feed).map(&:locator_key).compact.join(" "),
         summary: feed.summaries.join("\n"),
         keywords: feed.keywords,
         body: feed.body_text(without: [ :summary ]),
-        resource_ids: feed.references.map(&:resource_id),
+        resource_ids: originals(feed).map(&:resource_id),
         created_at: feed.created_at,
         embedding: feed.embedding.presence
       }.compact
@@ -278,6 +278,10 @@ module SearchIndex
     end
 
     private
+
+      def originals(feed)
+        feed.references.select { |held| held.role == Reference::ORIGINAL }
+      end
 
       def wanted_vector(query, limit:, from:)
         return nil if query.blank? || (from + limit) > CANDIDATES

@@ -168,12 +168,14 @@ by `filed`, and the plan has been greenfield since phase 0.
 
 ## Phase 7 — the upload lane
 
+**Phase 7 landed 2026-09-12.**
+
 - [x] `active_storage:install`; the service is `Disk` locally and S3 where web and worker are
       separate containers, named by `URIS_STAGING_SERVICE`
 - [x] `POST /uploads` attaches and returns; the pass analyzes the attachment; the agent picks a
       resource; a reference is recorded and the attachment purged
 - [x] `Intake.write!` stops uploading to `default_storage` inside the request
-- [ ] Preview and thumbnail become stored references with roles, generated once, rather than
+- [x] Preview and thumbnail become stored references with roles, generated once, rather than
       `Thumbnail` rendering on read into `Rails.cache`
 - [x] ~~Active Storage's three tables carry no RLS~~ — they carry a `tenant_id` and the same
       policy as every other table, so a signed blob id minted in one tenant finds nothing in
@@ -198,6 +200,14 @@ the analyzers call. `Placement` is the rest:
 - A path another feed already holds in the chosen place is suffixed with the feed id rather
   than overwritten. `Resource::INTERNAL` names the stores the app keeps for itself, which are
   never offered.
+
+The pass renders both in a `derived` step, before the analyzer reads the file, into
+`Resource::INTERNAL`'s `derived` store keyed by feed and role; the image and page analyzers read
+the stored preview rather than rendering again, and a changed original supersedes the step.
+`/references/:id/thumbnail` is gone — `thumbnailUrl` is the thumbnail reference's own content URL,
+so it passes the same grant check as any other bytes. `small` went with it, since nothing asked
+for it. `Feed#reference`, the search document, `splitReference` and `forgetFeed` count originals
+only, and destroying a derived reference deletes its bytes from the store.
 
 Extracted children are keyed by feed and position now rather than by reference id, since a
 staged file has no reference and the same file placed later must not extract twice.

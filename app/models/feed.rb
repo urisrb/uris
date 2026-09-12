@@ -192,11 +192,11 @@ class Feed < ApplicationRecord
   end
 
   def destroy_if_empty!
-    destroy! if file? && references.empty?
+    destroy! if file? && references.originals.none?
   end
 
   def reference
-    references.first
+    references.find { |held| held.role == Reference::ORIGINAL }
   end
 
   def resource

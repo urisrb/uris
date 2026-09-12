@@ -18,15 +18,6 @@ class ContentController < ApplicationController
     render plain: e.message, status: :bad_gateway
   end
 
-  def thumbnail
-    reference = find_reference or return head :not_found
-
-    send_data Thumbnail.for(reference, size: params[:size] || Thumbnail::DEFAULT_SIZE),
-              type: Thumbnail::CONTENT_TYPE, disposition: "inline"
-  rescue Thumbnail::Unavailable, Resource::Failed
-    head :not_found
-  end
-
   private
 
     def authorize

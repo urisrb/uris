@@ -3,13 +3,13 @@ require "open3"
 class Thumbnail
   class Unavailable < StandardError; end
 
-  SIZES = { "small" => 96, "medium" => 320, "large" => 1024 }.freeze
+  SIZES = { "medium" => 320, "large" => 1024 }.freeze
   DEFAULT_SIZE = "medium"
   PREVIEW_SIZE = "large"
+  ROLES = { Reference::THUMBNAIL => DEFAULT_SIZE, Reference::PREVIEW => PREVIEW_SIZE }.freeze
   PDF = "application/pdf".freeze
   POSTER_AT = "00:00:01".freeze
   CONTENT_TYPE = "image/jpeg"
-  RETAIN = 30.days
 
   def self.for(reference, size: DEFAULT_SIZE)
     new(reference, size).bytes
@@ -18,6 +18,20 @@ class Thumbnail
   def self.available_for?(mime)
     MimeType.image?(mime) || MimeType.video?(mime) ||
       [ PDF, MimeType::PAGE ].include?(mime.to_s)
+  end
+
+  def self.stored!(feed, source)
+    store = Resource.internal!(:derived)
+
+    ROLES.to_h do |role, size|
+      key = "#{feed.id}/#{role}.jpg"
+      locator = store.upload(key, self.for(source, size: size))
+
+      Reference.record!(feed: feed, resource: store, locator: locator, locator_key: key,
+                        role: role, mime: CONTENT_TYPE)
+
+      [ role, key ]
+    end
   end
 
   def initialize(reference, size)
@@ -30,17 +44,12 @@ class Thumbnail
   end
 
   def bytes
-    Rails.cache.fetch(cache_key, expires_in: RETAIN) { render }
+    render
   end
 
   private
 
     attr_reader :reference, :size, :width
-
-    def cache_key
-      [ "thumbnail", reference.tenant_id, reference.id, size,
-        reference.updated_at.to_i ].join("/")
-    end
 
     def render
       source do |path|

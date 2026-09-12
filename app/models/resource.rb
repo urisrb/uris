@@ -19,7 +19,7 @@ class Resource < ApplicationRecord
   SYNC_ABANDONED_AFTER = 6.hours
   MAX_HOPS = 4
   DEFAULTABLE = { storage: :default_storage, inference: :default_inference }.freeze
-  INTERNAL = { children: "Extracted children" }.freeze
+  INTERNAL = { children: "Extracted children", derived: "Previews and thumbnails" }.freeze
 
   TYPES = %w[
     s3 filesystem webdav caldav carddav imap rss web openai-compatible oauth-google database

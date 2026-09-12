@@ -11,7 +11,7 @@ module Mutations
                   refused("no reference with id #{id}")
 
       refused("a feed with one reference is already split") if
-        reference.feed.references.size == 1
+        reference.feed.references.originals.size == 1
 
       { feed: reference.split!.feed }
     end

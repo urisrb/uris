@@ -11,7 +11,7 @@ module Mutations
     def resolve(id:)
       feed = feed!(id)
       title = feed.title
-      places = feed.references.count
+      places = feed.references.originals.count
 
       feed.destroy!
 

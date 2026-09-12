@@ -1,6 +1,5 @@
 module Analyzer
   class Image < Base
-    PREVIEW = "large"
     SLIVER = 10
     FLAT = 1.0
     OCR_CONTEXT = 4_000
@@ -69,11 +68,6 @@ module Analyzer
         end
       end
 
-      def preview
-        @preview ||= Thumbnail.for(reference, size: PREVIEW)
-      rescue Thumbnail::Unavailable => e
-        raise Analyzer::Failed, e.message
-      end
 
       def summarize!
         return super unless trivial?

@@ -24,7 +24,11 @@ module Types
     end
 
     def thumbnail_url
-      "/references/#{object.id}/thumbnail" if Thumbnail.available_for?(object.mime)
+      return nil unless object.role == Reference::ORIGINAL
+
+      thumbnail = object.feed.references.find { |held| held.role == Reference::THUMBNAIL }
+
+      "/references/#{thumbnail.id}/content" if thumbnail
     end
   end
 end
