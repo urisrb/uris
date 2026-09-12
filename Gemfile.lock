@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/masksrb/masks.git
-  revision: 6c604ea303e7727ab98a2c8cc9c34702136d9695
+  revision: 33f459274337410a25c14f79c72fca34d9d1e437
   glob: client/*.gemspec
   specs:
     masks (0.6.0)
