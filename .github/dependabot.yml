@@ -5,6 +5,9 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    ignore:
+      - dependency-name: "json"
+        update-types: ["version-update:semver-major"]
     groups:
       ruby-production:
         dependency-type: production
