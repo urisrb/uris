@@ -4,6 +4,8 @@ module SearchIndex
   VECTOR_DIMENSIONS = ENV.fetch("URIS_EMBEDDING_DIMENSIONS", 768).to_i
   CANDIDATES = 200
   FUSION_RANK = 60
+  SEMANTIC_MARGIN = 0.12
+  SEMANTIC_FLOOR = ENV.fetch("URIS_SEMANTIC_FLOOR", "0.55").to_f
 
   SETTINGS = {
     index: { knn: true },
@@ -235,15 +237,32 @@ module SearchIndex
         index: alias_for(tenant),
         body: {
           query: { knn: { embedding: { vector: vector, k: limit, filter: { bool: { must: must } } } } },
-          size: limit, _source: false
+          size: limit, _source: [ "embedding" ]
         }
       )
 
-      response.dig("hits", "hits").map { |hit| hit["_id"].to_i }
+      close(vector, response.dig("hits", "hits"))
     rescue OpenSearch::Transport::Transport::Errors::BadRequest,
            OpenSearch::Transport::Transport::Errors::NotFound => e
       Rails.logger.warn("the search engine refused a vector query: #{e.message.truncate(200)}")
       []
+    end
+
+    def close(vector, hits)
+      scored = hits.map { |hit| [ hit["_id"].to_i, cosine(vector, hit.dig("_source", "embedding")) ] }
+                   .sort_by { |_id, score| -score }
+      bar = [ SEMANTIC_FLOOR, scored.first&.last.to_f - SEMANTIC_MARGIN ].max
+
+      scored.take_while { |_id, score| score >= bar }.map(&:first)
+    end
+
+    def cosine(one, other)
+      return 0.0 if other.blank? || one.size != other.size
+
+      dot = one.zip(other).sum { |a, b| a * b }
+      norms = Math.sqrt(one.sum { |a| a * a }) * Math.sqrt(other.sum { |b| b * b })
+
+      norms.zero? ? 0.0 : dot / norms
     end
 
     def faceted(type:, mime:, tag:)

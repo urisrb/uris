@@ -65,6 +65,32 @@ class SemanticSearchTest < ActiveSupport::TestCase
     end
   end
 
+  test "a neighbour that is only the nearest of strangers is not a match" do
+    @server.embeds_as("pelican", near)
+
+    Tenant.switch(@demo) do
+      stranger = create_feed(mime: "application/pdf", title: "certificate")
+      stranger.update_columns(embedding: far, embedded_digest: "held", embedded_at: Time.current)
+      SearchIndex.index(stranger.reload)
+      SearchIndex.refresh!
+
+      assert_empty Feed.search("pelican").map(&:id)
+    end
+  end
+
+  test "neighbours well behind the nearest one are left to the lexical side" do
+    Tenant.switch(@demo) do
+      close = create_feed(mime: "application/pdf", title: "one")
+      behind = create_feed(mime: "application/pdf", title: "two")
+      close.update_columns(embedding: near, embedded_digest: "held", embedded_at: Time.current)
+      behind.update_columns(embedding: leaning, embedded_digest: "held", embedded_at: Time.current)
+      [ close, behind ].each { |feed| SearchIndex.index(feed.reload) }
+      SearchIndex.refresh!
+
+      assert_equal [ close.id ], SearchIndex.nearest(near, tenant: @demo, limit: 50)
+    end
+  end
+
   test "a lexical match still leads when nothing is nearer" do
     Tenant.switch(@demo) do
       match = create_feed(mime: "application/pdf", title: "March invoice")
@@ -147,5 +173,13 @@ class SemanticSearchTest < ActiveSupport::TestCase
 
     def near
       @near ||= Array.new(WIDTH) { |index| index == 7 ? 1.0 : 0.0 }
+    end
+
+    def far
+      @far ||= Array.new(WIDTH) { |index| Math.sin(index * 1.7) }
+    end
+
+    def leaning
+      @leaning ||= near.zip(far).map { |one, other| one + (other * 0.037) }
     end
 end
