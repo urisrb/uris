@@ -54,6 +54,20 @@ class AnalyzeFeedJobTest < ActiveSupport::TestCase
     end
   end
 
+  test "an address is told the web search it can use, and how to keep what it finds" do
+    Tenant.switch(@tenant) do
+      Resource::Search.create!(key: "exa", details: { "provider" => "exa" }, credentials: { "api_key" => "k" })
+      feed = Feed.create!(type: Feed::ADDRESS, key: "/buy")
+      feed.create_schedule!(prompt: "find cool things to buy")
+
+      prompt = AnalyzeFeedJob.new.send(:asked, feed)
+
+      assert_match(/find cool things to buy/, prompt)
+      assert_match(/key\s+"exa"/, prompt)
+      assert_match(/connect the note to feed #{feed.id}/, prompt)
+    end
+  end
+
   test "asking for an analysis opens one before the job is enqueued" do
     analysis = nil
 

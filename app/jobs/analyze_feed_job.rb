@@ -145,10 +145,22 @@ class AnalyzeFeedJob < ApplicationJob
     end
 
     def asked(feed)
-      return feed.schedule.prompt if feed.address? && feed.schedule
+      return [ feed.schedule.prompt, searchable(feed) ].compact.join("\n\n") if feed.address? && feed.schedule
 
       [ FILE_PROMPT, "It is feed #{feed.id}, called #{feed.title || feed.key}.", unplaced(feed) ]
         .compact.join("\n\n")
+    end
+
+    def searchable(feed)
+      engines = Resource.capable_of(:search).pluck(:key)
+      return nil if engines.empty?
+
+      <<~TEXT
+        Beyond the catalog you can search the web: call resource with do=search, key
+        #{engines.map { |key| %("#{key}") }.join(' or ')}, and input {"query": "..."}. Keep anything worth keeping:
+        make a note with feed, do=create, type uris:note and a title naming it, write what it is and
+        its address with feed, do=note, and connect the note to feed #{feed.id} with connect.
+      TEXT
     end
 
     def unplaced(feed)
