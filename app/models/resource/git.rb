@@ -6,6 +6,7 @@ class Resource
     PAGE = 500
     MAX_BLOB = 2.megabytes
     DEFAULT_PROTOCOLS = "https".freeze
+    TIMEOUT = 300
     ENTRY = /\A(\d+) (\w+) ([0-9a-f]+)\s+(\d+|-)\t(.+)\z/
 
     Entry = Data.define(:path, :sha, :size)
@@ -62,14 +63,14 @@ class Resource
               "does not write clones wherever it likes. Set URIS_GIT_ROOT."
       end
 
-      File.join(root, tenant_id.to_s, "#{key}-#{id}.git")
+      File.join(root, tenant_id.to_s, "#{Integer(id)}.git")
     end
 
     def check!
-      permitted!
+      pinned = permitted!
 
       refs = with_askpass do |env|
-        git("ls-remote", "--heads", url, env: env, bare: true)
+        git(*resolving(pinned), "ls-remote", "--heads", url, env: env, bare: true)
       end
 
       raise Resource::Failed, "#{key}: #{url} served no branches" if refs.strip.empty?
@@ -151,11 +152,11 @@ class Resource
       end
 
       def pull!
-        permitted!
+        pinned = permitted!
         prepare!
 
         with_askpass do |env|
-          git("fetch", "--depth", "1", "--no-tags", url, "+#{ref}:#{HEAD}", env: env)
+          git(*resolving(pinned), "fetch", "--depth", "1", "--no-tags", url, "+#{ref}:#{HEAD}", env: env)
         end
 
         true
@@ -187,16 +188,21 @@ class Resource
       def permitted!
         uri = URI.parse(url)
 
+        if uri.userinfo.present?
+          raise Resource::Unusable,
+                "#{key}: a url carrying a name or token would show it to anyone who can list " \
+                "this resource — put the token in its own field"
+        end
+
         unless self.class.protocols.include?(uri.scheme)
           raise Resource::Unusable,
                 "#{key}: #{uri.scheme.presence || 'that'} is not one of URIS_GIT_PROTOCOLS " \
                 "(#{self.class.protocols.join(', ')})"
         end
 
-        return true unless uri.is_a?(URI::HTTP)
+        return nil unless uri.is_a?(URI::HTTP)
 
-        PublicAddress.permitted!(url)
-        true
+        PublicAddress.pinned!(url)
       rescue URI::InvalidURIError
         raise Resource::Unusable, "#{key}: #{url} is not a url"
       rescue PublicAddress::Blocked => e
@@ -208,7 +214,8 @@ class Resource
       def git(*args, env: {}, binary: false, bare: false)
         command = [ "git" ]
         command += [ "-C", working_dir ] unless bare
-        command += %w[-c protocol.file.allow=never -c core.askPass= -c credential.helper=]
+        command += %w[-c protocol.file.allow=never -c core.askPass= -c credential.helper=
+                      -c http.followRedirects=false]
         command += args.map(&:to_s)
 
         run(environment(env), command, binary: binary)
@@ -225,14 +232,39 @@ class Resource
         }.merge(extra)
       end
 
+      def resolving(pinned)
+        return [] if pinned.nil?
+
+        address = pinned.address.include?(":") ? "[#{pinned.address}]" : pinned.address
+
+        [ "-c", "http.curloptResolve=#{pinned.uri.hostname}:#{pinned.uri.port}:#{address}" ]
+      end
+
       def run(env, command, binary:)
-        stdout, stderr, status = Open3.capture3(env, *command, binmode: binary)
+        stdout, stderr, status = capture(env, command, binary)
 
         return stdout if status.success?
 
         raise Resource::Failed, "#{key}: git #{command[-2]} — #{scrubbed(stderr)}"
       rescue Errno::ENOENT
         raise Resource::Unusable, "#{key}: git is not installed where the worker runs"
+      end
+
+      def capture(env, command, binary)
+        Open3.popen3(env, *command, pgroup: true) do |stdin, stdout, stderr, waiter|
+          stdin.close
+          stdout.binmode if binary
+          out = Thread.new { stdout.read }
+          err = Thread.new { stderr.read }
+
+          unless waiter.join(TIMEOUT)
+            Process.kill("KILL", -waiter.pid)
+            [ out, err ].each(&:kill)
+            raise Resource::Failed, "#{key}: git #{command[-2]} ran past #{TIMEOUT}s and was stopped"
+          end
+
+          [ out.value, err.value, waiter.value ]
+        end
       end
 
       def scrubbed(said)

@@ -148,6 +148,54 @@ class GitResourceTest < ActiveSupport::TestCase
     end
   end
 
+  test "a clone lives under its tenant by id, so no key can put it anywhere else" do
+    Tenant.switch(@tenant) do
+      @resource.update!(key: "../../../../tmp/escaped")
+
+      assert_equal File.join(@root, @tenant.id.to_s, "#{@resource.id}.git"), @resource.working_dir
+    end
+  end
+
+  test "a url carrying credentials is refused, since listing the resource would show them" do
+    ENV["URIS_GIT_PROTOCOLS"] = "https"
+
+    Tenant.switch(@tenant) do
+      resource = Resource::Git.new(key: "leaky",
+                                   details: { "url" => "https://x:ghp_secret@github.com/acme/widgets.git" })
+
+      assert_not resource.valid?
+      assert_match(/token/, resource.errors.full_messages.join)
+    end
+  end
+
+  test "git dials the address that was vetted and follows no redirect off it" do
+    ENV["URIS_GIT_PROTOCOLS"] = "https"
+    dialled = []
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: { "url" => "https://git.example.test/acme/widgets.git" })
+      @resource.define_singleton_method(:capture) do |_env, command, _binary|
+        dialled << command
+        [ "0123abcd\trefs/heads/main\n", "", Struct.new(:success?).new(true) ]
+      end
+
+      @resource.check!
+    end
+
+    command = dialled.first.join(" ")
+
+    assert_includes command, "http.followRedirects=false"
+    assert_includes command, "http.curloptResolve=git.example.test:443:#{Offline::PUBLIC}"
+  end
+
+  test "git that runs past its time is stopped rather than holding the worker" do
+    Tenant.switch(@tenant) do
+      error = with_timeout(0) { assert_raises(Resource::Failed) { @resource.check! } }
+
+      assert_match(/ran past/, error.message)
+    end
+  end
+
   test "with no clone root set the type says so rather than writing somewhere" do
     ENV.delete("URIS_GIT_ROOT")
 
@@ -201,5 +249,15 @@ class GitResourceTest < ActiveSupport::TestCase
       _out, err, status = Open3.capture3(*args)
 
       raise "#{args.join(' ')} failed: #{err}" unless status.success?
+    end
+
+    def with_timeout(seconds)
+      held = Resource::Git::TIMEOUT
+      Resource::Git.send(:remove_const, :TIMEOUT)
+      Resource::Git.const_set(:TIMEOUT, seconds)
+      yield
+    ensure
+      Resource::Git.send(:remove_const, :TIMEOUT)
+      Resource::Git.const_set(:TIMEOUT, held)
     end
 end
