@@ -39,7 +39,7 @@ class Resource
     def command_get(url:)
       response = over_http(url.to_s.strip) { |uri| Net::HTTP::Get.new(uri, HEADERS) }
       type = response["content-type"].to_s.split(";").first.to_s.strip.downcase
-      body = bounded(response)
+      body = response.body.to_s
 
       { url: url, status: response.code.to_i, content_type: type.presence, bytes: body.bytesize }
         .merge(read(body, type))

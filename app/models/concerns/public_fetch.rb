@@ -9,6 +9,7 @@ module PublicFetch
   MAX_REDIRECTS = 3
   OPEN_TIMEOUT = 5
   READ_TIMEOUT = 15
+  TOTAL_TIMEOUT = 60
   CARRIED_TO_ANOTHER_ORIGIN = %w[accept accept-encoding accept-language content-type depth user-agent].freeze
 
   class_methods do
@@ -71,15 +72,26 @@ module PublicFetch
     end
 
     def exchange(pinned, &build)
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
       PublicAddress.start(pinned, open_timeout: OPEN_TIMEOUT, read_timeout: READ_TIMEOUT) do |http|
-        http.request(build.call(pinned.uri))
+        http.request(build.call(pinned.uri)) { |response| drain(response, pinned.uri, started) }
       end
     end
 
-    def bounded(response)
-      body = response.body.to_s
-      raise Resource::Failed, "#{key}: more than #{MAX_BYTES} bytes" if body.bytesize > MAX_BYTES
+    def drain(response, uri, started)
+      held = +"".b
 
-      body
+      response.read_body do |chunk|
+        held << chunk
+
+        raise Resource::Failed, "#{key}: #{uri.host} sent more than #{MAX_BYTES} bytes" if held.bytesize > MAX_BYTES
+
+        if Process.clock_gettime(Process::CLOCK_MONOTONIC) - started > TOTAL_TIMEOUT
+          raise Resource::Failed, "#{key}: #{uri.host} was still sending after #{TOTAL_TIMEOUT}s"
+        end
+      end
+
+      response.body = held
     end
 end

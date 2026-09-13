@@ -90,7 +90,7 @@ class Resource
     def download(locator)
       response = over_http(url_for(locator.fetch("path"))) { |uri| authorized(Net::HTTP::Get.new(uri)) }
 
-      StringIO.new(bounded(response))
+      StringIO.new(response.body.to_s)
     end
 
     def upload(name, body)
@@ -162,7 +162,7 @@ class Resource
             .tap { |request| request.body = PROPS }
         end
 
-        parse(bounded(response), under: path)
+        parse(response.body.to_s, under: path)
       end
 
       def parse(body, under:)

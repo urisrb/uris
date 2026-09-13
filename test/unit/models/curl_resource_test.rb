@@ -48,6 +48,33 @@ class CurlResourceTest < ActiveSupport::TestCase
     assert_equal "image/png", got[:content_type]
   end
 
+  test "a body past the cap is refused rather than handed on" do
+    stub_request(:get, "https://huge.example.test/").to_return(body: "x" * (PublicFetch::MAX_BYTES + 1))
+
+    error = assert_raises(Resource::Failed) do
+      Tenant.switch(@tenant) { @curl.command("get", url: "https://huge.example.test/") }
+    end
+
+    assert_match(/more than #{PublicFetch::MAX_BYTES} bytes/, error.message)
+  end
+
+  test "a server trickling its answer is stopped once the whole fetch runs past its time" do
+    stub_request(:get, "https://slow.example.test/").to_return(body: "a" * 64_000)
+    clock = [ 0.0 ]
+    Process.singleton_class.alias_method(:unstopped_clock, :clock_gettime)
+    Process.define_singleton_method(:clock_gettime) do |*args|
+      args.first == Process::CLOCK_MONOTONIC ? clock[0] += PublicFetch::TOTAL_TIMEOUT + 1 : unstopped_clock(*args)
+    end
+
+    error = assert_raises(Resource::Failed) do
+      Tenant.switch(@tenant) { @curl.command("get", url: "https://slow.example.test/") }
+    end
+
+    assert_match(/still sending after #{PublicFetch::TOTAL_TIMEOUT}s/, error.message)
+  ensure
+    Process.singleton_class.alias_method(:clock_gettime, :unstopped_clock)
+  end
+
   test "a private or local address is refused before anything is dialled" do
     assert_raises(PublicFetch::Blocked) do
       Tenant.switch(@tenant) { @curl.command("get", url: "http://169.254.169.254/latest/meta-data/") }

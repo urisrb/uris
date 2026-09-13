@@ -159,7 +159,7 @@ class Resource
       end
 
       def answered(response)
-        parsed = JSON.parse(bounded(response))
+        parsed = JSON.parse(response.body.to_s)
         return parsed if parsed.is_a?(Hash)
 
         raise Resource::Unusable, "#{key}: #{provider} did not answer with an object"
