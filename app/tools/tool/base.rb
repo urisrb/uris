@@ -46,6 +46,21 @@ module Tool
         text(e.message, error: true)
       end
 
+      def relay(_server_context, arguments = {})
+        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        grant = Current.grant or raise Grant::Denied, "this call carries no grant"
+        grant.permit!(scope)
+
+        relayed = yield
+
+        audit(grant, arguments, relayed.error ? "error" : "ok", started)
+        MCP::Tool::Response.new(relayed.content, error: relayed.error, structured_content: relayed.structured)
+      rescue *EXPECTED => e
+        audit(Current.grant, arguments, refused?(e) ? "denied" : "error", started, e.message)
+
+        text(e.message, error: true)
+      end
+
       def refused?(error)
         error.is_a?(Grant::Denied) || error.is_a?(OverBudget)
       end

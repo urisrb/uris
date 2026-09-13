@@ -58,7 +58,7 @@ class McpProxyTest < ActionDispatch::IntegrationTest
     attach
     speaks(text: "ok")
 
-    tool(@tenant, ALL, "exa__web_search", query: "anything")
+    relayed("anything")
 
     assert_requested(:post, "https://example.com/mcp", headers: { "Authorization" => "Bearer sk-test" }, at_least_times: 1)
   end
@@ -67,9 +67,7 @@ class McpProxyTest < ActionDispatch::IntegrationTest
     attach(auth: "basic", credentials: { "username" => "reader", "password" => "pa:ss" })
     speaks(text: "behind the gate")
 
-    found = tool(@tenant, ALL, "exa__web_search", query: "anything")
-
-    assert_equal [ "behind the gate" ], found["content"]
+    assert_equal "behind the gate", relayed("anything").dig("result", "content", 0, "text")
     assert_requested(:post, "https://example.com/mcp",
                      headers: { "Authorization" => "Basic #{Base64.strict_encode64('reader:pa:ss')}" }, at_least_times: 2)
     assert_not_requested(:post, "https://example.com/mcp", headers: { "Authorization" => "Bearer sk-test" })
@@ -79,7 +77,7 @@ class McpProxyTest < ActionDispatch::IntegrationTest
     attach(auth: "header", credentials: { "header_value" => "key-123" }, header_name: "X-API-Key")
     speaks(text: "keyed")
 
-    tool(@tenant, ALL, "exa__web_search", query: "anything")
+    relayed("anything")
 
     assert_requested(:post, "https://example.com/mcp", headers: { "X-API-Key" => "key-123" }, at_least_times: 2)
     assert_not_requested(:post, "https://example.com/mcp") { |request| request.headers.key?("Authorization") }
@@ -89,9 +87,40 @@ class McpProxyTest < ActionDispatch::IntegrationTest
     attach
     speaks(text: "a page about anything")
 
-    found = tool(@tenant, ALL, "exa__web_search", query: "anything")
+    reply = relayed("anything")
 
-    assert_equal [ "a page about anything" ], found["content"]
+    assert_not reply.dig("result", "isError")
+    assert_equal [ { "type" => "text", "text" => "a page about anything" } ], reply.dig("result", "content")
+  end
+
+  test "an image, an embedded resource and structured content come back as the server sent them" do
+    attach
+    parts = [
+      { type: "text", text: "two results" },
+      { type: "image", data: Base64.strict_encode64("png"), mimeType: "image/png" },
+      { type: "resource", resource: { uri: "notion://page/1", mimeType: "text/markdown", text: "# One" } },
+      { type: "resource_link", uri: "notion://page/2", name: "Two" },
+      { type: "mystery", payload: "dropped" }
+    ]
+    speaks(result: { content: parts, structuredContent: { "hits" => 2 } })
+
+    reply = relayed("anything")
+
+    assert_equal %w[text image resource resource_link], reply.dig("result", "content").pluck("type")
+    assert_equal "image/png", reply.dig("result", "content", 1, "mimeType")
+    assert_equal "# One", reply.dig("result", "content", 2, "resource", "text")
+    assert_equal({ "hits" => 2 }, reply.dig("result", "structuredContent"))
+  end
+
+  test "what a server says about its own tools is passed on with them" do
+    attach(tools: [ LISTED.first.merge("annotations" => { "readOnlyHint" => true, "title" => "Search the web",
+                                                          "destructiveHint" => "maybe" }) ])
+
+    listed = call(@tenant, ALL, "tools/list").dig("result", "tools").find { |tool| tool["name"] == "exa__web_search" }
+
+    assert_equal true, listed.dig("annotations", "readOnlyHint")
+    assert_equal "Search the web", listed.dig("annotations", "title")
+    assert_equal true, listed.dig("annotations", "destructiveHint"), "a hint that is not a boolean is not believed"
   end
 
   test "a server that answers an error says so on the call, not on the tool list" do
@@ -139,16 +168,20 @@ class McpProxyTest < ActionDispatch::IntegrationTest
 
   private
 
-    def speaks(text:, failed: false)
+    def relayed(query)
+      call(@tenant, ALL, "tools/call", name: "exa__web_search", arguments: { query: query })
+    end
+
+    def speaks(text: nil, failed: false, result: nil)
       stub_request(:post, "https://example.com/mcp").to_return do |request|
         asked = JSON.parse(request.body)
 
         { status: 200, headers: { "Content-Type" => "application/json" },
-          body: replied(asked, text, failed).to_json }
+          body: replied(asked, text, failed, result).to_json }
       end
     end
 
-    def replied(asked, text, failed)
+    def replied(asked, text, failed, result)
       base = { jsonrpc: "2.0", id: asked["id"] }
 
       case asked["method"]
@@ -156,7 +189,7 @@ class McpProxyTest < ActionDispatch::IntegrationTest
         base.merge(result: { protocolVersion: "2025-06-18", capabilities: { tools: {} },
                              serverInfo: { name: "exa", version: "1" } })
       when "tools/call"
-        base.merge(result: { content: [ { type: "text", text: text } ], isError: failed })
+        base.merge(result: result || { content: [ { type: "text", text: text } ], isError: failed })
       else
         base.merge(result: {})
       end

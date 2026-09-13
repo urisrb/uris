@@ -12,6 +12,16 @@ class Resource
     ].freeze
     PREFIX = /\A[a-z0-9][a-z0-9-]{0,30}\z/
     MAX_TOOLS = 40
+    MAX_PARTS = 50
+    PARTS = %w[text image audio resource resource_link].freeze
+    HINTS = { "readOnlyHint" => :read_only_hint, "destructiveHint" => :destructive_hint,
+              "idempotentHint" => :idempotent_hint, "openWorldHint" => :open_world_hint }.freeze
+
+    Relayed = Data.define(:content, :structured, :error) do
+      def to_h
+        { content: content, structured_content: structured, error: error }.compact
+      end
+    end
 
     serves :tools
 
@@ -74,7 +84,7 @@ class Resource
       found = connected { |client| client.tools.first(MAX_TOOLS) }
       listed = found.map do |tool|
         { "name" => tool.name.to_s, "description" => tool.description.to_s,
-          "input_schema" => tool.input_schema.to_h }
+          "input_schema" => tool.input_schema.to_h, "annotations" => tool.annotations.to_h.presence }.compact
       end
 
       update!(details: details.to_h.merge("tools" => listed))
@@ -98,7 +108,7 @@ class Resource
     end
 
     def command_call(name:, arguments: nil)
-      invoke!(name, arguments || {})
+      invoke!(name, arguments || {}).to_h
     end
 
     private
@@ -150,16 +160,24 @@ class Resource
 
       def answer(name, answered)
         result = answered.is_a?(Hash) ? answered["result"].to_h : {}
+        parts = Array(result["content"]).select { |part| part.is_a?(Hash) && PARTS.include?(part["type"]) }
 
-        texts = Array(result["content"]).filter_map do |part|
-          part["text"].presence if part.is_a?(Hash)
+        if parts.empty? && result["structuredContent"].nil? && !result["isError"]
+          parts = [ { "type" => "text", "text" => "#{name} answered with nothing" } ]
         end
 
-        if result["isError"]
-          raise Resource::Failed, "#{key}: #{name} failed — #{texts.join(' ').truncate(200)}"
-        end
+        Relayed.new(
+          content: parts.first(MAX_PARTS),
+          structured: result["structuredContent"].is_a?(Hash) ? result["structuredContent"] : nil,
+          error: result["isError"] == true
+        )
+      end
 
-        { content: texts }
+      def hinted(definition)
+        given = definition["annotations"].to_h
+        hints = HINTS.filter_map { |said, named| [ named, given[said] ] if [ true, false ].include?(given[said]) }.to_h
+
+        given["title"].is_a?(String) ? hints.merge(title: given["title"]) : hints
       end
 
       def proxy(definition)
@@ -170,15 +188,17 @@ class Resource
         local = "#{key}#{JOINER}#{remote}"
         told = definition["description"].to_s
         shape = definition["input_schema"].to_h.symbolize_keys
+        hints = hinted(definition)
 
         Class.new(Tool::Base) do
           tool_name local
           scope SCOPE
           description told
           input_schema(properties: shape[:properties].to_h, required: Array(shape[:required]))
+          annotations(**hints) if hints.any?
 
           define_singleton_method(:call) do |server_context:, **arguments|
-            respond(server_context, arguments) do
+            relay(server_context, arguments) do
               Resource.find(held).invoke!(remote, arguments)
             end
           end
