@@ -6,7 +6,6 @@ class Resource
     include PublicFetch
 
     PAGE = 200
-    MAX_TEXT = 100_000
 
     Entry = Data.define(:path, :size, :etag, :modified_at, :content_type, :collection)
 
@@ -118,14 +117,8 @@ class Resource
 
     def command_get(key:)
       bytes = download("path" => key).read
-      text = bytes.dup.force_encoding(Encoding::UTF_8)
 
-      if text.valid_encoding?
-        { "key" => key, "size" => bytes.bytesize, "text" => text.truncate(MAX_TEXT) }
-      else
-        { "key" => key, "size" => bytes.bytesize, "text" => nil,
-          "note" => "binary — sync it into the catalog or export it instead" }
-      end
+      glimpse(key, bytes, bytes.bytesize)
     end
 
     def command_put(key:, body:)

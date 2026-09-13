@@ -9,10 +9,11 @@ class FakeImapServer
     end
   end
 
-  attr_reader :port
+  attr_reader :port, :fetched
 
   def initialize
     @lock = Mutex.new
+    @fetched = []
     @mailboxes = Hash.new { |all, name| all[name] = { uidvalidity: 1, uidnext: 1, messages: [] } }
     @server = TCPServer.new("127.0.0.1", 0)
     @port = @server.addr[1]
@@ -63,7 +64,10 @@ class FakeImapServer
   end
 
   def reset!
-    @lock.synchronize { @mailboxes.clear }
+    @lock.synchronize do
+      @mailboxes.clear
+      @fetched.clear
+    end
   end
 
   private
@@ -147,6 +151,8 @@ class FakeImapServer
       wanted = sequence(arguments[/\A([\d,:]+)/, 1].to_s)
       peek = arguments.include?("BODY.PEEK")
       whole = arguments.include?("BODY")
+      @fetched << arguments
+      partial = arguments[/BODY\.PEEK\[\]<(\d+)\.(\d+)>/] && [ $1.to_i, $2.to_i ]
 
       @lock.synchronize do
         box = @mailboxes[name]
@@ -155,7 +161,7 @@ class FakeImapServer
           message.flags |= [ "\\Seen" ] if whole && !peek
 
           sequence = box[:messages].index(message) + 1
-          "* #{sequence} FETCH #{attributes(message, whole)}\r\n"
+          "* #{sequence} FETCH #{attributes(message, whole, partial)}\r\n"
         end.join
       end
     end
@@ -167,11 +173,17 @@ class FakeImapServer
       end
     end
 
-    def attributes(message, whole)
+    def attributes(message, whole, partial = nil)
       parts = [ "UID #{message.uid}", "RFC822.SIZE #{message.source.bytesize}" ]
       parts << "FLAGS (#{message.flags.join(' ')})"
       parts << envelope(message)
-      parts << "BODY[] {#{message.source.bytesize}}\r\n#{message.source}" if whole
+
+      if partial
+        served = message.source.byteslice(partial.first, partial.last).to_s
+        parts << "BODY[]<#{partial.first}> {#{served.bytesize}}\r\n#{served}"
+      elsif whole
+        parts << "BODY[] {#{message.source.bytesize}}\r\n#{message.source}"
+      end
 
       "(#{parts.join(' ')})"
     end

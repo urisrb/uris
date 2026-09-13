@@ -78,8 +78,6 @@ class Resource
       }
     end
 
-    MAX_TEXT = 100_000
-
     def bucket
       key
     end
@@ -103,15 +101,14 @@ class Resource
     end
 
     def command_get(key:, version_id: nil)
-      bytes = s3 { |client| client.get_object(bucket: bucket, key: key, version_id: version_id.presence) }.body.read
-      text = bytes.dup.force_encoding(Encoding::UTF_8)
-
-      if text.valid_encoding?
-        { "key" => key, "size" => bytes.bytesize, "text" => text.truncate(MAX_TEXT) }
-      else
-        { "key" => key, "size" => bytes.bytesize, "text" => nil,
-          "note" => "binary — sync it into the catalog or export it instead" }
+      object = s3 do |client|
+        client.get_object(bucket: bucket, key: key, version_id: version_id.presence,
+                          range: "bytes=0-#{GLIMPSE_BYTES - 1}")
       end
+
+      size = object.content_range.to_s[%r{/(\d+)\z}, 1] || object.content_length
+
+      glimpse(key, object.body.read, size)
     end
 
     def command_put(key:, body:)

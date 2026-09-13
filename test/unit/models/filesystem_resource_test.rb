@@ -142,6 +142,25 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     assert_equal "untouched", outside.read
   end
 
+  test "get reads a glimpse of a large file, not the whole of it, and says how big it is" do
+    (@root + "huge.txt").open("wb") do |file|
+      file.write("é" * Resource::GLIMPSE_BYTES)
+      file.truncate(4.gigabytes)
+    end
+
+    got = @resource.command(:get, key: "huge.txt")
+
+    assert_equal 4.gigabytes, got["size"]
+    assert got["text"].start_with?("é" * 1000)
+    assert_operator got["text"].length, :<=, Resource::MAX_TEXT
+  end
+
+  test "get still calls a file binary when its glimpse is" do
+    (@root + "blob.bin").binwrite("\xFF\xFE\x00".b * 10)
+
+    assert_nil @resource.command(:get, key: "blob.bin")["text"]
+  end
+
   test "no permitted roots at all means the type is unusable" do
     ENV.delete("URIS_FILESYSTEM_ROOTS")
 

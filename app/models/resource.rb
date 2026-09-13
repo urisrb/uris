@@ -18,6 +18,8 @@ class Resource < ApplicationRecord
   MINIMUM_SYNC_INTERVAL = 1.minute
   SYNC_ABANDONED_AFTER = 6.hours
   MAX_HOPS = 4
+  MAX_TEXT = 100_000
+  GLIMPSE_BYTES = MAX_TEXT * 4
   DEFAULTABLE = { storage: :default_storage, inference: :default_inference }.freeze
   INTERNAL = { children: "Extracted children", derived: "Previews and thumbnails" }.freeze
   INTERNAL_MARK = "internal".freeze
@@ -347,6 +349,20 @@ class Resource < ApplicationRecord
     raise ArgumentError, "'#{name}' requires #{missing.join(', ')}" if missing.any?
 
     public_send(:"command_#{name}", **given)
+  end
+
+  def glimpse(key, head, size)
+    text = head.to_s.dup.force_encoding(Encoding::UTF_8)
+    cuts = text.bytesize >= size.to_i ? [ 0 ] : (0..3)
+
+    readable = cuts.map { |cut| text.byteslice(0, text.bytesize - cut) }.find(&:valid_encoding?)
+
+    if readable
+      { "key" => key, "size" => size.to_i, "text" => readable.truncate(MAX_TEXT) }
+    else
+      { "key" => key, "size" => size.to_i, "text" => nil,
+        "note" => "binary — sync it into the catalog or export it instead" }
+    end
   end
 
   def syncable?

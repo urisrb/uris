@@ -4,7 +4,6 @@ require "mail"
 class Resource
   class Imap < Resource
     PAGE = 200
-    MAX_TEXT = 100_000
     LISTED = 50
 
     Message = Data.define(:uid, :uidvalidity, :mailbox, :subject, :from, :date, :size)
@@ -141,14 +140,17 @@ class Resource
 
       connect do |imap|
         validity = examine(imap, name)
-        source = source_of(imap, wanted, name)
+        data = imap.uid_fetch(wanted, [ "RFC822.SIZE", "BODY.PEEK[]<0.#{GLIMPSE_BYTES}>" ]).to_a.first
+        raise Resource::Failed, "#{key}: no message at UID #{wanted} in #{name}" if data.nil?
+
+        head = data.attr.find { |attribute, _| attribute.start_with?("BODY[]") }&.last
 
         {
           "mailbox" => name,
           "uidvalidity" => validity,
           "uid" => wanted,
-          "size" => source.bytesize,
-          "text" => source.dup.force_encoding(Encoding::UTF_8).scrub.truncate(MAX_TEXT)
+          "size" => data.attr["RFC822.SIZE"],
+          "text" => head.to_s.dup.force_encoding(Encoding::UTF_8).scrub.truncate(MAX_TEXT)
         }
       end
     end

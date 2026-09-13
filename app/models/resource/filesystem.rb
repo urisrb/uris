@@ -5,7 +5,6 @@ class Resource
     class Escaped < Resource::Failed; end
 
     PAGE = 500
-    MAX_TEXT = 100_000
 
     serves :storage
     accepts "*/*"
@@ -131,15 +130,11 @@ class Resource
     end
 
     def command_get(key:)
-      bytes = download("path" => key).read
-      text = bytes.dup.force_encoding(Encoding::UTF_8)
+      file = download("path" => key)
 
-      if text.valid_encoding?
-        { "key" => key, "size" => bytes.bytesize, "text" => text.truncate(MAX_TEXT) }
-      else
-        { "key" => key, "size" => bytes.bytesize, "text" => nil,
-          "note" => "binary — sync it into the catalog or export it instead" }
-      end
+      glimpse(key, file.read(GLIMPSE_BYTES), file.size)
+    ensure
+      file&.close
     end
 
     def command_put(key:, body:)

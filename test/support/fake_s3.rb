@@ -7,7 +7,7 @@ class FakeS3
 
   Object = Struct.new(:key, :size, :last_modified, :etag)
   Listing = Struct.new(:contents, :next_continuation_token, :is_truncated)
-  Body = Struct.new(:body, :etag)
+  Body = Struct.new(:body, :etag, :content_length, :content_range)
   Written = Struct.new(:etag)
 
   class << self
@@ -75,13 +75,20 @@ class FakeS3
     Written.new(digest(bytes))
   end
 
-  def get_object(bucket:, key:, **)
+  def get_object(bucket:, key:, range: nil, **)
     held = @lock.synchronize do
       held!(bucket)
       @buckets[bucket][key] or raise missing(Aws::S3::Errors::NoSuchKey, "no key #{key}")
     end
 
-    Body.new(StringIO.new(held[:bytes]), held[:etag])
+    bytes = held[:bytes]
+    return Body.new(StringIO.new(bytes), held[:etag], bytes.bytesize) if range.nil?
+
+    first, last = range[/\Abytes=(\d+-\d+)\z/, 1].split("-").map(&:to_i)
+    served = bytes.byteslice(first..last).to_s
+
+    Body.new(StringIO.new(served), held[:etag], served.bytesize,
+             "bytes #{first}-#{first + served.bytesize - 1}/#{bytes.bytesize}")
   end
 
   def delete_object(bucket:, key:, **)

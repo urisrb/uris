@@ -58,6 +58,21 @@ class ImapResourceTest < ActiveSupport::TestCase
     Socket.singleton_class.alias_method(:tcp, :unpinned_tcp)
   end
 
+  test "get fetches the start of a long message and the size of the whole" do
+    @server.deliver subject: "Long", body: "word " * Resource::GLIMPSE_BYTES
+
+    got = Tenant.switch(@tenant) do
+      uid = @resource.command(:list)["messages"].map { |message| message["uid"] }.max
+      @resource.command(:get, uid: uid)
+    end
+
+    assert_operator got["size"], :>, Resource::GLIMPSE_BYTES * 5
+    assert_equal Resource::MAX_TEXT, got["text"].length
+    assert_match(/Subject: Long/, got["text"])
+    assert @server.fetched.any? { |asked| asked.include?("BODY.PEEK[]<0.#{Resource::GLIMPSE_BYTES}>") }
+    assert @server.fetched.none? { |asked| asked.include?("BODY.PEEK[])") }, "the whole message is never asked for"
+  end
+
   test "syncing a mailbox catalogues every message as an email item" do
     sync
 

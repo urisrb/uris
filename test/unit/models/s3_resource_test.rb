@@ -54,6 +54,23 @@ class S3ResourceTest < ActiveSupport::TestCase
     server&.close
   end
 
+  test "get asks the bucket for a glimpse of an object and reports the size of all of it" do
+    whole = "a" * (Resource::GLIMPSE_BYTES * 3)
+
+    got = Tenant.switch(@tenant) do
+      bucket = Resource::S3.create!(key: "glimpsed", details: { "endpoint" => FakeS3::ENDPOINT },
+                                    credentials: { "access_key_id" => "id", "secret_access_key" => "secret" })
+      bucket.client.put_object(bucket: "glimpsed", key: "big.txt", body: whole)
+      asked = []
+      store = bucket.client
+      store.singleton_class.prepend(Module.new { define_method(:get_object) { |**options| asked << options[:range]; super(**options) } })
+      bucket.command(:get, key: "big.txt").tap { assert_equal [ "bytes=0-#{Resource::GLIMPSE_BYTES - 1}" ], asked }
+    end
+
+    assert_equal whole.bytesize, got["size"].to_i
+    assert_equal Resource::MAX_TEXT, got["text"].length
+  end
+
   private
 
     def connection_for(endpoint)
