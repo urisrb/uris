@@ -82,6 +82,19 @@ refused a refresh — the resource is marked `needs_connect_at` and raises `Reso
 sync stops rather than retrying, and the resources page offers **Reconnect**. masks not answering is
 a `Resource::Failed`, retried like any other. A check or a sync that succeeds clears the mark.
 
+## Only mine, or everyone's
+
+Whoever attaches a resource says who can use it. **Everyone here** is the default, and what every
+resource was before. **Only me** records the attaching person's subject as `owner_subject`, and from
+then on the resource is absent for anybody else — from the resources query and every mutation that
+names one, from the `resource` and `feeds` tools, from the connect route, and from the MCP tools a
+personal server offers, which only its owner sees. A type connected through masks starts as only
+the attaching person's.
+
+What a personal resource syncs is catalogued like anything else, for the whole tenant. A personal
+resource is never where everybody's drops or questions go, and an agent working on a feed reaches
+only the resources everyone here can.
+
 ## Syncing
 
 A type that implements `each_page` can sync; one that does not, like the browser, can neither sync

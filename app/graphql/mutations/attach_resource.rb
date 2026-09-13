@@ -7,6 +7,8 @@ module Mutations
     argument :name, String, required: false
     argument :settings, GraphQL::Types::JSON, required: false,
              description: "One entry per field the type declares. Anything else is dropped."
+    argument :personal, Boolean, required: false,
+             description: "Only whoever attaches it can see and use it. Left off, everyone here can."
 
     field :resource, Types::ResourceType, null: false
     field :check_error, String, description: "What the first check said, if it did not pass."
@@ -14,11 +16,12 @@ module Mutations
           description: "Where to send the browser to connect it through masks, for a type that connects " \
                        "that way. Nothing is reachable until somebody does."
 
-    def resolve(type:, key:, name: nil, settings: nil)
+    def resolve(type:, key:, name: nil, settings: nil, personal: false)
       klass = attachable!(type)
 
       named = key.to_s.strip
-      resource = klass.new(key: named, name: name.presence&.strip || named)
+      resource = klass.new(key: named, name: name.presence&.strip || named,
+                           owner_subject: personal ? context[:grant]&.subject : nil)
 
       settle(resource, klass, settings)
 

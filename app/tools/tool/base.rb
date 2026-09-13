@@ -109,7 +109,7 @@ module Tool
       end
 
       def resource!(id)
-        Resource.attended.active.find_by(id: id) || raise(ArgumentError, "no resource with id #{id}")
+        Resource.visible_to(Current.grant).find_by(id: id) || raise(ArgumentError, "no resource with id #{id}")
       end
 
       def summarize(feed)

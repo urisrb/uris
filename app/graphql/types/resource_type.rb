@@ -28,6 +28,8 @@ module Types
                        "Nothing held encrypted is ever read back."
     field :changeable, Boolean, null: false,
           description: "Whether it has a form to change. A type uris makes for itself does not."
+    field :personal, Boolean, null: false, method: :personal?,
+          description: "Whether only the person who attached it can see and use it."
     field :delegated, Boolean, null: false, method: :delegated?,
           description: "Whether it reaches somebody's account elsewhere through masks."
     field :needs_connect, Boolean, null: false, method: :needs_connect?,

@@ -51,7 +51,7 @@ class ResourceConnectionsController < ApplicationController
     end
 
     def connectable(id)
-      resource = Resource.attended.active.find_by(id: id)
+      resource = Resource.visible_to(grant).find_by(id: id)
 
       resource if resource&.delegated?
     end

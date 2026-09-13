@@ -57,6 +57,7 @@ interface Resource {
   settings: Record<string, unknown>
   heldCredentials: string[]
   changeable: boolean
+  personal: boolean
   delegated: boolean
   needsConnect: boolean
   connectedBy?: string | null
@@ -253,6 +254,11 @@ export function Resources() {
                     {standing(resource)}
                   </span>
                 </Tooltip>
+                {resource.personal && (
+                  <span className="tag" data-dot="false">
+                    only you
+                  </span>
+                )}
                 {resource.defaultStorage && (
                   <span
                     className="tag"

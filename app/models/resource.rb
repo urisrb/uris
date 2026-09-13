@@ -49,6 +49,9 @@ class Resource < ApplicationRecord
 
   scope :active, -> { where(archived_at: nil) }
   scope :attended, -> { where.not(type: "database", key: INTERNAL.keys.map(&:to_s)) }
+  scope :shared, -> { where(owner_subject: nil) }
+  scope :reachable_by, ->(grant) { where(owner_subject: [ nil, grant&.subject ].uniq) }
+  scope :visible_to, ->(grant) { attended.active.reachable_by(grant) }
   scope :scheduled, -> { active.where.not(sync_interval: nil) }
   scope :not_syncing, -> {
     where(sync_started_at: nil).or(where(sync_started_at: ...SYNC_ABANDONED_AFTER.ago))
@@ -145,7 +148,7 @@ class Resource < ApplicationRecord
     SQL
 
     def accepting(mime, size: nil)
-      scope = active.where(ACCEPTS, mime.to_s)
+      scope = active.shared.where(ACCEPTS, mime.to_s)
 
       size.nil? ? scope : scope.where(ROOM, size.to_i)
     end
@@ -406,6 +409,10 @@ class Resource < ApplicationRecord
     false
   end
 
+  def personal?
+    owner_subject.present?
+  end
+
   def needs_connect?
     false
   end
@@ -511,6 +518,8 @@ class Resource < ApplicationRecord
     def a_default_is_a_resource_that_can_be_one
       DEFAULTABLE.each do |capability, column|
         next unless public_send(:"#{column}?")
+
+        next errors.add(column, "cannot be set on #{key}, which is only its owner's") if personal?
         next if capabilities.include?(capability)
 
         errors.add(column, "cannot be set on #{self.class.sti_name}, which is not #{capability}")

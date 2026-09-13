@@ -5,6 +5,7 @@ import {
   Group,
   Loader,
   Modal,
+  SegmentedControl,
   Select,
   Stack,
   Text,
@@ -164,6 +165,7 @@ export function Attach({
   const [seededFor, setSeededFor] = useState<string | null>(null)
   const [refused, setRefused] = useState<string | null>(null)
   const [warned, setWarned] = useState<string | null>(null)
+  const [personal, setPersonal] = useState(false)
 
   const types = data?.resourceTypes ?? []
   const type = types.find((held) => held.type === chosen) ?? null
@@ -180,6 +182,7 @@ export function Attach({
     setChosen(next.type)
     setKey((held) => held || next.type)
     setTyped(seeded(next))
+    setPersonal(next.delegated)
     setRefused(null)
     setWarned(null)
   }
@@ -231,6 +234,7 @@ export function Attach({
       type: type.type,
       key: key.trim(),
       name: name.trim() || null,
+      personal,
       settings: Object.fromEntries(
         shown.map((field) => [field.name, typed[field.name]]),
       ),
@@ -369,6 +373,27 @@ export function Attach({
               value={name}
               onChange={(event) => setName(event.currentTarget.value)}
             />
+
+            {!editing && (
+              <Stack gap="var(--s1)">
+                <Text size="sm" fw={500}>
+                  Who can use it
+                </Text>
+                <SegmentedControl
+                  value={personal ? 'me' : 'everyone'}
+                  onChange={(next) => setPersonal(next === 'me')}
+                  data={[
+                    { value: 'everyone', label: 'Everyone here' },
+                    { value: 'me', label: 'Only me' },
+                  ]}
+                />
+                <Text size="xs" c="dimmed">
+                  {personal
+                    ? 'Nobody else sees it, or reaches it through a tool. What it syncs is still catalogued for everyone.'
+                    : 'Anyone signed in here can use it, and so can the agents working on feeds.'}
+                </Text>
+              </Stack>
+            )}
           </Stack>
 
           {type.fields.length > 0 && (

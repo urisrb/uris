@@ -20,6 +20,7 @@ query Resources($archived: Boolean) {
     settings
     heldCredentials
     changeable
+    personal
     delegated
     needsConnect
     connectedBy
@@ -136,9 +137,16 @@ mutation AttachResource(
   $key: String!
   $name: String
   $settings: JSON
+  $personal: Boolean
 ) {
   attachResource(
-    input: { type: $type, key: $key, name: $name, settings: $settings }
+    input: {
+      type: $type
+      key: $key
+      name: $name
+      settings: $settings
+      personal: $personal
+    }
   ) {
     resource {
       id

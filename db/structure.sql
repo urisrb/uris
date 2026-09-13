@@ -449,7 +449,8 @@ CREATE TABLE public.resources (
     via_id bigint,
     serving jsonb DEFAULT '{}'::jsonb NOT NULL,
     connected_by character varying,
-    needs_connect_at timestamp(6) without time zone
+    needs_connect_at timestamp(6) without time zone,
+    owner_subject character varying
 );
 
 ALTER TABLE ONLY public.resources FORCE ROW LEVEL SECURITY;
@@ -1225,6 +1226,13 @@ CREATE INDEX index_resources_on_tenant_id ON public.resources USING btree (tenan
 
 
 --
+-- Name: index_resources_on_tenant_id_and_owner_subject; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_resources_on_tenant_id_and_owner_subject ON public.resources USING btree (tenant_id, owner_subject);
+
+
+--
 -- Name: index_resources_on_tenant_id_and_type_and_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1735,6 +1743,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260913140000'),
 ('20260913130000'),
 ('20260913120000'),
 ('20260912200000');

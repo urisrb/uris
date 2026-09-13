@@ -84,7 +84,7 @@ module Types
     end
 
     def resources(archived: false)
-      scope = archived ? Resource.attended.where.not(archived_at: nil) : Resource.attended.active
+      scope = archived ? Resource.attended.reachable_by(context[:grant]).where.not(archived_at: nil) : Resource.visible_to(context[:grant])
 
       scope.order(:type, :key)
     end

@@ -62,7 +62,7 @@ module Tool
     end
 
     def self.acted(verb, key, given)
-      resource = ::Resource.attended.active.find_by(key: key) ||
+      resource = ::Resource.visible_to(Current.grant).find_by(key: key) ||
                  raise(ArgumentError, "no resource called #{key}")
 
       Current.grant.permit!(WEB) if verb == "search" && resource.capabilities.include?(:search)
@@ -96,7 +96,7 @@ module Tool
     end
 
     def self.listed
-      resources = ::Resource.attended.active.order(:type, :key).map do |resource|
+      resources = ::Resource.visible_to(Current.grant).order(:type, :key).map do |resource|
         {
           id: resource.id.to_s, type: resource.class.sti_name, key: resource.key,
           name: resource.name, capabilities: resource.capabilities,

@@ -52,6 +52,8 @@ access token until it expires, so masks is asked when one runs out rather than p
 - [ ] **Whose personal resources a feed may use.** A feed run in the background has no grant. It
       needs to know who made it — `Feed` records no `created_by` today — and whether an agent run
       for that person may reach their personal resources, or only the tenant's.
+      Until it is decided, an agent run's grant speaks for `feed:<key>`, which owns nothing, so it
+      reaches only the tenant's resources.
 - [ ] **What re-analysis costs.** Carried from the last plan. An analysis that writes an edge
       re-analyzes the feed on the other side, which cascades without a cooldown. Per-feed cooldown,
       a depth cap, or a cause that refuses to write edges.
@@ -152,13 +154,13 @@ What masks has to hold, in outline:
 
 ## Phase 5 — a person's resources
 
-- [ ] `resources.owner_subject`, empty for the tenant's; connecting offers "only me" or "everyone
+- [x] `resources.owner_subject`, empty for the tenant's; connecting offers "only me" or "everyone
       here"
-- [ ] `Resource.visible_to(grant)` — the tenant's, and the grant subject's own — replaces
+- [x] `Resource.visible_to(grant)` — the tenant's, and the grant subject's own — replaces
       `Resource.attended.active` everywhere a person or a tool names a resource: the GraphQL
       mutations and query, `Tool::Resources`, `Tool::Base`, `Tool::Feeds`
-- [ ] `Grant#proxied` offers a personal MCP server's tools to its owner alone
-- [ ] A sync of a personal resource writes into the tenant's catalog like any sync; what an agent
+- [x] `Grant#proxied` offers a personal MCP server's tools to its owner alone
+- [x] A sync of a personal resource writes into the tenant's catalog like any sync; what an agent
       run may reach waits on the open decision above
 
 ## Verification
