@@ -28,7 +28,8 @@ Inputs are generated into the [MCP reference](/reference/mcp/).
 A token sees only the tools its scopes permit, and the `resource` tool is built per token by
 `Tool::Resources.for`: `list`, `describe`, `check`, `runs`, `get`, `parameters` and `search` are
 always in its schema, and `sync`, `export`, `cancel`, `put` and `snapshot` appear only when the token
-carries `uris:resources:command`. An ungranted command is absent from `tools/list`, not refused when
+carries `uris:resources:command`. A token with `uris:web:keep` also gets `snapshot`, which it can
+send only to a resource that renders pages, the `web` type. An ungranted command is absent from `tools/list`, not refused when
 called. Calls are still checked: `feed`'s writing verbs need `uris:catalog:write`, and searching a
 search-capable resource needs `uris:web:read`. A token with `uris:mcp:call` also sees the tools of
 any MCP server added as a resource, passed through.
@@ -64,6 +65,42 @@ uris:catalog:read  uris:catalog:write  uris:web:read  uris:resources:read
 
 It can search, read, file and place, and ask resources read-only questions. It cannot sync, export
 or write into a resource, reach an added MCP server, or touch settings.
+
+## Asking
+
+A question asked of the catalog is kept as a note and answered by an analysis with the cause `ask`.
+`Asking` builds the prompt and the agent runs for ten turns under the question's own grant, holding
+`Feed::ASKING_SCOPES`:
+
+```
+uris:catalog:read  uris:catalog:write  uris:web:read  uris:web:keep  uris:resources:read
+```
+
+The prompt asks for two things: an answer drawn from what the agent read, and a catalog left better
+for the asking. It offers only what the tenant has attached. With a search resource it can search
+the web. With a fetch resource, such as `curl`, it can read a page. With a `web` resource it can
+keep a page as a snapshot, which becomes an item of its own, and keeping the same address again
+later updates that item. Without any of them the question is asked of the catalog alone.
+
+The run is confined. `Current.confined_to` holds the feeds it made, and `feed`'s writing verbs
+refuse any other feed, so a page telling the agent to rewrite a note or rename a file cannot. It
+can create only notes, never a scheduled feed. `connect` needs one end to be the question or
+something the run made. Snapshots are not confined: the page, not the agent, decides what one
+holds.
+
+A small model tends to stop early, so an answer is turned back, once for each shortfall, when:
+
+- nothing came from the catalog and the web was never tried,
+- the web was searched and no page was read, with the exact calls for the addresses the search
+  returned,
+- pages were read and none was kept, while something could keep them.
+
+When it finishes, the question is connected to every feed it cited, opened or made, and to every
+page it kept. Then ten judges on the `smart` model, or the agent's model where no smart one is
+declared, each see the question, the answer and only what the tools returned. Each votes on whether
+the answer is supported by that evidence and whether what it kept is worth having again. The shares
+are stored on the analysis as the `verified` step and exposed as `Analysis.verified` and
+`Analysis.useful`. A judge that fails abstains. `ASK_VERIFICATIONS` sets how many judges there are.
 
 ## Budgets and gates
 

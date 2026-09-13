@@ -1,0 +1,141 @@
+require "test_helper"
+
+class AskingPromptTest < ActiveSupport::TestCase
+  setup do
+    @tenant = Tenant.create!(subdomain: "asking-#{SecureRandom.hex(4)}", name: "Asking")
+
+    Tenant.switch(@tenant) do
+      @question = Feed.create!(type: Feed::NOTE, key: "hn.algolia.com", title: "hn.algolia.com")
+      @other = Feed.create!(type: Feed::NOTE, key: "Other", title: "Other")
+    end
+  end
+
+  def result(name, arguments, content = {}, ok: true)
+    Agent::Dispatch::Result.new(name: name, arguments: arguments, content: content.to_json, ok: ok, error: nil)
+  end
+
+  def searched(*urls)
+    result("resource", { "do" => "search", "key" => "exa" }, { results: urls.map { |url| { url: url } } })
+  end
+
+  def fetched(url)
+    result("resource", { "do" => "get", "key" => "curl", "input" => { "url" => url } }, { text: "a page" })
+  end
+
+  def kept(url, id)
+    result("resource", { "do" => "snapshot", "key" => "web", "input" => { "url" => url } }, { url: url, id: id.to_s })
+  end
+
+  def exa! = Resource::Search.create!(key: "exa", details: { "provider" => "exa" }, credentials: { "api_key" => "k" })
+  def curl! = Resource::Curl.create!(key: "curl", name: "Curl")
+  def web! = Resource::Web.create!(key: "web", name: "The web")
+
+  def unfinished(calls) = Asking.new(@question).unfinished(calls)
+
+  test "with nothing beyond the catalog the question is asked of the catalog alone" do
+    Tenant.switch(@tenant) do
+      prompt = Asking.new(@question).prompt
+
+      assert_match(/hn\.algolia\.com/, prompt)
+      assert_no_match(/look beyond it/, prompt)
+      assert_nil unfinished([])
+    end
+  end
+
+  test "reading and keeping are offered only by what the tenant has attached" do
+    Tenant.switch(@tenant) do
+      exa!
+      searching = Asking.new(@question).prompt
+
+      assert_match(/key "exa"/, searching)
+      assert_match(/markdown link/, searching)
+      assert_no_match(/only a lead/, searching)
+      assert_no_match(/snapshot/, searching)
+
+      web!
+      keeping = Asking.new(@question).prompt
+
+      assert_match(/only a lead/, keeping)
+      assert_match(/do=snapshot, key "web"/, keeping)
+      assert_match(/open it with feed to read/, keeping)
+
+      curl!
+      reading = Asking.new(@question).prompt
+
+      assert_match(/do=get, key "curl"/, reading)
+      assert_no_match(/open it with feed to read/, reading)
+    end
+  end
+
+  test "an answer that found nothing in the catalog and never looked beyond it is sent to the web" do
+    looked = result("search", { "query" => "hn" })
+    opened = result("feed", { "id" => @other.id.to_s })
+
+    Tenant.switch(@tenant) do
+      exa!
+
+      assert_match(/look at the web.*key "exa"/, unfinished([ looked ]))
+      assert_nil unfinished([ looked, opened ])
+    end
+  end
+
+  test "an answer from search results alone is handed the exact call for each address the search found" do
+    Tenant.switch(@tenant) do
+      exa!
+
+      assert_nil unfinished([ searched("https://hn.algolia.com/about") ])
+
+      curl!
+      pushed = unfinished([ searched("https://hn.algolia.com/about", "javascript:alert(1)") ])
+
+      assert_includes pushed, { do: "get", key: "curl", input: { url: "https://hn.algolia.com/about" } }.to_json
+      assert_not_includes pushed, "javascript:"
+      assert_match(/without reading/, unfinished([ searched, fetched("https://x.test").with(ok: false) ]))
+    end
+  end
+
+  test "with no way to fetch, the call to read a page is a snapshot" do
+    Tenant.switch(@tenant) do
+      exa!
+      web!
+
+      pushed = unfinished([ searched("https://hn.algolia.com/about") ])
+
+      assert_includes pushed, { do: "snapshot", key: "web", input: { url: "https://hn.algolia.com/about" } }.to_json
+    end
+  end
+
+  test "pages read and none kept are pushed to be kept, once there is somewhere to keep them" do
+    Tenant.switch(@tenant) do
+      exa!
+      curl!
+      calls = [ searched("https://hn.algolia.com/about"), fetched("https://hn.algolia.com/about") ]
+
+      assert_nil unfinished(calls)
+
+      web!
+
+      assert_includes unfinished(calls), { do: "snapshot", key: "web", input: { url: "https://hn.algolia.com/about" } }.to_json
+      assert_nil unfinished(calls + [ kept("https://hn.algolia.com/about", @other.id) ])
+      assert_nil unfinished(calls + [ result("feed", { "do" => "create", "type" => "uris:note" }, { id: @other.id.to_s }) ])
+    end
+  end
+
+  test "the question is connected to what it cited, opened and kept, and never to itself" do
+    Tenant.switch(@tenant) do
+      web!
+      kept_page = Feed.create!(type: Feed::NOTE, key: "kept", title: "kept")
+      made = Feed.create!(type: Feed::NOTE, key: "made", title: "made")
+      tag = Feed.tag!("receipts")
+
+      answered = Agent::Answer.new(
+        said: "See [feed #{@other.id}] and [feed #{@question.id}] and [feed #{tag.id}].", reason: :answered, turns: 3,
+        calls: [ kept("https://hn.algolia.com/", kept_page.id),
+                 result("feed", { "do" => "create", "type" => "uris:note" }, { id: made.id.to_s }),
+                 kept("https://refused.test/", 999_999).with(ok: false) ]
+      )
+
+      assert_equal [ @other.id, kept_page.id, made.id ].sort, Asking.new(@question).connections(answered).pluck(:id).sort
+    end
+  end
+end

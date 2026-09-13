@@ -7,8 +7,11 @@ module Tool
     WRITE = %w[sync export cancel put snapshot].freeze
     RUNS = %w[sync export].freeze
 
+    KEEPING = %w[snapshot].freeze
+
     WRITES = "uris:resources:command".freeze
     WEB = "uris:web:read".freeze
+    KEEP = "uris:web:keep".freeze
 
     description <<~TEXT
       Ask a place to do something. A resource is an instance — "my B2 bucket" — of a type
@@ -20,7 +23,7 @@ module Tool
     TEXT
 
     def self.for(grant)
-      allowed = READ + (grant.permits?(WRITES) ? WRITE : [])
+      allowed = (READ + (grant.permits?(WRITES) ? WRITE : []) + (grant.permits?(KEEP) ? KEEPING : [])).uniq
 
       Class.new(self) do
         tool_name "resource"
@@ -52,7 +55,7 @@ module Tool
       respond(server_context, { key: key, do: verb }) do
         raise ArgumentError, "no such action '#{verb}'" unless (READ + WRITE).include?(verb)
 
-        Current.grant.permit!(WRITES) if WRITE.include?(verb)
+        permitted!(verb)
 
         verb == "list" && key.blank? ? listed : acted(verb, key, given)
       end
@@ -64,6 +67,7 @@ module Tool
 
       Current.grant.permit!(WEB) if verb == "search" && resource.capabilities.include?(:search)
       Current.grant.permit!(WEB) if verb == "get" && resource.capabilities.include?(:fetch)
+      kept!(resource) if KEEPING.include?(verb)
       within_budget! if RUNS.include?(verb)
 
       case verb
@@ -75,6 +79,20 @@ module Tool
       when "export" then exported(resource, given)
       else resource.command(verb, given)
       end
+    end
+
+    def self.permitted!(verb)
+      return unless WRITE.include?(verb)
+      return Current.grant.permit!(WRITES) unless KEEPING.include?(verb) && Current.grant.permits?(KEEP)
+
+      true
+    end
+
+    def self.kept!(resource)
+      return if Current.grant.permits?(WRITES)
+      return if resource.capabilities.include?(:browser)
+
+      raise ArgumentError, "#{resource.key} does not keep pages from the web; #{KEEP} only snapshots through one that does"
     end
 
     def self.listed

@@ -32,6 +32,8 @@ module Tool
 
         raise ArgumentError, "a feed cannot connect to itself" if one.id == other.id
 
+        confined!(one, other, also: Current.acting_for)
+
         connected ? one.connect!(other) : one.disconnect!(other)
 
         { connected: connected, a: summarize(one), b: summarize(other) }

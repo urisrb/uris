@@ -81,6 +81,26 @@ export function Ask({ onAsked }: { onAsked?: () => void }) {
   )
 }
 
+function Judged({
+  share,
+  label,
+  title,
+}: {
+  share: number
+  label: string
+  title: string
+}) {
+  return (
+    <span
+      className="ask-verified"
+      data-doubted={share < 0.5 || undefined}
+      title={title}
+    >
+      {Math.round(share * 100)}% {label}
+    </span>
+  )
+}
+
 function Answer({
   asking,
   onSettled,
@@ -125,12 +145,19 @@ function Answer({
           {question}
         </Link>
         {!open && pass?.verified != null && (
-          <span
-            className="ask-verified"
-            data-doubted={pass.verified < 0.5 || undefined}
-            title="The share of independent judges who found the answer answered the question from what its tools returned"
-          >
-            {Math.round(pass.verified * 100)}% judged answered
+          <span className="ask-verdicts">
+            <Judged
+              share={pass.verified}
+              label="answered"
+              title="The share of independent judges who found the answer answered the question from what its tools returned"
+            />
+            {pass.useful != null && (
+              <Judged
+                share={pass.useful}
+                label="worth keeping"
+                title="The share of the same judges who found what it kept in the catalog worth having again"
+              />
+            )}
           </span>
         )}
       </div>

@@ -51,6 +51,7 @@ module Tool
       return made(type: type, key: key, title: title, prompt: prompt) if verb == "create"
 
       feed = found(id, key)
+      confined!(feed) if WRITE.include?(verb)
 
       case verb
       when "note" then feed.update!(note: note.presence)
@@ -83,11 +84,13 @@ module Tool
 
     def self.made(type:, key:, title:, prompt:)
       wanted = type.presence || Feed::NOTE
+      raise ArgumentError, "this run can only make notes" if Current.confined_to && wanted != Feed::NOTE
+
       feed = Feed.create!(type: wanted, key: key.presence || title.to_s, title: title)
 
       feed.create_schedule!(prompt: prompt) if wanted == Feed::ADDRESS && prompt.present?
 
-      told(feed)
+      told(made!(feed))
     end
 
     def self.staged(feed)

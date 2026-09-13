@@ -76,6 +76,19 @@ module Tool
         MCP::Tool::Response.new([ { type: "text", text: body } ], error: error)
       end
 
+      def made!(feed)
+        Current.confined_to&.add(feed.id)
+        feed
+      end
+
+      def confined!(*feeds, also: nil)
+        held = Current.confined_to
+        return if held.nil?
+        return if feeds.any? { |feed| held.include?(feed.id) || feed.id == also }
+
+        raise ArgumentError, "this run can only change what it made itself, and #{feeds.map(&:id).join(' and ')} it did not make"
+      end
+
       def feed!(id)
         Feed.find_by(id: id) || raise(ArgumentError, "no feed with id #{id}")
       end

@@ -20,8 +20,8 @@ class VerifierTest < ActiveSupport::TestCase
   end
 
   test "the score is the share of judges who found it answered, each judging what the tools returned" do
-    3.times { @server.answer_json(answered: true, why: "the page says so") }
-    @server.answer_json(answered: false, why: "not supported")
+    3.times { @server.answer_json(answered: true, useful: false, why: "the page says so") }
+    @server.answer_json(answered: false, useful: true, why: "not supported")
 
     verdict = Tenant.switch(@tenant) do
       Verifier.new(inference: inference, runs: 4)
@@ -29,6 +29,7 @@ class VerifierTest < ActiveSupport::TestCase
     end
 
     assert_in_delta 0.75, verdict.score
+    assert_in_delta 0.25, verdict.useful
     assert_equal 4, verdict.runs
     assert_equal "not supported", verdict.votes.last["why"]
     assert(@server.prompts.all? { |prompt| prompt.include?("Beauharnois") })

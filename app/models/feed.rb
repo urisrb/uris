@@ -156,7 +156,9 @@ class Feed < ApplicationRecord
     uris:catalog:read uris:catalog:write uris:web:read uris:resources:read
   ].freeze
 
-  ASKING_SCOPES = %w[uris:catalog:read uris:web:read uris:resources:read].freeze
+  ASKING_SCOPES = %w[
+    uris:catalog:read uris:catalog:write uris:web:read uris:web:keep uris:resources:read
+  ].freeze
 
   def grant(scopes: AGENT_SCOPES)
     Grant.new(

@@ -21,9 +21,16 @@ module Types
     field :verified, Float,
           description: "How many independent judges, as a share from 0 to 1, found the answer answered " \
                        "the question from what its tools returned. Null until it has been judged."
+    field :useful, Float,
+          description: "How many of the same judges, as a share from 0 to 1, found what the answer kept " \
+                       "in the catalog worth having again. Null until it has been judged."
 
     def verified
       object.step_result("verified").to_h["score"]
+    end
+
+    def useful
+      object.step_result("verified").to_h["useful"]
     end
 
     def said

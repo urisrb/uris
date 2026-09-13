@@ -93,25 +93,69 @@ class AskingTest < ActionDispatch::IntegrationTest
 
   test "an answer is judged by ten judges, and the share who found it answered is its score" do
     @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
-    7.times { @server.answer_json(answered: true, why: "it says so") }
-    3.times { @server.answer_json(answered: false, why: "it does not") }
+    7.times { @server.answer_json(answered: true, useful: true, why: "it says so") }
+    3.times { @server.answer_json(answered: false, useful: false, why: "it does not") }
 
     asked = ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
-    feed = graphql("query($id: ID!) { feed(id: $id) { analyses { id verified } } }", id: asked.dig("feed", "id"))["feed"]
+    feed = graphql("query($id: ID!) { feed(id: $id) { analyses { id verified useful } } }", id: asked.dig("feed", "id"))["feed"]
 
     assert_in_delta 0.7, feed["analyses"].first["verified"]
+    assert_in_delta 0.7, feed["analyses"].first["useful"]
   end
 
-  test "the answering agent reads and cannot write" do
+  test "what the agent finds worth keeping becomes a note, connected to the question" do
+    @server.answer_tool_call("feed", do: "create", type: "uris:note", title: "HN Search is hosted in Canada")
+    @server.answer("Kept it.")
+
+    asked = ask("where is hn search hosted?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    Tenant.switch(@tenant) do
+      note = Feed.find_by!(title: "HN Search is hosted in Canada")
+
+      assert_equal Feed::NOTE, note.type
+      assert_includes Feed.find(asked.dig("feed", "id")).connected.pluck(:id), note.id
+    end
+  end
+
+  test "the answering agent changes only what it made, whatever a page tells it to do" do
+    @server.answer_tool_call("feed", do: "note", id: @invoice.id.to_s, note: "wiped")
+    @server.answer_tool_call("feed", do: "rename", id: @invoice.id.to_s, title: "wiped")
     @server.answer_tool_call("connect", a: @invoice.id.to_s, b: @other.id.to_s)
-    @server.answer("I could not connect them.")
+    @server.answer_tool_call("feed", do: "create", type: "uris:feed", title: "every hour", prompt: "spend")
+    @server.answer("I could not.")
 
     ask("Connect the invoice to the beach photo")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
-    Tenant.switch(@tenant) { assert_empty @invoice.connected }
+    Tenant.switch(@tenant) do
+      @invoice.reload
+
+      assert_nil @invoice.note
+      assert_equal "Acme invoice", @invoice.title
+      assert_empty @invoice.connected
+      assert_not Feed.exists?(title: "every hour")
+    end
+  end
+
+  test "the answering agent can keep a page but cannot sync, export or snapshot through anything but the web" do
+    Tenant.switch(@tenant) { @storage = Resource::Database.create!(key: "drop", name: "Drop") }
+    @server.answer_tool_call("resource", do: "sync", key: "drop")
+    @server.answer_tool_call("resource", do: "snapshot", key: "drop", input: { url: "https://example.com" })
+    @server.answer("I could not.")
+
+    asked = ask("keep example.com")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    Tenant.switch(@tenant) do
+      logs = Analysis.find(asked.dig("analysis", "id")).logs
+
+      assert_match(/\[x\].*resource.*sync/, logs)
+      assert_match(/\[x\].*resource.*snapshot.*does not keep pages/, logs)
+      assert_equal 0, Run.where(resource: @storage).count
+    end
   end
 
   test "a question with no model to answer it fails with the reason" do

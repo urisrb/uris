@@ -91,6 +91,26 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     assert_not_includes read.dig("properties", "do", "enum"), "sync"
   end
 
+  test "keeping pages from the web offers snapshot and nothing else a command could do" do
+    keep = tool_schema(%w[uris:resources:read uris:web:keep], "resource")
+
+    assert_includes keep.dig("properties", "do", "enum"), "snapshot"
+    assert_empty keep.dig("properties", "do", "enum") & (Tool::Resources::WRITE - Tool::Resources::KEEPING)
+  end
+
+  test "keeping pages from the web snapshots only through a resource that renders them" do
+    reply = call(@tenant, %w[uris:resources:read uris:web:keep], "tools/call",
+                 name: "resource", arguments: { key: @resource.key, do: "snapshot", input: { url: "https://example.com" } })
+
+    assert reply.dig("result", "isError")
+    assert_match(/does not keep pages/, reply.dig("result", "content", 0, "text"))
+
+    bare = call(@tenant, %w[uris:resources:read], "tools/call",
+                name: "resource", arguments: { key: @resource.key, do: "snapshot", input: { url: "https://example.com" } })
+
+    assert bare.dig("result", "isError")
+  end
+
   test "search returns this tenant's feeds and never another's" do
     result = tool(@tenant, ALL, "search", query: "invoice")
 

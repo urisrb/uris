@@ -1630,6 +1630,12 @@ a.tag:hover {
   font-weight: 600;
 }
 
+.ask-verdicts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}
+
 .ask-verified {
   color: var(--muted);
   font-weight: 500;

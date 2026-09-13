@@ -5,6 +5,7 @@ class Grant
     "uris:catalog:read" => "Read your catalog",
     "uris:catalog:write" => "Change your catalog",
     "uris:web:read" => "Search the web",
+    "uris:web:keep" => "Keep pages from the web",
     "uris:mcp:call" => "Use the servers you have added",
     "uris:resources:read" => "Read your places",
     "uris:resources:command" => "Act on your places",
