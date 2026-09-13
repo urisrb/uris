@@ -20,7 +20,7 @@ module Types
     field :analyzed_at, GraphQL::Types::ISO8601DateTime
     field :note, String, description: "What you wrote about it, in your own words."
     field :summary, String,
-          description: "What a model made of it. The extracted text, until one has run."
+          description: "What a model made of it, or until one has, the start of the text read out of it."
     field :keywords, [ String ], null: false,
           description: "Search terms a model drew out of it."
     field :thumbnail_url, String
@@ -40,7 +40,15 @@ module Types
     field :analyses, [ Types::AnalysisType ], null: false
 
     def summary
-      object.summary || object.body_text&.squish&.truncate(SUMMARY)
+      object.summary || excerpt
+    end
+
+    def excerpt
+      passed = object.analysis
+      said = passed && (passed.step_result("text").presence || passed.step_result("ocr").presence)
+      said = object.note if said.blank?
+
+      said.to_s.gsub(/[*`]+/, "").gsub(/[#>|\\]+/, " ").squish.truncate(SUMMARY).presence
     end
 
     def keywords

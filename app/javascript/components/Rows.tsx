@@ -12,10 +12,7 @@ function Gist({ row, className }: { row: Row; className: string }) {
   if (row.summary) return <div className={className}>{row.summary}</div>
   if (row.staged)
     return <div className={className}>Waiting for somewhere to live</div>
-  if (
-    !row.analyzedAt &&
-    (row.type === 'uris:file' || row.type === 'uris:note')
-  ) {
+  if (!row.analyzedAt && row.type === 'uris:file') {
     return <div className={className}>Not analyzed yet</div>
   }
 
