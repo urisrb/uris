@@ -88,9 +88,9 @@ What uris needs from the library:
 
 What the library does underneath, as far as uris cares:
 
-- The person goes to masks `/authorize` with PKCE, asking for `openid offline_access
-  masks:delegate:<provider>`. Masks shows the consent, links the provider first through `Linking`
-  if the person has no live connection to it, and sends a code back.
+- The person goes to masks `/authorize` with PKCE, asking for
+  `openid offline_access masks:delegate:<provider>`. Masks shows the consent, links the provider
+  first through `Linking` if the person has no live connection to it, and sends a code back.
 - The code is redeemed for a masks refresh token whose grant is bound to the client, the actor and
   the connection.
 - A token is a refresh, then an RFC 8693 exchange — masks' `Exchange` already takes one — with the
