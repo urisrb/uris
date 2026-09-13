@@ -20,6 +20,7 @@ class Resource < ApplicationRecord
   MAX_HOPS = 4
   DEFAULTABLE = { storage: :default_storage, inference: :default_inference }.freeze
   INTERNAL = { children: "Extracted children", derived: "Previews and thumbnails" }.freeze
+  INTERNAL_MARK = "internal".freeze
 
   TYPES = %w[
     s3 filesystem webdav caldav carddav imap rss web openai-compatible oauth-google database
@@ -31,6 +32,7 @@ class Resource < ApplicationRecord
   validates :sync_interval, numericality: {
     greater_than_or_equal_to: MINIMUM_SYNC_INTERVAL.to_i
   }, allow_nil: true
+  validate :an_internal_key_is_only_the_apps_own
   validate :only_a_syncable_resource_keeps_a_schedule
   validate :a_default_is_a_resource_that_can_be_one
   validate :via_is_a_transport
@@ -146,10 +148,11 @@ class Resource < ApplicationRecord
     end
 
     def internal!(key)
-      Resource::Database.find_or_create_by!(key: key.to_s) do |resource|
-        resource.name = INTERNAL.fetch(key)
-        resource.details = {}
-      end
+      held = Resource::Database.find_or_initialize_by(key: key.to_s)
+      held.name ||= INTERNAL.fetch(key.to_sym)
+      held.details = held.details.to_h.merge(INTERNAL_MARK => true)
+      held.save! if held.changed?
+      held
     end
 
     def declarations
@@ -236,6 +239,10 @@ class Resource < ApplicationRecord
 
   def capabilities
     self.class.capabilities
+  end
+
+  def internal?
+    is_a?(Resource::Database) && INTERNAL.key?(key.to_s.to_sym) && details.to_h[INTERNAL_MARK] == true
   end
 
   def storage?
@@ -395,6 +402,13 @@ class Resource < ApplicationRecord
   end
 
   private
+
+    def an_internal_key_is_only_the_apps_own
+      return unless INTERNAL.key?(key.to_s.to_sym)
+      return if is_a?(Resource::Database) && details.to_h[INTERNAL_MARK] == true
+
+      errors.add(:key, "#{key} is kept for a store uris makes for itself")
+    end
 
     def mirror_what_it_serves
       self.serving = self.class.serving

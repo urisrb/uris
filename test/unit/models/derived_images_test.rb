@@ -80,6 +80,16 @@ class DerivedImagesTest < ActiveSupport::TestCase
     end
   end
 
+  test "a resource someone attaches cannot take the key of a store uris keeps for itself" do
+    Tenant.switch(@tenant) do
+      squatter = Resource::S3.new(key: "derived", details: { "endpoint" => "http://x" })
+
+      assert_not squatter.valid?
+      assert_match(/kept for a store uris makes/, squatter.errors[:key].join)
+      assert Resource.internal!(:derived).internal?
+    end
+  end
+
   test "a place the app keeps for itself is never offered for a file" do
     Tenant.switch(@tenant) do
       Resource.internal!(:derived)

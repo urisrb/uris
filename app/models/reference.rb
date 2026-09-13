@@ -132,7 +132,7 @@ class Reference < ApplicationRecord
 
     def forget_bytes_uris_made
       store = Resource.find_by(id: resource_id)
-      return unless store.is_a?(Resource::Database) && Resource::INTERNAL.key?(store.key.to_sym)
+      return unless store&.internal?
       return if Reference.exists?(resource_id: resource_id, locator_key: locator_key)
 
       store.blobs.where(key: locator_key).delete_all
