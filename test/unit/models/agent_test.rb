@@ -178,6 +178,19 @@ class AgentTest < ActiveSupport::TestCase
     assert_match(/Read the pages first/, @server.prompts[1])
   end
 
+  test "a tool call written out as text is turned back to be made, and prose with json in it is not" do
+    @server.answer(%(I'll fetch it now:\n```json\n{"do": "get", "key": "curl", "input": {"url": "https://example.com"}}\n```))
+    @server.answer_tool_call("search", query: "invoice")
+    @server.answer(%(The invoice reads {"total": 4200, "currency": "USD"}.))
+
+    answered = run_agent
+
+    assert_equal :answered, answered.reason
+    assert_equal 3, answered.turns
+    assert_match(/wrote a tool call out as text/, @server.prompts[1])
+    assert_match(/4200/, answered.said)
+  end
+
   test "an unfinished answer on the last turn stands rather than spending a turn it does not have" do
     @server.answer("From the snippets alone.")
 

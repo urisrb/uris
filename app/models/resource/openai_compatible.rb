@@ -23,6 +23,7 @@ class Resource
     # A thinking model spends the budget reasoning before it emits anything. At 1024 it
     # runs out mid-thought and answers with neither content nor a tool call.
     AGENT_MAX_TOKENS = 8192
+    AGENT_CONTEXT = 16_384
     CHAIN_SYSTEM = "You have tools. Call one rather than answering from memory."
     CHAIN_ASK = "Search the catalog for invoices, then tell me what you found."
     CHAIN_RESULT = { count: 1, feeds: [ { id: "1", type: "uris:file", title: "acme.pdf" } ] }.to_json
@@ -123,10 +124,24 @@ class Resource
               "#{key}: #{base_url} does not serve #{missing.join(', ')} — it serves #{served.first(8).join(', ').presence || 'nothing'}"
       end
 
-      chains! if models.key?(AGENT_ROLE)
+      if models.key?(AGENT_ROLE)
+        chains!
+        roomy!
+      end
       embeds! if models.key?(EMBEDDING_ROLE)
 
       true
+    end
+
+    def roomy!
+      model = model_for(AGENT_ROLE)
+      loaded = loaded_context(model)
+      return true if loaded.nil? || loaded >= AGENT_CONTEXT
+
+      raise Resource::Unusable,
+            "#{key}: #{model} is loaded with a #{loaded}-token context. An agent's transcript outgrows " \
+            "that within a few turns and the model forgets its instructions and the question — give it " \
+            "#{AGENT_CONTEXT} or more, as OLLAMA_CONTEXT_LENGTH=32768 for ollama, then restart it"
     end
 
     def embeds!
@@ -344,6 +359,19 @@ class Resource
 
       def it_names_an_endpoint
         errors.add(:details, "must name a base_url") if details["base_url"].blank?
+      end
+
+      def loaded_context(model)
+        uri = URI.parse("#{base_url.chomp('/').delete_suffix('/v1')}/api/ps")
+        running = answer(uri, OPEN_TIMEOUT) { |held| Net::HTTP::Get.new(held, headers) }
+
+        found = Array(running["models"]).find do |entry|
+          [ entry["name"], entry["model"] ].any? { |name| name == model || name == "#{model}:latest" }
+        end
+
+        found&.dig("context_length")&.to_i&.nonzero?
+      rescue Resource::Unusable, Resource::Failed, URI::InvalidURIError
+        nil
       end
 
       def model_names

@@ -52,7 +52,13 @@ class FakeModelServer
       @embedded = []
       @width = WIDTH
       @vectors = {}
+      @loaded = nil
     end
+    self
+  end
+
+  def loads(model, context:)
+    @lock.synchronize { @loaded = { "name" => model, "model" => model, "context_length" => context } }
     self
   end
 
@@ -175,6 +181,7 @@ class FakeModelServer
       when %r{/models\z} then rendered(200, JSON.generate(models_payload))
       when %r{/chat/completions\z} then completion(body)
       when %r{/embeddings\z} then embeddings(body)
+      when %r{\A/api/ps\z} then loaded_payload
       else rendered(404, "")
       end
     end
@@ -204,6 +211,13 @@ class FakeModelServer
       end
 
       vector
+    end
+
+    def loaded_payload
+      held = @lock.synchronize { @loaded }
+      return rendered(404, "") if held.nil?
+
+      rendered(200, JSON.generate("models" => [ held ]))
     end
 
     def models_payload

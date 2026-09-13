@@ -13,7 +13,8 @@ class Verifier
 
     Answered: the answer responds to the question and every claim in it is supported by what the
     tools returned. An answer that describes a page no tool returned, or claims to have read
-    something it did not, is not answered.
+    something it did not, is not answered. An answer that only says what it will do next, or
+    writes out tool calls it means to make, is not answered: nothing ran.
 
     Useful: what it kept, the snapshot and create calls below, is worth having again for someone
     who asked this, and nothing it kept is a page of search results or something it never read.

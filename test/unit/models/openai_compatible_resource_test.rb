@@ -362,6 +362,36 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
     end
   end
 
+  test "check! refuses an agent model ollama loaded with too little context to hold a transcript" do
+    @server.serves(*MODELS.values, "qwen3:8b").loads("qwen3:8b", context: 4096)
+    @server.answer_tool_call("search", query: "invoice")
+    @server.answer("I found one invoice, acme.pdf.")
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: @resource.details.merge("models" => MODELS.merge("agent" => "qwen3:8b")))
+
+      refused = assert_raises(Resource::Unusable) { @resource.check! }
+
+      assert_match(/loaded with a 4096-token context.*OLLAMA_CONTEXT_LENGTH/, refused.message)
+    end
+  end
+
+  test "check! passes an agent model with room, and a backend that is not ollama" do
+    @server.serves(*MODELS.values, "qwen3:8b").loads("qwen3:8b", context: 32_768)
+    2.times { @server.answer_tool_call("search", query: "invoice") }
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: @resource.details.merge("models" => MODELS.merge("agent" => "qwen3:8b")))
+
+      assert @resource.check!
+
+      @server.reset!.serves(*MODELS.values, "qwen3:8b")
+      2.times { @server.answer_tool_call("search", query: "invoice") }
+
+      assert @resource.check!
+    end
+  end
+
   test "check! leaves a resource with no agent role alone" do
     @server.serves(*MODELS.values)
 

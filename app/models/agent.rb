@@ -11,6 +11,11 @@ class Agent
     or two sentences and stop.
   TEXT
 
+  WROTE_A_CALL = <<~TEXT.squish.freeze
+    You wrote a tool call out as text instead of making it, so nothing ran. Make the call with the
+    tool itself, then answer from what it returns.
+  TEXT
+
   LAST_TURN = <<~TEXT.freeze
     You have no turns left and no tools. Answer the request from what you have already
     read, in one or two sentences. If you never found it, say so plainly.
@@ -56,7 +61,7 @@ class Agent
       message = spoke(transcript, last: last)
       requested = Array(message["tool_calls"])
 
-      if requested.blank? && !last && (pushed = pressed)
+      if requested.blank? && !last && (pushed = pressed(message))
         transcript.said(message)
         transcript.closing(pushed)
         @analysis&.log_info("agent", "turn #{@turns_taken}", "pressed", pushed.truncate(200))
@@ -105,14 +110,23 @@ class Agent
       @clock.declared + told
     end
 
-    def pressed
-      return nil if @unfinished.nil?
-
-      pushed = @unfinished.call(@calls).presence
-      return nil if pushed.nil? || @pressed.include?(pushed)
+    def pressed(message)
+      wanted = [ (WROTE_A_CALL if wrote_a_call?(message["content"])), @unfinished&.call(@calls).presence ]
+      pushed = wanted.compact.find { |held| !@pressed.include?(held) }
+      return nil if pushed.nil?
 
       @pressed << pushed
       pushed
+    end
+
+    def wrote_a_call?(content)
+      held = Resource::OpenaiCompatible.extract_json(content.to_s.gsub(%r{<think>.*?</think>}m, ""))
+      return false unless held.is_a?(Hash)
+
+      named = (held["name"] || held.dig("function", "name")).to_s
+      return true if offered_names.include?(named) || named == Clock::NAME
+
+      held.key?("do") && (held.key?("key") || held.key?("id"))
     end
 
     def answer(transcript, raw)
