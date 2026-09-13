@@ -1,301 +1,204 @@
-# One record, one pass
+# Somebody else's account, through masks
 
-A feed is the root record — a file, a note, an address, a tag — and an analysis is the one
-record of a pass over it. Twelve MCP tools are four.
+A resource that acts as a person somewhere else — their Notion, their Drive, their OneDrive —
+reaches that account through the identity masks holds for them, and uris never runs an OAuth
+flow of its own.
 
-Written 2026-09-08, replacing the feeds plan, whose whole subject was absorbed: a feed used
-to mean a prompt with an address, and that is now a `uris:feed` row with a schedule beside it.
-Ordered by dependency; each phase is usable on its own and the one after it assumes the one
-before landed.
+Written 2026-09-13, replacing "One record, one pass", which finished 2026-09-12. Its open decision
+and the gaps it recorded are carried to the bottom of this one. Ordered by dependency; each phase
+is usable on its own and the one after it assumes the one before landed.
 
-Background: `~/Projects/things` is the prior art for the shape — its `Space` is our `Resource`,
-its `Blob` roles are our reference roles, and it replaced Active Storage rather than adapting it.
+Background: masks `47a211b` took upstream tokens out of masks the same day — `POST
+/connections/token`, `/connections/:provider/start`, the `masks:connections:*` scopes and the token
+columns on `Connection`. uris's `Broker`, `Resource::Brokered`, `Enrollment`, `oauth-google` and
+`microsoft-graph` are built on exactly those, so both types are dead against masks as it stands.
+Nothing noticed: every uris test talks to `test/support/fake_broker_server.rb`, and `Gemfile.lock`
+pins masks at `6c604ea`, from before the removal. This plan brings the tokens back into masks, and
+fixes what made them worth removing.
+
+## What the old broker got wrong
+
+- **It released a token to any bearer holding `masks:connections:<provider>`.** A scope says what
+  kind of thing a token may do, not whose account it may do it to or which application asked.
+- **Masks sat on every upstream call**, since nothing downstream kept what it was handed.
+
+A delegation is narrower on both counts. A token is released to one registered client, for one
+connection, which that connection's owner consented to that client using. uris holds the upstream
+access token until it expires, so masks is asked when one runs out rather than per call.
 
 ## Decisions still open
 
-- [x] **A mime type is a feed of its own.** `uris:mime`, keyed `text/markdown`, a singleton like
-      a tag and an address. A content type is a thing in the catalog — it can carry a title, a
-      note and connections a tag has no business holding, and keeping it out of `uris:tag` means
-      the tag facet is what a person filed rather than what a parser guessed. Decided 2026-09-08.
-- [ ] **What re-analysis costs.** An analysis that writes an edge re-analyzes the feed on the
-      other side, which cascades without a cooldown. Per-feed cooldown, a depth cap, or a cause
-      that refuses to write edges — one of the three, and it decides how lively the catalog is.
-- [x] **Type is a small closed vocabulary, not a mime.** Five values, because the SPA renders by
-      type. Decided 2026-09-08 at four; `uris:mime` made it five the same day.
-- [x] **Edges are symmetric and unlabelled.** Decided 2026-09-08.
-- [x] **Placement is decided per file by the agent**, from what each resource declares it
-      accepts, with the reason recorded. No routing table. Decided 2026-09-08.
-- [x] **Active Storage stages an upload and nothing else.** Resources stay hand-rolled.
-      Decided 2026-09-08.
+- [x] **Upstream tokens live in masks.** Not in uris per resource. Masks already knows the
+      identity, already links it, and is the one place a person can see and withdraw what every
+      application does with it. Decided 2026-09-13.
+- [x] **Connecting is gated on the identity.** Only the person whose masks account holds the
+      linked Notion (or Google, or Microsoft) identity can connect a resource to it. Decided
+      2026-09-13.
+- [x] **Google Drive and OneDrive move onto the same flow** rather than being deleted. Decided
+      2026-09-13.
+- [x] **A resource is the tenant's or a person's**, chosen by whoever connects it. Decided
+      2026-09-13.
+- [x] **The seam is a masks client library.** uris calls it and knows nothing of the wire; masks
+      ships it with a fake for uris' suite, the way `FakeIssuer` stands in for sign-in. Decided
+      2026-09-13.
+- [ ] **Does an MCP server's authorization server say who somebody is?** The gate needs a stable
+      subject. `mcp.notion.com` registers its clients dynamically and runs PKCE, but it is its own
+      authorization server, not Notion's public OAuth, and may hand back nothing that names the
+      Notion user. If it does not, a Notion MCP connection is gated on the masks actor alone, or
+      on a Notion identity linked separately through Notion's public OAuth. Find out before phase 2.
+- [ ] **What the client library is called and shaped like.** Phase 1 names what uris needs from
+      it, not what it is.
+- [ ] **Whose personal resources a feed may use.** A feed run in the background has no grant. It
+      needs to know who made it — `Feed` records no `created_by` today — and whether an agent run
+      for that person may reach their personal resources, or only the tenant's.
+- [ ] **What re-analysis costs.** Carried from the last plan. An analysis that writes an edge
+      re-analyzes the feed on the other side, which cascades without a cooldown. Per-feed cooldown,
+      a depth cap, or a cause that refuses to write edges.
 
-## Phase 0 — the schema
+## Phase 0 — keep one thing
 
-- [x] `feeds` — `(type, key)`, partial unique on the singleton types, `inheritance_column = nil`
-- [x] `feed_references` — role, mime, size, digest; the locator uniqueness carried across
-- [x] `feed_edges` — canonical pair, check constraint forcing `a_id < b_id`
-- [x] `analyses` — cause, status, steps, turns, logs, deadline
-- [x] `schedules` — the old feed's scheduling half, keyed by feed
-- [x] `items`, `item_references`, `feed_items`, `prompts` dropped; RLS on all five new tables
+Independent of masks, so it lands first. Today a resource is synced whole or not at all; its
+`list` and `get` let an agent look without keeping anything.
 
-**Phase 0 landed 2026-09-08.** Greenfield: `db:reset` and reseed, no data migration.
+- [ ] `object_for(id)` on the syncable types, answering the object `each_page` yields, so the
+      locator, key, mime, title and version come out the same way a sync would make them. Notion
+      first — one page lookup — then GitHub, Slack, S3, the filesystem, WebDAV and git
+- [ ] The body of `SyncResourceJob#each_iteration` — `Reference.discover!`, then
+      `awaiting_analysis?`, then `analyze!` — becomes a method on the resource both call, so a kept
+      object and a synced one cannot drift apart
+- [ ] `keep` in each type's `command_schema`, and in `Tool::Resources::WRITE`
+- [ ] A kept object is found again by the next full sync rather than duplicated, and changes are
+      noticed on it like any other
 
-## Phase 1 — the models
+## Phase 1 — the client library
 
-- [x] `Feed`, `Reference`, `Edge`, `Analysis`, `Schedule`; `Item`, `FeedItem`, `Prompt`,
-      `Kind` and `Feed::Harvest` deleted
-- [x] `Analyzer::Feed` renamed to `Analyzer::Entry`, because inside `module Analyzer` it shadowed
-      the `Feed` model and every constant lookup would have resolved to the analyzer
+Masks' work; recorded here so the two sides agree on what crosses. Names are illustrative.
 
-**Phase 1 landed 2026-09-08.** Two bugs written and caught on the way: a literal NUL byte in
-`analysis.rb` (which made grep treat the file as binary), and then `String#delete("\\u0000")`
-written with a doubled backslash — `delete` takes a character _set_, so it stripped every `\`,
-`u` and `0` from every stored string. It surfaced as `result` → `reslt`.
+What uris needs from the library:
 
-## Phase 2 — the pass
+- **Start connecting** — given a provider key and a return URL, an authorize URL and the state to
+  keep across the redirect.
+- **Finish connecting** — given the callback parameters and that state, a held delegation: the
+  connection, its provider, the subject that connected, and a secret for uris to keep encrypted.
+- **A token** — given a held delegation, a live upstream access token and when it expires, with
+  nobody signed in, and a replacement secret whenever the old one rotates.
+- **Two kinds of refusal** — refused (the connection was revoked, the identity unlinked, consent
+  withdrawn, the actor gone), which a person has to fix, and unavailable, which is worth retrying.
+- **A fake**, so uris' suite stops keeping a fake of masks' internals.
 
-- [x] `AnalyzeFeedJob` replaces `AnalyzeItemJob`, `AnalyzeItemsJob` and `RunFeedJob`
-- [x] `Analyzer.for` dispatches on mime; `Analyzer::Base#step` writes into `analysis.steps`
-- [x] `converse` and `complete` record turns into `analysis.turns` rather than opening a `Prompt`
-- [x] A feed is analyzed once, reading whichever reference can be read
+What the library does underneath, as far as uris cares:
 
-**Phase 2 landed 2026-09-08.**
+- The person goes to masks `/authorize` with PKCE, asking for `openid offline_access
+  masks:delegate:<provider>`. Masks shows the consent, links the provider first through `Linking`
+  if the person has no live connection to it, and sends a code back.
+- The code is redeemed for a masks refresh token whose grant is bound to the client, the actor and
+  the connection.
+- A token is a refresh, then an RFC 8693 exchange — masks' `Exchange` already takes one — with the
+  masks access token as `subject_token`, the connection as `audience`, and an upstream token type
+  as `requested_token_type`. Masks refreshes the upstream token itself.
 
-## Phase 3 — the loop
+What masks has to hold, in outline:
 
-- [x] `Agent` returns an `Answer(said:, reason:, turns:, calls:)` rather than a string or a symbol
-- [x] `Agent::Transcript` strips reasoning before replay and caps a tool result at a byte budget
-- [x] `Agent::Dispatch` validates through the tool's own `input_schema` — the same
-      `missing_required_arguments?` then `validate_arguments` the MCP server runs — then drops
-      keys the schema does not declare, and rescues `ArgumentError` as the backstop
-- [x] Three malformed calls in a row end the run `:flailed`
-- [x] The last turn is offered no tools and asked for an answer
-- [x] `test/models/agent_test.rb` — the first coverage this code has ever had
+- Encrypted access and refresh tokens back on `Connection`, only for a provider that delegates
+  access and names the API scopes it asks for beyond identity.
+- A `Delegation` — client, actor, connection, when consented and when revoked — made at consent,
+  listed and revocable from the account page and the manage API. Dynamically registered clients
+  cannot hold `masks:` scopes, so only an approved client can be delegated to.
+- `ExchangePolicy` releasing an upstream token only when the client may exchange, the subject token
+  carries `masks:delegate:<provider>`, its actor owns the live connection named, and a live
+  delegation exists for all three. Every release is an event.
+- Providers whose authorization server is an MCP server's own, found from
+  `/.well-known/oauth-protected-resource`, with masks registering itself as their client.
 
-**Phase 3 landed 2026-09-08.** 11 tests. `agentTurned` is gone rather than fixed: turns are
-logged to the analysis, so `analysisProgressed` is the one live stream.
+## Phase 2 — delegation replaces the broker
 
-## Phase 4 — four tools
+- [ ] Delete `Broker`, `Resource::Brokered`, `Enrollment`, `EnrollmentsController`, the `/enroll`
+      routes, `enrollResource`, `fake_broker_server.rb` and their tests
+- [ ] `Resource::Delegated`: the held delegation, the cached access token and its expiry in
+      `credentials`, which are already encrypted. `upstream_token` answers the cache until it
+      expires, then asks the library, and writes back what changed. `token_expired!` clears the
+      cache for `Api#answer`'s one retry
+- [ ] A refusal sets `needs_connect_at` and raises `Resource::Unusable`, so `SyncResourceJob` stops
+      rather than retrying it five times; a check or a sync that succeeds clears it
+- [ ] `Tenant#issuer` from `MASKS_ISSUER_TEMPLATE`, so a job with no request can reach masks. This
+      is what OneDrive's background sync has been missing — `Broker.release` read `Current.issuer`,
+      which only a request sets
+- [ ] `GET /resources/:id/connect`, behind `uris:resources:command`, keeps the library's state in
+      the session bound to the resource and the subject, and redirects. `GET /connect/callback`
+      refuses a state or a subject that does not match, and saves the delegation with
+      `connected_by`
+- [ ] `attachResource` takes a delegated type and makes it unconnected; `connectResource` answers
+      the address; `ResourceType` carries `connected`, `needsConnect` and `connectedBy`
+- [ ] `Attach.tsx` offers **Connect** where it offered a sign-in link, and a resource that needs it
+      shows **Reconnect**
 
-- [x] `search`, `feed`, `connect`, `resource`
-- [x] `search_web` absorbed into `resource` — `Resource::Search` already declares the capability
-- [x] Commands declare read or write; `Tool::Resources.for(grant)` builds the schema per grant, so
-      an ungranted command is absent from `tools/list` rather than refused at call time
-- [x] `uris:web:read` still gates a search-capable resource, so the granularity survives
-- [x] `Feed#grant` carries four scopes rather than every scope but admin
+## Phase 3 — Google Drive and OneDrive
 
-**Phase 4 landed 2026-09-08.**
+- [ ] `oauth-google` and `microsoft-graph` include `Delegated` in place of `Brokered`, naming masks'
+      `google` and `microsoft` providers. Their API calls do not change
+- [ ] `microsoft_graph_resource_test.rb` runs against the library's fake
+- [ ] OneDrive syncs on a schedule, with nobody signed in
 
-## Phase 5 — the suite loads again
+## Phase 4 — an MCP server through masks
 
-54 of 80 test files name a collapsed model, so `bin/rails test` does not load at all. Nothing
-below can be checked until this lands.
+- [ ] `Resource::Mcp` takes an optional provider. With one, its bearer is `upstream_token` rather
+      than a pasted token, and a 401 clears the cache and tries once more
+- [ ] A pasted token keeps working as it does today
+- [ ] The `mcp` gem's own OAuth flow stays unused: it blocks a thread across the browser round
+      trip, which suits a CLI rather than a request, and its discovery and token calls go through
+      a client of its own, past `PublicAddress`
 
-- [x] Port the tests whose subject did not change — tenant isolation, RLS, the resource adapters,
-      sync, export, search — because that coverage is expensive to regrow
-- [x] Delete the tests whose subject no longer exists: the `kind` vocabulary, feed-as-prompt, and
-      the per-tool tests for the eight tools that are gone
-- [x] Regrow MCP coverage against `search`, `feed`, `connect` and `resource`
-- [x] A tenant-isolation case per new table — RLS is per-table and does not come for free
-- [x] `test/unit/models/edge_test.rb`: the canonical-pair constraint refuses a reversed duplicate
+## Phase 5 — a person's resources
 
-**Phase 5 landed 2026-09-08.** 767 runs, 0 failures, 6 skips. Only one file ever failed to
-_load_ — a stale constant in a frozen list — because a constant named inside a method body is
-not resolved until it runs; the runner aborts on the first load error, which made one look
-like fifty. The rest were failures, and porting them turned up ten defects the refactor had
-left behind, each now a `fix` of its own:
+- [ ] `resources.owner_subject`, empty for the tenant's; connecting offers "only me" or "everyone
+      here"
+- [ ] `Resource.visible_to(grant)` — the tenant's, and the grant subject's own — replaces
+      `Resource.attended.active` everywhere a person or a tool names a resource: the GraphQL
+      mutations and query, `Tool::Resources`, `Tool::Base`, `Tool::Feeds`
+- [ ] `Grant#proxied` offers a personal MCP server's tools to its owner alone
+- [ ] A sync of a personal resource writes into the tenant's catalog like any sync; what an agent
+      run may reach waits on the open decision above
 
-- `SyncResourceJob` still asked a resource for `kind_for`, so every sync raised on its first
-  object. Every adapter had already been renamed to `mime_for`.
-- `QueryType` declared `feed` and `feeds` twice, which made the schema refuse to build — and
-  the later `def feeds` shadowed the paged resolver, so `after:` and `limit:` were ignored.
-- A pass started with no steps, so re-analysing re-ran extraction and paid for the summary
-  again. An analysis opens with the steps the last settled one left.
-- The index was written from the reference's `after_commit`, which fires while the analysis is
-  still running, so `analyses.settled.last` was nil and every summary indexed empty.
-- `Feed#analyzed_at` read the analysis, so a pass that deliberately did nothing — a message
-  whose attachments are not read yet — came back analyzed, and `children_ready?` believed it.
-- The run budget was declared per tool, and `resource` carries sync and export, so listing the
-  places spent from the hourly ceiling.
-- `run_progressed` triggered only the gid topic. It is the raw id and the wildcard now, which
-  also closes the gap recorded below.
-- An embedding was staled by writing to the reference. The pass settling is what stales it.
+## Verification
 
-`AnalyzeFeedJob` opens its own analysis when it is handed no id. It had one caller, which
-always passed one, and every `analysis&.` in the job meant a pass run any other way did its
-work into nowhere.
-
-## Phase 6 — resources declare themselves
-
-- [x] `serves` / `accepts` / `up_to` as a class macro, mirrored to a `resources.serving` jsonb
-      column on save, so "which resources accept a 4GB video?" is indexed SQL rather than
-      `capable_of` loading every active resource into Ruby
-- [x] `resource(do: "list")` reports what each accepts, which is what the agent reads
-- [x] `config/resources.yml` — ERB, per environment, every host and secret through `ENV`
-- [x] `Resource.declare!` reconciles per tenant, applying only fields that type's `attaching`
-      declares — that rule is `Resource::Settings` now, asked by both the file and the form
-- [x] Called from `bin/docker-entrypoint`, which already runs `db:prepare`
-- [x] A shipped container comes up with a filesystem resource on a declared volume and
-      `URIS_FILESYSTEM_ROOTS` set to match; `db/seeds.rb` goes back to two dev tenants
-- [x] ~~Eager-load the subclass directory in development, or the macro never runs~~ — not
-      needed. Nothing enumerates `Resource.subclasses`; every reader goes through `TYPES` and
-      `find_sti_class`, which autoloads, and the row is what a query reads rather than the class
-
-**Phase 6 landed 2026-09-08.** `Resource.declared!` is `declare!`, for symmetry with
-`Tenant.declare!`, which it stands beside in the entrypoint. `Resource::Web#mime_for` still
-answered `"page"` — the last of the kind vocabulary anywhere in the app.
-
-A mirror is only as fresh as the last save, so `Resource.restate!` exists for the case where a
-declaration changes in code and the rows do not. `uris:resources` runs it inside every tenant on
-boot — the migration's own call ran outside one, where row-level security hands back no rows, and
-restated nothing until that was found on 2026-09-12.
-
-## Phase 6a — a mime type is a feed
-
-- [x] `Feed::MIME`, a fifth type, singleton on `(tenant, type, key)` like a tag and an address
-- [x] `Feed.mime!`, `Feed.mimed`, the `mimes` scope and `Feed#mimes` beside their tag twins
-- [x] The pass files a feed under `Feed.mime!(mime)` rather than `Feed.tag!(mime)`
-- [x] `FeedType.mimes` and the `feed` tool report them apart from tags
-- [x] The migration sweeps the mechanically-minted mime tags and their edges
-
-**Phase 6a landed 2026-09-08.** 784 runs, 0 failures. `feed.tags` is now what a person or an
-agent filed, and nothing else — the mime no longer pads the `tags` keyword facet or the
-`tags^2` full-text field. The `mime` column on the reference stays: it is what `Analyzer.for`
-dispatches on, what `Resource#accepts` matches, and what the search facet reads. The feed is
-derived from the column rather than replacing it.
-
-The migration deletes `uris:tag` rows whose key contains a slash. That is a heuristic — a
-hand-made tag with a slash would go with them — but every slashed tag in existence was minted
-by `filed`, and the plan has been greenfield since phase 0.
-
-## Phase 7 — the upload lane
-
-**Phase 7 landed 2026-09-12.**
-
-- [x] `active_storage:install`; the service is `Disk` locally and S3 where web and worker are
-      separate containers, named by `URIS_STAGING_SERVICE`
-- [x] `POST /uploads` attaches and returns; the pass analyzes the attachment; the agent picks a
-      resource; a reference is recorded and the attachment purged
-- [x] `Intake.write!` stops uploading to `default_storage` inside the request
-- [x] Preview and thumbnail become stored references with roles, generated once, rather than
-      `Thumbnail` rendering on read into `Rails.cache`
-- [x] ~~Active Storage's three tables carry no RLS~~ — they carry a `tenant_id` and the same
-      policy as every other table, so a signed blob id minted in one tenant finds nothing in
-      another; `TenantScoped` is mixed into the three models on load
-- [x] Turn off the public redirect controllers; bytes are served through `content_controller`
-
-The upload lane landed 2026-09-12. `POST /uploads` answers 202 with the feed and the analysis
-before a byte reaches a resource, and refuses only when nothing active accepts that mime at that
-size — a default storage is no longer required, only somewhere to go. `Staged` is what an
-analyzer reads when a feed has no original yet; it answers the handful of `Reference` methods
-the analyzers call. `Placement` is the rest:
-
-- `returned!` runs before the analyzer: a path that is already stored goes back where it was,
-  with `changed_at` set, so the cached steps are superseded rather than describing old bytes.
-- The agent is shown the places that accept the file and asked to `feed(do: "place")` with a
-  reason. The tool refuses a place without one.
-- `settled!` runs after the agent: whatever is still staged goes to default storage, or to the
-  first place that accepts it, and the analysis fails loudly with the file still staged when
-  there is none.
-- Each writes a `placement` step — resource, path, `by` (`agent`, `return`, `default`) and the
-  reason — which the feed tool reports with the other steps.
-- A path another feed already holds in the chosen place is suffixed with the feed id rather
-  than overwritten. `Resource::INTERNAL` names the stores the app keeps for itself, which are
-  never offered.
-
-The pass renders both in a `derived` step, before the analyzer reads the file, into
-`Resource::INTERNAL`'s `derived` store keyed by feed and role; the image and page analyzers read
-the stored preview rather than rendering again, and a changed original supersedes the step.
-`/references/:id/thumbnail` is gone — `thumbnailUrl` is the thumbnail reference's own content URL,
-so it passes the same grant check as any other bytes. `small` went with it, since nothing asked
-for it. `Feed#reference`, the search document, `splitReference` and `forgetFeed` count originals
-only, and destroying a derived reference deletes its bytes from the store.
-
-Extracted children are keyed by feed and position now rather than by reference id, since a
-staged file has no reference and the same file placed later must not extract twice.
-
-## Phase 8 — the surface
-
-- [x] `codegen` and `web/schema.graphql` regenerated — both are ignored build output, so this was
-      only ever a step; what was stale was the operations, which asked `ContextRuns` for
-      variables it did not take and passed `kind` where `Catalog` takes none
-- [x] The SPA renders by the five types rather than by a `kind` column
-- [x] The feed page reads analyses rather than runs
-
-**Phase 8 landed 2026-09-12.** Before it, the catalog fell over the moment a tenant had a feed:
-the shelf mapped over a `FeedPage` as though it were a list. Every file rendered as a grey
-`uris:file`, since the tones and glyphs were keyed by the old kind names, and addresses linked
-to `//buy`, since the key carries its slash now.
-
-`looks.ts` is the one place a type becomes a glyph, a tone and a label. A file is looked at by
-the family of its mime — the same families the analyzers dispatch on, so the spectrum survives —
-and a note, a feed, a tag and a content type each look like what they are. The catalog lists
-files and notes by default, top-level only (`feeds(types:, topLevel:)`), and the type menu reaches
-the other three. A tag or a content type opens as a page of what is filed under it; a file shows
-its tags and content type as links, what was extracted from it, and what it was extracted from.
-
-The analysis trail is `Passes`: each pass with its cause, its steps and its log, live over
-`analysisProgressed`, and the placement shown against the reference it produced — chosen by the
-agent and why, put back where it was, or sent to default storage because nobody chose.
-
-Two server defects surfaced through the screenshots rather than the suite: `placement` and
-`derived` steps were feeding `extracted`, so a file's search body read "default storage shelf
-10/preview.jpg"; and `Analysis.newest_first` was an `order` appended to the association's own
-`order(:id)`, so a feed's analyses came oldest first.
-
-## Phase 9 — finishing
-
-- [x] `docs/` written again. Every page was deleted 2026-09-12 rather than patched — sixteen of
-      eighteen described items, kinds, twelve tools or a feed that was a prompt. Rewritten the same
-      day the way masks' are: five reference pages generated from the code by `./dev reference`
-      (`lib/reference_pages/`) — GraphQL, MCP tools, resource types, scopes and environment — with a
-      CI job that fails on drift, and eight concept pages and a quickstart written against the
-      source. Writing them turned up four defects, each fixed on its own: the MCP instructions
-      named tools that no longer exist, a failed sync held its resource for six hours, forgetting a
-      message left its extracted attachments' bytes behind, and a fetch resolved a host twice, so a
-      rebinding resolver could steer the connection past the address check
-- [x] Squash every migration into one initial migration — `20260912200000_create_uris_schema.rb`,
-      carrying the version of the last migration it replaced, so a database that ran the forty
-      has nothing pending and an empty one builds the same `structure.sql` byte for byte
-- [x] `./dev test` and `./dev fmt --check` green — 654 unit, 159 server, 5 corpus and 22 client
-      runs on 2026-09-12, locally; CI could not confirm it, because GitHub refused to start jobs
-      for the account's billing
-
-**Phase 9 landed 2026-09-12**, and with it the plan. What is left is below: the open decision
-about what re-analysis costs, and the gaps recorded rather than fixed.
-
-## Deferred
-
-- **Merge, and the proposals that fed it.** Removed 2026-09-08 rather than carried: `merge!`,
-  `MergeProposal`, `Blocking`, `ProposeMergesJob`, three mutations, the `merges` page and the
-  `merge_proposals` query. Nothing about the collapse needs it, and a proposal that says two
-  feeds are one thing is a question about identity that `(type, key)` has not been asked yet.
-  `Reference#move_to!` and `#split!` stay — a reference moving between feeds is what sync and
-  export already do, and a merge was only ever a loop over that.
-- **`split_reference` is a mutation with nothing to undo.** A feed only ends up with two
-  references through a merge, so the button is unreachable until merge comes back. Kept
-  because the model operation underneath it is not merge's.
+- The library's fake answering connect, token, rotation and both refusals; a cached token reused
+  and an expired one replaced; a refusal marking the resource and stopping the job; a background
+  sync with no `Current`
+- The connect flow end to end against `FakeIssuer`: the redirect, a wrong state refused, a
+  different subject refused, the delegation saved
+- A personal resource absent for another subject in GraphQL, the resource tool and the proxied
+  tools
+- `keep` cataloguing one Notion page with a version, and the next sync noticing its edit
+- Live, across both dev stacks: link a provider in masks, connect an MCP resource to it in uris,
+  restart `uris-worker`, check it and call one of its tools over MCP, then revoke the delegation
+  from the masks account page and watch **Reconnect** appear
 
 ## Known gaps, recorded rather than fixed
 
-- **The headless browser, the MCP client and git resolve hosts for themselves**, so the DNS
-  pinning `Download` and `PublicFetch` do stops short of them. The browser checks every request it
-  makes, which narrows the window but does not close it.
-- **Nothing sets an analysis `gated`, and nothing sweeps one past its deadline.** `Analysis#gated!`
-  exists and no caller does; the deadline is checked when the job starts and before each agent
-  turn, so a pass that is never picked up again stays open.
-- **`origin: "feed"` is never written.** The column and its immutability are enforced; nothing
-  mints a feed with that origin yet.
+Carried from the last plan, and from a sweep of the resource types on 2026-09-13 that fixed the
+rest of what it found.
 
-- **`SearchIndex.document` asks for a feed's tags one query at a time**, so a full reindex is
-  still one extra query per feed. It wants a join, or a batch lookup threaded through
-  `index_all` — which is machinery, so it stays recorded. The family half of this is fixed:
-  `body_text`, `summaries` and `keywords` walked `[self] + children` and asked each one for
-  `analyses.settled.last`, three times over, and `Analysis` was queried even when the
-  association was already loaded. A feed with twenty children cost 64 queries to index and now
-  costs 10, guarded by `test/unit/models/indexing_queries_test.rb`.
-- **An edge does not yet re-analyze the feed on the other side.** The `edge` cause exists and
-  nothing raises it, pending the cooldown decision above.
-- **A feed with no reference has no `analyzed_at`.** It reads the references, which is what the
-  analyzer stamps, so an address shows nothing where the SPA used to show a time. What an
-  address wants is its last analysis's `finished_at`, which is a phase 8 decision about what
-  the page shows rather than a model one.
+- **The headless browser resolves hosts for itself.** Git and the MCP client are pinned to the
+  vetted address now; the browser checks every request it makes, which narrows the window but
+  does not close it.
+- **Nothing sweeps an analysis past its deadline**, and nothing sets one `gated`.
+- **`origin: "feed"` is never written.**
+- **`SearchIndex.document` asks for a feed's tags one query at a time.**
+- **An edge does not re-analyze the feed on the other side**, pending the cost decision.
+- **A feed with no reference has no `analyzed_at`.**
+- **Nothing deleted at the source leaves the catalog.** No type compares a walk with what the last
+  one saw, and Graph's delta throws away the deletions it is handed.
+- **Every sync is a full walk.** IMAP rescans from the first UID, Graph discards its `deltaLink`,
+  GitHub never asks for `since`.
+- **Graph keys are probably bare filenames.** A delta response omits `parentReference.path`, so two
+  files of one name in different folders would share a key; the tests supply the path and cannot
+  see it.
+- **Truncation is silent.** Fifty GitHub comments, two thousand Notion blocks three deep, git blobs
+  under two megabytes, the first thousand Slack users named.
+- **A resource cannot be edited or deleted**, only archived and attached again under another key.
+- **`declare!` runs on every boot** and takes default storage back for `files` from whatever was
+  chosen since.
+- **Fetches from fixed or operator-named hosts are not streamed.** `Resource::Api` and
+  `openai-compatible` read a whole body before any cap, unlike `PublicFetch`.
+- **Errors carry the address they failed on**, userinfo included for the types that do not refuse
+  it.
