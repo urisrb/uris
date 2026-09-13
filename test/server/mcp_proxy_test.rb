@@ -34,6 +34,25 @@ class McpProxyTest < ActionDispatch::IntegrationTest
     assert_includes listed, "search"
   end
 
+  test "the server is dialled at the address it was vetted at, not wherever its name points next" do
+    attach
+    speaks(text: "pinned")
+    dialled = []
+    recorder = Module.new do
+      define_method(:request) do |*args, **options, &block|
+        dialled << instance_variable_get(:@ipaddr) if address == "example.com"
+        super(*args, **options, &block)
+      end
+    end
+    Net::HTTP.prepend(recorder)
+
+    call(@tenant, ALL, "tools/call", name: "exa__web_search", arguments: { query: "x" })
+
+    assert_equal [ Offline::PUBLIC ], dialled.uniq
+  ensure
+    recorder&.send(:define_method, :request) { |*args, **options, &block| super(*args, **options, &block) }
+  end
+
   test "calling it forwards to the server and hands back what it said" do
     attach
     speaks(text: "a page about anything")

@@ -91,7 +91,11 @@ class Resource
       end
 
       def transport
-        MCP::Client::HTTP.new(url: permitted!(url).to_s, headers: headers)
+        pinned = pinned!(url)
+
+        MCP::Client::HTTP.new(url: pinned.uri.to_s, headers: headers) do |faraday|
+          faraday.adapter(:net_http) { |http| http.ipaddr = pinned.address }
+        end
       end
 
       def headers
