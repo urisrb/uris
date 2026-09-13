@@ -18,6 +18,13 @@ module Types
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false
     field :duration_ms, Integer
     field :said, String, description: "What the agent answered when the pass finished, if it ran."
+    field :verified, Float,
+          description: "How many independent judges, as a share from 0 to 1, found the answer answered " \
+                       "the question from what its tools returned. Null until it has been judged."
+
+    def verified
+      object.step_result("verified").to_h["score"]
+    end
 
     def said
       object.step_result("answer").to_h["said"].presence || last_agent_word

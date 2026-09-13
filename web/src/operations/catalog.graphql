@@ -203,6 +203,7 @@ query Asked($id: ID!) {
       status
       error
       said
+      verified
       turns
       createdAt
       finishedAt

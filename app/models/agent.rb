@@ -28,13 +28,15 @@ class Agent
 
   attr_reader :turns_taken, :calls
 
-  def initialize(grant:, inference: nil, tools: nil, analysis: nil, turns: TURNS, halted: nil)
+  def initialize(grant:, inference: nil, tools: nil, analysis: nil, turns: TURNS, halted: nil, unfinished: nil)
     @grant = grant
     @inference = inference || Resource.for_role(Resource::OpenaiCompatible::AGENT_ROLE)
     @offered = tools || grant.tools.select { |tool| READ_TOOLS.include?(tool.tool_name) }
     @analysis = analysis
     @turns = turns.to_i.clamp(1, 32)
     @halted = halted
+    @unfinished = unfinished
+    @pressed = Set.new
     @turns_taken = 0
     @calls = []
     @flailed = 0
@@ -52,6 +54,13 @@ class Agent
       last = @turns_taken == @turns
       message = spoke(transcript, last: last)
       requested = Array(message["tool_calls"])
+
+      if requested.blank? && !last && (pushed = pressed)
+        transcript.said(message)
+        transcript.closing(pushed)
+        @analysis&.log_info("agent", "turn #{@turns_taken}", "pressed", pushed.truncate(200))
+        next
+      end
 
       return finished(:answered, message["content"]) if requested.blank? || last
 
@@ -91,6 +100,16 @@ class Agent
           }
         }
       end
+    end
+
+    def pressed
+      return nil if @unfinished.nil?
+
+      pushed = @unfinished.call(@calls).presence
+      return nil if pushed.nil? || @pressed.include?(pushed)
+
+      @pressed << pushed
+      pushed
     end
 
     def answer(transcript, raw)

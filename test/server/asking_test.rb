@@ -91,6 +91,19 @@ class AskingTest < ActionDispatch::IntegrationTest
     assert(@server.prompts.any? { |prompt| prompt.include?(%(key "exa")) }, "the prompt names the web search")
   end
 
+  test "an answer is judged by ten judges, and the share who found it answered is its score" do
+    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+    7.times { @server.answer_json(answered: true, why: "it says so") }
+    3.times { @server.answer_json(answered: false, why: "it does not") }
+
+    asked = ask("How much is the Acme invoice?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    feed = graphql("query($id: ID!) { feed(id: $id) { analyses { id verified } } }", id: asked.dig("feed", "id"))["feed"]
+
+    assert_in_delta 0.7, feed["analyses"].first["verified"]
+  end
+
   test "the answering agent reads and cannot write" do
     @server.answer_tool_call("connect", a: @invoice.id.to_s, b: @other.id.to_s)
     @server.answer("I could not connect them.")

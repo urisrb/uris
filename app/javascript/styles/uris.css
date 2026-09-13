@@ -1620,9 +1620,24 @@ a.tag:hover {
 }
 
 .ask-question {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+  align-items: baseline;
+  justify-content: space-between;
   color: var(--soft);
   font-size: var(--t-small);
   font-weight: 600;
+}
+
+.ask-verified {
+  color: var(--muted);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.ask-verified[data-doubted] {
+  color: var(--bad);
 }
 
 .ask-question a {

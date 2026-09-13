@@ -249,14 +249,14 @@ class Resource
       Rails.logger.warn "#{key}: a turn could not be recorded — #{e.message}"
     end
 
-    def summarize(prompt, role:, analysis: nil, images: [])
+    def summarize(prompt, role:, analysis: nil, images: [], temperature: nil)
       model = model_for(role)
       tries = attempts_for(role)
       last = nil
 
       tries.times do |index|
         answer = complete(prompt, model: model, role: role, analysis: analysis,
-                          attempt: index + 1, images: images)
+                          attempt: index + 1, images: images, temperature: temperature)
         parsed = self.class.extract_json(answer)
 
         return parsed if parsed.is_a?(Hash) && parsed.present?
@@ -350,12 +350,12 @@ class Resource
         get("/models").fetch("data", []).filter_map { |entry| entry["id"] }
       end
 
-      def complete(prompt, model:, role:, analysis:, attempt:, images:)
+      def complete(prompt, model:, role:, analysis:, attempt:, images:, temperature: nil)
         body = scrub(prompt).truncate(MAX_PROMPT)
         started = Time.current
 
         begin
-          content = ask(body, model, images)
+          content = ask(body, model, images, temperature: temperature)
         rescue StandardError => e
           noted(analysis, role: role, model: model, number: attempt, request: body,
                 started_at: started,
@@ -368,14 +368,14 @@ class Resource
         content
       end
 
-      def ask(body, model, images)
+      def ask(body, model, images, temperature: nil)
         messages = [
           { role: "system", content: JSON_SYSTEM },
           { role: "user", content: said(body, images) }
         ]
 
         payload = { model: model, messages: messages, stream: false,
-                    max_tokens: max_tokens, temperature: temperature }
+                    max_tokens: max_tokens, temperature: temperature || self.temperature }
         payload[:response_format] = { type: "json_object" } if json_mode?
 
         answered = post("/chat/completions", payload,

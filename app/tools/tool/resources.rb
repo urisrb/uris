@@ -13,7 +13,9 @@ module Tool
     description <<~TEXT
       Ask a place to do something. A resource is an instance — "my B2 bucket" — of a type
       such as s3, and each type accepts its own commands; describe tells you which. Called
-      with no key it lists the places there are. Credentials never travel through here:
+      with no key it lists the places there are. Some places reach the web: one that can
+      search takes do=search with input {"query": "..."}, and one that can fetch reads a page
+      with do=get and input {"url": "https://..."}. Credentials never travel through here:
       connecting a resource is a browser flow.
     TEXT
 

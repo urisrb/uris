@@ -156,6 +156,43 @@ class AgentTest < ActiveSupport::TestCase
     assert_equal 0, answered.turns
   end
 
+  test "an answer that is not finished is turned back once, and the second answer stands" do
+    @server.answer("From the snippets alone.")
+    @server.answer_tool_call("search", query: "invoice")
+    @server.answer("Still from the snippets.")
+
+    asked = []
+    answered = Tenant.switch(@tenant) do
+      held = grant
+      Current.grant = held
+      Agent.new(grant: held, turns: 6, unfinished: ->(calls) { asked << calls.size; "Read the pages first." })
+           .call("anything")
+    ensure
+      Current.grant = nil
+    end
+
+    assert_equal :answered, answered.reason
+    assert_equal "Still from the snippets.", answered.said
+    assert_equal 3, answered.turns
+    assert_equal [ 0, 1 ], asked
+    assert_match(/Read the pages first/, @server.prompts[1])
+  end
+
+  test "an unfinished answer on the last turn stands rather than spending a turn it does not have" do
+    @server.answer("From the snippets alone.")
+
+    answered = Tenant.switch(@tenant) do
+      held = grant
+      Current.grant = held
+      Agent.new(grant: held, turns: 1, unfinished: ->(_) { "Read the pages first." }).call("anything")
+    ensure
+      Current.grant = nil
+    end
+
+    assert_equal "From the snippets alone.", answered.said
+    assert_equal 1, answered.turns
+  end
+
   test "every turn and every call is recorded on the analysis" do
     @server.answer_tool_call("search", query: "invoice")
     @server.answer("The Acme invoice is for $4,200.")

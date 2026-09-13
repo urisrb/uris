@@ -124,6 +124,15 @@ function Answer({
         <Link to={`/items/${asking.feedId}`} className="plain">
           {question}
         </Link>
+        {!open && pass?.verified != null && (
+          <span
+            className="ask-verified"
+            data-doubted={pass.verified < 0.5 || undefined}
+            title="The share of independent judges who found the answer answered the question from what its tools returned"
+          >
+            {Math.round(pass.verified * 100)}% judged answered
+          </span>
+        )}
       </div>
 
       {open ? (
