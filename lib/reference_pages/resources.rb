@@ -72,11 +72,24 @@ module ReferencePages
 
       def fields(attaching)
         rows = attaching[:fields].map do |field|
-          [ code(field[:name]), prose(field[:label]), field[:kind], field[:required] ? "yes" : "",
-            field[:held] == :credentials ? "encrypted" : "", prose(field[:help]) ]
+          [ code(field[:name]), prose(field[:label]), kind_of(field), field[:required] ? "yes" : "",
+            field[:held] == :credentials ? "encrypted" : "", asked_when(field), prose(field[:help]) ]
         end
 
-        "### Fields\n\n#{table([ 'Field', 'Label', 'Kind', 'Required', 'Held', 'Help' ], rows)}"
+        "### Fields\n\n#{table([ 'Field', 'Label', 'Kind', 'Required', 'Held', 'Asked when', 'Help' ], rows)}"
+      end
+
+      def kind_of(field)
+        return field[:kind] if field[:options].nil?
+
+        "#{field[:kind]} of #{field[:options].map { |option| code(option[:value]) }.join(' ')}"
+      end
+
+      def asked_when(field)
+        return "" if field[:shown_when].nil?
+
+        field[:shown_when].map { |name, values| "#{code(name)} is #{Array(values).map { |value| code(value) }.join(' or ')}" }
+                          .join(", ")
       end
 
       def commands(klass)

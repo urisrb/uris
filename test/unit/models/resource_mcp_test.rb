@@ -15,7 +15,7 @@ class ResourceMcpTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) do
       Resource::Mcp.create!(
         key: "exa", name: "Exa",
-        details: { "url" => "https://example.com/mcp" }.merge(details),
+        details: { "url" => "https://example.com/mcp", "auth" => "bearer" }.merge(details),
         credentials: { "token" => "sk-test" }
       )
     end
@@ -85,19 +85,38 @@ class ResourceMcpTest < ActiveSupport::TestCase
     assert_not_includes offered, "exa__web_search"
   end
 
-  test "a server is sent a bearer token or a username and password, never both" do
+  test "a server carries what its authentication sends, and nothing it does not" do
     Tenant.switch(@tenant) do
-      both = Resource::Mcp.new(key: "both", details: { "url" => "https://a.test/mcp" },
-                               credentials: { "token" => "t", "username" => "u", "password" => "p" })
-      orphaned = Resource::Mcp.new(key: "orphan", details: { "url" => "https://a.test/mcp" },
-                                   credentials: { "password" => "p" })
-      basic = Resource::Mcp.new(key: "basic", details: { "url" => "https://a.test/mcp" },
-                                credentials: { "username" => "u", "password" => "p" })
+      built = ->(auth, credentials, **details) do
+        Resource::Mcp.new(key: "m", details: { "url" => "https://a.test/mcp", "auth" => auth, **details.transform_keys(&:to_s) },
+                          credentials: credentials)
+      end
 
-      assert_not both.valid?
-      assert_match(/one or the other/, both.errors.full_messages.join)
-      assert_not orphaned.valid?
-      assert basic.valid?
+      assert built.call("basic", { "username" => "u", "password" => "p" }).valid?
+      assert built.call("header", { "header_value" => "v" }, header_name: "X-API-Key").valid?
+      assert built.call("none", {}).valid?
+
+      assert_not built.call("bearer", { "token" => "t", "username" => "u" }).valid?, "a stray username"
+      assert_not built.call("basic", { "password" => "p" }).valid?, "a password with no username"
+      assert_not built.call("header", { "header_value" => "v" }).valid?, "a header with no name"
+      assert_not built.call("digest", {}).valid?, "an authentication nothing sends"
+    end
+  end
+
+  test "a header of its own cannot be one the connection sets, or run onto another line" do
+    Tenant.switch(@tenant) do
+      %w[Host Content-Length Mcp-Session-Id Proxy-Authorization Cookie X\ Key].each do |name|
+        held = Resource::Mcp.new(key: "m", details: { "url" => "https://a.test/mcp", "auth" => "header", "header_name" => name },
+                                 credentials: { "header_value" => "v" })
+
+        assert_not held.valid?, "#{name} is not a header it may send"
+      end
+
+      smuggled = Resource::Mcp.new(key: "m", details: { "url" => "https://a.test/mcp", "auth" => "header", "header_name" => "X-Key" },
+                                   credentials: { "header_value" => "v\r\nHost: elsewhere" })
+
+      assert_not smuggled.valid?
+      assert_match(/another line/, smuggled.errors.full_messages.join)
     end
   end
 

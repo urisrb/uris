@@ -114,11 +114,12 @@ class Resource < ApplicationRecord
     end
 
     def field(name, label, kind: "string", required: false, secret: false, held: nil,
-              value: nil, help: nil, placeholder: nil)
+              value: nil, help: nil, placeholder: nil, options: nil, shown_when: nil)
       {
         name: name, label: label, kind: kind, required: required, secret: secret,
         held: held || (secret ? :credentials : :details),
-        value: value, help: help, placeholder: placeholder
+        value: value, help: help, placeholder: placeholder,
+        options: options, shown_when: shown_when
       }
     end
 

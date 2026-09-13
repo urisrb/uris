@@ -178,6 +178,15 @@ What one type of resource needs before it can answer. Resolves only for a token 
 | `syncs` | `Boolean!` |  |
 | `type` | `String!` |  |
 
+### AttachingCondition
+
+Resolves only for a token carrying `uris:resources:read`.
+
+| Field | Type |
+| --- | --- |
+| `field` | `String!` |
+| `values` | `[String!]!` |
+
 ### AttachingField
 
 Resolves only for a token carrying `uris:resources:read`.
@@ -185,13 +194,24 @@ Resolves only for a token carrying `uris:resources:read`.
 | Field | Type | Description |
 | --- | --- | --- |
 | `help` | `String` |  |
-| `kind` | `String!` | string, integer or boolean. |
+| `kind` | `String!` | string, integer, boolean or choice. |
 | `label` | `String!` |  |
 | `name` | `String!` |  |
+| `options` | [`[AttachingOption!]`](#attachingoption) | What a choice can be. |
 | `placeholder` | `String` |  |
 | `required` | `Boolean!` |  |
 | `secret` | `Boolean!` | Masked here, encrypted there, never read back. |
+| `shownWhen` | [`[AttachingCondition!]`](#attachingcondition) | Asked only while every one of these holds; left off, always asked. |
 | `value` | `String` | What it holds until something is typed. |
+
+### AttachingOption
+
+Resolves only for a token carrying `uris:resources:read`.
+
+| Field | Type |
+| --- | --- |
+| `label` | `String!` |
+| `value` | `String!` |
 
 ### AuditEvent
 

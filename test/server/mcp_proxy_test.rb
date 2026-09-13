@@ -18,10 +18,11 @@ class McpProxyTest < ActionDispatch::IntegrationTest
     @tenant = Tenant.create!(subdomain: "prx-#{SecureRandom.hex(4)}", name: "Proxied")
   end
 
-  def attach(credentials: { "token" => "sk-test" })
+  def attach(auth: "bearer", credentials: { "token" => "sk-test" }, **details)
     Tenant.switch(@tenant) do
       Resource::Mcp.create!(key: "exa", name: "Exa", credentials: credentials,
-                            details: { "url" => "https://example.com/mcp", "tools" => LISTED })
+                            details: { "url" => "https://example.com/mcp", "tools" => LISTED, "auth" => auth,
+                                       **details.transform_keys(&:to_s) })
     end
   end
 
@@ -63,7 +64,7 @@ class McpProxyTest < ActionDispatch::IntegrationTest
   end
 
   test "a server behind basic auth is sent the username and password on every request" do
-    attach(credentials: { "username" => "reader", "password" => "pa:ss" })
+    attach(auth: "basic", credentials: { "username" => "reader", "password" => "pa:ss" })
     speaks(text: "behind the gate")
 
     found = tool(@tenant, ALL, "exa__web_search", query: "anything")
@@ -72,6 +73,16 @@ class McpProxyTest < ActionDispatch::IntegrationTest
     assert_requested(:post, "https://example.com/mcp",
                      headers: { "Authorization" => "Basic #{Base64.strict_encode64('reader:pa:ss')}" }, at_least_times: 2)
     assert_not_requested(:post, "https://example.com/mcp", headers: { "Authorization" => "Bearer sk-test" })
+  end
+
+  test "a server that wants a header of its own is sent that header and no Authorization" do
+    attach(auth: "header", credentials: { "header_value" => "key-123" }, header_name: "X-API-Key")
+    speaks(text: "keyed")
+
+    tool(@tenant, ALL, "exa__web_search", query: "anything")
+
+    assert_requested(:post, "https://example.com/mcp", headers: { "X-API-Key" => "key-123" }, at_least_times: 2)
+    assert_not_requested(:post, "https://example.com/mcp") { |request| request.headers.key?("Authorization") }
   end
 
   test "calling it forwards to the server and hands back what it said" do

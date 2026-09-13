@@ -4,6 +4,12 @@ class Resource
 
     SCOPE = "uris:mcp:call".freeze
     JOINER = "__".freeze
+    AUTHS = %w[none bearer basic header].freeze
+    HEADER_NAME = /\A[A-Za-z0-9][A-Za-z0-9-]{0,63}\z/
+    RESERVED_HEADERS = %w[
+      host content-length content-type accept accept-encoding transfer-encoding connection upgrade te
+      trailer keep-alive cookie user-agent last-event-id
+    ].freeze
     PREFIX = /\A[a-z0-9][a-z0-9-]{0,30}\z/
     MAX_TOOLS = 40
 
@@ -18,10 +24,22 @@ class Resource
         names: "The prefix its tools answer under",
         fields: [
           field("url", "Address", required: true, placeholder: "https://mcp.example.com/mcp"),
-          field("token", "Bearer token", secret: true, help: "Sent as Authorization: Bearer."),
-          field("username", "Username", held: :credentials,
-                help: "For a server behind basic auth. Leave the token empty."),
-          field("password", "Password", secret: true)
+          field("auth", "Authentication", kind: "choice", value: "none",
+                options: [
+                  { value: "none", label: "None" },
+                  { value: "bearer", label: "Bearer token" },
+                  { value: "basic", label: "Username and password" },
+                  { value: "header", label: "A header of its own" }
+                ]),
+          field("token", "Bearer token", required: true, secret: true,
+                help: "Sent as Authorization: Bearer.", shown_when: { "auth" => "bearer" }),
+          field("username", "Username", required: true, held: :credentials,
+                shown_when: { "auth" => "basic" }),
+          field("password", "Password", required: true, secret: true, shown_when: { "auth" => "basic" }),
+          field("header_name", "Header", required: true, placeholder: "X-API-Key",
+                shown_when: { "auth" => "header" }),
+          field("header_value", "Value", required: true, secret: true,
+                help: "Sent as it is typed, on every request.", shown_when: { "auth" => "header" })
         ]
       }
     end
@@ -33,7 +51,7 @@ class Resource
     validate :it_names_an_address
     validate :its_key_can_prefix_a_tool
     validate :it_does_not_point_at_us
-    validate :it_authenticates_one_way
+    validate :it_authenticates_the_way_it_says
 
     def url
       details.to_h["url"].to_s
@@ -41,6 +59,10 @@ class Resource
 
     def offered
       Array(details.to_h["tools"])
+    end
+
+    def auth
+      details.to_h["auth"].presence || "none"
     end
 
     def check!
@@ -109,13 +131,13 @@ class Resource
 
       def authorization
         held = credentials.to_h
-        token = held["token"].presence
-        username = held["username"].presence
 
-        return { "Authorization" => "Bearer #{token}" } if token
-        return {} if username.nil?
-
-        { "Authorization" => "Basic #{Base64.strict_encode64("#{username}:#{held['password']}")}" }
+        case auth
+        when "bearer" then { "Authorization" => "Bearer #{held['token']}" }
+        when "basic" then { "Authorization" => "Basic #{Base64.strict_encode64("#{held['username']}:#{held['password']}")}" }
+        when "header" then { details.to_h["header_name"].to_s => held["header_value"].to_s }
+        else {}
+        end
       end
 
       def overheard!(pinned)
@@ -173,16 +195,33 @@ class Resource
         errors.add(:key, "is letters, numbers and dashes, so it can prefix a tool name")
       end
 
-      def it_authenticates_one_way
-        held = credentials.to_h
+      def it_authenticates_the_way_it_says
+        return errors.add(:details, "authenticates with #{AUTHS.join(', ')}") unless AUTHS.include?(auth)
 
-        if held["token"].present? && held["username"].present?
-          errors.add(:credentials, "carries a bearer token and a username — use one or the other")
+        wanted = { "bearer" => %w[token], "basic" => %w[username password], "header" => %w[header_value] }
+                 .fetch(auth, [])
+        held = credentials.to_h.compact_blank
+
+        (wanted - held.keys).each { |name| errors.add(:credentials, "needs #{name} to authenticate with #{auth}") }
+        (held.keys - wanted).each { |name| errors.add(:credentials, "carries #{name}, which #{auth} does not send") }
+
+        its_header_is_one_it_may_send if auth == "header"
+      end
+
+      def its_header_is_one_it_may_send
+        name = details.to_h["header_name"].to_s
+
+        unless name.match?(HEADER_NAME)
+          return errors.add(:details, "names a header of letters, numbers and dashes")
         end
 
-        return unless held["password"].present? && held["username"].blank?
+        if RESERVED_HEADERS.include?(name.downcase) || name.downcase.start_with?("mcp-", "proxy-")
+          errors.add(:details, "names #{name}, which the connection sets for itself")
+        end
 
-        errors.add(:credentials, "carries a password with no username")
+        return unless credentials.to_h["header_value"].to_s.match?(/[\r\n\0]/)
+
+        errors.add(:credentials, "carries a header value that runs onto another line")
       end
 
       def it_does_not_point_at_us

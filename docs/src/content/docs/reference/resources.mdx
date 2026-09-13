@@ -47,14 +47,14 @@ Object storage. One bucket over the S3 API. AWS, R2, B2, Wasabi, MinIO and Garag
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `endpoint` | Endpoint | string | yes |  |  |
-| `region` | Region | string |  |  |  |
-| `prefix` | Prefix | string |  |  | Left off, the whole bucket is walked. |
-| `force_path_style` | Address the bucket by path | boolean |  |  | On for MinIO and Garage. Off for AWS' own endpoints. |
-| `access_key_id` | Access key | string | yes | encrypted |  |
-| `secret_access_key` | Secret key | string | yes | encrypted |  |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `endpoint` | Endpoint | string | yes |  |  |  |
+| `region` | Region | string |  |  |  |  |
+| `prefix` | Prefix | string |  |  |  | Left off, the whole bucket is walked. |
+| `force_path_style` | Address the bucket by path | boolean |  |  |  | On for MinIO and Garage. Off for AWS' own endpoints. |
+| `access_key_id` | Access key | string | yes | encrypted |  |  |
+| `secret_access_key` | Secret key | string | yes | encrypted |  |  |
 
 ### Commands
 
@@ -79,10 +79,10 @@ A directory. A directory on the machine running uris, inside this tenant's own d
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `root` | Directory | string | yes |  |  |
-| `prefix` | Prefix | string |  |  | Left off, the whole directory is walked. |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `root` | Directory | string | yes |  |  |  |
+| `prefix` | Prefix | string |  |  |  | Left off, the whole directory is walked. |
 
 ### Commands
 
@@ -107,12 +107,12 @@ WebDAV. A WebDAV collection — Nextcloud, ownCloud, or anything else speaking i
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `url` | Collection URL | string | yes |  |  |
-| `prefix` | Prefix | string |  |  | Left off, the whole collection is walked. |
-| `username` | Username | string |  | encrypted |  |
-| `password` | Password | string |  | encrypted |  |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `url` | Collection URL | string | yes |  |  |  |
+| `prefix` | Prefix | string |  |  |  | Left off, the whole collection is walked. |
+| `username` | Username | string |  | encrypted |  |  |
+| `password` | Password | string |  | encrypted |  |  |
 
 ### Commands
 
@@ -137,12 +137,12 @@ Calendars. A CalDAV collection. Only the events in it are catalogued.
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `url` | Collection URL | string | yes |  |  |
-| `prefix` | Prefix | string |  |  | Left off, the whole collection is walked. |
-| `username` | Username | string |  | encrypted |  |
-| `password` | Password | string |  | encrypted |  |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `url` | Collection URL | string | yes |  |  |  |
+| `prefix` | Prefix | string |  |  |  | Left off, the whole collection is walked. |
+| `username` | Username | string |  | encrypted |  |  |
+| `password` | Password | string |  | encrypted |  |  |
 
 ### Commands
 
@@ -166,12 +166,12 @@ Contacts. A CardDAV collection. Only the cards in it are catalogued.
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `url` | Collection URL | string | yes |  |  |
-| `prefix` | Prefix | string |  |  | Left off, the whole collection is walked. |
-| `username` | Username | string |  | encrypted |  |
-| `password` | Password | string |  | encrypted |  |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `url` | Collection URL | string | yes |  |  |  |
+| `prefix` | Prefix | string |  |  |  | Left off, the whole collection is walked. |
+| `username` | Username | string |  | encrypted |  |  |
+| `password` | Password | string |  | encrypted |  |  |
 
 ### Commands
 
@@ -195,14 +195,14 @@ A mailbox. One IMAP mailbox. Messages are catalogued, and their attachments beco
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `host` | Server | string | yes |  |  |
-| `port` | Port | integer |  |  | Left off, 993 with TLS and 143 without. |
-| `ssl` | Over TLS | boolean |  |  |  |
-| `mailbox` | Mailbox | string |  |  |  |
-| `username` | Username | string | yes | encrypted |  |
-| `password` | Password | string | yes | encrypted |  |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `host` | Server | string | yes |  |  |  |
+| `port` | Port | integer |  |  |  | Left off, 993 with TLS and 143 without. |
+| `ssl` | Over TLS | boolean |  |  |  |  |
+| `mailbox` | Mailbox | string |  |  |  |  |
+| `username` | Username | string | yes | encrypted |  |  |
+| `password` | Password | string | yes | encrypted |  |  |
 
 ### Commands
 
@@ -227,9 +227,9 @@ A feed. An RSS or Atom feed. Each entry becomes an item.
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `url` | Feed URL | string | yes |  |  |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `url` | Feed URL | string | yes |  |  |  |
 
 ### Commands
 
@@ -253,9 +253,9 @@ The web. What renders an address into a page you keep. One is enough for a tenan
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `width` | Render width | integer |  |  | How wide the window is when the page is taken. |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `width` | Render width | integer |  |  |  | How wide the window is when the page is taken. |
 
 ### Commands
 
@@ -280,16 +280,16 @@ A model backend. Anything speaking the OpenAI chat API — ollama, LM Studio, ll
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `base_url` | Base URL | string | yes |  |  |
-| `models.fast` | Fast model | string |  |  | Short summaries and titles. |
-| `models.smart` | Smart model | string |  |  | Longer reasoning. |
-| `models.vision` | Vision model | string |  |  | Anything that has to look at an image. |
-| `models.agent` | Agent model | string |  |  | What a feed drives. It has to call tools. |
-| `models.scout` | Scout model | string |  |  | What the agent sends out to find things, in a fresh context each time. It has to call tools, and can be smaller. Left empty, the agent model scouts. |
-| `models.embedding` | Embedding model | string |  |  | What search compares meaning with. Its vectors have to be the width the index was built for. |
-| `api_key` | API key | string |  | encrypted | Left off where the backend wants none. |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `base_url` | Base URL | string | yes |  |  |  |
+| `models.fast` | Fast model | string |  |  |  | Short summaries and titles. |
+| `models.smart` | Smart model | string |  |  |  | Longer reasoning. |
+| `models.vision` | Vision model | string |  |  |  | Anything that has to look at an image. |
+| `models.agent` | Agent model | string |  |  |  | What a feed drives. It has to call tools. |
+| `models.scout` | Scout model | string |  |  |  | What the agent sends out to find things, in a fresh context each time. It has to call tools, and can be smaller. Left empty, the agent model scouts. |
+| `models.embedding` | Embedding model | string |  |  |  | What search compares meaning with. Its vectors have to be the width the index was built for. |
+| `api_key` | API key | string |  | encrypted |  | Left off where the backend wants none. |
 
 ### Commands
 
@@ -355,11 +355,11 @@ Web search. Somewhere to look when the answer is not in the catalog. Exa, Brave 
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `provider` | Provider | string | yes |  | exa, brave or tavily. |
-| `endpoint` | Endpoint | string |  |  | Left off, the provider's own. |
-| `api_key` | API key | string | yes | encrypted |  |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `provider` | Provider | string | yes |  |  | exa, brave or tavily. |
+| `endpoint` | Endpoint | string |  |  |  | Left off, the provider's own. |
+| `api_key` | API key | string | yes | encrypted |  |  |
 
 ### Commands
 
@@ -405,12 +405,15 @@ An MCP server. Somebody else's tools, offered beside the catalog's own. Checking
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `url` | Address | string | yes |  |  |
-| `token` | Bearer token | string |  | encrypted | Sent as Authorization: Bearer. |
-| `username` | Username | string |  | encrypted | For a server behind basic auth. Leave the token empty. |
-| `password` | Password | string |  | encrypted |  |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `url` | Address | string | yes |  |  |  |
+| `auth` | Authentication | choice of `none` `bearer` `basic` `header` |  |  |  |  |
+| `token` | Bearer token | string | yes | encrypted | `auth` is `bearer` | Sent as Authorization: Bearer. |
+| `username` | Username | string | yes | encrypted | `auth` is `basic` |  |
+| `password` | Password | string | yes | encrypted | `auth` is `basic` |  |
+| `header_name` | Header | string | yes |  | `auth` is `header` |  |
+| `header_value` | Value | string | yes | encrypted | `auth` is `header` | Sent as it is typed, on every request. |
 
 ### Commands
 
@@ -434,11 +437,11 @@ GitHub. Issues and pull requests from the repositories you name, each one an ite
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `token` | Access token | string | yes | encrypted | A personal access token with read access to the repositories below. |
-| `repos` | Repositories | string | yes |  | One owner/name per line, or separated by commas. |
-| `state` | Which ones | string |  |  | open, closed, or all. all by default. |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `token` | Access token | string | yes | encrypted |  | A personal access token with read access to the repositories below. |
+| `repos` | Repositories | string | yes |  |  | One owner/name per line, or separated by commas. |
+| `state` | Which ones | string |  |  |  | open, closed, or all. all by default. |
 
 ### Commands
 
@@ -462,10 +465,10 @@ Notion. Every page the integration has been shared with, each one an item carryi
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `token` | Internal integration secret | string | yes | encrypted | From the integration's page under Notion's settings. |
-| `query` | Only pages matching | string |  |  | Left empty, every shared page is catalogued. |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `token` | Internal integration secret | string | yes | encrypted |  | From the integration's page under Notion's settings. |
+| `query` | Only pages matching | string |  |  |  | Left empty, every shared page is catalogued. |
 
 ### Commands
 
@@ -489,10 +492,10 @@ Slack. Threads from the channels the app has been invited to, each one an item. 
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `token` | Bot token | string | yes | encrypted | Needs channels:read, channels:history and users:read. A bot still has to be invited to each channel. |
-| `channels` | Only these channels | string |  |  | One name per line. Left empty, every channel the bot is in is catalogued. |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `token` | Bot token | string | yes | encrypted |  | Needs channels:read, channels:history and users:read. A bot still has to be invited to each channel. |
+| `channels` | Only these channels | string |  |  |  | One name per line. Left empty, every channel the bot is in is catalogued. |
 
 ### Commands
 
@@ -516,9 +519,9 @@ OneDrive. Connected in the browser rather than here — the credential is captur
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `folder` | Only under this folder | string |  |  | A path within the drive. Left empty, the whole drive is catalogued. |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `folder` | Only under this folder | string |  |  |  | A path within the drive. Left empty, the whole drive is catalogued. |
 
 ### Commands
 
@@ -542,11 +545,11 @@ A git repository. Every file at the tip of one branch, each one an item. The clo
 
 ### Fields
 
-| Field | Label | Kind | Required | Held | Help |
-| --- | --- | --- | --- | --- | --- |
-| `url` | Repository URL | string | yes |  |  |
-| `ref` | Branch | string |  |  | The default branch unless you name another. |
-| `token` | Access token | string |  | encrypted | Only for a private repository. It travels through an askpass helper, never in the URL or the command line. |
+| Field | Label | Kind | Required | Held | Asked when | Help |
+| --- | --- | --- | --- | --- | --- | --- |
+| `url` | Repository URL | string | yes |  |  |  |
+| `ref` | Branch | string |  |  |  | The default branch unless you name another. |
+| `token` | Access token | string |  | encrypted |  | Only for a private repository. It travels through an askpass helper, never in the URL or the command line. |
 
 ### Commands
 

@@ -112,6 +112,14 @@ query ResourceTypes {
       value
       help
       placeholder
+      options {
+        value
+        label
+      }
+      shownWhen {
+        field
+        values
+      }
     }
   }
 }

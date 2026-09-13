@@ -6,6 +6,7 @@ import {
   Group,
   Loader,
   Modal,
+  Select,
   Stack,
   Text,
   TextInput,
@@ -110,6 +111,12 @@ function grouped(types: readonly Attaching[]) {
   )
 }
 
+function asked(field: Field, typed: Typed) {
+  return (field.shownWhen ?? []).every((condition) =>
+    condition.values.includes(`${typed[condition.field] ?? ''}`),
+  )
+}
+
 function seeded(type: Attaching): Typed {
   return Object.fromEntries(
     type.fields.map((field) => [
@@ -153,7 +160,8 @@ export function Attach({
   }
 
   const attaching = attach.loading || enroll.loading
-  const missing = (type?.fields ?? []).filter(
+  const shown = (type?.fields ?? []).filter((field) => asked(field, typed))
+  const missing = shown.filter(
     (field) => field.required && !`${typed[field.name] ?? ''}`.trim(),
   )
   const ready =
@@ -186,7 +194,9 @@ export function Attach({
       type: type.type,
       key: key.trim(),
       name: name.trim() || null,
-      settings: typed,
+      settings: Object.fromEntries(
+        shown.map((field) => [field.name, typed[field.name]]),
+      ),
     })
 
     if (!answered?.attachResource?.resource) {
@@ -321,7 +331,7 @@ export function Attach({
               <div className="label">
                 {type.brokered ? 'Before you sign in' : 'Connection'}
               </div>
-              {type.fields.map((field) => (
+              {shown.map((field) => (
                 <Asked
                   key={field.name}
                   field={field}
@@ -393,6 +403,24 @@ function Asked({
   value: string | boolean | undefined
   onChange: (next: string | boolean) => void
 }) {
+  if (field.kind === 'choice') {
+    return (
+      <Select
+        size="md"
+        label={field.label}
+        description={field.help}
+        allowDeselect={false}
+        withAsterisk={field.required}
+        value={typeof value === 'string' ? value : null}
+        onChange={(next) => next !== null && onChange(next)}
+        data={(field.options ?? []).map((option) => ({
+          value: option.value,
+          label: option.label,
+        }))}
+      />
+    )
+  }
+
   if (field.kind === 'boolean') {
     return (
       <Checkbox

@@ -129,6 +129,46 @@ class AttachingTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a choice says what it can be, and a field says which choice it waits on" do
+    types = execute(<<~GQL).dig("data", "resourceTypes")
+      { resourceTypes { type fields { name kind options { value label } shownWhen { field values } } } }
+    GQL
+    fields = types.find { |held| held["type"] == "mcp" }["fields"].index_by { |field| field["name"] }
+
+    assert_equal "choice", fields["auth"]["kind"]
+    assert_equal %w[none bearer basic header], fields["auth"]["options"].pluck("value")
+    assert_nil fields["auth"]["shownWhen"]
+    assert_equal [ { "field" => "auth", "values" => [ "header" ] } ], fields["header_name"]["shownWhen"]
+  end
+
+  test "only the fields the chosen authentication asks for are kept, and only they are needed" do
+    body = execute(ATTACH, variables: {
+      type: "mcp", key: "keyed",
+      settings: { "url" => "https://mcp.example.test/mcp", "auth" => "header", "header_name" => "X-API-Key",
+                  "header_value" => "key-123", "token" => "left over from bearer", "username" => "and basic" }
+    })
+
+    Tenant.switch(@tenant) do
+      held = Resource.find(body.dig("data", "attachResource", "resource", "id"))
+
+      assert_equal({ "header_value" => "key-123" }, held.credentials)
+      assert_equal "X-API-Key", held.details["header_name"]
+    end
+
+    none = execute(ATTACH, variables: { type: "mcp", key: "open", settings: { "url" => "https://mcp.example.test/mcp" } })
+
+    assert_predicate none.dig("data", "attachResource", "resource"), :present?, "none asks for nothing more"
+  end
+
+  test "a choice the form never offered is refused by name" do
+    body = execute(ATTACH, variables: {
+      type: "mcp", key: "odd", settings: { "url" => "https://mcp.example.test/mcp", "auth" => "digest" }
+    })
+
+    assert_nil body.dig("data", "attachResource")
+    assert_match(/Authentication is one of none, bearer, basic, header/, body.dig("errors", 0, "message"))
+  end
+
   test "a type nobody attaches by hand is refused" do
     body = execute(ATTACH, variables: { type: "database", key: "sneaky" })
 

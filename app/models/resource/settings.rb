@@ -2,6 +2,7 @@ class Resource
   class Settings
     class Missing < ArgumentError; end
     class Unattachable < ArgumentError; end
+    class Unoffered < Missing; end
 
     def self.for(klass, given)
       new(klass, given).settle
@@ -18,7 +19,11 @@ class Resource
       details = {}
       credentials = {}
 
+      chosen = {}
+
       fields.each do |field|
+        next unless shown?(field, chosen)
+
         raw = offered(field)
 
         if blank?(raw)
@@ -27,8 +32,11 @@ class Resource
           next
         end
 
-        place(field[:held] == :credentials ? credentials : details, field[:name],
-              cast(raw, field[:kind]))
+        value = cast(raw, field[:kind])
+        refuse_unoffered!(field, value)
+        chosen[field[:name]] = value
+
+        place(field[:held] == :credentials ? credentials : details, field[:name], value)
       end
 
       [ details, credentials ]
@@ -44,6 +52,20 @@ class Resource
         return @fields if defined?(@fields)
 
         @fields = @klass.attaching&.fetch(:fields)
+      end
+
+      def shown?(field, chosen)
+        condition = field[:shown_when]
+        return true if condition.nil?
+
+        condition.all? { |name, wanted| Array(wanted).map(&:to_s).include?(chosen[name.to_s].to_s) }
+      end
+
+      def refuse_unoffered!(field, value)
+        return if field[:options].nil?
+        return if field[:options].any? { |option| option[:value] == value }
+
+        raise Unoffered, "#{field[:label]} is one of #{field[:options].map { |option| option[:value] }.join(', ')}"
       end
 
       def offered(field)
