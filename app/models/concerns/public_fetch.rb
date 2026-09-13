@@ -9,6 +9,7 @@ module PublicFetch
   MAX_REDIRECTS = 3
   OPEN_TIMEOUT = 5
   READ_TIMEOUT = 15
+  CARRIED_TO_ANOTHER_ORIGIN = %w[accept accept-encoding accept-language content-type depth user-agent].freeze
 
   class_methods do
     def private_fetches_allowed?
@@ -34,16 +35,18 @@ module PublicFetch
       raise Resource::Failed, "#{key}: #{e.message}"
     end
 
-    def over_http(target, redirects: MAX_REDIRECTS, &build)
+    def over_http(target, redirects: MAX_REDIRECTS, origin: nil, &build)
       pinned = pinned!(target)
       uri = pinned.uri
-      response = exchange(pinned, &build)
+      origin ||= origin_of(uri)
+      response = exchange(pinned) { |at| confined(build.call(at), at, origin) }
 
       case response
       when Net::HTTPRedirection
         raise Resource::Failed, "#{key}: too many redirects from #{target}" if redirects.zero?
 
-        over_http(URI.join(uri, response["location"].to_s).to_s, redirects: redirects - 1, &build)
+        over_http(URI.join(uri, response["location"].to_s).to_s,
+                  redirects: redirects - 1, origin: origin, &build)
       when Net::HTTPSuccess
         response
       else
@@ -51,6 +54,20 @@ module PublicFetch
       end
     rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, SystemCallError, OpenSSL::SSL::SSLError => e
       raise Resource::Failed, "#{key}: #{e.class} fetching #{target}"
+    end
+
+    def confined(request, at, origin)
+      return request if origin_of(at) == origin
+
+      request.to_hash.each_key do |name|
+        request.delete(name) unless CARRIED_TO_ANOTHER_ORIGIN.include?(name)
+      end
+
+      request
+    end
+
+    def origin_of(uri)
+      [ uri.scheme, uri.hostname.to_s.downcase, uri.port ]
     end
 
     def exchange(pinned, &build)

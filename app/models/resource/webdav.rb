@@ -205,7 +205,13 @@ class Resource
       end
 
       def url_for(path)
-        segments = path.to_s.split("/").reject(&:empty?).map { |part| ERB::Util.url_encode(part) }
+        parts = path.to_s.split("/").reject(&:empty?)
+
+        if parts.intersect?(%w[. ..])
+          raise Resource::Failed, "#{key}: #{path} climbs out of the collection"
+        end
+
+        segments = parts.map { |part| ERB::Util.url_encode(part) }
 
         URI.join(base, segments.join("/")).to_s
       end

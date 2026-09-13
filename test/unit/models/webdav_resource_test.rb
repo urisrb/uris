@@ -105,6 +105,44 @@ class WebdavResourceTest < ActiveSupport::TestCase
     assert_raises(PublicFetch::Blocked) { @resource.check! }
   end
 
+  test "a key cannot climb out of the collection to another on the same server" do
+    Tenant.switch(@tenant) do
+      [ "../other/secret.txt", "photos/../../other/secret.txt", "./notes.txt" ].each do |key|
+        error = assert_raises(Resource::Failed) { @resource.command(:get, key: key) }
+
+        assert_match(/climbs out/, error.message)
+      end
+    end
+  end
+
+  test "a redirect to another origin goes without the credentials, and one within the server keeps them" do
+    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+    carried = {}
+
+    stub_request(:get, "https://dav.example.test/files/moved.txt")
+      .to_return(status: 302, headers: { "Location" => "https://elsewhere.example.test/taken" })
+    stub_request(:get, "https://elsewhere.example.test/taken").to_return do |request|
+      carried[:elsewhere] = request.headers.transform_keys(&:downcase)
+      { status: 200, body: "taken" }
+    end
+    stub_request(:get, "https://dav.example.test/files/renamed.txt")
+      .to_return(status: 301, headers: { "Location" => "/files/notes.txt" })
+    stub_request(:get, "https://dav.example.test/files/notes.txt").to_return do |request|
+      carried[:home] = request.headers.transform_keys(&:downcase)
+      { status: 200, body: "remember the milk" }
+    end
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: { "url" => "https://dav.example.test/files/" })
+
+      @resource.command(:get, key: "moved.txt")
+      @resource.command(:get, key: "renamed.txt")
+    end
+
+    assert_not carried[:elsewhere].key?("authorization"), "the password does not follow a redirect off the server"
+    assert carried[:home].key?("authorization")
+  end
+
   private
 
     def sync
