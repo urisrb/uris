@@ -149,7 +149,7 @@ class AnalyzeFeedJob < ApplicationJob
     end
 
     def searchable(feed)
-      reach = Reach.new.told
+      reach = Reach.new(feed.grant).told
       return nil if reach.nil?
 
       <<~TEXT

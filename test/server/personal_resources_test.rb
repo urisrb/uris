@@ -147,6 +147,23 @@ class PersonalResourcesTest < ActionDispatch::IntegrationTest
     assert_nil Tenant.switch(@tenant) { Resource.browser(grant_for("bob")) }
   end
 
+  test "an agent is only told of web resources the grant it runs under can call" do
+    Tenant.switch(@tenant) do
+      Resource::Curl.create!(key: "adas-curl", owner_subject: "ada")
+      Resource::Curl.create!(key: "curl")
+      Resource::Web.create!(key: "adas-browser", owner_subject: "ada")
+
+      feed = create_feed(key: "question", title: "Question")
+      reach = Reach.new(feed.grant(scopes: Feed::ASKING_SCOPES))
+
+      assert_equal %w[curl], reach.fetchers
+      assert_empty reach.keepers
+      assert_equal "curl", reach.read_call("https://example.com/")[:key]
+
+      assert_equal %w[curl adas-curl], Reach.new(grant_for("ada")).fetchers
+    end
+  end
+
   test "a personal resource is never where everyone's drops land" do
     Tenant.switch(@tenant) do
       bucket = Resource::S3.new(key: "private-bucket", owner_subject: "ada", default_storage: true,

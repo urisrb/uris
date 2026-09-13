@@ -1,14 +1,18 @@
 class Reach
+  def initialize(grant)
+    @grant = grant
+  end
+
   def engines
-    @engines ||= Resource.capable_of(:search).pluck(:key)
+    @engines ||= keys(:search)
   end
 
   def fetchers
-    @fetchers ||= Resource.capable_of(:fetch).pluck(:key)
+    @fetchers ||= keys(:fetch)
   end
 
   def keepers
-    @keepers ||= Resource.capable_of(:browser).pluck(:key)
+    @keepers ||= keys(:browser)
   end
 
   def web?
@@ -53,6 +57,10 @@ class Reach
   end
 
   private
+
+    def keys(capability)
+      Resource.capable_of(capability).reachable_by(@grant).order(Arel.sql("resources.owner_subject NULLS FIRST"), :id).pluck(:key)
+    end
 
     def called?(call, verb, keys)
       return false unless call.ok && call.name == "resource"
