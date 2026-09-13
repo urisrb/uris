@@ -6,15 +6,13 @@ import {
   AskedDocument,
 } from '@uris-to/client'
 import { useQuery, useSubscription } from '@uris-to/client/react'
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { hrefFor } from '../looks'
+import { AnswerText } from './Answer'
 import { Progress } from './FeedHead'
 import { type Row, Rows } from './Rows'
 import { RUN_OPEN } from './RunLog'
 import { useAloud } from './Say'
-
-const CITED = /\[feed\s*:?\s*(\d+)\]/gi
 
 interface Asking {
   feedId: string
@@ -140,9 +138,7 @@ function Answer({
         />
       ) : pass?.status === 'done' && pass.said ? (
         <>
-          <Text className="ask-said">
-            <Cited said={pass.said} cited={cited} />
-          </Text>
+          <AnswerText said={pass.said} cited={cited} />
           {cited.length > 0 && <Rows rows={cited} />}
         </>
       ) : (
@@ -151,40 +147,5 @@ function Answer({
         </Text>
       )}
     </div>
-  )
-}
-
-export function Cited({
-  said,
-  cited,
-}: {
-  said: string
-  cited: readonly Row[]
-}) {
-  const named = new Map(cited.map((row) => [row.id, row]))
-  const parts = said.split(CITED)
-
-  return (
-    <>
-      {parts.map((part, index) => {
-        if (index % 2 === 0) {
-          // biome-ignore lint/suspicious/noArrayIndexKey: the split's order is the identity
-          return <Fragment key={index}>{part}</Fragment>
-        }
-
-        const row = named.get(part)
-
-        return row ? (
-          <Link
-            // biome-ignore lint/suspicious/noArrayIndexKey: the split's order is the identity
-            key={index}
-            to={hrefFor(row)}
-            className="ask-cite"
-          >
-            {row.title ?? row.key}
-          </Link>
-        ) : null
-      })}
-    </>
   )
 }

@@ -28,7 +28,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 import { hrefFor, lookOf, TYPE, toned } from '../looks'
-import { Cited } from './Ask'
+import { AnswerText } from './Answer'
 import { Passes, placementOf, why } from './Passes'
 import { Rows } from './Rows'
 import { useAloud, useSay } from './Say'
@@ -262,9 +262,7 @@ export function ItemDetail() {
         <Stack gap="var(--s2)">
           <div className="label">The answer</div>
           <div className="panel" style={{ padding: 'var(--s4) var(--s5)' }}>
-            <Text className="ask-said">
-              <Cited said={answer.said} cited={item.connected} />
-            </Text>
+            <AnswerText said={answer.said} cited={item.connected} />
           </div>
         </Stack>
       )}
