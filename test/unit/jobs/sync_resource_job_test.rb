@@ -119,6 +119,40 @@ class SyncResourceJobTest < ActiveSupport::TestCase
     end
   end
 
+  test "a file whose analysis has not finished is not queued again by the next sync" do
+    3.times { Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) } }
+
+    Tenant.switch(@tenant) do
+      assert_equal 1, feed_at("notes.txt").analyses.count
+    end
+  end
+
+  test "a file whose analysis failed waits for its bytes to change before it is queued again" do
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+    Tenant.switch(@tenant) do
+      feed_at("notes.txt").analyses.update_all(status: "failed", finished_at: Time.current)
+    end
+
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+    Tenant.switch(@tenant) { assert_equal 1, feed_at("notes.txt").analyses.count }
+
+    travel 1.second
+    put "notes.txt", body: "remember the eggs too"
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+    Tenant.switch(@tenant) { assert_equal 2, feed_at("notes.txt").analyses.count }
+  end
+
+  test "a failure is tried again once a day has passed, in case what failed was the model and not the file" do
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+    Tenant.switch(@tenant) do
+      feed_at("notes.txt").analyses.update_all(status: "failed", finished_at: Time.current)
+    end
+
+    travel Reference::RETRY_FAILED_AFTER + 1.minute
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+    Tenant.switch(@tenant) { assert_equal 2, feed_at("notes.txt").analyses.count }
+  end
+
   test "an object is saved with the cursor its page began at, so a resumed sync misses none of that page" do
     pages = { nil => [ %w[a b], "b" ], "b" => [ %w[c d], "d" ] }
     paged = Object.new

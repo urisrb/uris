@@ -8,6 +8,8 @@ class Reference < ApplicationRecord
   ROLES = [ ORIGINAL, PREVIEW, THUMBNAIL ].freeze
   DERIVED = [ PREVIEW, THUMBNAIL ].freeze
 
+  RETRY_FAILED_AFTER = 1.day
+
   include TenantScoped
 
   belongs_to :feed
@@ -76,6 +78,15 @@ class Reference < ApplicationRecord
 
     self.version = reported
     self
+  end
+
+  def awaiting_analysis?
+    return false if analyzed_at.present?
+
+    attempts = feed.analyses.unscope(:order).where(created_at: (changed_at || created_at)..)
+    return false if attempts.open.exists?
+
+    attempts.where(status: "failed", finished_at: RETRY_FAILED_AFTER.ago..).none?
   end
 
   def derived?

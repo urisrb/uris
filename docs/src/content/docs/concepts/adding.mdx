@@ -88,8 +88,11 @@ page's title.
 `Resource#sync!` claims the resource, so only one sync runs for it at a time, and starts a `sync`
 run. `ScheduleSyncsJob` does this every minute for each resource that is due. `SyncResourceJob`
 walks the resource page by page, with checkpoints, so a sync interrupted by a deploy resumes from
-its cursor. Every object it finds becomes a reference on a feed. That feed is analyzed only if the
-reference has never been analyzed. Synced records already live somewhere, so they are never placed.
+the start of the page it was on. Every object it finds becomes a reference on a feed. That feed is
+analyzed only if the reference has not been analyzed since it last changed, no pass for it is still
+open, and none failed in the last day — a failure waits for the bytes to change or a day to pass,
+so a file that breaks the analyzer is not retried on every sync. Synced records already live
+somewhere, so they are never placed.
 
 ## Addresses
 
