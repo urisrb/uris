@@ -18,9 +18,9 @@ class McpProxyTest < ActionDispatch::IntegrationTest
     @tenant = Tenant.create!(subdomain: "prx-#{SecureRandom.hex(4)}", name: "Proxied")
   end
 
-  def attach
+  def attach(credentials: { "token" => "sk-test" })
     Tenant.switch(@tenant) do
-      Resource::Mcp.create!(key: "exa", name: "Exa", credentials: { "token" => "sk-test" },
+      Resource::Mcp.create!(key: "exa", name: "Exa", credentials: credentials,
                             details: { "url" => "https://example.com/mcp", "tools" => LISTED })
     end
   end
@@ -51,6 +51,27 @@ class McpProxyTest < ActionDispatch::IntegrationTest
     assert_equal [ Offline::PUBLIC ], dialled.uniq
   ensure
     recorder&.send(:define_method, :request) { |*args, **options, &block| super(*args, **options, &block) }
+  end
+
+  test "a bearer token is sent as one" do
+    attach
+    speaks(text: "ok")
+
+    tool(@tenant, ALL, "exa__web_search", query: "anything")
+
+    assert_requested(:post, "https://example.com/mcp", headers: { "Authorization" => "Bearer sk-test" }, at_least_times: 1)
+  end
+
+  test "a server behind basic auth is sent the username and password on every request" do
+    attach(credentials: { "username" => "reader", "password" => "pa:ss" })
+    speaks(text: "behind the gate")
+
+    found = tool(@tenant, ALL, "exa__web_search", query: "anything")
+
+    assert_equal [ "behind the gate" ], found["content"]
+    assert_requested(:post, "https://example.com/mcp",
+                     headers: { "Authorization" => "Basic #{Base64.strict_encode64('reader:pa:ss')}" }, at_least_times: 2)
+    assert_not_requested(:post, "https://example.com/mcp", headers: { "Authorization" => "Bearer sk-test" })
   end
 
   test "calling it forwards to the server and hands back what it said" do

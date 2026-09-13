@@ -18,7 +18,10 @@ class Resource
         names: "The prefix its tools answer under",
         fields: [
           field("url", "Address", required: true, placeholder: "https://mcp.example.com/mcp"),
-          field("token", "Bearer token", secret: true)
+          field("token", "Bearer token", secret: true, help: "Sent as Authorization: Bearer."),
+          field("username", "Username", held: :credentials,
+                help: "For a server behind basic auth. Leave the token empty."),
+          field("password", "Password", secret: true)
         ]
       }
     end
@@ -30,6 +33,7 @@ class Resource
     validate :it_names_an_address
     validate :its_key_can_prefix_a_tool
     validate :it_does_not_point_at_us
+    validate :it_authenticates_one_way
 
     def url
       details.to_h["url"].to_s
@@ -92,6 +96,7 @@ class Resource
 
       def transport
         pinned = pinned!(url)
+        overheard!(pinned)
 
         MCP::Client::HTTP.new(url: pinned.uri.to_s, headers: headers) do |faraday|
           faraday.adapter(:net_http) { |http| http.ipaddr = pinned.address }
@@ -99,10 +104,26 @@ class Resource
       end
 
       def headers
-        base = { "User-Agent" => "uris" }
-        token = credentials.to_h["token"].presence
+        { "User-Agent" => "uris" }.merge(authorization.compact)
+      end
 
-        token ? base.merge("Authorization" => "Bearer #{token}") : base
+      def authorization
+        held = credentials.to_h
+        token = held["token"].presence
+        username = held["username"].presence
+
+        return { "Authorization" => "Bearer #{token}" } if token
+        return {} if username.nil?
+
+        { "Authorization" => "Basic #{Base64.strict_encode64("#{username}:#{held['password']}")}" }
+      end
+
+      def overheard!(pinned)
+        return if authorization.empty? || pinned.uri.scheme == "https"
+        return if PublicAddress.reserved?(IPAddr.new(pinned.address))
+
+        raise PublicFetch::Blocked,
+              "#{key}: #{pinned.uri.host} is plain http, and its credentials would cross the internet readable"
       end
 
       def answer(name, answered)
@@ -150,6 +171,18 @@ class Resource
         return if key.to_s.match?(PREFIX)
 
         errors.add(:key, "is letters, numbers and dashes, so it can prefix a tool name")
+      end
+
+      def it_authenticates_one_way
+        held = credentials.to_h
+
+        if held["token"].present? && held["username"].present?
+          errors.add(:credentials, "carries a bearer token and a username — use one or the other")
+        end
+
+        return unless held["password"].present? && held["username"].blank?
+
+        errors.add(:credentials, "carries a password with no username")
       end
 
       def it_does_not_point_at_us

@@ -85,6 +85,44 @@ class ResourceMcpTest < ActiveSupport::TestCase
     assert_not_includes offered, "exa__web_search"
   end
 
+  test "a server is sent a bearer token or a username and password, never both" do
+    Tenant.switch(@tenant) do
+      both = Resource::Mcp.new(key: "both", details: { "url" => "https://a.test/mcp" },
+                               credentials: { "token" => "t", "username" => "u", "password" => "p" })
+      orphaned = Resource::Mcp.new(key: "orphan", details: { "url" => "https://a.test/mcp" },
+                                   credentials: { "password" => "p" })
+      basic = Resource::Mcp.new(key: "basic", details: { "url" => "https://a.test/mcp" },
+                                credentials: { "username" => "u", "password" => "p" })
+
+      assert_not both.valid?
+      assert_match(/one or the other/, both.errors.full_messages.join)
+      assert_not orphaned.valid?
+      assert basic.valid?
+    end
+  end
+
+  test "credentials are not sent to a public server over plain http" do
+    Tenant.switch(@tenant) do
+      plain = server(**{ "url" => "http://mcp.example.test/mcp", "tools" => LISTED })
+
+      error = assert_raises(PublicFetch::Blocked) { plain.invoke!("web_search", { query: "x" }) }
+      assert_match(/plain http/, error.message)
+    end
+  end
+
+  test "a server on the private network may take credentials over plain http where that is allowed" do
+    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+
+    Tenant.switch(@tenant) do
+      local = server(**{ "url" => "http://127.0.0.1:1/mcp", "tools" => LISTED })
+
+      error = assert_raises(Resource::Failed) { local.invoke!("web_search", { query: "x" }) }
+      assert_no_match(/plain http/, error.message)
+    end
+  ensure
+    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+  end
+
   test "a private address is blocked before any tool is called" do
     Tenant.switch(@tenant) do
       inside = server(**{ "url" => "http://127.0.0.1:9200/mcp", "tools" => LISTED })

@@ -408,7 +408,9 @@ An MCP server. Somebody else's tools, offered beside the catalog's own. Checking
 | Field | Label | Kind | Required | Held | Help |
 | --- | --- | --- | --- | --- | --- |
 | `url` | Address | string | yes |  |  |
-| `token` | Bearer token | string |  | encrypted |  |
+| `token` | Bearer token | string |  | encrypted | Sent as Authorization: Bearer. |
+| `username` | Username | string |  | encrypted | For a server behind basic auth. Leave the token empty. |
+| `password` | Password | string |  | encrypted |  |
 
 ### Commands
 
