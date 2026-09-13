@@ -119,6 +119,29 @@ class SyncResourceJobTest < ActiveSupport::TestCase
     end
   end
 
+  test "an object is saved with the cursor its page began at, so a resumed sync misses none of that page" do
+    pages = { nil => [ %w[a b], "b" ], "b" => [ %w[c d], "d" ] }
+    paged = Object.new
+    paged.define_singleton_method(:each_page) do |cursor:, &block|
+      while (page = pages[cursor])
+        block.call(*page)
+        cursor = page.last
+      end
+    end
+
+    job = SyncResourceJob.new(@tenant.id, @resource.id)
+    job.define_singleton_method(:resource_for) { |_id| paged }
+
+    walked = job.build_enumerator(@tenant.id, @resource.id, cursor: nil).to_a
+
+    assert_equal [ [ "a", nil ], [ "b", "b" ], [ "c", "b" ], [ "d", "d" ] ], walked
+
+    stopped_after = walked.index { |object, _| object == "c" }
+    resumed = job.build_enumerator(@tenant.id, @resource.id, cursor: walked[stopped_after].last).to_a
+
+    assert_equal %w[c d], resumed.map(&:first)
+  end
+
   test "a resource that cannot report a version never claims anything changed" do
     versionless = Tenant.switch(@tenant) do
       Resource::Imap.new(key: "mail", details: {}, credentials: {})

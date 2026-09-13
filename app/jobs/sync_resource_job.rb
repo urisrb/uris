@@ -27,8 +27,14 @@ class SyncResourceJob < ApplicationJob
     resource = resource_for(resource_id)
 
     objects = Enumerator.new do |yielder|
+      started_at = cursor
+
       resource.each_page(cursor: cursor) do |page, next_cursor|
-        page.each { |object| yielder.yield(object, next_cursor) }
+        page.each_with_index do |object, index|
+          yielder.yield(object, index == page.size - 1 ? next_cursor : started_at)
+        end
+
+        started_at = next_cursor
       end
     end
 
