@@ -143,10 +143,10 @@ What masks has to hold, in outline:
 
 ## Phase 4 — an MCP server through masks
 
-- [ ] `Resource::Mcp` takes an optional provider. With one, its bearer is `upstream_token` rather
+- [x] `Resource::Mcp` takes an optional provider. With one, its bearer is `upstream_token` rather
       than a pasted token, and a 401 clears the cache and tries once more
-- [ ] A pasted token keeps working as it does today
-- [ ] The `mcp` gem's own OAuth flow stays unused: it blocks a thread across the browser round
+- [x] A pasted token keeps working as it does today
+- [x] The `mcp` gem's own OAuth flow stays unused: it blocks a thread across the browser round
       trip, which suits a CLI rather than a request, and its discovery and token calls go through
       a client of its own, past `PublicAddress`
 

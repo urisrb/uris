@@ -131,7 +131,8 @@ class AttachingTest < ActionDispatch::IntegrationTest
     fields = types.find { |held| held["type"] == "mcp" }["fields"].index_by { |field| field["name"] }
 
     assert_equal "choice", fields["auth"]["kind"]
-    assert_equal %w[none bearer basic header], fields["auth"]["options"].pluck("value")
+    assert_equal %w[none bearer basic header masks], fields["auth"]["options"].pluck("value")
+    assert_equal [ { "field" => "auth", "values" => [ "masks" ] } ], fields["provider"]["shownWhen"]
     assert_nil fields["auth"]["shownWhen"]
     assert_equal [ { "field" => "auth", "values" => [ "header" ] } ], fields["header_name"]["shownWhen"]
   end
@@ -186,6 +187,17 @@ class AttachingTest < ActionDispatch::IntegrationTest
       assert_nil resource.checked_at
       assert_equal "Invoices", resource.folder
     end
+  end
+
+  test "an MCP server authenticated through masks is attached unconnected, and says where to connect it" do
+    body = execute(ATTACH, variables: { type: "mcp", key: "notion",
+                                        settings: { "url" => "https://mcp.notion.test/mcp", "auth" => "masks", "provider" => "notion" } })
+    attached = body.dig("data", "attachResource")
+
+    assert_nil body["errors"]
+    assert_equal "/resources/#{attached.dig('resource', 'id')}/connect", attached["connectUrl"]
+
+    Tenant.switch(@tenant) { assert Resource.find(attached.dig("resource", "id")).needs_connect? }
   end
 
   test "attaching needs the command scope, not merely the read one" do

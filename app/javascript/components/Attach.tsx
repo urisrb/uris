@@ -419,7 +419,7 @@ export function Attach({
             >
               {editing
                 ? 'Save it'
-                : type.delegated
+                : type.delegated || typed.auth === 'masks'
                   ? 'Attach and connect'
                   : 'Attach it'}
             </Button>

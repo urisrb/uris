@@ -1,4 +1,5 @@
 require "test_helper"
+require "masks/client/delegations/fake"
 
 class ResourceMcpTest < ActiveSupport::TestCase
   LISTED = [
@@ -147,6 +148,81 @@ class ResourceMcpTest < ActiveSupport::TestCase
       inside = server(**{ "url" => "http://127.0.0.1:9200/mcp", "tools" => LISTED })
 
       assert_raises(PublicFetch::Blocked) { inside.invoke!("web_search", { query: "x" }) }
+    end
+  end
+
+  test "a server authenticated through masks names its provider, and holds nothing typed in" do
+    Tenant.switch(@tenant) do
+      held = Resource::Mcp.new(key: "notion", details: { "url" => "https://mcp.notion.com/mcp", "auth" => "masks", "provider" => "notion" })
+
+      assert held.valid?, held.errors.full_messages.to_sentence
+      assert held.delegated?
+      assert held.needs_connect?
+      assert_equal "notion", held.provider_key
+
+      assert_not Resource::Mcp.new(key: "n", details: { "url" => "https://a.test/mcp", "auth" => "masks" }).valid?
+      assert_not Resource::Mcp.new(key: "n", details: { "url" => "https://a.test/mcp", "auth" => "masks", "provider" => "notion" },
+                                   credentials: { "token" => "pasted" }).valid?, "a pasted token beside masks"
+      refute server.needs_connect?, "a pasted bearer token needs nobody to connect anything"
+    end
+  end
+
+  test "a server authenticated through masks is called with the token masks releases, and a refused one is replaced once" do
+    masks = Delegations.fake = Masks::Client::Delegations::Fake.new
+    started = masks.start(provider: "notion")
+    held = masks.finish(params: masks.approve(started, subject: "ada", connection: "c-n"), started: started)
+
+    resource = Tenant.switch(@tenant) do
+      Resource::Mcp.create!(key: "notion", details: { "url" => "https://mcp.notion.test/mcp", "auth" => "masks", "provider" => "notion", "tools" => LISTED })
+        .tap { |made| made.connect!(held, by: "ada") }
+    end
+
+    bearers = []
+
+    stub_request(:post, "https://mcp.notion.test/mcp").to_return do |request|
+      bearers << request.headers["Authorization"]
+      rpc = JSON.parse(request.body)
+
+      next { status: 401, body: "" } if bearers.last == "Bearer notion-access-1" && rpc["method"] == "tools/call"
+
+      answered = case rpc["method"]
+      when "initialize"
+        { "protocolVersion" => "2025-06-18", "capabilities" => { "tools" => {} }, "serverInfo" => { "name" => "notion", "version" => "1" } }
+      when "tools/call"
+        { "content" => [ { "type" => "text", "text" => "found it" } ] }
+      end
+
+      next { status: 202, body: "" } if answered.nil?
+
+      { status: 200, headers: { "Content-Type" => "application/json" }, body: { "jsonrpc" => "2.0", "id" => rpc["id"], "result" => answered }.to_json }
+    end
+
+    relayed = Tenant.switch(@tenant) { resource.invoke!("web_search", { query: "plans" }) }
+
+    assert_equal "found it", relayed.content.first["text"]
+    assert_includes bearers, "Bearer notion-access-1"
+    assert_equal "Bearer notion-access-2", bearers.last
+    assert_equal 2, masks.releases
+  ensure
+    Delegations.fake = nil
+  end
+
+  test "a server authenticated through masks that nobody connected is unusable, not merely unreachable" do
+    Tenant.switch(@tenant) do
+      resource = Resource::Mcp.create!(key: "notion", details: { "url" => "https://mcp.notion.test/mcp", "auth" => "masks", "provider" => "notion", "tools" => LISTED })
+
+      assert_raises(Resource::Unusable) { resource.invoke!("web_search", { query: "x" }) }
+    end
+  end
+
+  test "switching away from masks forgets what masks held" do
+    Tenant.switch(@tenant) do
+      resource = Resource::Mcp.create!(key: "notion", details: { "url" => "https://mcp.notion.test/mcp", "auth" => "masks", "provider" => "notion" },
+                                       credentials: { "delegation" => { "secret" => "s", "connection" => "c" } })
+
+      resource.update!(details: resource.details.merge("auth" => "bearer"), credentials: resource.credentials.merge("token" => "pasted"))
+
+      assert_equal({ "token" => "pasted" }, resource.reload.credentials)
     end
   end
 

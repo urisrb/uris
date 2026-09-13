@@ -1,10 +1,14 @@
 class Resource
   class Mcp < Resource
     include PublicFetch
+    include Delegated
 
     SCOPE = "uris:mcp:call".freeze
     JOINER = "__".freeze
-    AUTHS = %w[none bearer basic header].freeze
+    AUTHS = %w[none bearer basic header masks].freeze
+    MASKS = "masks".freeze
+    PROVIDER = /\A[a-z0-9][a-z0-9-]{0,62}\z/
+    HELD_BY_MASKS = %w[delegation upstream].freeze
     HEADER_NAME = /\A[A-Za-z0-9][A-Za-z0-9-]{0,63}\z/
     RESERVED_HEADERS = %w[
       host content-length content-type accept accept-encoding transfer-encoding connection upgrade te
@@ -25,6 +29,10 @@ class Resource
 
     serves :tools
 
+    def self.delegated?
+      false
+    end
+
     def self.attaching
       {
         label: "An MCP server",
@@ -39,8 +47,13 @@ class Resource
                   { value: "none", label: "None" },
                   { value: "bearer", label: "Bearer token" },
                   { value: "basic", label: "Username and password" },
-                  { value: "header", label: "A header of its own" }
+                  { value: "header", label: "A header of its own" },
+                  { value: MASKS, label: "Your own account, through masks" }
                 ]),
+          field("provider", "Provider in masks", required: true, placeholder: "notion",
+                help: "The key masks knows this server's authorization server by. Attaching sends you to " \
+                      "masks to connect your account, and uris never sees a password or a pasted token.",
+                shown_when: { "auth" => MASKS }),
           field("token", "Bearer token", required: true, secret: true,
                 help: "Sent as Authorization: Bearer.", shown_when: { "auth" => "bearer" }),
           field("username", "Username", required: true, held: :credentials,
@@ -58,6 +71,8 @@ class Resource
       { tools: {}, call: { name: "string", arguments: "json?" } }
     end
 
+    before_validation :forget_what_masks_held, unless: :delegated?
+
     validate :it_names_an_address
     validate :its_key_can_prefix_a_tool
     validate :it_does_not_point_at_us
@@ -73,6 +88,18 @@ class Resource
 
     def auth
       details.to_h["auth"].presence || "none"
+    end
+
+    def delegated?
+      auth == MASKS
+    end
+
+    def needs_connect?
+      delegated? && super
+    end
+
+    def provider_key
+      details.to_h["provider"].to_s
     end
 
     def check!
@@ -113,14 +140,20 @@ class Resource
 
     private
 
-      def connected
+      def connected(retried: false)
         client = MCP::Client.new(transport: transport)
         client.connect unless client.connected?
 
         yield client
-      rescue MCP::Client::ServerError, MCP::Client::RequestHandlerError => e
+      rescue MCP::Client::RequestHandlerError => e
+        return connected(retried: true) { |again| yield again } if unauthorized?(e) && !retried && delegated? && token_expired!
+
+        raise Resource::Unusable, "#{key}: #{url} refused the token masks released — connect it again" if unauthorized?(e) && delegated?
+
         raise Resource::Failed, "#{key}: #{url} answered #{e.message}"
-      rescue PublicFetch::Blocked
+      rescue MCP::Client::ServerError => e
+        raise Resource::Failed, "#{key}: #{url} answered #{e.message}"
+      rescue PublicFetch::Blocked, Resource::Failed
         raise
       rescue StandardError => e
         raise Resource::Failed, "#{key}: #{e.class} reaching #{url} — #{e.message}"
@@ -146,12 +179,21 @@ class Resource
         when "bearer" then { "Authorization" => "Bearer #{held['token']}" }
         when "basic" then { "Authorization" => "Basic #{Base64.strict_encode64("#{held['username']}:#{held['password']}")}" }
         when "header" then { details.to_h["header_name"].to_s => held["header_value"].to_s }
+        when MASKS then { "Authorization" => "Bearer #{upstream_token}" }
         else {}
         end
       end
 
+      def forget_what_masks_held
+        self.credentials = credentials.to_h.except(*HELD_BY_MASKS) if (credentials.to_h.keys & HELD_BY_MASKS).any?
+      end
+
+      def unauthorized?(error)
+        error.error_type == :unauthorized
+      end
+
       def overheard!(pinned)
-        return if authorization.empty? || pinned.uri.scheme == "https"
+        return if auth == "none" || pinned.uri.scheme == "https"
         return if PublicAddress.reserved?(IPAddr.new(pinned.address))
 
         raise PublicFetch::Blocked,
@@ -220,12 +262,17 @@ class Resource
 
         wanted = { "bearer" => %w[token], "basic" => %w[username password], "header" => %w[header_value] }
                  .fetch(auth, [])
-        held = credentials.to_h.compact_blank
+        held = credentials.to_h.compact_blank.except(*HELD_BY_MASKS)
 
         (wanted - held.keys).each { |name| errors.add(:credentials, "needs #{name} to authenticate with #{auth}") }
         (held.keys - wanted).each { |name| errors.add(:credentials, "carries #{name}, which #{auth} does not send") }
 
         its_header_is_one_it_may_send if auth == "header"
+        its_provider_is_named if delegated?
+      end
+
+      def its_provider_is_named
+        errors.add(:details, "names the provider in masks it connects through") unless provider_key.match?(PROVIDER)
       end
 
       def its_header_is_one_it_may_send

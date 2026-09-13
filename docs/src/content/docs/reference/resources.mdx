@@ -413,7 +413,8 @@ An MCP server. Somebody else's tools, offered beside the catalog's own. Checking
 | Field | Label | Kind | Required | Held | Asked when | Help |
 | --- | --- | --- | --- | --- | --- | --- |
 | `url` | Address | string | yes |  |  |  |
-| `auth` | Authentication | choice of `none` `bearer` `basic` `header` |  |  |  |  |
+| `auth` | Authentication | choice of `none` `bearer` `basic` `header` `masks` |  |  |  |  |
+| `provider` | Provider in masks | string | yes |  | `auth` is `masks` | The key masks knows this server's authorization server by. Attaching sends you to masks to connect your account, and uris never sees a password or a pasted token. |
 | `token` | Bearer token | string | yes | encrypted | `auth` is `bearer` | Sent as Authorization: Bearer. |
 | `username` | Username | string | yes | encrypted | `auth` is `basic` |  |
 | `password` | Password | string | yes | encrypted | `auth` is `basic` |  |
