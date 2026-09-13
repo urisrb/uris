@@ -3,17 +3,17 @@ module Tool
 
   class Base < MCP::Tool
     SELECTOR_SCHEMA = {
-      query: { type: "string", description: "Words to match, as in search_items." },
+      query: { type: "string", description: "Words to match, as in search." },
       type: { type: "string", description: "Restrict to one type of feed." },
       mime: { type: "string", description: "Restrict to one content type." },
       tag: { type: "string", description: "Restrict to feeds connected to this tag." },
-      resource_id: { type: "string", description: "Restrict to items from one resource." },
+      resource_id: { type: "string", description: "Restrict to feeds from one resource." },
       folder: {
         type: "string",
         description: "Restrict to a prefix of the locator key, as a folder: 2024/invoices."
       },
-      since: { type: "string", description: "Only items catalogued at or after this time." },
-      before: { type: "string", description: "Only items catalogued before this time." }
+      since: { type: "string", description: "Only feeds catalogued at or after this time." },
+      before: { type: "string", description: "Only feeds catalogued before this time." }
     }.freeze
 
     EXPECTED = [

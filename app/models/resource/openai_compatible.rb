@@ -25,11 +25,11 @@ class Resource
     AGENT_MAX_TOKENS = 4096
     CHAIN_SYSTEM = "You have tools. Call one rather than answering from memory."
     CHAIN_ASK = "Search the catalog for invoices, then tell me what you found."
-    CHAIN_RESULT = { count: 1, items: [ { id: "itm_1", title: "acme.pdf" } ] }.to_json
+    CHAIN_RESULT = { count: 1, feeds: [ { id: "1", type: "uris:file", title: "acme.pdf" } ] }.to_json
     CHAIN_TOOL = {
       type: "function",
       function: {
-        name: "search_items",
+        name: "search",
         description: "Search the catalog.",
         parameters: {
           type: "object",

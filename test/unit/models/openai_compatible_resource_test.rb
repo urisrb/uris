@@ -316,8 +316,8 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
   end
 
   test "check! passes when the agent model calls a tool on both turns" do
-    @server.serves(*MODELS.values, "qwen3:8b").answer_tool_call("search_items", query: "invoice")
-    @server.answer_tool_call("search_items", query: "acme")
+    @server.serves(*MODELS.values, "qwen3:8b").answer_tool_call("search", query: "invoice")
+    @server.answer_tool_call("search", query: "acme")
 
     Tenant.switch(@tenant) do
       @resource.update!(details: @resource.details.merge("models" => MODELS.merge("agent" => "qwen3:8b")))
@@ -327,7 +327,7 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
   end
 
   test "check! passes when the agent model answers in prose after calling a tool" do
-    @server.serves(*MODELS.values, "qwen3:8b").answer_tool_call("search_items", query: "invoice")
+    @server.serves(*MODELS.values, "qwen3:8b").answer_tool_call("search", query: "invoice")
     @server.answer("I found one invoice, acme.pdf.")
 
     Tenant.switch(@tenant) do
@@ -350,7 +350,7 @@ class OpenaiCompatibleResourceTest < ActiveSupport::TestCase
   end
 
   test "check! refuses an agent model that writes its second call as text" do
-    @server.serves(*MODELS.values, "llama3.1:8b").answer_tool_call("search_items", query: "invoice")
+    @server.serves(*MODELS.values, "llama3.1:8b").answer_tool_call("search", query: "invoice")
     @server.answer(%({"name": "get_item", "arguments": {"id": "itm_1"}}))
 
     Tenant.switch(@tenant) do
