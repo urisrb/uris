@@ -101,13 +101,15 @@ export function AddProvider({ children }: { children: ReactNode }) {
       const where = shortly(parsed)
 
       if (wanted === 'snapshot') {
-        const answered = await snapshot.execute({ url: address })
+        const { data: answered, error } = await snapshot.attempt({
+          url: address,
+        })
         const run = answered?.snapshotUrl?.run
 
         if (!run)
           return {
             ok: false,
-            refused: snapshot.error?.message ?? 'That page could not be taken.',
+            refused: error?.message ?? 'That page could not be taken.',
           }
 
         const entry = {
@@ -122,13 +124,15 @@ export function AddProvider({ children }: { children: ReactNode }) {
         return { ok: true, added: entry }
       }
 
-      const answered = await fetched.execute({ url: address })
+      const { data: answered, error } = await fetched.attempt({
+        url: address,
+      })
       const run = answered?.fetchUrl?.run
 
       if (!run)
         return {
           ok: false,
-          refused: fetched.error?.message ?? 'That file could not be fetched.',
+          refused: error?.message ?? 'That file could not be fetched.',
         }
 
       const entry = {
@@ -150,7 +154,7 @@ export function AddProvider({ children }: { children: ReactNode }) {
       if (!written.trim())
         return { ok: false, refused: 'A note needs something in it.' }
 
-      const answered = await note.execute({
+      const { data: answered, error } = await note.attempt({
         title: given.trim() || null,
         body: written,
       })
@@ -159,7 +163,7 @@ export function AddProvider({ children }: { children: ReactNode }) {
       if (!item)
         return {
           ok: false,
-          refused: note.error?.message ?? 'That note could not be kept.',
+          refused: error?.message ?? 'That note could not be kept.',
         }
 
       const entry = {

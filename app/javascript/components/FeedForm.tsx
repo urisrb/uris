@@ -63,7 +63,7 @@ export function FeedForm({ opened, onClose, feed, onSaved }: Props) {
   }, [opened, feed])
 
   const keep = async () => {
-    const answered = await save.execute({
+    const { data: answered, error } = await save.attempt({
       id: feed?.id ?? null,
       key: slug,
       title: name.trim() || null,
@@ -74,7 +74,7 @@ export function FeedForm({ opened, onClose, feed, onSaved }: Props) {
     })
 
     if (!answered?.saveFeed?.feed) {
-      setRefused(save.error?.message ?? 'That feed could not be saved.')
+      setRefused(error?.message ?? 'That feed could not be saved.')
       return
     }
 

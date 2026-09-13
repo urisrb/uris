@@ -133,17 +133,20 @@ export function useMutation<TData, TVariables extends Record<string, unknown>>(
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
-  const execute = useCallback(
-    async (variables: TVariables) => {
+  const attempt = useCallback(
+    async (
+      variables: TVariables,
+    ): Promise<{ data: TData | null; error: Error | null }> => {
       setLoading(true)
       setError(null)
       try {
         const result = await client.mutation(mutation, variables).toPromise()
         if (result.error) {
-          setError(new Error(result.error.message))
-          return null
+          const refused = new Error(result.error.message)
+          setError(refused)
+          return { data: null, error: refused }
         }
-        return result.data ?? null
+        return { data: result.data ?? null, error: null }
       } finally {
         setLoading(false)
       }
@@ -151,5 +154,10 @@ export function useMutation<TData, TVariables extends Record<string, unknown>>(
     [client, mutation],
   )
 
-  return { execute, loading, error }
+  const execute = useCallback(
+    async (variables: TVariables) => (await attempt(variables)).data,
+    [attempt],
+  )
+
+  return { execute, attempt, loading, error }
 }

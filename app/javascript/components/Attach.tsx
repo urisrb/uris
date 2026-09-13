@@ -201,7 +201,7 @@ export function Attach({
     setRefused(null)
     setWarned(null)
 
-    const answered = await update.execute({
+    const { data: answered, error } = await update.attempt({
       id: editing.id,
       name: name.trim() || null,
       settings: Object.fromEntries(
@@ -210,7 +210,7 @@ export function Attach({
     })
 
     if (!answered?.updateResource?.resource) {
-      setRefused(update.error?.message ?? 'That could not be saved.')
+      setRefused(error?.message ?? 'That could not be saved.')
       return
     }
 
@@ -230,7 +230,7 @@ export function Attach({
     setRefused(null)
     setWarned(null)
 
-    const answered = await attach.execute({
+    const { data: answered, error } = await attach.attempt({
       type: type.type,
       key: key.trim(),
       name: name.trim() || null,
@@ -241,7 +241,7 @@ export function Attach({
     })
 
     if (!answered?.attachResource?.resource) {
-      setRefused(attach.error?.message ?? 'That could not be attached.')
+      setRefused(error?.message ?? 'That could not be attached.')
       return
     }
 
