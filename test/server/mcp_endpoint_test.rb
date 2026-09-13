@@ -233,6 +233,16 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "checking dials the resource and writes down what it found, so it takes the command scope" do
+    assert_not_includes tool_schema(%w[uris:resources:read], "resource").dig("properties", "do", "enum"), "check"
+
+    reply = call(@tenant, %w[uris:resources:read], "tools/call",
+                 name: "resource", arguments: { key: @resource.key, do: "check" })
+
+    assert reply.dig("result", "isError")
+    Tenant.switch(@tenant) { assert_nil @resource.reload.checked_at }
+  end
+
   test "check answers with the failure instead of becoming one" do
     checked = tool(@tenant, ALL, "resource", key: @resource.key, do: "check")
 
