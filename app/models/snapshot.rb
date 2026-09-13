@@ -54,13 +54,23 @@ class Snapshot
       browser_path.present?
     end
 
-    def flags
+    def flags(egress: nil)
       defaults = Ferrum::Browser::Options::Chrome::DEFAULT_OPTIONS.except(*UNSAFE_FLAGS)
       features = defaults["disable-features"].to_s.split(",") - UNSAFE_FEATURES
 
       flags = defaults.merge(HARDENING).merge("disable-features" => features.join(","))
       flags = flags.merge("no-sandbox" => nil) if ENV["URIS_CHROME_NO_SANDBOX"].present?
+      flags = flags.merge(routed(egress)) if egress
       flags
+    end
+
+    def routed(egress)
+      {
+        "proxy-server" => egress.address,
+        "proxy-bypass-list" => "<-loopback>",
+        "force-webrtc-ip-handling-policy" => "disable_non_proxied_udp",
+        "disable-quic" => nil
+      }
     end
   end
 
@@ -101,25 +111,27 @@ class Snapshot
     def full_page? = @full_page
 
     def drive(target)
-      browser = start!
-      page = browser.page
+      Egress.open do |egress|
+        browser = start!(egress)
+        page = browser.page
 
-      guard(browser)
-      visit(page, target)
-      gather(page)
-    rescue Ferrum::Error => e
-      raise Failed, "#{url}: #{e.class.name.demodulize} — #{e.message.to_s.truncate(200)}"
-    ensure
-      shut(browser)
+        guard(browser)
+        visit(page, target)
+        gather(page)
+      rescue Ferrum::Error => e
+        raise Failed, "#{url}: #{e.class.name.demodulize} — #{e.message.to_s.truncate(200)}"
+      ensure
+        shut(browser)
+      end
     end
 
-    def start!
+    def start!(egress)
       Ferrum::Browser.new(
         browser_path: self.class.browser_path,
         headless: true,
         incognito: true,
         ignore_default_browser_options: true,
-        browser_options: self.class.flags,
+        browser_options: self.class.flags(egress: egress),
         window_size: [ width, HEIGHT ],
         pending_connection_errors: false,
         timeout: NAVIGATION,
