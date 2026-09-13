@@ -4,6 +4,8 @@ module SearchIndex
   VECTOR_DIMENSIONS = ENV.fetch("URIS_EMBEDDING_DIMENSIONS", 768).to_i
   CANDIDATES = 200
   FUSION_RANK = 60
+  LOOSE_MATCH = "60%".freeze
+  LOOSE_AFTER_WORDS = 3
   SEMANTIC_MARGIN = 0.12
   SEMANTIC_FLOOR = ENV.fetch("URIS_SEMANTIC_FLOOR", "0.55").to_f
 
@@ -204,10 +206,25 @@ module SearchIndex
     end
 
     def lexical(query, tenant:, limit:, from:, type: nil, mime: nil, tag: nil)
+      facets = { type: type, mime: mime, tag: tag }
+      wanted = from + limit
+      strict = matched(query, tenant: tenant, size: wanted, loosely: false, **facets)
+
+      if strict[:total] >= wanted || query.to_s.split.size < LOOSE_AFTER_WORDS
+        return { ids: strict[:ids].drop(from).first(limit), total: strict[:total] }
+      end
+
+      loose = matched(query, tenant: tenant, size: wanted, loosely: true, **facets)
+
+      { ids: (strict[:ids] + loose[:ids]).uniq.drop(from).first(limit),
+        total: [ strict[:total], loose[:total] ].max }
+    end
+
+    def matched(query, tenant:, size:, loosely:, type: nil, mime: nil, tag: nil)
       must = if query.present?
         [ { multi_match: {
           query: query, fields: %w[title^3 key^3 keywords^3 note^2 summary^2 tags^2 locator_key body],
-          operator: "and"
+          **(loosely ? { operator: "or", minimum_should_match: LOOSE_MATCH } : { operator: "and" })
         } } ]
       else
         [ { match_all: {} } ]
@@ -219,7 +236,7 @@ module SearchIndex
         index: alias_for(tenant),
         body: {
           query: { bool: { must: must } },
-          size: limit, from: from, track_total_hits: true, _source: false
+          size: size, from: 0, track_total_hits: true, _source: false
         }
       )
 

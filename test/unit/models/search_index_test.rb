@@ -66,6 +66,17 @@ class SearchIndexTest < ActiveSupport::TestCase
     end
   end
 
+  test "a question worded as a sentence still finds what most of its words name" do
+    Tenant.switch(@demo) do
+      create_feed(mime: "application/pdf", title: "Roof inspection invoice")
+      SearchIndex.refresh!
+
+      assert_equal 1, SearchIndex.lexical("roof inspection cost", tenant: @demo, limit: 10, from: 0)[:total]
+      assert_equal 0, SearchIndex.lexical("roof cost", tenant: @demo, limit: 10, from: 0)[:total],
+                   "two words are a phrase to match exactly, not a sentence to loosen"
+    end
+  end
+
   test "kind narrows results" do
     Tenant.switch(@demo) do
       assert_equal [ "Beach photo" ], Feed.search(nil, mime: "image/jpeg").pluck(:title)

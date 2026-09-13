@@ -301,6 +301,15 @@ class FakeSearchEngine
       wanted = terms(held["query"])
       return true if wanted.empty?
 
+      if held["operator"] == "or"
+        needed = (wanted.size * held["minimum_should_match"].to_s.to_f / 100).floor.clamp(1, wanted.size)
+
+        return held.fetch("fields").any? do |field|
+          found = terms(document[field.split("^").first])
+          wanted.count { |term| found.include?(term) } >= needed
+        end
+      end
+
       held.fetch("fields").any? do |field|
         found = terms(document[field.split("^").first])
         wanted.all? { |term| found.include?(term) }
