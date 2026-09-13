@@ -5,7 +5,6 @@ class SweepRunsJob < ApplicationJob
   def perform
     Tenant.find_each do |tenant|
       Tenant.switch(tenant) do
-        Run.past_deadline.find_each(&:expired?)
         delete_settled
       end
     end

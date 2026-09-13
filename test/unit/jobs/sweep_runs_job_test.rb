@@ -62,22 +62,6 @@ class SweepRunsJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert Run.find_by(id: kept.id).present? }
   end
 
-  test "an open run past its deadline is cancelled, since nothing else will ever move it" do
-    stranded = Tenant.switch(@tenant) do
-      Run.start!(kind: "analyze", deadline: 1.hour.ago).tap { |run| run.running! }
-    end
-
-    SweepRunsJob.perform_now
-
-    Tenant.switch(@tenant) do
-      stranded.reload
-
-      assert_equal "cancelled", stranded.status
-      assert_equal "deadline passed", stranded.error
-      assert_not_nil stranded.finished_at
-    end
-  end
-
   test "an open run still inside its deadline is left running" do
     working = Tenant.switch(@tenant) do
       Run.start!(kind: "analyze", deadline: 1.hour.from_now).tap { |run| run.running! }

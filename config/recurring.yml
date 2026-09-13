@@ -17,6 +17,11 @@ shared: &shared
     class: SweepAuditEventsJob
     queue: sync
     schedule: every day at 4am
+  expire_overdue:
+    class: ExpireOverdueJob
+    queue: sync
+    schedule: every 10 minutes
+
   sweep_runs:
     class: SweepRunsJob
     queue: sync
