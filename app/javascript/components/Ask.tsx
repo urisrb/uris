@@ -22,7 +22,7 @@ interface Asking {
   createdAt: string
 }
 
-export function Ask() {
+export function Ask({ onAsked }: { onAsked?: () => void }) {
   const [question, setQuestion] = useState('')
   const [asking, setAsking] = useState<Asking | null>(null)
   const ask = useAloud(AskCatalogDocument, 'That question could not be asked.')
@@ -43,6 +43,7 @@ export function Ask() {
       createdAt: held.analysis.createdAt,
     })
     setQuestion('')
+    onAsked?.()
   }
 
   return (
@@ -58,7 +59,7 @@ export function Ask() {
         <input
           value={question}
           onChange={(event) => setQuestion(event.currentTarget.value)}
-          placeholder="Ask what you keep — how much was the roof inspection?"
+          placeholder="Ask anything — how much was the roof inspection?"
           aria-label="Ask a question about your catalog"
           maxLength={500}
         />
@@ -75,12 +76,20 @@ export function Ask() {
         </Button>
       </form>
 
-      {asking && <Answer key={asking.analysisId} asking={asking} />}
+      {asking && (
+        <Answer key={asking.analysisId} asking={asking} onSettled={onAsked} />
+      )}
     </section>
   )
 }
 
-function Answer({ asking }: { asking: Asking }) {
+function Answer({
+  asking,
+  onSettled,
+}: {
+  asking: Asking
+  onSettled?: () => void
+}) {
   const { data, refetch } = useQuery(AskedDocument, { id: asking.feedId })
   const { data: progressed } = useSubscription(AnalysisProgressedDocument, {
     id: asking.analysisId,
@@ -94,8 +103,11 @@ function Answer({ asking }: { asking: Asking }) {
   const open = RUN_OPEN.has(status)
 
   useEffect(() => {
-    if (!open) refetch()
-  }, [open, refetch])
+    if (open) return
+
+    refetch()
+    onSettled?.()
+  }, [open, refetch, onSettled])
 
   useEffect(() => {
     if (!open) return

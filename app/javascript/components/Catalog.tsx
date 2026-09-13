@@ -21,7 +21,7 @@ import {
   TypesDocument,
 } from '@uris-to/client'
 import { useQuery, useSubscription } from '@uris-to/client/react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
@@ -195,6 +195,11 @@ function Listing({
     thinking.refetch()
   }, [settled, catalog.refetch, thinking.refetch])
 
+  const refreshed = useCallback(() => {
+    setCursor(null)
+    catalog.refetch()
+  }, [catalog.refetch])
+
   const total = searching ? (found.data?.search.total ?? null) : null
   const loading = searching ? found.loading : catalog.loading
   const error = searching ? found.error : catalog.error
@@ -203,7 +208,7 @@ function Listing({
     <Stack gap="var(--s5)">
       <Shelf feeds={feeds} here={feed} onChanged={onChanged} />
 
-      {!feed && !searching && !type && <Ask />}
+      {!feed && !searching && !type && <Ask onAsked={refreshed} />}
 
       {feed && (
         <FeedHead
