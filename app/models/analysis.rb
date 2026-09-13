@@ -1,5 +1,5 @@
 class Analysis < ApplicationRecord
-  CAUSES = %w[upload sync edge schedule manual].freeze
+  CAUSES = %w[upload sync edge schedule manual ask].freeze
   STATUSES = %w[queued running done failed cancelled gated].freeze
   OPEN = %w[queued running].freeze
   SETTLED = %w[done failed].freeze

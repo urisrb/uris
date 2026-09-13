@@ -156,12 +156,14 @@ class Feed < ApplicationRecord
     uris:catalog:read uris:catalog:write uris:web:read uris:resources:read
   ].freeze
 
-  def grant
+  ASKING_SCOPES = %w[uris:catalog:read uris:web:read uris:resources:read].freeze
+
+  def grant(scopes: AGENT_SCOPES)
     Grant.new(
       tenant: tenant,
       claims: Masks::Client::Claims.new(
         "sub" => "feed:#{key}",
-        "scope" => AGENT_SCOPES.join(" "),
+        "scope" => scopes.join(" "),
         "tenant" => { "subdomain" => tenant.subdomain }
       )
     )

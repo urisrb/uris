@@ -1,0 +1,101 @@
+require "test_helper"
+require_relative "../support/fake_model_server"
+
+class AskingTest < ActionDispatch::IntegrationTest
+  include ActiveJob::TestHelper
+
+  ASK = <<~GQL.freeze
+    mutation($question: String!) {
+      askCatalog(input: { question: $question }) { feed { id title } analysis { id status } }
+    }
+  GQL
+
+  setup do
+    SearchIndex.reset!
+
+    @server = FakeModelServer.current
+    @server.reset!.serves("qwen3:8b")
+    ENV["URIS_INFERENCE_ORIGINS"] = @server.origin
+
+    @tenant = Tenant.create!(subdomain: "ask-#{SecureRandom.hex(4)}", name: "Ask")
+
+    Tenant.switch(@tenant) do
+      Resource::OpenaiCompatible.create!(
+        key: "ollama", details: { "base_url" => @server.base_url, "models" => { "agent" => "qwen3:8b" } }
+      )
+      @invoice = Feed.create!(type: Feed::NOTE, key: "Acme invoice", title: "Acme invoice")
+      @other = Feed.create!(type: Feed::NOTE, key: "Beach photo", title: "Beach photo")
+    end
+
+    connect!(@tenant)
+  end
+
+  teardown { ENV.delete("URIS_INFERENCE_ORIGINS") }
+
+  test "a question is kept as a note, answered by an analysis, and connected to what the answer cites" do
+    @server.answer_tool_call("search", query: "invoice")
+    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+
+    asked = ask("How much is the Acme invoice?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    Tenant.switch(@tenant) do
+      note = Feed.find(asked.dig("feed", "id"))
+      analysis = Analysis.find(asked.dig("analysis", "id"))
+
+      assert_equal Feed::NOTE, note.type
+      assert_equal "feed", note.origin
+      assert_equal "ask", analysis.cause
+      assert_equal "done", analysis.status
+      assert_match(/\$4,200/, analysis.step_result("text"))
+      assert_equal [ @invoice.id ], note.connected.pluck(:id)
+    end
+  end
+
+  test "the answering agent reads and cannot write" do
+    @server.answer_tool_call("connect", a: @invoice.id.to_s, b: @other.id.to_s)
+    @server.answer("I could not connect them.")
+
+    ask("Connect the invoice to the beach photo")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    Tenant.switch(@tenant) { assert_empty @invoice.connected }
+  end
+
+  test "a question with no model to answer it fails with the reason" do
+    Tenant.switch(@tenant) { Resource.destroy_all }
+
+    asked = ask("anything?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    Tenant.switch(@tenant) do
+      analysis = Analysis.find(asked.dig("analysis", "id"))
+
+      assert_equal "failed", analysis.status
+      assert_match(/agent role/, analysis.error)
+    end
+  end
+
+  test "an empty question is refused" do
+    body = post_ask("   ")
+
+    assert_match(/needs something in it/, body.dig("errors", 0, "message"))
+  end
+
+  private
+
+    def ask(question)
+      post_ask(question).dig("data", "askCatalog")
+    end
+
+    def post_ask(question)
+      token = issuer.mint(subdomain: @tenant.subdomain, scopes: Grant::SCOPES,
+                          audience: "http://#{@tenant.subdomain}.uris.test/mcp")
+
+      post "/graphql",
+           params: { query: ASK, variables: { question: question }.to_json },
+           headers: { "HOST" => "#{@tenant.subdomain}.uris.test", "Authorization" => "Bearer #{token}" }
+
+      response.parsed_body
+    end
+end

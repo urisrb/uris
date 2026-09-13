@@ -3,6 +3,7 @@
 module Types
   class MutationType < Types::BaseObject
     field :add_note, mutation: Mutations::AddNote, grants: "uris:catalog:write"
+    field :ask_catalog, mutation: Mutations::AskCatalog, grants: "uris:catalog:write"
     field :snapshot_url, mutation: Mutations::SnapshotUrl, grants: "uris:catalog:write"
     field :fetch_url, mutation: Mutations::FetchUrl, grants: "uris:catalog:write"
 
