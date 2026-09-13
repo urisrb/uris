@@ -140,7 +140,7 @@ class Feed < ApplicationRecord
     scope = scope.where(type: selector[:type]) if selector[:type].present?
     scope = scope.where(key: selector[:key]) if selector[:key].present?
     scope = scope.where(id: Reference.where(mime: selector[:mime]).select(:feed_id)) if selector[:mime].present?
-    scope = scope.merge(tagged(selector[:tag])) if selector[:tag].present?
+    scope = scope.where(id: tagged(selector[:tag]).select(:id)) if selector[:tag].present?
     scope = scope.referencing(selector[:resource_id]) if selector[:resource_id].present?
     scope = scope.under(selector[:folder]) if selector[:folder].present?
     scope = scope.where(created_at: moment(selector[:since])..) if selector[:since].present?

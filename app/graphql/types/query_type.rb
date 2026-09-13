@@ -51,7 +51,7 @@ module Types
       scope = Feed.matching({ type: types.presence || type, mime: mime, resource_id: resource_id,
                               tag: tag }.compact)
       scope = scope.where(parent_id: nil) if top_level
-      scope = scope.merge(Feed.connected_to(Feed.find(connected_to))) if connected_to.present?
+      scope = scope.where(id: Feed.connected_to(Feed.find(connected_to)).select(:id)) if connected_to.present?
 
       Page.of(scope, after: after, limit: limit)
     end

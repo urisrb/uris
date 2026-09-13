@@ -68,6 +68,21 @@ class CatalogShapeTest < ActionDispatch::IntegrationTest
     assert_equal({ "march.eml" => nil, "invoice.pdf" => "march.eml" }, parents)
   end
 
+  test "what a feed is connected to narrows by tag rather than replacing it" do
+    Tenant.switch(@tenant) do
+      Edge.between!(@tag, @message)
+      Edge.between!(@tag, @attachment)
+      Edge.between!(@note, @message)
+      Edge.between!(@note, @tag)
+    end
+
+    body = execute(<<~GQL, variables: { connectedTo: @note.id })
+      query($connectedTo: ID) { feeds(tag: "receipts", connectedTo: $connectedTo) { nodes { title } } }
+    GQL
+
+    assert_equal %w[march.eml], body.dig("data", "feeds", "nodes").map { |node| node["title"] }
+  end
+
   test "a feed's analyses come newest first" do
     Tenant.switch(@tenant) do
       Analysis.open!(feed: @message, cause: "upload")

@@ -45,6 +45,18 @@ class SelectorTest < ActiveSupport::TestCase
     assert_equal [ @note ], matching(folder: "2024", mime: "text/plain")
   end
 
+  test "a tag narrows with a mime rather than replacing it" do
+    Tenant.switch(@tenant) do
+      receipts = Feed.tag!("receipts")
+      Edge.between!(receipts, @march)
+      Edge.between!(receipts, @note)
+    end
+
+    assert_equal [ @march ], matching(tag: "receipts", mime: "application/pdf")
+    assert_equal [ @note ], matching(tag: "receipts", folder: "2024/notes")
+    assert_empty matching(tag: "receipts", id: @april.id)
+  end
+
   test "since and before bound the catalog by when an item was catalogued" do
     assert_equal [ @note, @root ], matching(since: 36.hours.ago.iso8601)
     assert_equal [ @march, @april ], matching(before: 36.hours.ago.iso8601)
