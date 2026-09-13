@@ -110,10 +110,12 @@ class Agent
     def note(result)
       return if @analysis.nil?
 
+      asked = result.arguments.to_h.to_json.truncate(200)
+
       if result.ok
-        @analysis.log_done("agent", "turn #{@turns_taken}", result.name)
+        @analysis.log_done("agent", "turn #{@turns_taken}", result.name, asked)
       else
-        @analysis.log_fail("agent", "turn #{@turns_taken}", result.name, result.error)
+        @analysis.log_fail("agent", "turn #{@turns_taken}", result.name, asked, result.error)
       end
     end
 

@@ -20,11 +20,17 @@ module Tool
       }
     )
 
+    GIST = 300
+
+    def self.found(feed)
+      summarize(feed).merge(gist: (feed.summary || feed.body_text)&.squish&.truncate(GIST))
+    end
+
     def self.call(server_context:, query: nil, type: nil, limit: 50)
       respond(server_context, { query: query, type: type, limit: limit }) do
         feeds = Feed.search(query, type: type, limit: limit.to_i.clamp(1, 200))
 
-        { count: feeds.size, feeds: feeds.map { |feed| summarize(feed) } }
+        { count: feeds.size, feeds: feeds.map { |feed| found(feed) } }
       end
     end
   end

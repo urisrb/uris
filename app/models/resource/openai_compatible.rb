@@ -22,7 +22,7 @@ class Resource
     CHAIN_TIMEOUT = 120
     # A thinking model spends the budget reasoning before it emits anything. At 1024 it
     # runs out mid-thought and answers with neither content nor a tool call.
-    AGENT_MAX_TOKENS = 4096
+    AGENT_MAX_TOKENS = 8192
     CHAIN_SYSTEM = "You have tools. Call one rather than answering from memory."
     CHAIN_ASK = "Search the catalog for invoices, then tell me what you found."
     CHAIN_RESULT = { count: 1, feeds: [ { id: "1", type: "uris:file", title: "acme.pdf" } ] }.to_json
