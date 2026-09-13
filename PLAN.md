@@ -193,8 +193,8 @@ rest of what it found.
 - **Something deleted at the source is marked gone, never removed.** A finished sync sets `gone_at`
   on what it did not see; nothing yet forgets a feed whose every place is gone, and Graph's delta
   still throws away the deletions it is handed, so OneDrive notices none.
-- **Every sync is a full walk.** IMAP rescans from the first UID, Graph discards its `deltaLink`,
-  GitHub never asks for `since`.
+- **Only git, IMAP and GitHub walk what changed.** Notion and Slack still walk everything, and Graph
+  still discards its `deltaLink`, which is also how it would learn of deletions.
 - **Graph keys are probably bare filenames.** A delta response omits `parentReference.path`, so two
   files of one name in different folders would share a key; the tests supply the path and cannot
   see it.

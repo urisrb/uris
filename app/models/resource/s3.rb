@@ -123,7 +123,7 @@ class Resource
       true
     end
 
-    def each_page(cursor: nil, prefix: nil)
+    def each_page(cursor: nil, prefix: nil, walk: nil)
       loop do
         page = s3 do |client|
           client.list_objects_v2(

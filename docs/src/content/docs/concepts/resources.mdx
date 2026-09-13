@@ -115,6 +115,15 @@ abandoned and another may start.
 
 A run can be cancelled, and stops when it passes its deadline.
 
+A sync is a walk, and `Resource::Walk` decides which kind. A type that can ask its source for only
+what changed — git, IMAP, GitHub — keeps a checkpoint in `sync_state`: the commit it reached, the
+last message it saw with the mailbox's `UIDVALIDITY`, the time it began less five minutes. The next
+sync walks only what changed since, as long as a full walk finished within the last day; otherwise,
+or when the checkpoint cannot be used — history rewritten, the mailbox renumbered — it walks
+everything. What a walk reaches becomes the checkpoint only when it finishes, so a cancelled, failed
+or pretend sync starts from where the last good one left off, and a walk resumed after a deploy keeps
+the checkpoint it began with. `walked_at` is when a full walk last finished without missing anything.
+
 ## Reaching through another resource
 
 `via` points a resource at a transport — a resource that serves `transport` and answers `reach!` —

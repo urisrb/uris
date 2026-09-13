@@ -58,7 +58,7 @@ class Resource
       true
     end
 
-    def each_page(cursor: nil, prefix: nil, &block)
+    def each_page(cursor: nil, prefix: nil, walk: nil, &block)
       channel, held = resume(cursor)
       wanted = channel ? channels.drop_while { |found| found["id"] != channel } : channels
 

@@ -53,7 +53,7 @@ class Resource
       true
     end
 
-    def each_page(cursor: nil, prefix: nil)
+    def each_page(cursor: nil, prefix: nil, walk: nil)
       held = cursor.presence
 
       loop do

@@ -62,18 +62,25 @@ class Resource
       details.fetch("ssl", true)
     end
 
+    def self.walks_changes?
+      true
+    end
+
     def check!
       connect { |imap| examine(imap) }
       true
     end
 
-    def each_page(cursor: nil, prefix: nil)
+    def each_page(cursor: nil, prefix: nil, walk: nil)
+      cursor ||= resumed_from(walk)
+
       loop do
         page, following = connect { |imap| page_after(imap, cursor) }
 
         break if page.empty?
 
         cursor = following
+        walk&.reached({ "uidvalidity" => page.last.uidvalidity, "uid" => page.map(&:uid).max })
         yield page, cursor
 
         break if page.size < PAGE
@@ -212,6 +219,17 @@ class Resource
         Integer(imap.responses("UIDVALIDITY", &:last))
       rescue TypeError, ArgumentError
         raise Resource::Failed, "#{key}: #{name} reported no UIDVALIDITY"
+      end
+
+      def resumed_from(walk)
+        since = walk&.since.to_h
+        return nil if since.blank?
+
+        validity = connect { |imap| examine(imap) }
+        return "#{validity}:#{since['uid'].to_i + 1}" if since["uidvalidity"].to_i == validity
+
+        walk.start_over!
+        nil
       end
 
       def page_after(imap, cursor)

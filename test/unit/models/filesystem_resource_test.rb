@@ -213,10 +213,13 @@ class FilesystemResourceTest < ActiveSupport::TestCase
 
     Tenant.switch(@tenant) do
       resource = Resource.find(@resource.id)
-      resource.each_page { |_, _| nil }
+      walked = resource.walked_at
+      walk = Resource::Walk.begin!(resource)
+      resource.each_page(walk: walk) { |_, _| nil }
 
-      assert_not resource.walked_everything?
-      assert_equal 0, resource.notice_what_is_gone!(1.minute.from_now)
+      assert walk.partial?
+      assert_equal 0, walk.finish!(1.minute.from_now)
+      assert_equal walked, resource.reload.walked_at, "a walk that missed something is not a full one"
     end
   ensure
     unreadable&.send(:define_method, :children) { |*args| super(*args) }

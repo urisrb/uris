@@ -49,6 +49,10 @@ resource last seen before the sync began has `gone_at` set: the source no longer
 deleted; the feed, its analysis and its notes stay, and the item page says where it is no longer
 found. A later sync or keep that finds it again clears `gone_at`.
 
+Only a full walk can say what is missing. A walk of only what changed says nothing about what it
+did not visit, so it calls nothing gone — except where the source itself names the deletion, as the
+commits since a git checkpoint do.
+
 A reference only ever kept by hand has no `seen_at` and is never called gone by a sync that does not
 walk to it. RSS does not notice deletions at all, since an entry scrolling out of a feed's window is
 not an entry being removed, and neither does OneDrive until its delta keys are sound. A filesystem

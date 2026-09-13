@@ -43,7 +43,7 @@ class Resource
       true
     end
 
-    def each_page(cursor: nil, prefix: nil)
+    def each_page(cursor: nil, prefix: nil, walk: nil)
       found = entries.drop_while { |entry| cursor.present? && entry.id != cursor }
       found = found.drop(1) if cursor.present? && found.any?
       found = entries if cursor.present? && found.empty?

@@ -4,6 +4,7 @@ class Resource
     VERSION = "2022-11-28".freeze
     REPO = %r{\A[\w.-]+/[\w.-]+\z}
     COMMENTS = 50
+    SKEW = 5.minutes
 
     def self.api
       API
@@ -68,13 +69,19 @@ class Resource
       true
     end
 
-    def each_page(cursor: nil, prefix: nil)
+    def self.walks_changes?
+      true
+    end
+
+    def each_page(cursor: nil, prefix: nil, walk: nil)
       wanted = repos
       repo, page = resume(cursor, wanted)
+      since = walk&.since.to_h["updated"]
+      walk&.reached({ "updated" => SKEW.ago.utc.iso8601 }, first: true)
 
       wanted.drop(wanted.index(repo).to_i).each do |held|
         loop do
-          batch = issues(held, page)
+          batch = issues(held, page, since: since)
           break if batch.empty?
 
           yield batch, "#{held}##{page}"
@@ -186,12 +193,12 @@ class Resource
         [ repo, page.to_i + 1 ]
       end
 
-      def issues(repo, page)
+      def issues(repo, page, since: nil)
         raise Resource::Unusable, "#{key}: names no repository to read" if repo.blank?
 
         found = api_get("/repos/#{repo}/issues",
                         state: state, per_page: PAGE, page: page,
-                        sort: "updated", direction: "desc")
+                        sort: "updated", direction: "desc", since: since)
 
         Array(found).map { |issue| issue.merge("repo" => repo) }
       end

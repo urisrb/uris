@@ -71,7 +71,7 @@ class Resource
       { tools: {}, call: { name: "string", arguments: "json?" } }
     end
 
-    before_validation :forget_what_masks_held, unless: :delegated?
+    before_validation :forget_what_masks_held, if: -> { !delegated? || pointed_elsewhere? }
 
     validate :it_names_an_address
     validate :its_key_can_prefix_a_tool
@@ -192,7 +192,17 @@ class Resource
       end
 
       def forget_what_masks_held
-        self.credentials = credentials.to_h.except(*HELD_BY_MASKS) if (credentials.to_h.keys & HELD_BY_MASKS).any?
+        return if (credentials.to_h.keys & HELD_BY_MASKS).empty?
+
+        self.credentials = credentials.to_h.except(*HELD_BY_MASKS)
+        self.connected_by = nil
+      end
+
+      def pointed_elsewhere?
+        return false if new_record?
+
+        was = details_was.to_h
+        was["url"] != url || was["provider"].to_s != provider_key
       end
 
       def unauthorized?(error)
@@ -248,7 +258,7 @@ class Resource
 
           define_singleton_method(:call) do |server_context:, **arguments|
             relay(server_context, arguments) do
-              Resource.find(held).invoke!(remote, arguments)
+              Resource.visible_to(Current.grant).find(held).invoke!(remote, arguments)
             end
           end
         end

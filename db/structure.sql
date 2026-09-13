@@ -452,7 +452,9 @@ CREATE TABLE public.resources (
     serving jsonb DEFAULT '{}'::jsonb NOT NULL,
     connected_by character varying,
     needs_connect_at timestamp(6) without time zone,
-    owner_subject character varying
+    owner_subject character varying,
+    sync_state jsonb DEFAULT '{}'::jsonb NOT NULL,
+    walked_at timestamp(6) without time zone
 );
 
 ALTER TABLE ONLY public.resources FORCE ROW LEVEL SECURITY;
@@ -1752,6 +1754,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260913160000'),
 ('20260913150000'),
 ('20260913140000'),
 ('20260913130000'),

@@ -67,7 +67,7 @@ class Resource
     # Delta rather than a walk of every folder: one flat enumeration the service pages for us,
     # and a cursor that is the next page's own URL, so a resumed sync asks for exactly what it
     # had not reached.
-    def each_page(cursor: nil, prefix: nil)
+    def each_page(cursor: nil, prefix: nil, walk: nil)
       held = cursor.presence || "#{DRIVE}/root/delta"
 
       loop do

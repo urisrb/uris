@@ -25,7 +25,7 @@ class Resource
       true
     end
 
-    def each_page(cursor: nil, prefix: nil)
+    def each_page(cursor: nil, prefix: nil, walk: nil)
       loop do
         scope = blobs.order(:id).limit(PAGE)
         scope = scope.where("key LIKE ?", "#{prefix}%") if prefix.present?

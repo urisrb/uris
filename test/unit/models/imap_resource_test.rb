@@ -73,6 +73,36 @@ class ImapResourceTest < ActiveSupport::TestCase
     assert @server.fetched.none? { |asked| asked.include?("BODY.PEEK[])") }, "the whole message is never asked for"
   end
 
+  test "a later sync asks only for messages after the last one it saw" do
+    sync
+    @server.deliver subject: "Arrived later", body: "New since the last sync."
+    @server.fetched.clear
+
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+
+    Tenant.switch(@tenant) do
+      assert_equal 3, Feed.files.count
+      assert_equal 3, @resource.reload.sync_state.dig("checkpoint", "uid")
+    end
+    assert_predicate @server.fetched, :any?
+    assert @server.fetched.all? { |asked| asked.start_with?("3") }, @server.fetched.inspect
+  end
+
+  test "a mailbox that was renumbered is walked from the start again" do
+    sync
+    @server.renumber!
+
+    Tenant.switch(@tenant) do
+      resource = Resource.find(@resource.id)
+      walk = Resource::Walk.begin!(resource)
+      seen = []
+      resource.each_page(walk: walk) { |page, _| seen.concat(page.map(&:uid)) }
+
+      assert walk.full?
+      assert_equal [ 1, 2 ], seen
+    end
+  end
+
   test "syncing a mailbox catalogues every message as an email item" do
     sync
 

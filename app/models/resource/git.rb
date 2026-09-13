@@ -3,6 +3,8 @@ require "open3"
 class Resource
   class Git < Resource
     HEAD = "refs/uris/head".freeze
+    CHECKPOINT = "refs/uris/checkpoint".freeze
+    NAMED = 200
     PAGE = 500
     MAX_BLOB = 2.megabytes
     DEFAULT_PROTOCOLS = "https".freeze
@@ -35,6 +37,10 @@ class Resource
         get: { path: "string" },
         keep: { path: "string" }
       }
+    end
+
+    def self.walks_changes?
+      true
     end
 
     def self.root
@@ -79,10 +85,21 @@ class Resource
       true
     end
 
-    def each_page(cursor: nil, prefix: nil)
+    def each_page(cursor: nil, prefix: nil, walk: nil)
+      since = walk&.since.to_h["commit"]
+      prepare!
+      kept = since.present? && holds?(since)
+      git("update-ref", CHECKPOINT, since) if kept
       pull!
+      walk&.reached({ "commit" => git("rev-parse", HEAD).strip }, first: true)
 
-      found = entries(prefix)
+      found = if kept
+        changed_since(since, prefix, walk)
+      else
+        walk&.start_over! if since.present?
+        entries(prefix)
+      end
+
       resumed = cursor.present? && found.index { |entry| entry.path == cursor }
       found = found.drop(resumed + 1) if resumed
 
@@ -148,6 +165,34 @@ class Resource
 
           held
         end
+      end
+
+      def changed_since(since, prefix, walk)
+        under = prefix.to_s.delete_prefix("/").chomp("/")
+        said = git("diff", "--name-status", "--no-renames", "-z", since, HEAD, "--", *under.presence)
+        changed = said.split("\0").each_slice(2).group_by(&:first).transform_values { |pairs| pairs.map(&:last) }
+
+        walk.gone(changed.fetch("D", []))
+
+        named = changed.except("D").values.flatten.sort
+        named.each_slice(NAMED).flat_map { |paths| entries_named(paths) }.sort_by(&:path)
+      end
+
+      def entries_named(paths)
+        git("ls-tree", "-l", HEAD, "--", *paths).lines.filter_map do |line|
+          held = parsed(line)
+
+          held if held && held.size <= MAX_BLOB
+        end
+      end
+
+      def holds?(sha)
+        return false unless sha.to_s.match?(/\A\h{40,64}\z/)
+
+        git("cat-file", "-e", "#{sha}^{commit}")
+        true
+      rescue Resource::Failed
+        false
       end
 
       def parsed(line)

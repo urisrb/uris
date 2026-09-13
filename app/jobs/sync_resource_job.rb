@@ -30,11 +30,12 @@ class SyncResourceJob < ApplicationJob
 
   def build_enumerator(_tenant_id, resource_id, _run_id = nil, cursor:)
     resource = resource_for(resource_id)
+    walk = walk_for(resource, cursor)
 
     objects = Enumerator.new do |yielder|
       started_at = cursor
 
-      resource.each_page(cursor: cursor) do |page, next_cursor|
+      resource.each_page(cursor: cursor, walk: walk) do |page, next_cursor|
         page.each_with_index do |object, index|
           yielder.yield(object, index == page.size - 1 ? next_cursor : started_at)
         end
@@ -47,7 +48,11 @@ class SyncResourceJob < ApplicationJob
   end
 
   def abandon_sync
-    Resource.find_by(id: arguments[1])&.abandon_sync!
+    resource = Resource.find_by(id: arguments[1])
+    return if resource.nil?
+
+    Resource::Walk.new(resource).abandon!
+    resource.abandon_sync!
   end
 
   def gate_reference
@@ -70,11 +75,19 @@ class SyncResourceJob < ApplicationJob
       return abandon_sync if stopped?
       return if @resource.nil?
 
-      started = @resource.sync_started_at
-      gone = started && !dry_run? ? @resource.notice_what_is_gone!(started) : 0
+      if dry_run?
+        Resource::Walk.new(@resource).abandon!
+        return @resource.release_sync!
+      end
+
+      gone = walk_for(@resource, :resumed).finish!(@resource.sync_started_at)
       run&.log_info("sync", "#{gone} no longer found at the source") if gone.positive?
 
       @resource.release_sync!
+    end
+
+    def walk_for(resource, cursor)
+      @walk ||= cursor.nil? ? Resource::Walk.begin!(resource) : Resource::Walk.resume(resource)
     end
 
     def resource_for(resource_id)

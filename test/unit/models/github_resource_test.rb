@@ -111,6 +111,21 @@ class GithubResourceTest < ActiveSupport::TestCase
                          query: hash_including({ "page" => "1" })
   end
 
+  test "a later sync asks only for issues updated since shortly before the last one began" do
+    stub_issues(page: 1, count: 1, from: 7)
+
+    travel_to Time.utc(2026, 9, 13, 12, 0) do
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+    end
+
+    travel_to Time.utc(2026, 9, 13, 13, 0) do
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+    end
+
+    assert_requested :get, "#{API}/repos/acme/widgets/issues",
+                     query: hash_including({ "since" => "2026-09-13T11:55:00Z" })
+  end
+
   test "an issue lands as one item, keyed on its number and titled with its repository" do
     stub_issues(page: 1, count: 1, from: 7)
     stub_issues(page: 2, count: 0, from: 0)

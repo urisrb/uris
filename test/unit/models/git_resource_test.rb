@@ -130,6 +130,52 @@ class GitResourceTest < ActiveSupport::TestCase
     assert_equal %w[README.md lib/widget.rb], seen
   end
 
+  test "a later sync reads only what the commits since the last one changed, and what they deleted is gone" do
+    commit("docs/guide.md", "# Guide\n")
+    sync
+
+    commit("README.md", "# Widgets, revised\n")
+    commit("lib/gadget.rb", "class Gadget\nend\n")
+    sh("git", "-C", @origin, "rm", "--quiet", "docs/guide.md")
+    sh("git", "-C", @origin, "commit", "--quiet", "-m", "drop the guide")
+
+    walked = []
+    Tenant.switch(@tenant) do
+      resource = Resource.find(@resource.id)
+      walk = Resource::Walk.begin!(resource)
+
+      assert_not walk.full?
+      resource.each_page(walk: walk) { |batch, _| walked.concat(batch.map(&:path)) }
+    end
+
+    assert_equal %w[README.md lib/gadget.rb], walked
+    Tenant.switch(@tenant) { assert_predicate Reference.find_by!(locator_key: "docs/guide.md").gone_at, :present? }
+  end
+
+  test "a sync after the branch was rewritten walks everything, since the old commit is nowhere to diff from" do
+    sync
+    Tenant.switch(@tenant) { @resource.reload.update_columns(sync_state: { "checkpoint" => { "commit" => "f" * 40 } }) }
+
+    walked = []
+    Tenant.switch(@tenant) do
+      resource = Resource.find(@resource.id)
+      walk = Resource::Walk.begin!(resource)
+      resource.each_page(walk: walk) { |batch, _| walked.concat(batch.map(&:path)) }
+
+      assert walk.full?
+    end
+
+    assert_equal %w[README.md lib/widget.rb], walked
+  end
+
+  test "the checkpoint is the commit the sync reached" do
+    sync
+
+    head = Open3.capture2("git", "-C", @origin, "rev-parse", "main").first.strip
+
+    Tenant.switch(@tenant) { assert_equal head, @resource.reload.sync_state.dig("checkpoint", "commit") }
+  end
+
   test "a blob larger than the cap is left out rather than pulled into the catalogue" do
     commit("big.bin", "x" * (Resource::Git::MAX_BLOB + 1))
 
@@ -255,6 +301,10 @@ class GitResourceTest < ActiveSupport::TestCase
   end
 
   private
+
+    def sync
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+    end
 
     def build_origin
       sh("git", "init", "--quiet", "--initial-branch", "main", @origin)

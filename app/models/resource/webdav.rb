@@ -69,7 +69,7 @@ class Resource
       true
     end
 
-    def each_page(cursor: nil, prefix: nil)
+    def each_page(cursor: nil, prefix: nil, walk: nil)
       walk(prefix).drop_while { |entry| cursor.present? && !after?(entry.path, cursor) }
                   .each_slice(PAGE) { |batch| yield batch, batch.last.path }
     end

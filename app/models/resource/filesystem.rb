@@ -68,12 +68,9 @@ class Resource
       true
     end
 
-    def walked_everything?
-      !@unreadable
-    end
-
-    def each_page(cursor: nil, prefix: nil)
+    def each_page(cursor: nil, prefix: nil, walk: nil)
       permitted_root!
+      @walk = walk
 
       walk(prefix).drop_while { |path| cursor.present? && !after?(path, cursor) }
                   .each_slice(PAGE) do |batch|
@@ -260,7 +257,7 @@ class Resource
           end
         end
       rescue SystemCallError
-        @unreadable = true
+        @walk&.partial!
         nil
       end
   end
