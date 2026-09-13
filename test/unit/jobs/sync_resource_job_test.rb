@@ -153,6 +153,42 @@ class SyncResourceJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_equal 2, feed_at("notes.txt").analyses.count }
   end
 
+  test "a sync that was cancelled lets the resource go without calling it synced" do
+    run = Tenant.switch(@tenant) do
+      @resource.update!(sync_interval: 1.hour.to_i)
+      @resource.claim_sync!
+      Run.start!(kind: "sync", resource: @resource).tap(&:cancel!)
+    end
+
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id, run.id) }
+
+    Tenant.switch(@tenant) do
+      @resource.reload
+
+      assert_nil @resource.synced_at
+      assert_nil @resource.sync_started_at, "a stopped sync does not hold the resource"
+      assert @resource.next_sync_at.present?, "the schedule still comes round"
+      assert_equal "cancelled", run.reload.status
+    end
+  end
+
+  test "a sync its gate refused is not called synced" do
+    Tenant.switch(@tenant) do
+      Gate.set!(key: "sync", enabled: false)
+      @resource.claim_sync!
+    end
+
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+
+    Tenant.switch(@tenant) do
+      @resource.reload
+
+      assert_nil @resource.synced_at
+      assert_nil @resource.sync_started_at
+      assert_equal 0, Feed.files.count
+    end
+  end
+
   test "an object is saved with the cursor its page began at, so a resumed sync misses none of that page" do
     pages = { nil => [ %w[a b], "b" ], "b" => [ %w[c d], "d" ] }
     paged = Object.new

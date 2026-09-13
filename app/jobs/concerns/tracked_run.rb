@@ -27,7 +27,7 @@ module TrackedRun
     return unless @seen == 1 || (@seen % CHECK_EVERY).zero?
 
     flush_run_progress
-    throw(:abort) if halted?
+    stop! if halted?
     halt_for_gate! if refresh_gate.closed?
   end
 

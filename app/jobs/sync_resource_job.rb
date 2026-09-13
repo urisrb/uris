@@ -73,7 +73,7 @@ class SyncResourceJob < ApplicationJob
   private
 
     def release_sync
-      @resource&.release_sync!
+      stopped? ? abandon_sync : @resource&.release_sync!
     end
 
     def resource_for(resource_id)

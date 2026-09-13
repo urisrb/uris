@@ -40,6 +40,15 @@ module Gated
     gate.dry_run?
   end
 
+  def stopped?
+    @stopped == true
+  end
+
+  def stop!
+    @stopped = true
+    throw(:abort)
+  end
+
   def gate_reference
     nil
   end
@@ -47,6 +56,7 @@ module Gated
   private
 
     def refuse_gated_run
+      @stopped = true
       mark_run_gated
       enumerator_builder.build_array_enumerator([], cursor: nil)
     end
@@ -64,6 +74,6 @@ module Gated
     def halt_for_gate!
       mark_run_gated
 
-      throw(:abort)
+      stop!
     end
 end
