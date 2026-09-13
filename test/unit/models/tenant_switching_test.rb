@@ -34,6 +34,27 @@ class TenantSwitchingTest < ActiveSupport::TestCase
     end
   end
 
+  test "switching to the tenant already current still isolates a connection that never entered it" do
+    fresh = ActiveRecord::Base.connection_pool.send(:new_connection)
+    setting = -> { fresh.select_value("SELECT current_setting('#{TenantIsolation::SETTING}', true)").to_s }
+
+    within(@tenant) do
+      Tenant.singleton_class.alias_method(:shared_connection, :connection)
+      Tenant.define_singleton_method(:connection) { fresh }
+
+      assert_equal "", setting.call, "a connection another thread checked out knows no tenant"
+
+      Tenant.switch(@tenant) { assert_equal @tenant.id.to_s, setting.call }
+
+      assert_equal "", setting.call, "and it goes back to the pool knowing none"
+      assert_equal @tenant, Current.tenant
+    ensure
+      Tenant.singleton_class.alias_method(:connection, :shared_connection)
+    end
+  ensure
+    fresh&.disconnect!
+  end
+
   test "a tenant cannot write a row belonging to another" do
     assert_raises(ActiveRecord::StatementInvalid) do
       within(@other) { Feed.create!(type: Feed::FILE, key: "Smuggled", title: "Smuggled", tenant_id: @tenant.id) }

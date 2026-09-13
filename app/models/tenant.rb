@@ -155,7 +155,7 @@ class Tenant < ApplicationRecord
 
       isolated!
 
-      return yield tenant if Current.tenant&.id == tenant.id
+      return within_connection(tenant) { yield tenant } if Current.tenant&.id == tenant.id
 
       held = Current.tenant
 
@@ -176,13 +176,30 @@ class Tenant < ApplicationRecord
 
       def enter(tenant)
         Current.tenant = tenant
+        isolate(tenant)
+      end
 
-        connection.exec_query(
+      def within_connection(tenant)
+        return yield if connection.instance_variable_get(:@uris_tenant_id) == tenant.id
+
+        begin
+          isolate(tenant)
+          yield
+        ensure
+          isolate(nil)
+        end
+      end
+
+      def isolate(tenant)
+        held = connection
+
+        held.exec_query(
           "SELECT set_config($1, $2, false)", "tenant",
           [ TenantIsolation::SETTING, tenant&.id.to_s ]
         )
 
-        connection.clear_query_cache
+        held.instance_variable_set(:@uris_tenant_id, tenant&.id)
+        held.clear_query_cache
       rescue ActiveRecord::ConnectionNotEstablished, ActiveRecord::ConnectionFailed
         nil
       end

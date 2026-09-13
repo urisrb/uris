@@ -8,6 +8,8 @@ class McpController < ApplicationController
 
   skip_forgery_protection
 
+  around_action :within_tenant
+
   def handle
     status, headers, body = transport.call(request.env)
 
@@ -19,6 +21,10 @@ class McpController < ApplicationController
   end
 
   private
+
+    def within_tenant(&)
+      Tenant.switch(current_tenant, &)
+    end
 
     def presented?
       true
