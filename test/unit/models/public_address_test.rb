@@ -28,6 +28,15 @@ class PublicAddressTest < ActiveSupport::TestCase
     refute PublicAddress.permitted?("http://[::1]/")
   end
 
+  test "an IPv6 address that carries an IPv4 one inside it is refused, whatever it carries" do
+    refute PublicAddress.permitted?("http://[::127.0.0.1]/"), "IPv4-compatible"
+    refute PublicAddress.permitted?("http://[2002:7f00:1::]/"), "6to4 wrapping 127.0.0.1"
+    refute PublicAddress.permitted?("http://[2001:0:4136:e378:8000:63bf:3fff:fdd2]/"), "Teredo"
+    refute PublicAddress.permitted?("http://[64:ff9b:1::a00:5]/"), "local-use NAT64"
+    refute PublicAddress.permitted?("http://[fec0::1]/"), "site-local"
+    assert PublicAddress.permitted?("http://[2606:4700:4700::1111]/"), "an ordinary global address"
+  end
+
   test "a scheme that is not http or https is refused" do
     error = assert_raises(PublicAddress::Blocked) { PublicAddress.permitted!("file:///etc/passwd") }
 
