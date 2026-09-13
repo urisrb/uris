@@ -68,7 +68,9 @@ Each uris tenant is a client of a masks tenant. `MASKS_ISSUER_TEMPLATE` names th
 
 A tenant starts with no client. The first visit shows **Connect a sign-in server**, which runs the
 handshake mounted at `/auth/handshake`: uris sends the browser to masks with its name, its resource
-URL, its redirect URI, `openid profile email offline_access` and the `uris:` namespace; a masks account allowed to approve connections
+URL, its redirect URIs — `/auth/callback` for signing in, `/connect/callback` for
+[connecting a resource](/concepts/resources/#resources-connected-through-masks) — `openid profile email offline_access`, the
+`uris:` namespace and `masks:delegate:`; a masks account allowed to approve connections
 approves it; masks sends back a one-time initial access token, and uris redeems it server to server
 at masks' registration endpoint. The result is stored on the tenant — `client_id`, `client_secret`,
 `registration_access_token`, `registration_client_uri` and `connected_at` — with the secret and the

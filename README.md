@@ -11,8 +11,8 @@ bytes — an issue, a page, a thread — and compose the text they never had, so
 beside a PDF. All five API types sit on one adapter owning the dialling, the host check, the byte
 cap, the 401 worth one more attempt and the 429 worth retrying; a subclass writes where its pages
 come from and what a record reads like, and nothing else. That adapter does not know which of them
-is brokered — it asks the resource for a token, and `Resource::Brokered` is where the answer
-changes.
+reach somebody's own account — it asks the resource for a token, and `Resource::Delegated` is where
+the answer comes from masks.
 
 Everything that touches an unbounded number of things checkpoints through
 [job-iteration](https://github.com/Shopify/job-iteration), so a sync or an export survives a deploy

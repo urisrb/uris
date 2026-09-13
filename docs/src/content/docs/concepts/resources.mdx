@@ -58,29 +58,32 @@ refused, and a write never follows one.
 
 ## Resources connected through masks
 
-Google Drive, OneDrive, and an MCP server whose authentication is `masks` reach somebody's own
-account elsewhere, so no secret is typed into uris. masks holds that account's tokens and releases
-one to uris under a [delegation](https://masks.pages.dev/concepts/delegation/) the person consents
-to.
+Google Drive, OneDrive, and an MCP server whose authentication is `masks` use somebody's own
+account. Nobody types a secret into uris.
 
-Attaching one makes it unconnected, and hands back where to connect it: `/resources/<id>/connect`,
-behind `uris:resources:command`. That sends the browser to masks asking for
-`masks:delegate:<provider>`, keeping the state in the session bound to the resource and to who
-started it. `/connect/callback` refuses a state that does not match, a callback finished by somebody
-else, and a connection masks made for a different person, then keeps what came back — the
-connection, the person who connected it as `connected_by`, and a secret — encrypted in the
-resource's credentials.
+1. **Attach** it. It starts out not connected.
+2. **Connect** it. The browser goes to masks, which asks the person's consent and signs them in to
+   the provider if it has to, then comes back.
+3. It **syncs and answers** from then on, with nobody signed in.
+4. If the person stops uris using the account in masks, the resource shows **Reconnect** and its
+   syncs stop until somebody does.
 
-When the resource needs a token it answers the one it holds until a minute before it expires, then
-asks masks for another with the secret, and keeps the secret masks rotates. Only one worker at a
-time does so, under a row lock, because spending a secret twice revokes it. An API that refuses the
-token clears it and asks once more. This works with nobody signed in, so a resource connected
-through masks syncs on a schedule like any other.
+masks keeps the provider's tokens; uris keeps a [delegation](https://masks.pages.dev/concepts/delegation/)
+— the connection and a secret, encrypted in the resource's credentials — and trades the secret for
+a provider token when the last one runs out.
 
-When masks refuses — the person stopped uris using the account, disconnected it, or the provider
-refused a refresh — the resource is marked `needs_connect_at` and raises `Resource::Unusable`, so a
-sync stops rather than retrying, and the resources page offers **Reconnect**. masks not answering is
-a `Resource::Failed`, retried like any other. A check or a sync that succeeds clears the mark.
+What uris enforces:
+
+- `/resources/<id>/connect` needs `uris:resources:command`, and the resource has to be one the
+  caller can see.
+- `/connect/callback` refuses a `state` this browser did not start, a callback somebody else
+  finished, and a connection masks made for a different person.
+- One worker at a time renews a resource's token, under a row lock, because a secret spent twice is
+  revoked. Every rotated secret is kept.
+- A provider API that refuses the token gets one fresh token and one more try.
+- masks refusing marks `needs_connect_at` and raises `Resource::Unusable`, which stops a sync
+  instead of retrying it. masks not answering is `Resource::Failed`, retried as usual. A check or
+  sync that succeeds clears the mark.
 
 ## Only mine, or everyone's
 
