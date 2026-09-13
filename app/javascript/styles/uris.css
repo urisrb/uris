@@ -471,7 +471,7 @@ pre,
   color: var(--muted);
 }
 
-.works {
+.settings {
   display: flex;
   flex-direction: column;
   gap: var(--s5);
@@ -483,6 +483,8 @@ pre,
   gap: var(--s1);
   padding-bottom: var(--s3);
   border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .subnav-link {

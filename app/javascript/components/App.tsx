@@ -1,9 +1,10 @@
 import { Button, Loader, Tooltip } from '@mantine/core'
 import type { Account } from '@masks/client'
-import { IconLink, IconSearch, IconSettings } from '@tabler/icons-react'
+import { IconLink, IconSearch } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react'
 import {
   Link,
+  Navigate,
   Route,
   Routes,
   useLocation,
@@ -25,9 +26,8 @@ import { Mark } from './Mark'
 import { Resources } from './Resources'
 import { Runs } from './Runs'
 import { SayProvider } from './Say'
-import { Settings } from './Settings'
+import { Preferences, Settings, SignedIn } from './Settings'
 import { UploadsProvider } from './Uploads'
-import { Works } from './Works'
 
 const VERBS: [string, string][] = [
   ['make', 'doc'],
@@ -40,8 +40,6 @@ const VERBS: [string, string][] = [
   ['share', 'contact'],
   ['keep', 'file'],
 ]
-
-const WORKS_AT = /^\/(resources|runs|audit)/
 
 export function App() {
   const { account, status, loading, login, logout, logoutEverywhere, connect } =
@@ -143,22 +141,11 @@ function Shell({
 
         <Hunt />
 
-        <Tooltip label="Resources, runs and audit" openDelay={400}>
-          <Link
-            to="/resources"
-            className="head-icon"
-            aria-label="Resources, runs and audit"
-            aria-current={WORKS_AT.test(location.pathname) ? 'page' : undefined}
-          >
-            <IconSettings size={19} stroke={1.6} />
-          </Link>
-        </Tooltip>
-
         <Tooltip label={who} openDelay={400}>
           <Link
             to="/settings"
             className="head-icon head-face"
-            aria-label={`${who} — your settings`}
+            aria-label={`${who} — settings`}
             aria-current={
               location.pathname.startsWith('/settings') ? 'page' : undefined
             }
@@ -173,23 +160,25 @@ function Shell({
           <Routes>
             <Route path="/" element={<Catalog />} />
             <Route path="/items/:id" element={<ItemDetail />} />
-            <Route element={<Works />}>
-              <Route path="/resources" element={<Resources />} />
-              <Route path="/resources/:id" element={<Resources />} />
-              <Route path="/runs" element={<Runs />} />
-              <Route path="/audit" element={<Audit />} />
+            <Route path="/settings" element={<Settings />}>
+              <Route index element={<Navigate to="account" replace />} />
+              <Route
+                path="account"
+                element={
+                  <SignedIn
+                    who={who}
+                    tenant={tenant}
+                    logout={logout}
+                    logoutEverywhere={logoutEverywhere}
+                  />
+                }
+              />
+              <Route path="preferences" element={<Preferences />} />
+              <Route path="resources" element={<Resources />} />
+              <Route path="resources/:id" element={<Resources />} />
+              <Route path="runs" element={<Runs />} />
+              <Route path="activity" element={<Audit />} />
             </Route>
-            <Route
-              path="/settings"
-              element={
-                <Settings
-                  who={who}
-                  tenant={tenant}
-                  logout={logout}
-                  logoutEverywhere={logoutEverywhere}
-                />
-              }
-            />
             <Route path="/:slug" element={<Catalog />} />
             <Route path="*" element={<Lost />} />
           </Routes>

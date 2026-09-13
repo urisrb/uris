@@ -25,7 +25,7 @@ class EnrollmentsController < ApplicationController
       arguments: { type: resource.class.sti_name, key: resource.key }
     )
 
-    redirect_to "/resources/#{resource.id}", allow_other_host: false
+    redirect_to "/settings/resources/#{resource.id}", allow_other_host: false
   end
 
   private

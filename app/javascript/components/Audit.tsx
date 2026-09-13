@@ -55,7 +55,7 @@ function who(event: Event) {
 }
 
 export function Audit() {
-  useTitle('Audit')
+  useTitle('Activity')
 
   const [status, setStatus] = useState<string | null>(null)
   const [subject, setSubject] = useState('')
@@ -253,7 +253,7 @@ function Trail({
                   </Text>
 
                   {event.run && (
-                    <Link to="/runs" className="plain">
+                    <Link to="/settings/runs" className="plain">
                       <Text size="xs" style={{ color: 'var(--brass)' }}>
                         opened a {event.run.kind} run — {event.run.status}
                       </Text>

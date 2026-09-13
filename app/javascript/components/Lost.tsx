@@ -5,7 +5,7 @@ import { useTitle } from '../hooks/useTitle'
 
 const WAYS = [
   { to: '/', label: 'Catalog', icon: IconLayoutGrid },
-  { to: '/resources', label: 'Resources', icon: IconDatabase },
+  { to: '/settings/resources', label: 'Resources', icon: IconDatabase },
   { to: '/settings', label: 'Settings', icon: IconSettings },
 ]
 
