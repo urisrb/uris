@@ -226,8 +226,8 @@ class Resource < ApplicationRecord
       end
     end
 
-    def browser
-      capable_of(:browser).first
+    def browser(grant)
+      capable_of(:browser).reachable_by(grant).order(Arel.sql("resources.owner_subject NULLS FIRST"), :id).first
     end
 
     def default_for(capability)

@@ -137,6 +137,16 @@ class PersonalResourcesTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a snapshot is taken only with a browser the person asking can reach" do
+    Tenant.switch(@tenant) { @browser = Resource::Web.create!(key: "adas-browser", owner_subject: "ada") }
+
+    body = graphql("bob", %(mutation { snapshotUrl(input: { url: "https://example.com/" }) { run { id } } }))
+
+    assert_match(/nothing here can render a page/, body.dig("errors", 0, "message"))
+    assert_equal @browser, Tenant.switch(@tenant) { Resource.browser(grant_for("ada")) }
+    assert_nil Tenant.switch(@tenant) { Resource.browser(grant_for("bob")) }
+  end
+
   test "a personal resource is never where everyone's drops land" do
     Tenant.switch(@tenant) do
       bucket = Resource::S3.new(key: "private-bucket", owner_subject: "ada", default_storage: true,

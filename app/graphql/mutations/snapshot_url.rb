@@ -8,7 +8,7 @@ module Mutations
 
     def resolve(url:)
       address = PublicAddress.permitted!(url)
-      resource = Resource.browser
+      resource = Resource.browser(context[:grant])
 
       refused("nothing here can render a page — attach a web resource first") if resource.nil?
 
