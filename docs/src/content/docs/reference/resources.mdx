@@ -24,6 +24,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | [`oauth-google`](#oauth-google) | `integration` |  |
 | [`database`](#database) | `storage` | yes |
 | [`search`](#search) | `search` |  |
+| [`curl`](#curl) | `fetch` |  |
 | [`mcp`](#mcp) | `tools` |  |
 | [`github`](#github) | — | yes |
 | [`notion`](#notion) | — | yes |
@@ -364,6 +365,29 @@ Web search. Somewhere to look when the answer is not in the catalog. Exa, Brave 
 | Command | Arguments |
 | --- | --- |
 | `search` | `query: string` `limit: integer?` |
+
+## curl
+
+Fetch a page. Reads one address over HTTP, the way curl would, so an agent can read a page a search turned up. Private and local addresses are refused, and nothing it reads is kept unless something chooses to keep it.
+
+|  |  |
+| --- | --- |
+| Serves | `fetch` |
+| Accepts | — |
+| Up to | — |
+| Syncs | no |
+| Signed in through a broker | no |
+| Attached from the app | yes |
+
+### Fields
+
+None.
+
+### Commands
+
+| Command | Arguments |
+| --- | --- |
+| `get` | `url: string` |
 
 ## mcp
 

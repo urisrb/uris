@@ -61,6 +61,7 @@ module Tool
                  raise(ArgumentError, "no resource called #{key}")
 
       Current.grant.permit!(WEB) if verb == "search" && resource.capabilities.include?(:search)
+      Current.grant.permit!(WEB) if verb == "get" && resource.capabilities.include?(:fetch)
       within_budget! if RUNS.include?(verb)
 
       case verb

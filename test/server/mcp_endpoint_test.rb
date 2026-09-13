@@ -158,6 +158,16 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     assert_match(/can't be blank/, reply.dig("result", "content", 0, "text"))
   end
 
+  test "reading a page through a fetch resource needs the web scope" do
+    Tenant.switch(@tenant) { Resource::Curl.create!(key: "curl", name: "Curl") }
+
+    reply = call(@tenant, %w[uris:resources:read], "tools/call",
+                 name: "resource", arguments: { key: "curl", do: "get", input: { url: "https://example.com" } })
+
+    assert reply.dig("result", "isError")
+    assert_match(/uris:web:read/, reply.dig("result", "content", 0, "text"))
+  end
+
   test "describe advertises the vocabulary the resource accepts" do
     described = tool(@tenant, ALL, "resource", key: @resource.key, do: "describe")
 

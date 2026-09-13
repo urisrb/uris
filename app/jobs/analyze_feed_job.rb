@@ -156,26 +156,40 @@ class AnalyzeFeedJob < ApplicationJob
     end
 
     def web(_feed)
-      engines = Resource.capable_of(:search).pluck(:key)
-      return nil if engines.empty?
+      reach = reachable
+      return nil if reach.nil?
 
       <<~TEXT
         If the catalog does not answer it, or the question is about the world rather than what they
-        keep, search the web: call resource with do=search, key #{engines.map { |key| %("#{key}") }.join(' or ')}, and
-        input {"query": "..."}. Say which parts of the answer came from the web, with their addresses.
+        keep, look beyond it. #{reach} Say which parts of the answer came from the web, with their
+        addresses.
       TEXT
     end
 
     def searchable(feed)
-      engines = Resource.capable_of(:search).pluck(:key)
-      return nil if engines.empty?
+      reach = reachable
+      return nil if reach.nil?
 
       <<~TEXT
-        Beyond the catalog you can search the web: call resource with do=search, key
-        #{engines.map { |key| %("#{key}") }.join(' or ')}, and input {"query": "..."}. Keep anything worth keeping:
-        make a note with feed, do=create, type uris:note and a title naming it, write what it is and
-        its address with feed, do=note, and connect the note to feed #{feed.id} with connect.
+        Beyond the catalog you can look at the web. #{reach} Keep anything worth keeping: make a
+        note with feed, do=create, type uris:note and a title naming it, write what it is and its
+        address with feed, do=note, and connect the note to feed #{feed.id} with connect.
       TEXT
+    end
+
+    def reachable
+      engines = Resource.capable_of(:search).pluck(:key)
+      fetchers = Resource.capable_of(:fetch).pluck(:key)
+      return nil if engines.empty? && fetchers.empty?
+
+      [
+        (%(Search it with resource, do=search, key #{quoted(engines)}, input {"query": "..."}.) if engines.any?),
+        (%(Read a page with resource, do=get, key #{quoted(fetchers)}, input {"url": "https://..."}.) if fetchers.any?)
+      ].compact.join(" ")
+    end
+
+    def quoted(keys)
+      keys.map { |key| %("#{key}") }.join(" or ")
     end
 
     def unplaced(feed)
