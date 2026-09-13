@@ -96,6 +96,26 @@ class PersonalResourcesTest < ActionDispatch::IntegrationTest
     assert_empty as(grant_for("bob")) { grant_for("bob").proxied }
   end
 
+  test "somebody else's proxied tool refuses to reach the server, even handed to them" do
+    tool = as(grant_for("ada")) { grant_for("ada").proxied.first }
+
+    answered = as(grant_for("bob")) { tool.call(server_context: {}) }
+
+    assert answered.error?
+    assert_not_requested :post, "https://mcp.notion.test/mcp"
+  end
+
+  test "the MCP server one person's tools were built for is never handed to somebody else" do
+    ada, bob, carol = %w[ada bob carol].map { |subject| grant_for(subject) }
+
+    Tenant.switch(@tenant) do
+      refute_same McpTransports.for(tenant: @tenant, grant: ada), McpTransports.for(tenant: @tenant, grant: bob)
+      assert_same McpTransports.for(tenant: @tenant, grant: bob), McpTransports.for(tenant: @tenant, grant: carol)
+    end
+  ensure
+    McpTransports.reset!
+  end
+
   test "an agent working on a feed reaches only what everyone here can" do
     feed = Tenant.switch(@tenant) { create_feed(key: "memo", title: "Memo") }
 

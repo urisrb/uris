@@ -215,6 +215,21 @@ class ResourceMcpTest < ActiveSupport::TestCase
     end
   end
 
+  test "pointing a server connected through masks somewhere else forgets whose account it held" do
+    Tenant.switch(@tenant) do
+      resource = Resource::Mcp.create!(key: "notion", connected_by: "ada",
+                                       details: { "url" => "https://mcp.notion.test/mcp", "auth" => "masks", "provider" => "notion" },
+                                       credentials: { "delegation" => { "secret" => "s", "connection" => "c" },
+                                                      "upstream" => { "access_token" => "adas-token" } })
+
+      resource.update!(details: resource.details.merge("url" => "https://elsewhere.test/mcp"))
+
+      assert_empty resource.reload.credentials
+      assert_nil resource.connected_by
+      assert resource.needs_connect?
+    end
+  end
+
   test "switching away from masks forgets what masks held" do
     Tenant.switch(@tenant) do
       resource = Resource::Mcp.create!(key: "notion", details: { "url" => "https://mcp.notion.test/mcp", "auth" => "masks", "provider" => "notion" },

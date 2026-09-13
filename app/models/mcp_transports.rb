@@ -58,9 +58,10 @@ module McpTransports
       def proxied_at(grant)
         return nil unless grant.permits?(Resource::Mcp::SCOPE)
 
-        found = Resource.active.where(type: Resource::Mcp.sti_name)
+        found = Resource.active.where(type: Resource::Mcp.sti_name).reachable_by(grant)
+        mine = found.where.not(owner_subject: nil).exists?
 
-        [ found.count, found.maximum(:updated_at)&.to_f ]
+        [ found.count, found.maximum(:updated_at)&.to_f, (grant.subject if mine) ]
       end
 
       def held
