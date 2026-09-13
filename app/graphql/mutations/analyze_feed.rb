@@ -10,7 +10,7 @@ module Mutations
     def resolve(id:)
       feed = feed!(id)
 
-      { analysis: feed.analyze!, feed: feed }
+      { analysis: feed.analyze!(cause: feed.asked? ? "ask" : "manual"), feed: feed }
     end
   end
 end

@@ -21,7 +21,7 @@ import { RUN_OPEN } from './RunLog'
 import { useAloud, useSay } from './Say'
 import { Sure } from './Sure'
 
-interface Pass {
+export interface Pass {
   id: string
   cause: string
   status: string
@@ -280,7 +280,7 @@ function LastRun({ pass }: { pass: Pass }) {
   )
 }
 
-function Progress({ pass, cap }: { pass: Pass; cap?: number | null }) {
+export function Progress({ pass, cap }: { pass: Pass; cap?: number | null }) {
   const [turns, setTurns] = useState<Turn[]>(agentTurns(pass.turns))
   const { data } = useSubscription(AnalysisProgressedDocument, { id: pass.id })
   const streamed = data?.analysisProgressed.analysis

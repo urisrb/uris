@@ -28,6 +28,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 import { hrefFor, lookOf, TYPE, toned } from '../looks'
+import { Cited } from './Ask'
 import { Passes, placementOf, why } from './Passes'
 import { Rows } from './Rows'
 import { useAloud, useSay } from './Say'
@@ -82,6 +83,9 @@ export function ItemDetail() {
   const filed = item.connected.filter((held) => FACETS.has(held.type))
   const related = item.connected.filter((held) => !FACETS.has(held.type))
   const placement = placementOf(item.analyses)
+  const answer = item.analyses.find(
+    (pass) => pass.cause === 'ask' && pass.status === 'done',
+  )
   const name = item.title ?? item.key
 
   return (
@@ -157,11 +161,13 @@ export function ItemDetail() {
 
                 if (!answered) return
 
-                say({ text: `Analyzing ${name}.` })
+                say({
+                  text: item.asked ? 'Asking again.' : `Analyzing ${name}.`,
+                })
                 refetch()
               }}
             >
-              Analyze
+              {item.asked ? 'Ask again' : 'Analyze'}
             </Button>
           </Group>
         )}
@@ -252,7 +258,18 @@ export function ItemDetail() {
         />
       )}
 
-      {!facet && item.summary && (
+      {item.asked && answer?.said && (
+        <Stack gap="var(--s2)">
+          <div className="label">The answer</div>
+          <div className="panel" style={{ padding: 'var(--s4) var(--s5)' }}>
+            <Text className="ask-said">
+              <Cited said={answer.said} cited={item.connected} />
+            </Text>
+          </div>
+        </Stack>
+      )}
+
+      {!facet && !item.asked && item.summary && (
         <Stack gap="var(--s2)">
           <div className="label">What uris made of it</div>
           <div className="panel" style={{ padding: 'var(--s4) var(--s5)' }}>
@@ -287,7 +304,11 @@ export function ItemDetail() {
       {related.length > 0 && (
         <Stack gap="var(--s3)">
           <div className="label">
-            {ABOUT[item.type] ? 'In it' : 'Beside it'}
+            {item.asked
+              ? 'What it drew on'
+              : ABOUT[item.type]
+                ? 'In it'
+                : 'Beside it'}
           </div>
           {ABOUT[item.type] && (
             <Text size="sm" c="dimmed">
@@ -443,12 +464,14 @@ function standing(
 
   const where = item.staged
     ? 'waiting for somewhere to live'
-    : `${places} ${places === 1 ? 'place' : 'places'} it lives`
+    : item.type === TYPE.note && places === 0
+      ? null
+      : `${places} ${places === 1 ? 'place' : 'places'} it lives`
   const when = item.analyzedAt
     ? `analyzed ${new Date(item.analyzedAt).toLocaleString()}`
     : 'never analyzed'
 
-  return `${where} · ${when}`
+  return where ? `${where} · ${when}` : when
 }
 
 function Naming({

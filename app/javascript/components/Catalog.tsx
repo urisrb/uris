@@ -27,6 +27,7 @@ import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
 import { KEPT, lookOf, pluralOf, type Short, TYPE, toned } from '../looks'
 import { useAdd } from './Add'
+import { Ask } from './Ask'
 import { Export } from './Export'
 import { FeedForm } from './FeedForm'
 import { FeedHead } from './FeedHead'
@@ -201,6 +202,8 @@ function Listing({
   return (
     <Stack gap="var(--s5)">
       <Shelf feeds={feeds} here={feed} onChanged={onChanged} />
+
+      {!feed && !searching && !type && <Ask />}
 
       {feed && (
         <FeedHead

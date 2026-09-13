@@ -5,6 +5,7 @@ module Types
     grants "uris:catalog:read"
 
     SUMMARY = 400
+    CITATION = /\s*\[feed\s*:?\s*\d+\]/i
     CONNECTED = 200
 
     field :id, ID, null: false
@@ -34,6 +35,8 @@ module Types
     field :parent, Types::FeedType, description: "The file it was extracted from, when it was."
     field :children, [ Types::FeedType ], null: false,
           description: "What was extracted from it — the attachments of a message, the files of an archive."
+    field :asked, Boolean, null: false,
+          description: "A question someone asked the catalog, answered by its analyses."
     field :staged, Boolean, null: false,
           description: "Uploaded, and still waiting for the pass to decide where it is stored."
     field :schedule, Types::ScheduleType
@@ -48,7 +51,7 @@ module Types
       said = passed && (passed.step_result("text").presence || passed.step_result("ocr").presence)
       said = object.note if said.blank?
 
-      said.to_s.gsub(/[*`]+/, "").gsub(/[#>|\\]+/, " ").squish.truncate(SUMMARY).presence
+      said.to_s.gsub(CITATION, "").gsub(/[*`]+/, "").gsub(/[#>|\\]+/, " ").squish.truncate(SUMMARY).presence
     end
 
     def keywords
@@ -58,6 +61,8 @@ module Types
     def connected_count = object.edges.count
 
     def staged = object.staged?
+
+    def asked = object.asked?
 
     def children
       object.children.limit(CONNECTED)

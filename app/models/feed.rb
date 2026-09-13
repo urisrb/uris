@@ -225,6 +225,10 @@ class Feed < ApplicationRecord
     upload.attached?
   end
 
+  def asked?
+    note? && analyses.exists?(cause: "ask")
+  end
+
   def source_for(destination)
     references.originals.find { |reference| reference.resource_id != destination.id }
   end
@@ -255,7 +259,7 @@ class Feed < ApplicationRecord
   end
 
   def analyzed_at
-    references.maximum(:analyzed_at) || staged&.analyzed_at
+    references.maximum(:analyzed_at) || staged&.analyzed_at || (analysis&.finished_at unless file?)
   end
 
   def analyze!(cause: "manual")

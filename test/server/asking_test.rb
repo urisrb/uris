@@ -52,6 +52,23 @@ class AskingTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an answered question reads cleanly in the catalog, and asking it again asks rather than analyzes" do
+    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+
+    asked = ask("How much is the Acme invoice?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    note = graphql("query($id: ID) { feed(id: $id) { asked summary analyzedAt } }", id: asked.dig("feed", "id"))["feed"]
+
+    assert note["asked"]
+    assert_equal "The Acme invoice is for $4,200.", note["summary"]
+    assert note["analyzedAt"].present?
+
+    again = graphql("mutation($id: ID!) { analyzeFeed(input: { id: $id }) { analysis { id } } }", id: asked.dig("feed", "id"))
+
+    Tenant.switch(@tenant) { assert_equal "ask", Analysis.find(again.dig("analyzeFeed", "analysis", "id")).cause }
+  end
+
   test "the answering agent reads and cannot write" do
     @server.answer_tool_call("connect", a: @invoice.id.to_s, b: @other.id.to_s)
     @server.answer("I could not connect them.")
@@ -89,11 +106,19 @@ class AskingTest < ActionDispatch::IntegrationTest
     end
 
     def post_ask(question)
+      execute(ASK, question: question)
+    end
+
+    def graphql(query, **variables)
+      execute(query, **variables)["data"]
+    end
+
+    def execute(query, **variables)
       token = issuer.mint(subdomain: @tenant.subdomain, scopes: Grant::SCOPES,
                           audience: "http://#{@tenant.subdomain}.uris.test/mcp")
 
       post "/graphql",
-           params: { query: ASK, variables: { question: question }.to_json },
+           params: { query: query, variables: variables.to_json },
            headers: { "HOST" => "#{@tenant.subdomain}.uris.test", "Authorization" => "Bearer #{token}" }
 
       response.parsed_body

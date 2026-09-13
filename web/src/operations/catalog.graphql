@@ -66,6 +66,7 @@ fragment Pass on Analysis {
   cause
   status
   error
+  said
   steps
   lines
   createdAt
@@ -77,6 +78,7 @@ fragment Pass on Analysis {
 query FeedDetail($id: ID!) {
   feed(id: $id) {
     ...Row
+    asked
     note
     keywords
     connectedCount
@@ -170,6 +172,40 @@ mutation NoteFeed($id: ID!, $note: String) {
     feed {
       id
       note
+    }
+  }
+}
+
+mutation AskCatalog($question: String!) {
+  askCatalog(input: { question: $question }) {
+    feed {
+      id
+      title
+    }
+    analysis {
+      id
+      status
+      createdAt
+    }
+  }
+}
+
+query Asked($id: ID!) {
+  feed(id: $id) {
+    id
+    title
+    connected {
+      ...Row
+    }
+    analyses {
+      id
+      cause
+      status
+      error
+      said
+      turns
+      createdAt
+      finishedAt
     }
   }
 }
