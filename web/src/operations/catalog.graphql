@@ -9,6 +9,11 @@ fragment Row on Feed {
   staged
   analyzedAt
   createdAt
+  parent {
+    id
+    title
+    key
+  }
 }
 
 query Catalog(
@@ -76,7 +81,10 @@ query FeedDetail($id: ID!) {
     keywords
     connectedCount
     parent {
-      ...Row
+      id
+      type
+      key
+      title
     }
     children {
       ...Row

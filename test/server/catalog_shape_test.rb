@@ -7,6 +7,8 @@ class CatalogShapeTest < ActionDispatch::IntegrationTest
     }
   GQL
 
+  TYPES = "{ types { type count } }".freeze
+
   FEED = <<~GQL.freeze
     query($id: ID) {
       feed(id: $id) { staged children { title } parent { title } analyses { cause } }
@@ -48,6 +50,22 @@ class CatalogShapeTest < ActionDispatch::IntegrationTest
     assert_equal [ "invoice.pdf" ], message["children"].map { |child| child["title"] }
     assert_equal "march.eml", attachment.dig("parent", "title")
     assert_not message["staged"]
+  end
+
+  test "the type counts are of what the catalog lists, leaving out what was extracted" do
+    counts = execute(TYPES).dig("data", "types").to_h { |entry| [ entry["type"], entry["count"] ] }
+
+    assert_equal 1, counts[Feed::FILE]
+    assert_equal 1, counts[Feed::NOTE]
+  end
+
+  test "a row names the file it was extracted from" do
+    body = execute(<<~GQL, variables: { types: [ Feed::FILE ] })
+      query($types: [String!]) { feeds(types: $types) { nodes { title parent { title } } } }
+    GQL
+    parents = body.dig("data", "feeds", "nodes").to_h { |node| [ node["title"], node.dig("parent", "title") ] }
+
+    assert_equal({ "march.eml" => nil, "invoice.pdf" => "march.eml" }, parents)
   end
 
   test "a feed's analyses come newest first" do

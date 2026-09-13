@@ -1564,3 +1564,12 @@ a.tag:hover {
   line-height: 1.6;
   white-space: pre-wrap;
 }
+
+.entry-within {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: var(--t-micro);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

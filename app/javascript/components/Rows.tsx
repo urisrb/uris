@@ -8,6 +8,14 @@ export type Row = RowFragment
 
 export type View = 'list' | 'cards'
 
+function Within({ row }: { row: Row }) {
+  if (!row.parent) return null
+
+  return (
+    <div className="entry-within">in {row.parent.title ?? row.parent.key}</div>
+  )
+}
+
 function Gist({ row, className }: { row: Row; className: string }) {
   if (row.summary) return <div className={className}>{row.summary}</div>
   if (row.staged)
@@ -32,6 +40,7 @@ export function Rows({ rows, view = 'list' }: { rows: Row[]; view?: View }) {
             <Cover url={row.thumbnailUrl} looked={row} alt={named(row)} />
             <div className="card-body">
               <div className="card-title">{named(row)}</div>
+              <Within row={row} />
               <Gist row={row} className="card-summary" />
               <div className="card-foot">
                 <TypeBadge type={row.type} mime={row.mime} />
@@ -55,6 +64,7 @@ export function Rows({ rows, view = 'list' }: { rows: Row[]; view?: View }) {
           />
           <div style={{ minWidth: 0 }}>
             <div className="entry-title">{named(row)}</div>
+            <Within row={row} />
             <Gist row={row} className="entry-summary" />
           </div>
           <TypeBadge type={row.type} mime={row.mime} />

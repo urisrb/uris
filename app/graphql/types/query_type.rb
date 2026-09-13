@@ -73,7 +73,7 @@ module Types
     field :types, [ Types::TypeCountType ], null: false, grants: "uris:catalog:read"
 
     def types
-      Feed.group(:type).order(count_all: :desc).count.map do |type, count|
+      Feed.where(parent_id: nil).group(:type).order(count_all: :desc).count.map do |type, count|
         { type: type, count: count }
       end
     end
