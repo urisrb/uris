@@ -123,6 +123,40 @@ class McpProxyTest < ActionDispatch::IntegrationTest
     assert_equal true, listed.dig("annotations", "destructiveHint"), "a hint that is not a boolean is not believed"
   end
 
+  test "calls to one server share a session rather than shaking hands every time" do
+    attach
+    asked = speaks_in_session
+
+    3.times { relayed("anything") }
+
+    assert_equal 1, asked.count("initialize")
+    assert_equal 3, asked.count("tools/call")
+  end
+
+  test "a server whose credentials change is met with a new session" do
+    resource = attach
+    asked = speaks_in_session
+
+    relayed("anything")
+    Tenant.switch(@tenant) { resource.update!(credentials: { "token" => "sk-rotated" }) }
+    @mcp_sessions = nil
+    relayed("anything")
+
+    assert_equal 2, asked.count("initialize")
+    assert_requested(:post, "https://example.com/mcp", headers: { "Authorization" => "Bearer sk-rotated" }, at_least_times: 2)
+  end
+
+  test "a session the server ended is started again and the call still answers" do
+    attach
+    asked = speaks_in_session(expire_after: 1)
+
+    relayed("first")
+    reply = relayed("second")
+
+    assert_not reply.dig("result", "isError"), reply.dig("result", "content", 0, "text")
+    assert_equal 2, asked.count("initialize")
+  end
+
   test "a server that answers an error says so on the call, not on the tool list" do
     attach
     speaks(text: "upstream is down", failed: true)
@@ -167,6 +201,26 @@ class McpProxyTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+    def speaks_in_session(expire_after: nil)
+      asked = []
+      calls = 0
+
+      stub_request(:post, "https://example.com/mcp").to_return do |request|
+        body = JSON.parse(request.body)
+        asked << body["method"]
+        calls += 1 if body["method"] == "tools/call"
+
+        if expire_after && body["method"] == "tools/call" && calls == expire_after + 1
+          next { status: 404, body: "" }
+        end
+
+        { status: 200, headers: { "Content-Type" => "application/json", "Mcp-Session-Id" => "session-#{asked.count('initialize')}" },
+          body: replied(body, "in session", false, nil).to_json }
+      end
+
+      asked
+    end
 
     def relayed(query)
       call(@tenant, ALL, "tools/call", name: "exa__web_search", arguments: { query: query })

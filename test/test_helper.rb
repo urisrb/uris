@@ -30,6 +30,7 @@ module ActiveSupport
     setup do
       Masks::Client.registry.clear!
       FakeS3.reset!
+      Resource::Mcp::Sessions.clear!
       ENV["MASKS_ISSUER_TEMPLATE"] = FakeIssuer.template
     end
 

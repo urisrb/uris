@@ -140,11 +140,12 @@ class Resource
 
     private
 
-      def connected(retried: false)
-        client = MCP::Client.new(transport: transport)
-        client.connect unless client.connected?
+      def connected(retried: false, expired: false, &block)
+        Sessions.with(id, fingerprint, -> { MCP::Client.new(transport: transport) }, &block)
+      rescue MCP::Client::SessionExpiredError
+        raise Resource::Failed, "#{key}: #{url} ended its session twice running" if expired
 
-        yield client
+        connected(retried: retried, expired: true, &block)
       rescue MCP::Client::RequestHandlerError => e
         return connected(retried: true) { |again| yield again } if unauthorized?(e) && !retried && delegated? && token_expired!
 
@@ -157,6 +158,10 @@ class Resource
         raise
       rescue StandardError => e
         raise Resource::Failed, "#{key}: #{e.class} reaching #{url} — #{e.message}"
+      end
+
+      def fingerprint
+        Digest::SHA256.hexdigest([ id, url, headers.sort ].to_json)
       end
 
       def transport
