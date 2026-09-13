@@ -108,7 +108,7 @@ module Types
     end
 
     def run(id:)
-      Run.find_by(id: id)
+      Run.visible_to(context[:grant]).find_by(id: id)
     end
 
     field :runs, Types::RunPageType, null: false, grants: "uris:catalog:read" do
@@ -119,7 +119,7 @@ module Types
     end
 
     def runs(kind: nil, status: nil, after: nil, limit: nil)
-      scope = Run.all
+      scope = Run.visible_to(context[:grant])
       scope = scope.where(kind: kind) if kind.present?
       scope = scope.where(status: status) if status.present?
 

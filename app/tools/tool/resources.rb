@@ -132,7 +132,7 @@ module Tool
     end
 
     def self.cancelled(given)
-      run = ::Run.find_by(id: given[:id] || given["id"]) ||
+      run = ::Run.visible_to(Current.grant).find_by(id: given[:id] || given["id"]) ||
             raise(ArgumentError, "no run with that id")
 
       run_told(run.tap(&:cancel!).reload)

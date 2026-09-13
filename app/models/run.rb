@@ -15,6 +15,9 @@ class Run < ApplicationRecord
   scope :open, -> { where(status: OPEN) }
   scope :newest_first, -> { order(id: :desc) }
   scope :past_deadline, -> { open.where(deadline: ...Time.current) }
+  scope :visible_to, ->(grant) {
+    where(resource_id: nil).or(where(resource_id: Resource.reachable_by(grant).select(:id)))
+  }
 
   def self.start!(kind:, resource: nil, selector: {}, deadline: nil)
     create!(kind: kind, resource: resource, selector: selector.to_h,

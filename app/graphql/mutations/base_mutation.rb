@@ -19,7 +19,7 @@ module Mutations
       end
 
       def run!(id)
-        Run.find_by(id: id) || raise(GraphQL::ExecutionError, "no run with id #{id}")
+        Run.visible_to(context[:grant]).find_by(id: id) || raise(GraphQL::ExecutionError, "no run with id #{id}")
       end
 
       def refused(message)

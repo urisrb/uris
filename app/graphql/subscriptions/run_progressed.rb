@@ -12,6 +12,8 @@ module Subscriptions
     end
 
     def update(id: nil)
+      return :no_update unless Run.visible_to(context[:grant]).exists?(id: object.id)
+
       { run: object }
     end
   end

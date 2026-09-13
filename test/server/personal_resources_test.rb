@@ -164,6 +164,23 @@ class PersonalResourcesTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a run on somebody else's resource can be neither seen nor cancelled" do
+    run = Tenant.switch(@tenant) { Run.start!(kind: "sync", resource: @ada) }
+
+    body = graphql("bob", %(mutation { cancelRun(input: { id: "#{run.id}" }) { cancelled } }))
+    assert_match(/no run with id/, body.dig("errors", 0, "message"))
+
+    assert_nil graphql("bob", %({ run(id: "#{run.id}") { id } })).dig("data", "run")
+    assert_empty graphql("bob", "{ runs { nodes { id } } }").dig("data", "runs", "nodes")
+    assert_equal [ run.id.to_s ], graphql("ada", "{ runs { nodes { id } } }").dig("data", "runs", "nodes").pluck("id")
+
+    refused = as(grant_for("bob")) { Tool::Resources.call(server_context: {}, do: "cancel", key: "news", input: { id: run.id }) }
+    assert refused.error?
+    assert_match(/no run with that id/, refused.content.first[:text])
+
+    assert Tenant.switch(@tenant) { run.reload.open? }
+  end
+
   test "a personal resource is never where everyone's drops land" do
     Tenant.switch(@tenant) do
       bucket = Resource::S3.new(key: "private-bucket", owner_subject: "ada", default_storage: true,
