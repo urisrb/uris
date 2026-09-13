@@ -73,18 +73,31 @@ or write into a resource, reach an added MCP server, or touch settings.
 ## Asking
 
 A question asked of the catalog is kept as a note and answered by an analysis with the cause `ask`.
-`Asking` builds the prompt and the agent runs under the question's own grant, holding
+`Asking` builds the prompts, and everything runs under the question's own grant, holding
 `Feed::ASKING_SCOPES`:
 
 ```
 uris:catalog:read  uris:catalog:write  uris:web:read  uris:web:keep  uris:resources:read
 ```
 
-It may take up to 32 turns; its feed's timeout is what bounds it. The prompt asks for two things:
-an answer drawn from what the agent read, and a catalog left better for the asking. It offers only
-what the tenant has attached. With a search resource it can search the web. With a fetch resource, such as `curl`, it can read a page. With a `web` resource it can
-keep a page as a snapshot, which becomes an item of its own, and keeping the same address again
-later updates that item. Without any of them the question is asked of the catalog alone.
+The question is answered by a lead and its scouts. The lead holds the question and the goal, and
+its only tool is `scout`: it sends a task, such as finding what an address is and keeping its about
+page, and gets back a short report. It never sees a raw search result or page, so its transcript
+stays small however much is read. It may take 16 turns, bounded by its feed's timeout, and is turned
+back once if it answers before sending a scout.
+
+`Scouting` runs each task as an agent of its own, in a fresh context, with the real tools under the
+same grant, for up to eight turns. Several scouts sent in one turn run side by side,
+`URIS_SCOUTS_AT_ONCE` at a time (two by default), each in a thread that enters the tenant on its own
+connection. A scout runs on the inference resource that declares the `scout` role, and on the
+agent's model where none does. It is told how long it has, cannot ask for more, and stands down 90
+seconds before the deadline so the lead still has time to answer. Its report is cut to 1,500
+characters; the calls it made are kept for the judges and the connections.
+
+Scouts are told only what the tenant has attached. With a search resource a scout can search the web.
+With a fetch resource, such as `curl`, it can read a page. With a `web` resource it can keep a page as
+a snapshot, which becomes an item of its own, and keeping the same address again later updates that
+item. Without any of them the question is asked of the catalog alone.
 
 The run is confined. `Current.confined_to` holds the feeds it made, and `feed`'s writing verbs
 refuse any other feed, so a page telling the agent to rewrite a note or rename a file cannot. It
@@ -92,17 +105,17 @@ can create only notes, never a scheduled feed. `connect` needs one end to be the
 something the run made. Snapshots are not confined: the page, not the agent, decides what one
 holds.
 
-A small model tends to stop early, so an answer is turned back, once for each shortfall, when:
+A small model tends to stop early, so a scout's report is turned back, once for each shortfall, when:
 
 - nothing came from the catalog and the web was never tried,
 - the web was searched and no page was read, with the exact calls for the addresses the search
   returned,
 - pages were read and none was kept, while something could keep them.
 
-When it finishes, the question is connected to every feed it cited, opened or made, and to every
-page it kept. Then ten judges on the `smart` model, or the agent's model where no smart one is
-declared, each see the question, the answer and only what the tools returned. Each votes on whether
-the answer is supported by that evidence and whether what it kept is worth having again. The shares
+When the lead finishes, the question is connected to every feed its answer cites and every feed a
+scout opened or made, and to every page a scout kept. Then ten judges on the `smart` model, or the
+agent's model where no smart one is declared, each see the question, the lead's answer and only what
+the scouts' tools returned. Each votes on whether the answer is supported by that evidence and whether what it kept is worth having again. The shares
 are stored on the analysis as the `verified` step and exposed as `Analysis.verified` and
 `Analysis.useful`. A judge that fails abstains. `ASK_VERIFICATIONS` sets how many judges there are.
 

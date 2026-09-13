@@ -33,28 +33,34 @@ class Agent
 
   attr_reader :turns_taken, :calls
 
-  def initialize(grant:, inference: nil, tools: nil, analysis: nil, turns: TURNS, halted: nil, unfinished: nil)
+  def initialize(grant:, inference: nil, role: Resource::OpenaiCompatible::AGENT_ROLE, tools: nil, locals: [],
+                 analysis: nil, turns: TURNS, halted: nil, unfinished: nil, system: SYSTEM, label: "agent",
+                 extendable: true, reserve: 0)
     @grant = grant
-    @inference = inference || Resource.for_role(Resource::OpenaiCompatible::AGENT_ROLE)
+    @role = role
+    @inference = inference || Resource.for_role(role)
     @offered = tools || grant.tools.select { |tool| READ_TOOLS.include?(tool.tool_name) }
     @analysis = analysis
     @turns = turns.to_i.clamp(1, 32)
     @halted = halted
     @unfinished = unfinished
+    @system = system
+    @label = label
     @pressed = Set.new
     @turns_taken = 0
     @calls = []
     @flailed = 0
-    @clock = Clock.new(analysis)
+    @clock = Clock.new(analysis, extendable: extendable, reserve: reserve)
+    @locals = [ @clock, *locals ]
   end
 
   def call(prompt)
-    raise Refused, "no inference resource serves the agent role" if @inference.nil?
+    raise Refused, "no inference resource serves the #{@role} role" if @inference.nil?
 
-    transcript = Transcript.new(system: [ SYSTEM, @clock.told ].compact.join("\n"), prompt: prompt)
+    transcript = Transcript.new(system: [ @system, @clock.told ].compact.join("\n"), prompt: prompt)
 
     @turns.times do |index|
-      return finished(:halted) if @halted&.call
+      return finished(:halted) if @halted&.call || @clock.spent?
 
       @turns_taken = index + 1
       last = @turns_taken == @turns || @clock.closing?
@@ -64,14 +70,14 @@ class Agent
       if requested.blank? && !last && (pushed = pressed(message))
         transcript.said(message)
         transcript.closing(pushed)
-        @analysis&.log_info("agent", "turn #{@turns_taken}", "pressed", pushed.truncate(200))
+        @analysis&.log_info(@label, "turn #{@turns_taken}", "pressed", pushed.truncate(200))
         next
       end
 
       return finished(:answered, message["content"]) if requested.blank? || last
 
       transcript.said(message)
-      requested.each { |raw| answer(transcript, raw) }
+      requested.zip(ran(requested)).each { |raw, result| answer(transcript, raw, result) }
 
       return finished(:flailed) if @flailed >= FLAILING
     end
@@ -80,7 +86,7 @@ class Agent
   end
 
   def inference_key = @inference&.key
-  def offered_names = @offered.map(&:tool_name)
+  def offered_names = @offered.map(&:tool_name) + @locals.flat_map { |local| local.declared.map { |held| held.dig(:function, :name) } }
 
   private
 
@@ -90,6 +96,7 @@ class Agent
       @inference.converse(
         messages: transcript.messages,
         tools: last ? [] : declared,
+        role: @role,
         analysis: @analysis,
         turn: @turns_taken
       )
@@ -107,7 +114,7 @@ class Agent
         }
       end
 
-      @clock.declared + told
+      @locals.flat_map(&:declared) + told
     end
 
     def pressed(message)
@@ -124,14 +131,25 @@ class Agent
       return false unless held.is_a?(Hash)
 
       named = (held["name"] || held.dig("function", "name")).to_s
-      return true if offered_names.include?(named) || named == Clock::NAME
+      return true if offered_names.include?(named)
 
       held.key?("do") && (held.key?("key") || held.key?("id"))
     end
 
-    def answer(transcript, raw)
-      result = @clock.handles?(raw) ? @clock.call(raw) : dispatch.call(raw)
+    def ran(requested)
+      held = {}
 
+      @locals.each do |local|
+        mine = requested.select { |raw| local.handles?(raw) }
+        next if mine.empty?
+
+        mine.zip(local.call_all(mine)).each { |raw, result| held[raw.object_id] = result }
+      end
+
+      requested.map { |raw| held[raw.object_id] || dispatch.call(raw) }
+    end
+
+    def answer(transcript, raw, result)
       @calls << result
       @flailed = result.ok ? 0 : @flailed + 1
 
@@ -149,9 +167,9 @@ class Agent
       asked = result.arguments.to_h.to_json.truncate(200)
 
       if result.ok
-        @analysis.log_done("agent", "turn #{@turns_taken}", result.name, asked)
+        @analysis.log_done(@label, "turn #{@turns_taken}", result.name, asked)
       else
-        @analysis.log_fail("agent", "turn #{@turns_taken}", result.name, asked, result.error)
+        @analysis.log_fail(@label, "turn #{@turns_taken}", result.name, asked, result.error)
       end
     end
 

@@ -34,33 +34,56 @@ class AskingPromptTest < ActiveSupport::TestCase
 
   test "with nothing beyond the catalog the question is asked of the catalog alone" do
     Tenant.switch(@tenant) do
-      prompt = Asking.new(@question).prompt
+      lead = Asking.new(@question).prompt
+      briefing = Asking.new(@question).briefing("find what hn.algolia.com is")
 
-      assert_match(/hn\.algolia\.com/, prompt)
-      assert_no_match(/look beyond it/, prompt)
+      assert_match(/hn\.algolia\.com/, lead)
+      assert_match(/Scouts can search the catalog and open what they find and make notes/, lead)
+      assert_match(/find what hn\.algolia\.com is.*hn\.algolia\.com/m, briefing)
+      assert_no_match(/look beyond it/, briefing)
       assert_nil unfinished([])
+    end
+  end
+
+  test "the lead is told what its scouts can do, and never the tools themselves" do
+    Tenant.switch(@tenant) do
+      exa!
+      web!
+      curl!
+      lead = Asking.new(@question).prompt
+
+      assert_match(/search the web, read pages, keep pages as items in the catalog/, lead)
+      assert_no_match(/key "exa"|do=snapshot/, lead)
+    end
+  end
+
+  test "the lead is turned back until it has sent a scout" do
+    Tenant.switch(@tenant) do
+      assert_match(/not sent a scout/, Asking.new(@question).led([]))
+      assert_match(/not sent a scout/, Asking.new(@question).led([ result("scout", { "task" => "x" }, ok: false) ]))
+      assert_nil Asking.new(@question).led([ result("scout", { "task" => "x" }, { report: "found" }) ])
     end
   end
 
   test "reading and keeping are offered only by what the tenant has attached" do
     Tenant.switch(@tenant) do
       exa!
-      searching = Asking.new(@question).prompt
+      searching = Asking.new(@question).briefing("find it")
 
       assert_match(/key "exa"/, searching)
-      assert_match(/markdown link/, searching)
+      assert_match(/In your report/, searching)
       assert_no_match(/only a lead/, searching)
       assert_no_match(/snapshot/, searching)
 
       web!
-      keeping = Asking.new(@question).prompt
+      keeping = Asking.new(@question).briefing("find it")
 
       assert_match(/only a lead/, keeping)
       assert_match(/do=snapshot, key "web"/, keeping)
       assert_match(/open it with feed to read/, keeping)
 
       curl!
-      reading = Asking.new(@question).prompt
+      reading = Asking.new(@question).briefing("find it")
 
       assert_match(/do=get, key "curl"/, reading)
       assert_no_match(/open it with feed to read/, reading)

@@ -99,6 +99,18 @@ class FakeModelServer
     self
   end
 
+  def answer_tool_calls(calls)
+    @lock.synchronize do
+      made = calls.each_with_index.map do |(name, arguments), index|
+        { "id" => "call_#{@answers.size}_#{index}", "type" => "function",
+          "function" => { "name" => name.to_s, "arguments" => JSON.generate(arguments) } }
+      end
+
+      @answers << { tool_calls: made }
+    end
+    self
+  end
+
   def refuse(status, body: "")
     @lock.synchronize { @answers << { status: status, body: body } }
     self

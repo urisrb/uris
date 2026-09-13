@@ -287,6 +287,7 @@ A model backend. Anything speaking the OpenAI chat API — ollama, LM Studio, ll
 | `models.smart` | Smart model | string |  |  | Longer reasoning. |
 | `models.vision` | Vision model | string |  |  | Anything that has to look at an image. |
 | `models.agent` | Agent model | string |  |  | What a feed drives. It has to call tools. |
+| `models.scout` | Scout model | string |  |  | What the agent sends out to find things, in a fresh context each time. It has to call tools, and can be smaller. Left empty, the agent model scouts. |
 | `models.embedding` | Embedding model | string |  |  | What search compares meaning with. Its vectors have to be the width the index was built for. |
 | `api_key` | API key | string |  | encrypted | Left off where the backend wants none. |
 

@@ -16,6 +16,8 @@ class Resource
     IMAGE_TYPE = "image/jpeg"
     JSON_SYSTEM = "Respond with valid JSON only. No markdown, no explanation."
     AGENT_ROLE = "agent"
+    SCOUT_ROLE = "scout"
+    TOOL_ROLES = [ AGENT_ROLE, SCOUT_ROLE ].freeze
     EMBEDDING_ROLE = "embedding"
     EMBED_PROBE = "an invoice from acme for four thousand two hundred dollars".freeze
     MAX_EMBED = 8_000
@@ -54,6 +56,9 @@ class Resource
           field("models.smart", "Smart model", help: "Longer reasoning."),
           field("models.vision", "Vision model", help: "Anything that has to look at an image."),
           field("models.agent", "Agent model", help: "What a feed drives. It has to call tools."),
+          field("models.scout", "Scout model",
+                help: "What the agent sends out to find things, in a fresh context each time. It has to " \
+                      "call tools, and can be smaller. Left empty, the agent model scouts."),
           field("models.embedding", "Embedding model",
                 help: "What search compares meaning with. Its vectors have to be the width " \
                       "the index was built for."),
@@ -124,17 +129,16 @@ class Resource
               "#{key}: #{base_url} does not serve #{missing.join(', ')} — it serves #{served.first(8).join(', ').presence || 'nothing'}"
       end
 
-      if models.key?(AGENT_ROLE)
-        chains!
-        roomy!
+      TOOL_ROLES.select { |role| models.key?(role) }.map { |role| model_for(role) }.uniq.each do |model|
+        chains!(model)
+        roomy!(model)
       end
       embeds! if models.key?(EMBEDDING_ROLE)
 
       true
     end
 
-    def roomy!
-      model = model_for(AGENT_ROLE)
+    def roomy!(model = model_for(AGENT_ROLE))
       loaded = loaded_context(model)
       return true if loaded.nil? || loaded >= AGENT_CONTEXT
 
@@ -179,8 +183,7 @@ class Resource
     # because one proves nothing: a model can answer the first call correctly and then
     # break the moment a tool result is in the history, which is every turn after it.
     #
-    def chains!
-      model = model_for(AGENT_ROLE)
+    def chains!(model = model_for(AGENT_ROLE))
       messages = [ { role: "system", content: CHAIN_SYSTEM }, { role: "user", content: CHAIN_ASK } ]
 
       first = turn(model, messages)
@@ -188,7 +191,7 @@ class Resource
 
       unless call
         raise Resource::Unusable,
-              "#{key}: #{model} serves the #{AGENT_ROLE} role but answered without a tool call — " \
+              "#{key}: #{model} is meant to call tools but answered without a tool call — " \
               "#{first['content'].to_s.squish.truncate(120)}"
       end
 

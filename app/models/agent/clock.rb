@@ -20,8 +20,10 @@ class Agent
       }
     }.freeze
 
-    def initialize(analysis)
+    def initialize(analysis, extendable: true, reserve: 0)
       @analysis = analysis
+      @extendable = extendable
+      @reserve = reserve
     end
 
     def running?
@@ -30,21 +32,30 @@ class Agent
 
     def told
       return nil unless running?
+      return "You have about #{minutes_left} minutes for this." unless @extendable
 
       "You have about #{minutes_left} minutes for this. If the work needs longer, call #{NAME} with " \
         "how many more minutes and why; a run never lasts more than a day."
     end
 
     def closing?
-      running? && @analysis.time_left < CLOSING
+      running? && @analysis.time_left < CLOSING + @reserve
     end
 
     def declared
-      running? ? [ DECLARED ] : []
+      running? && @extendable ? [ DECLARED ] : []
     end
 
     def handles?(raw)
-      running? && raw.to_h.dig("function", "name") == NAME
+      running? && @extendable && raw.to_h.dig("function", "name") == NAME
+    end
+
+    def spent?
+      running? && @reserve.positive? && @analysis.time_left < @reserve
+    end
+
+    def call_all(raws)
+      raws.map { |raw| call(raw) }
     end
 
     def call(raw)
@@ -70,7 +81,7 @@ class Agent
     private
 
       def minutes_left
-        (@analysis.time_left / 60.0).floor
+        ([ @analysis.time_left - @reserve, 0 ].max / 60.0).floor
       end
 
       def parsed(raw)

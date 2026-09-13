@@ -61,14 +61,18 @@ class AnalyzeFeedJob < ApplicationJob
     def answer(feed)
       asking = Asking.new(feed)
       grant = feed.grant(scopes: Feed::ASKING_SCOPES)
-      agent = Agent.new(grant: grant, analysis: analysis, turns: Asking::TURNS,
-                        halted: -> { analysis.halted? }, unfinished: ->(calls) { asking.unfinished(calls) })
+      scouting = Scouting.new(grant: grant, analysis: analysis, briefing: ->(task) { asking.briefing(task) },
+                              unfinished: ->(calls) { asking.unfinished(calls) })
+      lead = Agent.new(grant: grant, analysis: analysis, tools: [], locals: [ scouting ], turns: Asking::TURNS,
+                       halted: -> { analysis.halted? }, unfinished: ->(calls) { asking.led(calls) },
+                       system: Asking::LEAD_SYSTEM, label: "lead")
 
       Current.grant = grant
       Current.acting_for = feed.id
-      Current.confined_to = Set.new
-      answered = agent.call(asking.prompt)
-      analysis.log_info("agent", answered.reason.to_s, answered.said)
+      Current.confined_to = Concurrent::Set.new
+      led = lead.call(asking.prompt)
+      answered = led.with(calls: scouting.calls)
+      analysis.log_info("lead", led.reason.to_s, led.said)
       noted(answered)
       spoken(answered.said)
       asking.connections(answered).each { |held| feed.connect!(held) }
