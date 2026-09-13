@@ -4,8 +4,11 @@ class FilesystemResourceTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
+    @tenant = Tenant.create!(subdomain: "fs-#{SecureRandom.hex(4)}", name: "Files")
+
     @allowed = Pathname.new(Dir.mktmpdir("permitted"))
-    @root = @allowed + "catalog"
+    @space = @allowed + @tenant.subdomain
+    @root = @space + "catalog"
     @root.mkpath
 
     write "invoices/march.pdf", "contents of march"
@@ -13,8 +16,6 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     write "notes.txt", "remember the milk"
 
     ENV["URIS_FILESYSTEM_ROOTS"] = @allowed.to_s
-
-    @tenant = Tenant.create!(subdomain: "fs-#{SecureRandom.hex(4)}", name: "Files")
 
     Tenant.switch(@tenant) do
       @resource = Resource::Filesystem.create!(
@@ -88,6 +89,59 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     end
   end
 
+  test "another tenant's directory under the same root is outside this one's" do
+    other = Tenant.create!(subdomain: "fs-#{SecureRandom.hex(4)}", name: "Neighbour")
+    theirs = (@allowed + other.subdomain + "private").tap(&:mkpath)
+    (theirs + "ledger.txt").write("not yours")
+
+    Tenant.switch(@tenant) do
+      [ theirs.to_s, @allowed.to_s, "../#{other.subdomain}/private" ].each do |root|
+        prying = Resource::Filesystem.create!(key: "pry-#{SecureRandom.hex(4)}", details: { "root" => root })
+
+        assert_raises(Resource::Filesystem::Escaped, root) { prying.check! }
+        assert_raises(Resource::Filesystem::Escaped, root) { prying.command(:list) }
+        assert_raises(Resource::Filesystem::Escaped, root) { prying.command(:put, key: "x.txt", body: "x") }
+      end
+    end
+  end
+
+  test "a relative root is taken from the tenant's own directory, which is made on first use" do
+    fresh = Tenant.create!(subdomain: "fs-#{SecureRandom.hex(4)}", name: "Fresh")
+
+    Tenant.switch(fresh) do
+      files = Resource::Filesystem.create!(key: "files", details: { "root" => "." })
+
+      assert files.check!
+      assert_equal (@allowed + fresh.subdomain).to_s, files.root.to_s
+      files.upload("hello.txt", "hi")
+    end
+
+    assert_equal "hi", (@allowed + fresh.subdomain + "hello.txt").read
+  end
+
+  test "a root that is a symlink out of the tenant's directory is refused" do
+    outside = Pathname.new(Dir.mktmpdir("outside"))
+    File.symlink(outside, @space + "shortcut")
+
+    Tenant.switch(@tenant) do
+      linked = Resource::Filesystem.create!(key: "linked", details: { "root" => (@space + "shortcut").to_s })
+
+      assert_raises(Resource::Filesystem::Escaped) { linked.check! }
+    end
+  ensure
+    FileUtils.remove_entry(outside)
+  end
+
+  test "an upload onto a symlink writes nothing through it" do
+    outside = @allowed + "outside.txt"
+    outside.write("untouched")
+    File.symlink(outside, @root + "link.txt")
+
+    assert_raises(Resource::Filesystem::Escaped) { @resource.upload("link.txt", "overwritten") }
+
+    assert_equal "untouched", outside.read
+  end
+
   test "no permitted roots at all means the type is unusable" do
     ENV.delete("URIS_FILESYSTEM_ROOTS")
 
@@ -146,7 +200,7 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     end
 
     def backup_root
-      @backup_root ||= (@allowed + "backup").tap(&:mkpath)
+      @backup_root ||= (@space + "backup").tap(&:mkpath)
     end
 
     def write(path, contents, from: @root)

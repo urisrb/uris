@@ -18,10 +18,11 @@ class GatedIterationTest < ActiveSupport::TestCase
 
     ENV["URIS_FILESYSTEM_ROOTS"] = Dir.tmpdir
 
-    @root = Pathname.new(Dir.mktmpdir("gated"))
-    6.times { |index| (@root + "file-#{index}.txt").write("contents #{index}") }
-
     @tenant = Tenant.create!(subdomain: "gated-#{SecureRandom.hex(4)}", name: "Gated")
+
+    @root = Pathname.new(Dir.tmpdir) + @tenant.subdomain + "gated"
+    @root.mkpath
+    6.times { |index| (@root + "file-#{index}.txt").write("contents #{index}") }
 
     Tenant.switch(@tenant) do
       @resource = Resource::Filesystem.create!(
@@ -32,7 +33,7 @@ class GatedIterationTest < ActiveSupport::TestCase
 
   teardown do
     ENV.delete("URIS_FILESYSTEM_ROOTS")
-    FileUtils.remove_entry(@root) if @root.exist?
+    FileUtils.remove_entry(@root.dirname) if @root.dirname.exist?
   end
 
   test "an open gate catalogues everything, as before" do

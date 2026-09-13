@@ -4,14 +4,14 @@ class UploadsTest < ActionDispatch::IntegrationTest
   setup do
     SearchIndex.reset!
 
+    @tenant = Tenant.create!(subdomain: "up-#{SecureRandom.hex(4)}", name: "Uploads")
+    @other = Tenant.create!(subdomain: "up-#{SecureRandom.hex(4)}", name: "Elsewhere")
+
     @allowed = Pathname.new(Dir.mktmpdir("permitted"))
-    @root = @allowed + "drop"
+    @root = @allowed + @tenant.subdomain + "drop"
     @root.mkpath
 
     ENV["URIS_FILESYSTEM_ROOTS"] = @allowed.to_s
-
-    @tenant = Tenant.create!(subdomain: "up-#{SecureRandom.hex(4)}", name: "Uploads")
-    @other = Tenant.create!(subdomain: "up-#{SecureRandom.hex(4)}", name: "Elsewhere")
 
     Tenant.switch(@tenant) do
       @storage = Resource::Filesystem.create!(

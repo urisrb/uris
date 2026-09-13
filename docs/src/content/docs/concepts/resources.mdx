@@ -42,8 +42,13 @@ dropped, a missing required field is refused, and each value lands in `details` 
 is a secret, in `credentials`. Credentials are encrypted at rest, and the audit trail records which
 fields were set, never their values. Attaching runs a first check and reports what it said.
 
-A filesystem resource is only attachable when `URIS_FILESYSTEM_ROOTS` names directories, and it
-refuses to read or check a root outside all of them.
+A filesystem resource is only attachable when `URIS_FILESYSTEM_ROOTS` names directories. Each
+tenant is given its own directory under every one of them, named for its subdomain and made on
+first use, and a resource's root has to sit inside one of those — the root itself is shared by
+every tenant on the server, so it is never a place one can reach. A relative root is taken from the
+tenant's directory under the first root, which is where the shipped `files` resource, root `.`,
+lives. A root is checked where it really points, so a symlink out of the tenant's directory is
+refused, and a write never follows one.
 
 ## Brokered resources
 

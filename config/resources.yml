@@ -4,7 +4,7 @@ shipped: &shipped
     name: Files
     default_storage: true
     settings:
-      root: <%= ENV.fetch("URIS_FILESYSTEM_ROOT", "/data/files") %>
+      root: "."
 
 development: *shipped
 

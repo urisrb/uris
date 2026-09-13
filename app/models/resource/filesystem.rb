@@ -15,11 +15,11 @@ class Resource
 
       {
         label: "A directory",
-        blurb: "A directory on the machine running uris. It has to sit inside a root the " \
-               "server was started with — #{permitted_roots.join(', ')}.",
+        blurb: "A directory on the machine running uris, inside this tenant's own directory under " \
+               "a root the server was started with. A relative path is taken from there.",
         names: "A name for it",
         fields: [
-          field("root", "Directory", required: true, placeholder: permitted_roots.first.to_s),
+          field("root", "Directory", required: true, placeholder: "photos"),
           field("prefix", "Prefix", help: "Left off, the whole directory is walked.")
         ]
       }
@@ -39,8 +39,26 @@ class Resource
       end
     end
 
+    def self.spaces_for(tenant)
+      return [] if tenant.nil?
+
+      permitted_roots.map { |permitted| permitted + tenant.subdomain }
+    end
+
+    def spaces
+      self.class.spaces_for(tenant)
+    end
+
     def root
-      @root ||= Pathname.new(details.fetch("root")).expand_path
+      @root ||= begin
+        given = Pathname.new(details.fetch("root").to_s)
+
+        if given.absolute? || spaces.empty?
+          given.expand_path
+        else
+          (spaces.first + given).cleanpath
+        end
+      end
     end
 
     def check!
@@ -75,6 +93,7 @@ class Resource
     end
 
     def download(locator)
+      permitted_root!
       File.open(confine(locator.fetch("path")), "rb")
     rescue Errno::ENOENT
       raise Resource::Failed, "#{key}: nothing at #{locator['path']}"
@@ -83,14 +102,18 @@ class Resource
     end
 
     def upload(name, body)
+      permitted_root!
       target = confine_for_write(name)
       target.dirname.mkpath
+      confine_for_write(name)
 
-      File.open(target, "wb") do |file|
+      File.open(target, File::WRONLY | File::CREAT | File::TRUNC | File::NOFOLLOW | File::BINARY) do |file|
         body.respond_to?(:read) ? IO.copy_stream(body, file) : file.write(body.to_s)
       end
 
       { "path" => relative(target) }
+    rescue Errno::ELOOP
+      escaped!(name)
     rescue SystemCallError => e
       raise Resource::Failed, "#{key}: #{e.message}"
     end
@@ -134,14 +157,16 @@ class Resource
       end
 
       def permitted_root!
-        allowed = self.class.permitted_roots
-
-        if allowed.empty?
+        if self.class.permitted_roots.empty?
           raise Resource::Failed,
                 "#{key}: no filesystem roots are permitted — set URIS_FILESYSTEM_ROOTS"
         end
 
-        return true if allowed.any? { |permitted| under?(root, permitted) }
+        space = spaces.find { |held| under?(root, held) }
+        raise Escaped, "#{key}: #{root} is outside every permitted filesystem root" if space.nil?
+
+        space.mkpath
+        return true if !root.exist? || under?(resolve(root), resolve(space))
 
         raise Escaped, "#{key}: #{root} is outside every permitted filesystem root"
       end
