@@ -114,4 +114,17 @@ class DefaultInferenceTest < ActiveSupport::TestCase
       assert_nil Resource.for_role(:smart)
     end
   end
+
+  test "somebody's own model is never what the tenant's documents are sent to" do
+    Tenant.switch(@tenant) do
+      Resource::OpenaiCompatible.create!(
+        key: "mine", owner_subject: "ada",
+        details: { "base_url" => "http://127.0.0.1:3/v1", "models" => { "vision" => "llava", "embedding" => "nomic" } }
+      )
+
+      assert_nil Resource.for_role(:vision)
+      assert_nil Resource.for_declared_role(:embedding)
+      assert_includes [ @ollama, @studio ], Resource.for_role(:smart)
+    end
+  end
 end

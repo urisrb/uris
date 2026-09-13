@@ -253,7 +253,7 @@ class Resource < ApplicationRecord
     end
 
     def best_inference
-      candidates = capable_of(:inference).select { |resource| yield(resource) }
+      candidates = capable_of(:inference).shared.select { |resource| yield(resource) }
 
       candidates.find(&:default_inference?) || candidates.first
     end
