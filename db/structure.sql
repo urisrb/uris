@@ -279,7 +279,9 @@ CREATE TABLE public.feed_references (
     changed_at timestamp(6) without time zone,
     analyzed_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    seen_at timestamp(6) without time zone,
+    gone_at timestamp(6) without time zone
 );
 
 ALTER TABLE ONLY public.feed_references FORCE ROW LEVEL SECURITY;
@@ -1086,6 +1088,13 @@ CREATE INDEX index_feed_references_on_tenant_id_and_feed_id_and_role ON public.f
 
 
 --
+-- Name: index_feed_references_on_tenant_id_and_resource_id_and_seen_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feed_references_on_tenant_id_and_resource_id_and_seen_at ON public.feed_references USING btree (tenant_id, resource_id, seen_at);
+
+
+--
 -- Name: index_feeds_awaiting_a_vector; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1743,6 +1752,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260913150000'),
 ('20260913140000'),
 ('20260913130000'),
 ('20260913120000'),

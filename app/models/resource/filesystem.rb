@@ -68,6 +68,10 @@ class Resource
       true
     end
 
+    def walked_everything?
+      !@unreadable
+    end
+
     def each_page(cursor: nil, prefix: nil)
       permitted_root!
 
@@ -256,6 +260,7 @@ class Resource
           end
         end
       rescue SystemCallError
+        @unreadable = true
         nil
       end
   end

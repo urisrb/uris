@@ -103,6 +103,7 @@ query FeedDetail($id: ID!) {
       contentUrl
       thumbnailUrl
       analyzedAt
+      goneAt
       resource {
         id
         key

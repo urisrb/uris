@@ -122,6 +122,10 @@ class Resource < ApplicationRecord
       false
     end
 
+    def notices_what_is_gone?
+      true
+    end
+
     def field(name, label, kind: "string", required: false, secret: false, held: nil,
               value: nil, help: nil, placeholder: nil, options: nil, shown_when: nil)
       {
@@ -402,7 +406,25 @@ class Resource < ApplicationRecord
 
     reference.feed.analyze!(cause: cause) if reference.awaiting_analysis?
 
+    if cause == "sync"
+      reference.update_columns(seen_at: Time.current, gone_at: nil)
+    elsif reference.gone_at
+      reference.update_columns(gone_at: nil)
+    end
+
     reference
+  end
+
+  def walked_everything?
+    true
+  end
+
+  def notice_what_is_gone!(walk_started)
+    return 0 unless self.class.notices_what_is_gone? && walked_everything?
+
+    Reference.originals.where(resource_id: id, gone_at: nil)
+             .where.not(seen_at: nil).where(seen_at: ...walk_started)
+             .update_all(gone_at: Time.current)
   end
 
   def delegated?

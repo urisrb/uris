@@ -11,6 +11,10 @@ class Resource
 
     Entry = Data.define(:id, :title, :link, :published_at, :content)
 
+    def self.notices_what_is_gone?
+      false
+    end
+
     def self.attaching
       {
         label: "A feed",

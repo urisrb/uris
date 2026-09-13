@@ -202,6 +202,27 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     assert_nil @resource.command(:get, key: "blob.bin")["text"]
   end
 
+  test "a walk that could not read a directory calls nothing gone, since what it missed may still be there" do
+    sync
+    write "locked/ledger.txt", "still here"
+    locked = @root + "locked"
+    unreadable = Module.new do
+      define_method(:children) { |*args| basename.to_s == "locked" ? raise(Errno::EACCES, to_s) : super(*args) }
+    end
+    Pathname.prepend(unreadable)
+
+    Tenant.switch(@tenant) do
+      resource = Resource.find(@resource.id)
+      resource.each_page { |_, _| nil }
+
+      assert_not resource.walked_everything?
+      assert_equal 0, resource.notice_what_is_gone!(1.minute.from_now)
+    end
+  ensure
+    unreadable&.send(:define_method, :children) { |*args| super(*args) }
+    FileUtils.remove_entry(locked) if locked&.exist?
+  end
+
   test "no permitted roots at all means the type is unusable" do
     ENV.delete("URIS_FILESYSTEM_ROOTS")
 

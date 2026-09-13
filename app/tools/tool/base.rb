@@ -133,7 +133,8 @@ module Tool
           mime: reference.mime,
           locator_key: reference.locator_key,
           analyzed_at: reference.analyzed_at,
-          changed_at: reference.changed_at
+          changed_at: reference.changed_at,
+          gone_at: reference.gone_at
         }
       end
 

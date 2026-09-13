@@ -13,6 +13,8 @@ module Types
     field :version, String
     field :changed_at, GraphQL::Types::ISO8601DateTime
     field :analyzed_at, GraphQL::Types::ISO8601DateTime
+    field :gone_at, GraphQL::Types::ISO8601DateTime,
+          description: "When a sync of its resource last walked everything and did not find it."
     field :role, String, null: false
     field :mime, String
     field :size, GraphQL::Types::BigInt

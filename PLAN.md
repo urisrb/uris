@@ -190,8 +190,9 @@ rest of what it found.
 - **`SearchIndex.document` asks for a feed's tags one query at a time.**
 - **An edge does not re-analyze the feed on the other side**, pending the cost decision.
 - **A feed with no reference has no `analyzed_at`.**
-- **Nothing deleted at the source leaves the catalog.** No type compares a walk with what the last
-  one saw, and Graph's delta throws away the deletions it is handed.
+- **Something deleted at the source is marked gone, never removed.** A finished sync sets `gone_at`
+  on what it did not see; nothing yet forgets a feed whose every place is gone, and Graph's delta
+  still throws away the deletions it is handed, so OneDrive notices none.
 - **Every sync is a full walk.** IMAP rescans from the first UID, Graph discards its `deltaLink`,
   GitHub never asks for `since`.
 - **Graph keys are probably bare filenames.** A delta response omits `parentReference.path`, so two

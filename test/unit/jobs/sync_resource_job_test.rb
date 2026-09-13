@@ -126,6 +126,69 @@ class SyncResourceJobTest < ActiveSupport::TestCase
     end
   end
 
+  test "an object deleted at the source is marked gone by the next sync, and found again if it comes back" do
+    sync
+    @resource.client.delete_object(bucket: @bucket, key: "photos/beach.jpg")
+
+    travel 1.minute
+    Tenant.switch(@tenant) { @resource.reload.claim_sync! }
+    sync
+
+    Tenant.switch(@tenant) do
+      assert_predicate reference_at("photos/beach.jpg").gone_at, :present?
+      assert_nil reference_at("notes.txt").gone_at
+      assert_equal 3, Feed.files.count, "gone is noted, not deleted"
+    end
+
+    put "photos/beach.jpg"
+    travel 1.minute
+    Tenant.switch(@tenant) { @resource.reload.claim_sync! }
+    sync
+
+    Tenant.switch(@tenant) { assert_nil reference_at("photos/beach.jpg").gone_at }
+  end
+
+  test "an object kept by hand and never synced is not called gone by a sync that does not walk to it" do
+    Tenant.switch(@tenant) do
+      @resource.command(:keep, key: "notes.txt")
+      @resource.update!(details: @resource.details.merge("prefix" => "photos/"))
+      @resource.claim_sync!
+    end
+
+    sync
+
+    Tenant.switch(@tenant) { assert_nil reference_at("notes.txt").gone_at }
+  end
+
+  test "a sync that only pretends, or was stopped, calls nothing gone" do
+    sync
+    @resource.client.delete_object(bucket: @bucket, key: "notes.txt")
+
+    travel 1.minute
+    Tenant.switch(@tenant) do
+      Gate.set!(key: "sync", enabled: true, live: false)
+      @resource.reload.claim_sync!
+    end
+    sync
+
+    Tenant.switch(@tenant) { assert_nil reference_at("notes.txt").gone_at, "a dry run walks without keeping" }
+
+    travel 1.minute
+    run = Tenant.switch(@tenant) do
+      Gate.set!(key: "sync", enabled: true, live: true)
+      @resource.reload.claim_sync!
+      Run.start!(kind: "sync", resource: @resource).tap(&:cancel!)
+    end
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id, run.id) }
+
+    Tenant.switch(@tenant) { assert_nil reference_at("notes.txt").gone_at }
+  end
+
+  test "a feed's window scrolling is not a deletion, so RSS never calls an entry gone" do
+    assert_not Resource::Rss.notices_what_is_gone?
+    assert Resource::S3.notices_what_is_gone?
+  end
+
   test "a sync writes into one tenant only" do
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 
@@ -291,6 +354,10 @@ class SyncResourceJobTest < ActiveSupport::TestCase
   end
 
   private
+
+    def sync
+      Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+    end
 
     def put(key, body: nil)
       @resource.client.put_object(bucket: @bucket, key: key, body: body || "contents of #{key}")

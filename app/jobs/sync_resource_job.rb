@@ -67,7 +67,14 @@ class SyncResourceJob < ApplicationJob
   private
 
     def release_sync
-      stopped? ? abandon_sync : @resource&.release_sync!
+      return abandon_sync if stopped?
+      return if @resource.nil?
+
+      started = @resource.sync_started_at
+      gone = started && !dry_run? ? @resource.notice_what_is_gone!(started) : 0
+      run&.log_info("sync", "#{gone} no longer found at the source") if gone.positive?
+
+      @resource.release_sync!
     end
 
     def resource_for(resource_id)

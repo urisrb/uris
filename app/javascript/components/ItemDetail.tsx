@@ -133,7 +133,11 @@ export function ItemDetail() {
             <Group gap="var(--s3)" mt="var(--s3)">
               <TypeBadge type={item.type} mime={item.mime} />
               <span className="eyebrow">
-                {standing(item, originals.length)}
+                {standing(
+                  item,
+                  originals.length,
+                  originals.filter((reference) => reference.goneAt).length,
+                )}
               </span>
             </Group>
           </div>
@@ -455,6 +459,7 @@ function standing(
     staged: boolean
   },
   places: number,
+  gone = 0,
 ) {
   if (FACETS.has(item.type)) {
     return `${item.connectedCount} filed under it`
@@ -464,7 +469,11 @@ function standing(
     ? 'waiting for somewhere to live'
     : item.type === TYPE.note && places === 0
       ? null
-      : `${places} ${places === 1 ? 'place' : 'places'} it lives`
+      : gone > 0 && gone === places
+        ? 'no longer found where it lived'
+        : gone > 0
+          ? `${places - gone} ${places - gone === 1 ? 'place' : 'places'} it lives, ${gone} where it is no longer found`
+          : `${places} ${places === 1 ? 'place' : 'places'} it lives`
   const when = item.analyzedAt
     ? `analyzed ${new Date(item.analyzedAt).toLocaleString()}`
     : 'never analyzed'

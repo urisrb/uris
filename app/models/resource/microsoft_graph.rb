@@ -21,6 +21,10 @@ class Resource
       "microsoft"
     end
 
+    def self.notices_what_is_gone?
+      false
+    end
+
     def self.attaching
       {
         label: "OneDrive",
