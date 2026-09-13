@@ -32,9 +32,16 @@ module PublicAddress
 
     def pinned!(target, allow_private: allowed?)
       uri = http!(target)
-      found = allow_private ? addresses(uri.hostname) : vetted(uri.hostname)
 
-      Pinned.new(uri: uri, address: found.min_by { |address| address.ipv4? ? 0 : 1 }.to_s)
+      Pinned.new(uri: uri, address: address_for!(uri.hostname, allow_private: allow_private))
+    end
+
+    def address_for!(host, allow_private: allowed?)
+      raise Blocked, "no host was named" if host.blank?
+
+      found = allow_private ? addresses(host) : vetted(host)
+
+      found.min_by { |address| address.ipv4? ? 0 : 1 }.to_s
     end
 
     def start(pinned, open_timeout:, read_timeout:, &block)

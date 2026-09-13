@@ -9,6 +9,19 @@ class Resource
 
     Message = Data.define(:uid, :uidvalidity, :mailbox, :subject, :from, :date, :size)
 
+    class Pinned < Net::IMAP
+      def initialize(host, address:, **options)
+        @address = address
+        super(host, **options)
+      end
+
+      private
+
+        def tcp_socket(_host, port)
+          Socket.tcp(@address, port, connect_timeout: open_timeout)
+        end
+    end
+
     def self.attaching
       {
         label: "A mailbox",
@@ -159,13 +172,21 @@ class Resource
     private
 
       def connect
-        imap = Net::IMAP.new(host, port: port, ssl: ssl_options)
+        imap = Pinned.new(host, address: address, port: port, ssl: ssl_options)
         imap.login(credentials.fetch("username"), credentials.fetch("password"))
         yield imap
       rescue Net::IMAP::Error, OpenSSL::SSL::SSLError, SocketError, SystemCallError, IOError => e
         raise Resource::Failed, "#{key}: #{e.message}"
       ensure
         close(imap)
+      end
+
+      def address
+        PublicAddress.address_for!(host)
+      rescue PublicAddress::Blocked => e
+        raise PublicFetch::Blocked, "#{key}: #{e.message}"
+      rescue PublicAddress::Unresolvable => e
+        raise Resource::Failed, "#{key}: #{e.message}"
       end
 
       def ssl_options

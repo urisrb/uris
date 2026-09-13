@@ -5,6 +5,8 @@ class ImapResourceTest < ActiveSupport::TestCase
   setup do
     SearchIndex.reset!
 
+    ENV["URIS_ALLOW_PRIVATE_FETCH"] = "1"
+
     @server = FakeImapServer.current
     @server.reset!
     @server.deliver subject: "March invoice", body: "The invoice total is 42 pounds."
@@ -20,6 +22,40 @@ class ImapResourceTest < ActiveSupport::TestCase
         credentials: { "username" => "someone", "password" => "irrelevant" }
       )
     end
+  end
+
+  teardown { ENV.delete("URIS_ALLOW_PRIVATE_FETCH") }
+
+  test "a server inside the network is refused before it is dialled" do
+    ENV.delete("URIS_ALLOW_PRIVATE_FETCH")
+
+    Tenant.switch(@tenant) do
+      [ @server.host, "169.254.169.254", "::ffff:10.0.0.5" ].each do |host|
+        @resource.update!(details: @resource.details.merge("host" => host))
+
+        assert_raises(PublicFetch::Blocked, host) { @resource.check! }
+      end
+    end
+  end
+
+  test "a public name is dialled at the address it was vetted at, and still verified as that name" do
+    dialled = []
+    Socket.singleton_class.alias_method(:unpinned_tcp, :tcp)
+    Socket.define_singleton_method(:tcp) do |host, port, **options|
+      dialled << host
+      unpinned_tcp(FakeImapServer.current.host, port, **options)
+    end
+
+    Tenant.switch(@tenant) do
+      @resource.update!(details: @resource.details.merge("host" => "mail.example.test"))
+
+      assert @resource.check!
+      assert_equal "mail.example.test", @resource.send(:connect) { |imap| imap.host }
+    end
+
+    assert_equal [ Offline::PUBLIC ], dialled.uniq
+  ensure
+    Socket.singleton_class.alias_method(:tcp, :unpinned_tcp)
   end
 
   test "syncing a mailbox catalogues every message as an email item" do
