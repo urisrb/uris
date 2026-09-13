@@ -2,6 +2,37 @@ require "aws-sdk-s3"
 
 class Resource
   class S3 < Resource
+    class PublicOnly < Seahorse::Client::Plugin
+      class Pool < Seahorse::Client::NetHttp::ConnectionPool
+        @pools = {}
+        @pools_mutex = Mutex.new
+
+        def start_session(endpoint)
+          super.tap do |session|
+            peer = IPAddr.new(session.__getobj__.instance_variable_get(:@socket).io.to_io.remote_address.ip_address)
+            next unless PublicAddress.reserved?(peer)
+
+            session.finish
+            raise PublicFetch::Blocked,
+                  "#{URI.parse(endpoint.to_s).host} answered from #{peer}, which is not a public address"
+          end
+        end
+      end
+
+      class Handler < Seahorse::Client::NetHttp::Handler
+        def pool_for(config)
+          Pool.for(pool_options(config))
+        end
+      end
+
+      handler(Handler, step: :send)
+    end
+
+    class PublicClient < Aws::S3::Client
+      set_api(Aws::S3::Client.api)
+      add_plugin(PublicOnly)
+    end
+
     serves :storage
     accepts "*/*"
 
@@ -20,6 +51,23 @@ class Resource
           field("secret_access_key", "Secret key", required: true, secret: true)
         ]
       }
+    end
+
+    def self.permitted_origins
+      ENV.fetch("URIS_S3_ORIGINS", "").split(",").filter_map do |entry|
+        uri = URI.parse(entry.strip)
+        "#{uri.scheme}://#{uri.host}:#{uri.port}" if uri.is_a?(URI::HTTP) && uri.host.present?
+      rescue URI::InvalidURIError
+        nil
+      end
+    end
+
+    def self.named?(endpoint)
+      uri = URI.parse(endpoint.to_s)
+
+      permitted_origins.include?("#{uri.scheme}://#{uri.host}:#{uri.port}")
+    rescue URI::InvalidURIError
+      false
     end
 
     def self.command_schema
@@ -112,16 +160,28 @@ class Resource
     end
 
     def client
-      @client ||= Aws::S3::Client.new(
-        endpoint: details.fetch("endpoint"),
-        region: details.fetch("region", "us-east-1"),
-        access_key_id: credentials.fetch("access_key_id"),
-        secret_access_key: credentials.fetch("secret_access_key"),
-        force_path_style: details.fetch("force_path_style", true)
-      )
+      @client ||= connection
     end
 
     private
+
+      def connection
+        endpoint = details.fetch("endpoint")
+        inside = PublicAddress.allowed? || self.class.named?(endpoint)
+        PublicAddress.permitted!(endpoint, allow_private: inside)
+
+        (inside ? Aws::S3::Client : PublicClient).new(
+          endpoint: endpoint,
+          region: details.fetch("region", "us-east-1"),
+          access_key_id: credentials.fetch("access_key_id"),
+          secret_access_key: credentials.fetch("secret_access_key"),
+          force_path_style: details.fetch("force_path_style", true)
+        )
+      rescue PublicAddress::Blocked => e
+        raise PublicFetch::Blocked, "#{key}: #{e.message}"
+      rescue PublicAddress::Unresolvable => e
+        raise Resource::Failed, "#{key}: #{e.message}"
+      end
 
       def s3
         yield client

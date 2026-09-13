@@ -8,6 +8,7 @@ x-uris-env: &uris-env
   URIS_DATABASE_PASSWORD: "{{ uris_postgres_password }}"
   OPENSEARCH_URL: http://opensearch:9200
   S3_ENDPOINT: http://minio:9000
+  URIS_S3_ORIGINS: http://minio:9000
   URIS_FILESYSTEM_ROOT: "{{ uris_filesystem_root }}"
   URIS_FILESYSTEM_ROOTS: "{{ uris_filesystem_root }}"
   S3_REGION: "{{ uris_s3_region }}"
