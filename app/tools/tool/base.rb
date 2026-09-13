@@ -94,7 +94,7 @@ module Tool
       end
 
       def resource!(id)
-        Resource.active.find_by(id: id) || raise(ArgumentError, "no resource with id #{id}")
+        Resource.attended.active.find_by(id: id) || raise(ArgumentError, "no resource with id #{id}")
       end
 
       def summarize(feed)

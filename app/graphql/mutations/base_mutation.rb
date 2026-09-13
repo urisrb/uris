@@ -14,7 +14,7 @@ module Mutations
       end
 
       def resource!(id)
-        Resource.active.find_by(id: id) ||
+        Resource.attended.active.find_by(id: id) ||
           raise(GraphQL::ExecutionError, "no resource with id #{id}")
       end
 

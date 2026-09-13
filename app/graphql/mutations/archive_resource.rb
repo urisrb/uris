@@ -9,7 +9,7 @@ module Mutations
     field :resource, Types::ResourceType, null: false
 
     def resolve(id:, archived:)
-      resource = Resource.find_by(id: id) || refused("no resource with id #{id}")
+      resource = Resource.attended.find_by(id: id) || refused("no resource with id #{id}")
 
       resource.archived_at = archived ? Time.current : nil
 

@@ -243,6 +243,16 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) { assert_nil @resource.reload.checked_at }
   end
 
+  test "the stores uris keeps for itself are neither listed nor reachable by key" do
+    Tenant.switch(@tenant) { Resource.internal!(:children) }
+
+    listed = tool(@tenant, ALL, "resource", do: "list")["resources"].map { |resource| resource["key"] }
+    assert_not_includes listed, "children"
+
+    reply = call(@tenant, ALL, "tools/call", name: "resource", arguments: { key: "children", do: "list" })
+    assert reply.dig("result", "isError")
+  end
+
   test "check answers with the failure instead of becoming one" do
     checked = tool(@tenant, ALL, "resource", key: @resource.key, do: "check")
 

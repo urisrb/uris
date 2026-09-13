@@ -5,6 +5,31 @@ class ResourceTest < ActiveSupport::TestCase
     @tenant = Tenant.create!(subdomain: "res-#{SecureRandom.hex(4)}", name: "Resources")
   end
 
+  test "a store uris keeps for itself cannot be put away, synced, scheduled or made a default" do
+    Tenant.switch(@tenant) do
+      store = Resource.internal!(:children)
+
+      assert_raises(ArgumentError) { store.sync! }
+      assert_raises(ActiveRecord::RecordInvalid) { store.make_default_storage! }
+
+      store.reload.assign_attributes(archived_at: Time.current, sync_interval: 1.hour.to_i)
+
+      assert_not store.valid?
+      assert_equal %i[archived_at sync_interval], store.errors.attribute_names.sort
+    end
+  end
+
+  test "the stores uris keeps for itself are not among the ones people attend to" do
+    Tenant.switch(@tenant) do
+      Resource.internal!(:derived)
+      Resource.internal!(:children)
+
+      Resource::S3.create!(key: "bucket", details: { "endpoint" => "http://x" })
+
+      assert_equal [ "bucket" ], Resource.attended.pluck(:key)
+    end
+  end
+
   test "the stored type is the domain type, not the class name" do
     Tenant.switch(@tenant) do
       resource = Resource::S3.create!(key: "bucket", details: { "endpoint" => "http://x" })

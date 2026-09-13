@@ -69,7 +69,7 @@ module Tool
     def self.placed(feed, key, reason)
       raise ArgumentError, "place needs a reason" if reason.blank?
 
-      destination = ::Resource.active.find_by(key: key.to_s) ||
+      destination = ::Resource.attended.active.find_by(key: key.to_s) ||
                     raise(ArgumentError, "no resource called #{key}")
 
       Placement.new(feed).place!(destination, reason: reason)

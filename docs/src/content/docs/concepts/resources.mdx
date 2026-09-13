@@ -92,7 +92,8 @@ when it has been checked and the last check raised nothing.
 
 uris keeps two stores for itself: `children`, for what is extracted from a file, and `derived`, for
 previews and thumbnails. They are database resources, and they are never offered as a place to put
-an upload.
+an upload. Neither is listed or reachable by key through GraphQL or MCP, and neither can be archived,
+synced, scheduled or made a default, since uris writes into them whatever anyone sets.
 
 Archiving sets `archived_at` and deletes nothing. An archived resource drops out of capability
 queries, placement, the defaults and the sync schedule, and restoring it clears the timestamp.
