@@ -17,6 +17,7 @@ class Resource < ApplicationRecord
 
   MINIMUM_SYNC_INTERVAL = 1.minute
   SYNC_ABANDONED_AFTER = 6.hours
+  CHECKED_EVERY = 6.hours
   MAX_HOPS = 4
   MAX_TEXT = 100_000
   GLIMPSE_BYTES = MAX_TEXT * 4
@@ -53,6 +54,11 @@ class Resource < ApplicationRecord
     where(sync_started_at: nil).or(where(sync_started_at: ...SYNC_ABANDONED_AFTER.ago))
   }
   scope :due_for_sync, -> { scheduled.not_syncing.where(next_sync_at: ..Time.current) }
+  scope :due_for_check, -> {
+    attended.active.not_syncing.where(checked_at: nil).or(
+      attended.active.not_syncing.where(checked_at: ...CHECKED_EVERY.ago)
+    )
+  }
 
   class << self
     def sti_name

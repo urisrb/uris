@@ -4,6 +4,11 @@ shared: &shared
     queue: sync
     schedule: every minute
 
+  schedule_checks:
+    class: ScheduleChecksJob
+    queue: sync
+    schedule: every hour at minute 7
+
   schedule_feeds:
     class: ScheduleFeedsJob
     queue: sync
