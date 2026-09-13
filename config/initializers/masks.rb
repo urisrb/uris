@@ -12,5 +12,7 @@ Rails.application.config.to_prepare do
     config.scope = Masks::Client::Session::DEFAULT_SCOPE + [ "offline_access" ] + Grant::SIGN_IN
     config.after_sign_in = "/"
     config.after_sign_out = "/"
+    config.delegates = true
+    config.delegation_redirect_uri = ->(request) { "#{Tenant.origin(request)}#{Delegations::CALLBACK_PATH}" }
   end
 end

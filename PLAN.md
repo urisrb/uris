@@ -46,8 +46,9 @@ access token until it expires, so masks is asked when one runs out rather than p
       authorization server, not Notion's public OAuth, and may hand back nothing that names the
       Notion user. If it does not, a Notion MCP connection is gated on the masks actor alone, or
       on a Notion identity linked separately through Notion's public OAuth. Find out before phase 2.
-- [ ] **What the client library is called and shaped like.** Phase 1 names what uris needs from
-      it, not what it is.
+- [x] **What the client library is called and shaped like.** `Masks::Client::Delegations`, in
+      the masks gem: `start`, `finish` and `token`, `Refused` and `Unavailable` each carrying any
+      rotated secret, and `Delegations::Fake`. Decided 2026-09-13.
 - [ ] **Whose personal resources a feed may use.** A feed run in the background has no grant. It
       needs to know who made it — `Feed` records no `created_by` today — and whether an agent run
       for that person may reach their personal resources, or only the tenant's.
@@ -72,7 +73,8 @@ Independent of masks, so it lands first. Today a resource is synced whole or not
 
 ## Phase 1 — the client library
 
-Masks' work; recorded here so the two sides agree on what crosses. Names are illustrative.
+Masks' work; recorded here so the two sides agree on what crosses. Landed in masks `4b7048c`,
+`912e856` and `738fba6`; see masks' `concepts/delegation` page for what it became.
 
 What uris needs from the library:
 
@@ -112,32 +114,32 @@ What masks has to hold, in outline:
 
 ## Phase 2 — delegation replaces the broker
 
-- [ ] Delete `Broker`, `Resource::Brokered`, `Enrollment`, `EnrollmentsController`, the `/enroll`
+- [x] Delete `Broker`, `Resource::Brokered`, `Enrollment`, `EnrollmentsController`, the `/enroll`
       routes, `enrollResource`, `fake_broker_server.rb` and their tests
-- [ ] `Resource::Delegated`: the held delegation, the cached access token and its expiry in
+- [x] `Resource::Delegated`: the held delegation, the cached access token and its expiry in
       `credentials`, which are already encrypted. `upstream_token` answers the cache until it
       expires, then asks the library, and writes back what changed. `token_expired!` clears the
       cache for `Api#answer`'s one retry
-- [ ] A refusal sets `needs_connect_at` and raises `Resource::Unusable`, so `SyncResourceJob` stops
+- [x] A refusal sets `needs_connect_at` and raises `Resource::Unusable`, so `SyncResourceJob` stops
       rather than retrying it five times; a check or a sync that succeeds clears it
-- [ ] `Tenant#issuer` from `MASKS_ISSUER_TEMPLATE`, so a job with no request can reach masks. This
+- [x] `Tenant#issuer` from `MASKS_ISSUER_TEMPLATE`, so a job with no request can reach masks. This
       is what OneDrive's background sync has been missing — `Broker.release` read `Current.issuer`,
       which only a request sets
-- [ ] `GET /resources/:id/connect`, behind `uris:resources:command`, keeps the library's state in
+- [x] `GET /resources/:id/connect`, behind `uris:resources:command`, keeps the library's state in
       the session bound to the resource and the subject, and redirects. `GET /connect/callback`
       refuses a state or a subject that does not match, and saves the delegation with
       `connected_by`
-- [ ] `attachResource` takes a delegated type and makes it unconnected; `connectResource` answers
+- [x] `attachResource` takes a delegated type and makes it unconnected; `connectResource` answers
       the address; `ResourceType` carries `connected`, `needsConnect` and `connectedBy`
-- [ ] `Attach.tsx` offers **Connect** where it offered a sign-in link, and a resource that needs it
+- [x] `Attach.tsx` offers **Connect** where it offered a sign-in link, and a resource that needs it
       shows **Reconnect**
 
 ## Phase 3 — Google Drive and OneDrive
 
-- [ ] `oauth-google` and `microsoft-graph` include `Delegated` in place of `Brokered`, naming masks'
+- [x] `oauth-google` and `microsoft-graph` include `Delegated` in place of `Brokered`, naming masks'
       `google` and `microsoft` providers. Their API calls do not change
-- [ ] `microsoft_graph_resource_test.rb` runs against the library's fake
-- [ ] OneDrive syncs on a schedule, with nobody signed in
+- [x] `microsoft_graph_resource_test.rb` runs against the library's fake
+- [x] OneDrive syncs on a schedule, with nobody signed in
 
 ## Phase 4 — an MCP server through masks
 

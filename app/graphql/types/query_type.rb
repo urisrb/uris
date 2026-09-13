@@ -98,7 +98,7 @@ module Types
           type: klass.sti_name,
           capabilities: klass.capabilities.map(&:to_s),
           syncs: klass.method_defined?(:each_page),
-          brokered: klass.brokered?
+          delegated: klass.delegated?
         )
       end
     end

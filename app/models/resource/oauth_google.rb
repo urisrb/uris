@@ -1,6 +1,6 @@
 class Resource
   class OauthGoogle < Api
-    include Brokered
+    include Delegated
 
     API = "https://www.googleapis.com/drive/v3".freeze
     MAX_DOWNLOAD = 512.megabytes
@@ -19,14 +19,14 @@ class Resource
     def self.attaching
       {
         label: "Google Drive",
-        blurb: "Connected in the browser rather than here — the credential is captured by the " \
-               "sign-in server, so no secret is ever typed into uris.",
+        blurb: "Connected through masks with your Google account. masks keeps the tokens and hands " \
+               "uris a fresh one when it needs it, so no secret is ever typed into uris.",
         names: "A name for it",
         fields: []
       }
     end
 
-    def self.broker_provider
+    def self.delegated_provider
       "google"
     end
 
@@ -40,7 +40,7 @@ class Resource
     def check!
       about = api_get("/about", fields: "user")
 
-      raise Resource::Failed, "#{key}: the broker released a token Drive would not accept" if about["user"].blank?
+      raise Resource::Failed, "#{key}: masks released a token Drive would not accept" if about["user"].blank?
 
       true
     end

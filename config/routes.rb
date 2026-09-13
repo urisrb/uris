@@ -11,8 +11,8 @@ Rails.application.routes.draw do
 
   get "/references/:id/content", to: "content#show", as: :reference_content
 
-  get "/enroll/:token/done", to: "enrollments#done", as: :enrollment_done
-  get "/enroll/:token", to: "enrollments#show", as: :enrollment
+  get "/resources/:id/connect", to: "resource_connections#show", as: :resource_connect
+  get "/connect/callback", to: "resource_connections#callback", as: :resource_connect_callback
 
   match "/mcp", to: "mcp#handle", via: %i[get post delete]
 

@@ -12,8 +12,8 @@ module Types
     field :names, String, null: false, description: "What the key means for this type."
     field :capabilities, [ String ], null: false
     field :syncs, Boolean, null: false
-    field :brokered, Boolean, null: false,
-          description: "Connected in the browser rather than by typing a credential."
+    field :delegated, Boolean, null: false,
+          description: "Connected through masks with somebody's own account, rather than by typing a credential."
     field :fields, [ Types::AttachingFieldType ], null: false
   end
 end

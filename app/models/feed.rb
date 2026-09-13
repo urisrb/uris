@@ -20,7 +20,7 @@ class Feed < ApplicationRecord
   SELECTOR = %w[id type key mime tag resource_id query folder since before].freeze
 
   RESERVED = %w[
-    mcp graphql graphiql auth enroll references feeds resources runs settings
+    mcp graphql graphiql auth connect references feeds resources runs settings
     jobs up assets vite rails cable audit uploads analyses
     recede resume refresh
   ].freeze

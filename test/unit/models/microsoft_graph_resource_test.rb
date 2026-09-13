@@ -1,37 +1,33 @@
 require "test_helper"
-require_relative "../../support/fake_broker_server"
+require "masks/client/delegations/fake"
 
 class MicrosoftGraphResourceTest < ActiveSupport::TestCase
   API = "https://graph.microsoft.com/v1.0".freeze
-  RELEASE = "/connections/token".freeze
 
   setup do
     SearchIndex.reset!
 
-    @broker = FakeBrokerServer.current
-    @broker.reset!
-    @broker.on(RELEASE, body: { "access_token" => "graph-access" })
+    @masks = Delegations.fake = Masks::Client::Delegations::Fake.new
 
     @tenant = Tenant.create!(subdomain: "ms-#{SecureRandom.hex(4)}", name: "Microsoft")
 
+    started = @masks.start(provider: "microsoft")
+    held = @masks.finish(params: @masks.approve(started, subject: "ash"), started: started)
+
     Tenant.switch(@tenant) do
       @resource = Resource::MicrosoftGraph.create!(key: "onedrive", name: "OneDrive")
-      @resource.connection_id = "11111111-2222-3333-4444-555555555555"
-      @resource.save!
+      @resource.connect!(held, by: "ash")
     end
-
-    Current.issuer = @broker.url
-    Current.credentials = "Bearer caller-token"
   end
 
   teardown do
-    Current.issuer = nil
-    Current.credentials = nil
+    Delegations.fake = nil
   end
 
-  test "the stored type is microsoft-graph, it is brokered, and it syncs" do
+  test "the stored type is microsoft-graph, it connects through masks, and it syncs" do
     assert_equal "microsoft-graph", @resource.type
-    assert @resource.brokered?
+    assert @resource.delegated?
+    assert_equal "microsoft", @resource.provider_key
     assert @resource.syncable?
   end
 
@@ -40,13 +36,13 @@ class MicrosoftGraphResourceTest < ActiveSupport::TestCase
     assert_empty Resource::MicrosoftGraph.attaching[:fields].select { |field| field[:secret] }
   end
 
-  test "the token the broker releases is what reaches Microsoft" do
+  test "the token masks releases is what reaches Microsoft" do
     stub_request(:get, "#{API}/me").to_return(json_response(id: "u1", userPrincipalName: "ash@acme.test"))
     stub_request(:get, "#{API}/me/drive").to_return(json_response(id: "d1"))
 
     Tenant.switch(@tenant) { assert @resource.check! }
 
-    assert_requested :get, "#{API}/me", headers: { "Authorization" => "Bearer graph-access" }
+    assert_requested :get, "#{API}/me", headers: { "Authorization" => "Bearer microsoft-access-1" }
   end
 
   test "an account with no drive is unusable, and says which account" do
@@ -149,15 +145,29 @@ class MicrosoftGraphResourceTest < ActiveSupport::TestCase
     end
   end
 
-  test "a token the broker released but Microsoft refuses is released once more, then given up on" do
+  test "a token masks released but Microsoft refuses is released once more, then given up on" do
     stub_request(:get, "#{API}/me").to_return(status: 401, body: "{}")
 
     Tenant.switch(@tenant) do
       assert_raises(Resource::Unusable) { @resource.check! }
     end
 
-    assert_equal 2, @broker.count_for(RELEASE), "an expired token is worth one more release"
+    assert_equal 2, @masks.releases, "an expired token is worth one more release"
     assert_requested :get, "#{API}/me", times: 2
+  end
+
+  test "OneDrive syncs on its schedule with nobody signed in" do
+    stub_request(:get, "#{API}/me/drive/root/delta").to_return(json_response(value: [ file("report.pdf") ]))
+
+    Current.reset
+    Tenant.switch(@tenant) do
+      @resource.update!(sync_interval: 1.hour.to_i)
+      SyncResourceJob.perform_now(@tenant.id, @resource.id)
+    end
+
+    assert_nil Current.grant
+    assert_equal 1, Tenant.switch(@tenant) { Feed.files.count }
+    assert_requested :get, "#{API}/me/drive/root/delta", headers: { "Authorization" => "Bearer microsoft-access-1" }
   end
 
   private

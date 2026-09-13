@@ -115,7 +115,7 @@ class Resource < ApplicationRecord
       end
     end
 
-    def brokered?
+    def delegated?
       false
     end
 
@@ -402,6 +402,14 @@ class Resource < ApplicationRecord
     reference
   end
 
+  def delegated?
+    false
+  end
+
+  def needs_connect?
+    false
+  end
+
   def syncing?
     sync_started_at.present? && sync_started_at > SYNC_ABANDONED_AFTER.ago
   end
@@ -437,7 +445,8 @@ class Resource < ApplicationRecord
     update_columns(
       sync_started_at: nil,
       synced_at: finished,
-      next_sync_at: sync_interval.present? ? next_sync_after(finished) : nil
+      next_sync_at: sync_interval.present? ? next_sync_after(finished) : nil,
+      needs_connect_at: nil
     )
   end
 
@@ -479,7 +488,7 @@ class Resource < ApplicationRecord
     end
 
     def record_check(error)
-      update_columns(checked_at: Time.current, check_error: error)
+      update_columns(checked_at: Time.current, check_error: error, **(error.nil? ? { needs_connect_at: nil } : {}))
     end
 
     def next_sync_after(finished)

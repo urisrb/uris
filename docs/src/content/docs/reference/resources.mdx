@@ -42,7 +42,7 @@ Object storage. One bucket over the S3 API. AWS, R2, B2, Wasabi, MinIO and Garag
 | Accepts | `*/*` |
 | Up to | — |
 | Syncs | yes |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -75,7 +75,7 @@ A directory. A directory on the machine running uris, inside this tenant's own d
 | Accepts | `*/*` |
 | Up to | — |
 | Syncs | yes |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -104,7 +104,7 @@ WebDAV. A WebDAV collection — Nextcloud, ownCloud, or anything else speaking i
 | Accepts | `*/*` |
 | Up to | — |
 | Syncs | yes |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -135,7 +135,7 @@ Calendars. A CalDAV collection. Only the events in it are catalogued.
 | Accepts | — |
 | Up to | — |
 | Syncs | yes |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -165,7 +165,7 @@ Contacts. A CardDAV collection. Only the cards in it are catalogued.
 | Accepts | — |
 | Up to | — |
 | Syncs | yes |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -195,7 +195,7 @@ A mailbox. One IMAP mailbox. Messages are catalogued, and their attachments beco
 | Accepts | — |
 | Up to | — |
 | Syncs | yes |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -227,7 +227,7 @@ A feed. An RSS or Atom feed. Each entry becomes an item.
 | Accepts | — |
 | Up to | — |
 | Syncs | yes |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -253,7 +253,7 @@ The web. What renders an address into a page you keep. One is enough for a tenan
 | Accepts | — |
 | Up to | — |
 | Syncs | no |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -280,7 +280,7 @@ A model backend. Anything speaking the OpenAI chat API — ollama, LM Studio, ll
 | Accepts | — |
 | Up to | — |
 | Syncs | no |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -304,7 +304,7 @@ A model backend. Anything speaking the OpenAI chat API — ollama, LM Studio, ll
 
 ## oauth-google
 
-Google Drive. Connected in the browser rather than here — the credential is captured by the sign-in server, so no secret is ever typed into uris.
+Google Drive. Connected through masks with your Google account. masks keeps the tokens and hands uris a fresh one when it needs it, so no secret is ever typed into uris.
 
 |  |  |
 | --- | --- |
@@ -312,7 +312,7 @@ Google Drive. Connected in the browser rather than here — the credential is ca
 | Accepts | — |
 | Up to | — |
 | Syncs | no |
-| Signed in through a broker | yes |
+| Connected through masks | yes |
 | Attached from the app | yes |
 
 ### Fields
@@ -334,7 +334,7 @@ None.
 | Accepts | `*/*` |
 | Up to | 64 MB |
 | Syncs | yes |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | no |
 
 ### Commands
@@ -355,7 +355,7 @@ Web search. Somewhere to look when the answer is not in the catalog. Exa, Brave 
 | Accepts | — |
 | Up to | — |
 | Syncs | no |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -382,7 +382,7 @@ Fetch a page. Reads one address over HTTP, the way curl would, so an agent can r
 | Accepts | — |
 | Up to | — |
 | Syncs | no |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -405,7 +405,7 @@ An MCP server. Somebody else's tools, offered beside the catalog's own. Checking
 | Accepts | — |
 | Up to | — |
 | Syncs | no |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -437,7 +437,7 @@ GitHub. Issues and pull requests from the repositories you name, each one an ite
 | Accepts | — |
 | Up to | — |
 | Syncs | yes |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -466,7 +466,7 @@ Notion. Every page the integration has been shared with, each one an item carryi
 | Accepts | — |
 | Up to | — |
 | Syncs | yes |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -494,7 +494,7 @@ Slack. Threads from the channels the app has been invited to, each one an item. 
 | Accepts | — |
 | Up to | — |
 | Syncs | yes |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields
@@ -514,7 +514,7 @@ Slack. Threads from the channels the app has been invited to, each one an item. 
 
 ## microsoft-graph
 
-OneDrive. Connected in the browser rather than here — the credential is captured by the sign-in server, so no secret is ever typed into uris.
+OneDrive. Connected through masks with your Microsoft account. masks keeps the tokens and hands uris a fresh one when it needs it, so no secret is ever typed into uris.
 
 |  |  |
 | --- | --- |
@@ -522,7 +522,7 @@ OneDrive. Connected in the browser rather than here — the credential is captur
 | Accepts | — |
 | Up to | — |
 | Syncs | yes |
-| Signed in through a broker | yes |
+| Connected through masks | yes |
 | Attached from the app | yes |
 
 ### Fields
@@ -548,7 +548,7 @@ A git repository. Every file at the tip of one branch, each one an item. The clo
 | Accepts | — |
 | Up to | — |
 | Syncs | yes |
-| Signed in through a broker | no |
+| Connected through masks | no |
 | Attached from the app | yes |
 
 ### Fields

@@ -1,6 +1,5 @@
 import {
   Alert,
-  Anchor,
   Button,
   Checkbox,
   Group,
@@ -36,7 +35,6 @@ import {
 } from '@tabler/icons-react'
 import {
   AttachResourceDocument,
-  EnrollResourceDocument,
   ResourceTypesDocument,
   type ResourceTypesQuery,
   UpdateResourceDocument,
@@ -157,7 +155,6 @@ export function Attach({
 }) {
   const { data, loading } = useQuery(ResourceTypesDocument, {})
   const attach = useMutation(AttachResourceDocument)
-  const enroll = useMutation(EnrollResourceDocument)
   const update = useMutation(UpdateResourceDocument)
 
   const [chosen, setChosen] = useState<string | null>(editing?.type ?? null)
@@ -167,7 +164,6 @@ export function Attach({
   const [seededFor, setSeededFor] = useState<string | null>(null)
   const [refused, setRefused] = useState<string | null>(null)
   const [warned, setWarned] = useState<string | null>(null)
-  const [link, setLink] = useState<string | null>(null)
 
   const types = data?.resourceTypes ?? []
   const type = types.find((held) => held.type === chosen) ?? null
@@ -186,17 +182,15 @@ export function Attach({
     setTyped(seeded(next))
     setRefused(null)
     setWarned(null)
-    setLink(null)
   }
 
-  const attaching = attach.loading || enroll.loading || update.loading
+  const attaching = attach.loading || update.loading
   const shown = (type?.fields ?? []).filter((field) => asked(field, typed))
   const missing = shown.filter(
     (field) =>
       field.required && !kept(field) && !`${typed[field.name] ?? ''}`.trim(),
   )
-  const ready =
-    key.trim().length > 0 && (type?.brokered || missing.length === 0)
+  const ready = key.trim().length > 0 && missing.length === 0
 
   async function save() {
     if (!type || !editing) return
@@ -233,23 +227,6 @@ export function Attach({
     setRefused(null)
     setWarned(null)
 
-    if (type.brokered) {
-      const answered = await enroll.execute({
-        type: type.type,
-        key: key.trim(),
-        name: name.trim() || null,
-      })
-      const url = answered?.enrollResource?.url
-
-      if (!url) {
-        setRefused(enroll.error?.message ?? 'That could not be started.')
-        return
-      }
-
-      setLink(url)
-      return
-    }
-
     const answered = await attach.execute({
       type: type.type,
       key: key.trim(),
@@ -261,6 +238,11 @@ export function Attach({
 
     if (!answered?.attachResource?.resource) {
       setRefused(attach.error?.message ?? 'That could not be attached.')
+      return
+    }
+
+    if (answered.attachResource.connectUrl) {
+      window.location.assign(answered.attachResource.connectUrl)
       return
     }
 
@@ -332,8 +314,8 @@ export function Attach({
                         <span className="attach-name">{held.label}</span>
                         <span className="attach-gist">{gist(held.blurb)}</span>
                         <span className="attach-meta">
-                          {held.brokered
-                            ? 'Sign in to connect'
+                          {held.delegated
+                            ? 'Connect with your account'
                             : held.fields.length === 0
                               ? 'Nothing to fill in'
                               : held.syncs
@@ -392,7 +374,7 @@ export function Attach({
           {type.fields.length > 0 && (
             <Stack gap="var(--s3)">
               <div className="label">
-                {type.brokered ? 'Before you sign in' : 'Connection'}
+                {type.delegated ? 'Before you connect' : 'Connection'}
               </div>
               {shown.map((field) => (
                 <Asked
@@ -423,30 +405,9 @@ export function Attach({
             </Alert>
           )}
 
-          {link && (
-            <Alert color="yellow" title="One step left">
-              Open this to sign in. Nothing exists until you do, and the link
-              expires in half an hour. Come back and press Done and it will be
-              in the list.
-              <div style={{ marginTop: 'var(--s2)' }}>
-                <Anchor href={link} target="_blank" rel="noreferrer">
-                  {link}
-                </Anchor>
-              </div>
-            </Alert>
-          )}
-
           <Group justify="flex-end" gap="var(--s3)" className="attach-actions">
-            <Button
-              size="md"
-              radius="xl"
-              variant="default"
-              onClick={() => {
-                if (link) onAttached()
-                onClose()
-              }}
-            >
-              {warned || link ? 'Done' : 'Cancel'}
+            <Button size="md" radius="xl" variant="default" onClick={onClose}>
+              {warned ? 'Done' : 'Cancel'}
             </Button>
             <Button
               size="md"
@@ -454,14 +415,12 @@ export function Attach({
               color="chalk"
               onClick={editing ? save : connect}
               loading={attaching}
-              disabled={
-                (editing ? missing.length > 0 : !ready) || link !== null
-              }
+              disabled={editing ? missing.length > 0 : !ready}
             >
               {editing
                 ? 'Save it'
-                : type.brokered
-                  ? 'Get a sign-in link'
+                : type.delegated
+                  ? 'Attach and connect'
                   : 'Attach it'}
             </Button>
           </Group>

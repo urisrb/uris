@@ -1,6 +1,6 @@
 class Resource
   class MicrosoftGraph < Api
-    include Brokered
+    include Delegated
 
     API = "https://graph.microsoft.com/v1.0".freeze
     DRIVE = "/me/drive".freeze
@@ -17,15 +17,15 @@ class Resource
 
     serves :integration
 
-    def self.broker_provider
+    def self.delegated_provider
       "microsoft"
     end
 
     def self.attaching
       {
         label: "OneDrive",
-        blurb: "Connected in the browser rather than here — the credential is captured by the " \
-               "sign-in server, so no secret is ever typed into uris.",
+        blurb: "Connected through masks with your Microsoft account. masks keeps the tokens and hands " \
+               "uris a fresh one when it needs it, so no secret is ever typed into uris.",
         names: "A name for it",
         fields: [
           field("folder", "Only under this folder",
@@ -50,7 +50,7 @@ class Resource
       who = api_get("/me")
 
       if who["id"].blank?
-        raise Resource::Failed, "#{key}: the broker released a token Microsoft would not accept"
+        raise Resource::Failed, "#{key}: masks released a token Microsoft would not accept"
       end
 
       drive = api_get(DRIVE)

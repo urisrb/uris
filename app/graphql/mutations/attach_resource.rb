@@ -10,11 +10,12 @@ module Mutations
 
     field :resource, Types::ResourceType, null: false
     field :check_error, String, description: "What the first check said, if it did not pass."
+    field :connect_url, String,
+          description: "Where to send the browser to connect it through masks, for a type that connects " \
+                       "that way. Nothing is reachable until somebody does."
 
     def resolve(type:, key:, name: nil, settings: nil)
       klass = attachable!(type)
-
-      refused("#{type} is connected in the browser, not through a form") if klass.brokered?
 
       named = key.to_s.strip
       resource = klass.new(key: named, name: name.presence&.strip || named)
@@ -24,12 +25,19 @@ module Mutations
       refused(resource.errors.full_messages.to_sentence) unless resource.save
 
       noted(klass, resource, settings)
+
+      return { resource: resource, connect_url: resource_connect_path(resource) } if resource.delegated?
+
       resource.check
 
       { resource: resource, check_error: resource.check_error }
     end
 
     private
+
+      def resource_connect_path(resource)
+        Rails.application.routes.url_helpers.resource_connect_path(resource)
+      end
 
       def attachable!(type)
         klass = Resource.attachable.find { |held| held.sti_name == type.to_s }

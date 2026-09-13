@@ -17,6 +17,11 @@ class SyncResourceJob < ApplicationJob
     job.abandon_sync
   end
 
+  rescue_from(Resource::Unusable) do |error|
+    fail_run(error)
+    abandon_sync
+  end
+
   on_complete :release_sync
 
   def run_id

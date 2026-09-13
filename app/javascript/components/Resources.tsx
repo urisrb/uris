@@ -13,6 +13,7 @@ import {
   IconArchiveOff,
   IconCheck,
   IconPencil,
+  IconPlugConnected,
   IconPlus,
   IconRefresh,
   IconSparkles,
@@ -56,10 +57,15 @@ interface Resource {
   settings: Record<string, unknown>
   heldCredentials: string[]
   changeable: boolean
+  delegated: boolean
+  needsConnect: boolean
+  connectedBy?: string | null
+  connectUrl?: string | null
 }
 
 function toneFor(resource: Resource) {
   if (resource.syncing) return 'var(--busy)'
+  if (resource.needsConnect) return 'var(--bad)'
   if (!resource.checkedAt) return 'var(--edge)'
 
   return resource.healthy ? 'var(--ok)' : 'var(--bad)'
@@ -67,6 +73,8 @@ function toneFor(resource: Resource) {
 
 function standing(resource: Resource) {
   if (resource.syncing) return 'syncing'
+  if (resource.needsConnect)
+    return resource.connectedBy ? 'needs reconnecting' : 'not connected yet'
   if (!resource.checkedAt) return 'never checked'
 
   return resource.healthy ? 'reachable' : 'failing'
@@ -88,6 +96,9 @@ export function Resources() {
   useTitle('Resources')
 
   const { id: landed } = useParams()
+  const [connectError, setConnectError] = useState(() =>
+    new URLSearchParams(window.location.search).get('connect_error'),
+  )
   const say = useSay()
   const [shelved, setShelved] = useState(false)
   const { data, loading, error, refetch } = useQuery(ResourcesDocument, {
@@ -149,6 +160,20 @@ export function Resources() {
 
   return (
     <Stack gap="var(--s5)">
+      {connectError && (
+        <Alert
+          color="red"
+          title="That did not connect"
+          withCloseButton
+          onClose={() => {
+            setConnectError(null)
+            window.history.replaceState(null, '', window.location.pathname)
+          }}
+        >
+          {connectError}
+        </Alert>
+      )}
+
       <Group justify="space-between" align="flex-end">
         <div className="eyebrow">
           {shelved
@@ -281,6 +306,23 @@ export function Resources() {
             ) : (
               <Stack gap="var(--s2)" align="flex-end">
                 <Group gap="var(--s2)" wrap="nowrap">
+                  {resource.delegated && resource.connectUrl && (
+                    <Button
+                      component="a"
+                      href={resource.connectUrl}
+                      size="xs"
+                      radius="xl"
+                      color={resource.needsConnect ? 'chalk' : 'gray'}
+                      variant={resource.needsConnect ? 'filled' : 'subtle'}
+                      leftSection={<IconPlugConnected size={14} />}
+                    >
+                      {resource.needsConnect
+                        ? resource.connectedBy
+                          ? 'Reconnect'
+                          : 'Connect'
+                        : 'Connect again'}
+                    </Button>
+                  )}
                   <Button
                     size="xs"
                     radius="xl"

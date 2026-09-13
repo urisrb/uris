@@ -27,8 +27,10 @@ class HandshakeTest < ActionDispatch::IntegrationTest
     assert response.location.start_with?("#{issuer.url_for(@tenant.subdomain)}/handshake")
     assert_equal "#{origin}/mcp", query["resource"]
     assert_equal "#{origin}/auth/handshake/callback", query["return_to"]
-    assert_equal "#{origin}/auth/callback", query["redirect_uris"]
+    assert_equal [ "#{origin}/auth/callback", "#{origin}/connect/callback" ], query["redirect_uris"]
     assert_includes query["scope"].split, Grant::NAMESPACE
+    assert_includes query["scope"].split, "masks:delegate:",
+                    "uris asks each person for their accounts elsewhere, so its handshake says so"
     assert_not_includes query["scope"].split, "uris:catalog:read",
                         "the handshake asks for the namespace; sign-in asks for the scopes"
     assert_includes query["scope"].split, "offline_access"

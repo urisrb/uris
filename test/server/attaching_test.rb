@@ -3,7 +3,7 @@ require_relative "../support/fake_feed_server"
 
 class AttachingTest < ActionDispatch::IntegrationTest
   TYPES = <<~GQL.freeze
-    { resourceTypes { type label names syncs brokered capabilities
+    { resourceTypes { type label names syncs delegated capabilities
                       fields { name label kind required secret value } } }
   GQL
 
@@ -12,13 +12,8 @@ class AttachingTest < ActionDispatch::IntegrationTest
       attachResource(input: { type: $type, key: $key, name: $name, settings: $settings }) {
         resource { id type key name capabilities }
         checkError
+        connectUrl
       }
-    }
-  GQL
-
-  ENROLL = <<~GQL.freeze
-    mutation($type: String!, $key: String!) {
-      enrollResource(input: { type: $type, key: $key }) { url expiresIn }
     }
   GQL
 
@@ -50,7 +45,7 @@ class AttachingTest < ActionDispatch::IntegrationTest
     imap = named.fetch("imap")
 
     assert_equal true, imap["syncs"]
-    assert_equal false, imap["brokered"]
+    assert_equal false, imap["delegated"]
     assert_equal true, imap.dig("fields", 0, "required")
     assert_equal "INBOX", imap["fields"].find { |f| f["name"] == "mailbox" }["value"]
 
@@ -176,21 +171,21 @@ class AttachingTest < ActionDispatch::IntegrationTest
     assert_match(/not a type that can be attached/, body.dig("errors", 0, "message"))
   end
 
-  test "a brokered type is not attached through the form" do
-    body = execute(ATTACH, variables: { type: "oauth-google", key: "drive" })
+  test "a type that connects through masks is attached unconnected, and says where to connect it" do
+    body = execute(ATTACH, variables: { type: "microsoft-graph", key: "onedrive", settings: { "folder" => "Invoices" } })
+    attached = body.dig("data", "attachResource")
 
-    assert_nil body.dig("data", "attachResource")
-    assert_match(/connected in the browser/, body.dig("errors", 0, "message"))
-  end
+    assert_nil body["errors"]
+    assert_equal "/resources/#{attached.dig('resource', 'id')}/connect", attached["connectUrl"]
+    assert_nil attached["checkError"], "nothing is checked before anybody connects it"
 
-  test "a brokered type hands back a link to follow, and creates nothing yet" do
-    body = execute(ENROLL, variables: { type: "oauth-google", key: "drive" })
-    enrolled = body.dig("data", "enrollResource")
+    Tenant.switch(@tenant) do
+      resource = Resource.find(attached.dig("resource", "id"))
 
-    assert_match(%r{/enroll/}, enrolled["url"])
-    assert_equal Enrollment::WINDOW.to_i, enrolled["expiresIn"]
-
-    Tenant.switch(@tenant) { assert_equal 0, Resource.count }
+      assert resource.needs_connect?
+      assert_nil resource.checked_at
+      assert_equal "Invoices", resource.folder
+    end
   end
 
   test "attaching needs the command scope, not merely the read one" do

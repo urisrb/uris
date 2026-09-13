@@ -20,6 +20,10 @@ query Resources($archived: Boolean) {
     settings
     heldCredentials
     changeable
+    delegated
+    needsConnect
+    connectedBy
+    connectUrl
   }
 }
 
@@ -105,7 +109,7 @@ query ResourceTypes {
     names
     capabilities
     syncs
-    brokered
+    delegated
     fields {
       name
       label
@@ -143,6 +147,7 @@ mutation AttachResource(
       name
     }
     checkError
+    connectUrl
   }
 }
 
@@ -154,12 +159,5 @@ mutation UpdateResource($id: ID!, $name: String, $settings: JSON) {
       name
     }
     checkError
-  }
-}
-
-mutation EnrollResource($type: String!, $key: String!, $name: String) {
-  enrollResource(input: { type: $type, key: $key, name: $name }) {
-    url
-    expiresIn
   }
 }

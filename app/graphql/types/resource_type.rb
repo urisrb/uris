@@ -28,6 +28,14 @@ module Types
                        "Nothing held encrypted is ever read back."
     field :changeable, Boolean, null: false,
           description: "Whether it has a form to change. A type uris makes for itself does not."
+    field :delegated, Boolean, null: false, method: :delegated?,
+          description: "Whether it reaches somebody's account elsewhere through masks."
+    field :needs_connect, Boolean, null: false, method: :needs_connect?,
+          description: "Whether somebody has to connect it through masks, or connect it again, before it answers."
+    field :connected_by, String,
+          description: "The subject of whoever connected it."
+    field :connect_url, String,
+          description: "Where to send the browser to connect it, for a resource that connects through masks."
     field :held_credentials, [ String ], null: false,
           description: "The names of the encrypted fields that hold something, so a form can say " \
                        "one is set without saying what it is."
@@ -42,6 +50,10 @@ module Types
       end.compact
     end
 
+    def connect_url
+      Rails.application.routes.url_helpers.resource_connect_path(object) if object.delegated?
+    end
+
     def changeable
       Array(object.class.attaching&.fetch(:fields)).any?
     end
@@ -53,7 +65,7 @@ module Types
     def items_count
       Reference.where(resource_id: object.id).distinct.count(:feed_id)
     end
-  
+
     private
 
       def declared(held)

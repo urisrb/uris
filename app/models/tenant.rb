@@ -40,6 +40,20 @@ class Tenant < ApplicationRecord
     }
   end
 
+  def issuer
+    template = ENV["MASKS_ISSUER_TEMPLATE"].presence
+    raise Unconfigured, "MASKS_ISSUER_TEMPLATE is not set" if template.nil?
+
+    format(template, subdomain: subdomain)
+  end
+
+  def origin
+    override = ENV["URIS_PUBLIC_ORIGIN"].presence
+    raise Unconfigured, "URIS_PUBLIC_ORIGIN is not set, so #{subdomain} has no address outside a request" if override.nil?
+
+    format(override, subdomain: subdomain)
+  end
+
   def disconnect!
     update!(
       client_id: nil, client_secret: nil,
