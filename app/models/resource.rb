@@ -141,7 +141,11 @@ class Resource < ApplicationRecord
     end
 
     def capable_of(capability)
-      active.where("jsonb_exists(resources.serving -> 'capabilities', ?)", capability.to_s)
+      active.serving_as(capability)
+    end
+
+    def serving_as(capability)
+      where("jsonb_exists(resources.serving -> 'capabilities', ?)", capability.to_s)
     end
 
     ACCEPTS = <<~SQL.squish.freeze

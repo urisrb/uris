@@ -72,6 +72,26 @@ class WebResourceTest < ActiveSupport::TestCase
     end
   end
 
+  test "the storage a snapshot names is the storage resource of that key, not another type sharing it" do
+    Tenant.switch(@tenant) do
+      Resource::Curl.create!(key: "keep")
+      kept = Resource::Database.create!(key: "keep", name: "Kept")
+      @resource.update!(details: @resource.details.merge("storage" => "keep"))
+
+      assert_equal kept, @resource.storage
+      assert_equal kept, @resource.send(:holding, { "storage" => "keep" })
+      assert_equal kept, @resource.send(:holding, { "storage" => "keep", "storage_type" => kept.type })
+    end
+  end
+
+  test "a snapshot kept in somebody's own storage is not read back from it" do
+    Tenant.switch(@tenant) do
+      Resource::Database.create!(key: "private", name: "Private", owner_subject: "ada")
+
+      assert_equal @storage, @resource.send(:holding, { "storage" => "private" })
+    end
+  end
+
   test "a snapshot becomes an item of its own kind, keyed on the address" do
     rendering do
       reference = Tenant.switch(@tenant) { @resource.snapshot!(@url) }

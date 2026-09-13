@@ -63,7 +63,7 @@ class Resource
     # being re-fetched from the URL it came from.
     def storage
       named = details["storage"].presence
-      found = named ? Resource.active.shared.find_by(key: named) : Resource.default_storage
+      found = named ? Resource.stores.shared.order(:id).find_by(key: named) : Resource.default_storage
 
       if found.nil?
         raise Resource::Unusable,
@@ -150,6 +150,7 @@ class Resource
           "height" => capture.height,
           "digest" => digest,
           "storage" => where.key,
+          "storage_type" => where.type,
           "png" => where.upload("#{stem}.png", capture.png),
           "text" => where.upload("#{stem}.txt", capture.text.to_s)
         }
@@ -169,10 +170,17 @@ class Resource
       end
 
       def holding(locator)
-        named = locator.to_h["storage"].presence
-        found = (named ? Resource.shared.find_by(key: named) : nil) || storage
+        held = locator.to_h
+        named = held["storage"].presence
+        found = (named ? stored_in(named, held["storage_type"].presence) : nil) || storage
 
         found.storage!
+      end
+
+      def stored_in(named, type)
+        candidates = Resource.shared.serving_as(:storage).where.not(key: INTERNAL.keys.map(&:to_s)).where(key: named)
+        candidates = candidates.where(type: type) if type
+        candidates.order(:id).first
       end
 
       def described(reference)
