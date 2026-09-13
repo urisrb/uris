@@ -382,6 +382,20 @@ class Resource < ApplicationRecord
     File.basename(locator_key_for(object))
   end
 
+  def keep!(object, cause: "sync")
+    reference = Reference.discover!(
+      resource: self,
+      locator: locator_for(object),
+      locator_key: locator_key_for(object),
+      mime: mime_for(object),
+      title: title_for(object)
+    )
+
+    reference.feed.analyze!(cause: cause) if reference.awaiting_analysis?
+
+    reference
+  end
+
   def syncing?
     sync_started_at.present? && sync_started_at > SYNC_ABANDONED_AFTER.ago
   end
@@ -422,6 +436,19 @@ class Resource < ApplicationRecord
   end
 
   private
+
+    def kept(named)
+      reference = keep!(object_for(named), cause: "keep")
+
+      {
+        "id" => reference.feed_id.to_s,
+        "key" => reference.locator_key,
+        "title" => reference.feed.title,
+        "mime" => reference.mime,
+        "version" => reference.version,
+        "changed_at" => reference.changed_at
+      }
+    end
 
     def an_internal_key_is_only_the_apps_own
       return unless INTERNAL.key?(key.to_s.to_sym)

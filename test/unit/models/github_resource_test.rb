@@ -174,6 +174,56 @@ class GithubResourceTest < ActiveSupport::TestCase
     assert_equal "https://github.com/acme/widgets/issues/7", found["url"]
   end
 
+  test "one issue looked up by its key is the issue a sync would have made" do
+    stub_issues(page: 1, count: 1, from: 7)
+    stub_issues(page: 2, count: 0, from: 0)
+    stub_request(:get, "#{API}/repos/acme/widgets/issues/7")
+      .to_return(json_response(number: 7, title: "Issue 7", state: "open",
+                               html_url: "https://github.com/acme/widgets/issues/7",
+                               updated_at: "2026-09-01T00:00:00Z", comments: 0))
+
+    Tenant.switch(@tenant) do
+      synced = nil
+      @resource.each_page { |batch, _| synced ||= batch.first }
+
+      assert_kept_as_synced(@resource, synced, @resource.object_for("acme/widgets/issues/7"))
+      assert_kept_as_synced(@resource, synced, @resource.object_for("ACME/Widgets/issues/7"))
+    end
+  end
+
+  test "keeping an issue catalogues it once, and a later sync finds the same one" do
+    stub_request(:get, "#{API}/repos/acme/widgets/issues/7")
+      .to_return(json_response(number: 7, title: "Issue 7", state: "open",
+                               updated_at: "2026-09-01T00:00:00Z", comments: 0))
+    stub_issues(page: 1, count: 1, from: 7)
+    stub_issues(page: 2, count: 0, from: 0)
+
+    kept = Tenant.switch(@tenant) { @resource.command(:keep, key: "acme/widgets/issues/7") }
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+
+    Tenant.switch(@tenant) do
+      assert_equal "acme/widgets/issues/7", kept["key"]
+      assert_equal 1, Feed.files.count
+      assert_equal kept["id"], feed_at("acme/widgets/issues/7").id.to_s
+    end
+  end
+
+  test "an issue from a repository or a state the resource does not read is not kept" do
+    stub_request(:get, "#{API}/repos/acme/widgets/issues/8")
+      .to_return(json_response(number: 8, title: "Closed", state: "closed"))
+
+    Tenant.switch(@tenant) do
+      assert_raises(ArgumentError) { @resource.command(:keep, key: "evil/secrets/issues/1") }
+
+      @resource.update!(details: @resource.details.merge("state" => "open"))
+
+      assert_raises(ArgumentError) { @resource.command(:keep, key: "acme/widgets/issues/8") }
+      assert_equal 0, Feed.count
+    end
+
+    assert_not_requested :get, "#{API}/repos/evil/secrets/issues/1"
+  end
+
   test "an issue nobody replied to is not asked for its replies" do
     stub_request(:get, "#{API}/repos/acme/widgets/issues/7")
       .to_return(json_response(number: 7, title: "Widget jams", body: "…", state: "open",

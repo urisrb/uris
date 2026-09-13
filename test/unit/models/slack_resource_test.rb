@@ -125,6 +125,47 @@ class SlackResourceTest < ActiveSupport::TestCase
                          query: hash_including({ "channel" => "C1", "cursor" => "" })
   end
 
+  test "one thread looked up by its key is the thread a sync would have made" do
+    stub_channels([ channel("C1", "general") ])
+    stub_history("C1", [ posted("1.0", "Widget jams", replies: 2, latest: "3.0") ])
+
+    Tenant.switch(@tenant) do
+      synced = nil
+      @resource.each_page { |batch, _| synced ||= batch.first }
+
+      assert_kept_as_synced(@resource, synced, @resource.object_for("C1/1.0"))
+      assert_kept_as_synced(@resource, synced, @resource.object_for("#general/1.0"))
+    end
+
+    assert_requested :get, "#{API}/conversations.history", times: 2,
+                     query: hash_including({ "channel" => "C1", "latest" => "1.0", "oldest" => "1.0", "inclusive" => "true" })
+  end
+
+  test "keeping a thread catalogues it once, and a later sync finds the same one" do
+    stub_channels([ channel("C1", "general") ])
+    stub_history("C1", [ posted("1.0", "Widget jams") ])
+
+    kept = Tenant.switch(@tenant) { @resource.command(:keep, key: "C1/1.0") }
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+
+    Tenant.switch(@tenant) do
+      assert_equal 1, Feed.files.count
+      assert_equal kept["id"], feed_at("C1/1.0").id.to_s
+    end
+  end
+
+  test "a reply, or a channel the bot is not in, is not kept" do
+    stub_channels([ channel("C1", "general"), channel("C2", "secret", member: false) ])
+    stub_history("C1", [ posted("2.0", "a reply", thread_ts: "1.0") ])
+
+    Tenant.switch(@tenant) do
+      assert_raises(Resource::Api::Gone) { @resource.command(:keep, key: "C1/2.0") }
+      assert_raises(Resource::Api::Gone) { @resource.command(:keep, key: "C2/1.0") }
+      assert_raises(ArgumentError) { @resource.command(:keep, key: "C1") }
+      assert_equal 0, Feed.count
+    end
+  end
+
   test "downloading a thread is the conversation, with names rather than user ids" do
     stub_request(:get, "#{API}/conversations.replies")
       .with(query: hash_including({ "channel" => "C1", "ts" => "1.0" }))

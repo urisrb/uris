@@ -6,6 +6,7 @@ class Resource
     BLOCKS = 100
     MAX_BLOCKS = 2_000
     UNTITLED = "Untitled".freeze
+    ID = /\A\h{8}-?\h{4}-?\h{4}-?\h{4}-?\h{12}\z/
 
     PREFIXES = {
       "heading_1" => "# ", "heading_2" => "## ", "heading_3" => "### ",
@@ -39,7 +40,8 @@ class Resource
     def self.command_schema
       {
         list: { query: "string?", limit: "integer?" },
-        get: { id: "string" }
+        get: { id: "string" },
+        keep: { id: "string" }
       }
     end
 
@@ -63,6 +65,20 @@ class Resource
 
         break unless found["has_more"] && held.present?
       end
+    end
+
+    def object_for(id)
+      wanted = id.to_s.delete_prefix("pages/")
+
+      raise ArgumentError, "#{id} is not a Notion page id" unless wanted.match?(ID)
+
+      page = api_get("/pages/#{wanted}")
+
+      if page["object"] != "page" || page["archived"] || page["in_trash"]
+        raise Api::Gone, "#{key}: #{id} is not a page Notion still has"
+      end
+
+      page
     end
 
     def locator_for(page)
@@ -110,6 +126,8 @@ class Resource
                                           .first(count).map { |page| described(page) }
       }
     end
+
+    def command_keep(id:) = kept(id)
 
     def command_get(id:)
       page = api_get("/pages/#{id}")

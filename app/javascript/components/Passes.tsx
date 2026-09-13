@@ -12,6 +12,7 @@ import { RUN_OPEN, RUN_TONES, TONE_FOR_LINE } from './RunLog'
 const CAUSES: Record<string, string> = {
   upload: 'uploaded',
   sync: 'synced',
+  keep: 'kept',
   edge: 'connected',
   schedule: 'on schedule',
   manual: 'asked for',

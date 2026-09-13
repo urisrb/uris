@@ -41,7 +41,8 @@ class Resource
     def self.command_schema
       {
         list: { channel: "string?", limit: "integer?" },
-        get: { key: "string" }
+        get: { key: "string" },
+        keep: { key: "string" }
       }
     end
 
@@ -62,6 +63,22 @@ class Resource
       wanted = channel ? channels.drop_while { |found| found["id"] != channel } : channels
 
       wanted.each_with_index { |found, index| walk(found, index.zero? ? held : nil, &block) }
+    end
+
+    def object_for(named)
+      wanted, ts = named.to_s.split("/", 2)
+
+      raise ArgumentError, "#{named} is not channel/timestamp" if wanted.blank? || ts.blank?
+
+      channel = channels.find { |held| held["id"] == wanted || held["name"] == wanted.delete_prefix("#") }
+
+      raise Api::Gone, "#{key}: #{wanted} is not a channel it reads" if channel.nil?
+
+      found = called("/conversations.history", channel: channel["id"], latest: ts, oldest: ts,
+                                               inclusive: true, limit: 1)
+
+      roots(Array(found["messages"]), channel).find { |message| message["ts"] == ts } ||
+        raise(Api::Gone, "#{key}: no thread starts at #{named}")
     end
 
     def locator_for(message)
@@ -123,6 +140,8 @@ class Resource
         "threads" => roots(Array(history["messages"]), found).map { |message| outline(message) }
       }
     end
+
+    def command_keep(key:) = kept(key)
 
     def command_get(key:)
       channel, ts = key.to_s.split("/")

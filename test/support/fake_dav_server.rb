@@ -92,7 +92,7 @@ class FakeDavServer
       return status("401 Unauthorized") unless headers["authorization"].to_s.start_with?("Basic ")
 
       case method
-      when "PROPFIND" then propfind(path)
+      when "PROPFIND" then propfind(path, headers["depth"])
       when "GET" then get(path)
       when "PUT" then put_at(path, body)
       when "MKCOL" then mkcol(path)
@@ -100,11 +100,12 @@ class FakeDavServer
       end
     end
 
-    def propfind(path)
+    def propfind(path, depth)
       entries = @lock.synchronize do
+        next [ file_xml(path) ] if @files.key?(path)
         return status("404 Not Found") unless path.empty? || @collections.include?(path)
 
-        [ collection_xml(path) ] + children(path)
+        [ collection_xml(path) ] + (depth == "0" ? [] : children(path))
       end
 
       xml = %(<?xml version="1.0" encoding="utf-8"?>\n) +

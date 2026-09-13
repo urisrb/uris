@@ -51,6 +51,7 @@ class Resource
       {
         list: { prefix: "string?", limit: "integer?" },
         get: { key: "string" },
+        keep: { key: "string" },
         put: { key: "string", body: "bytes" }
       }
     end
@@ -71,6 +72,21 @@ class Resource
     def each_page(cursor: nil, prefix: nil)
       walk(prefix).drop_while { |entry| cursor.present? && !after?(entry.path, cursor) }
                   .each_slice(PAGE) { |batch| yield batch, batch.last.path }
+    end
+
+    def object_for(name)
+      found = propfind(name, "0").first
+      under = details["prefix"].to_s.delete_prefix("/").chomp("/")
+
+      if found.nil? || found.collection || !wanted?(found)
+        raise Resource::Failed, "#{key}: nothing it catalogues at #{name}"
+      end
+
+      if under.present? && !found.path.start_with?("#{under}/")
+        raise ArgumentError, "#{key}: #{found.path} is outside #{under}"
+      end
+
+      found
     end
 
     def locator_for(entry)
@@ -121,6 +137,8 @@ class Resource
       glimpse(key, bytes, bytes.bytesize)
     end
 
+    def command_keep(key:) = kept(key)
+
     def command_put(key:, body:)
       upload(key, body)
     end
@@ -150,12 +168,16 @@ class Resource
       end
 
       def children_of(path)
+        propfind(path, "1", under: path)
+      end
+
+      def propfind(path, depth, under: nil)
         response = over_http(url_for(path)) do |uri|
-          authorized(Propfind.new(uri, "Depth" => "1", "Content-Type" => 'application/xml; charset="utf-8"'))
+          authorized(Propfind.new(uri, "Depth" => depth, "Content-Type" => 'application/xml; charset="utf-8"'))
             .tap { |request| request.body = PROPS }
         end
 
-        parse(response.body.to_s, under: path)
+        parse(response.body.to_s, under: under)
       end
 
       def parse(body, under:)

@@ -95,6 +95,13 @@ module ActiveSupport
       Feed.joins(:references).find_by!(feed_references: { locator_key: locator_key })
     end
 
+    def assert_kept_as_synced(resource, synced, kept)
+      %i[locator_for locator_key_for mime_for title_for].each do |made|
+        assert_equal resource.public_send(made, synced), resource.public_send(made, kept),
+                     "#{made} makes something different of a kept object than of a synced one"
+      end
+    end
+
     def json_response(body)
       { status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" } }
     end

@@ -28,6 +28,7 @@ class Resource
       {
         list: { prefix: "string?", limit: "integer?" },
         get: { key: "string" },
+        keep: { key: "string" },
         put: { key: "string", body: "bytes" }
       }
     end
@@ -74,6 +75,21 @@ class Resource
                   .each_slice(PAGE) do |batch|
         yield batch.map { |path| entry(path) }, batch.last
       end
+    end
+
+    def object_for(name)
+      permitted_root!
+
+      path = lexical(name).relative_path_from(root.cleanpath).to_s
+      wanted = details["prefix"].presence
+
+      raise ArgumentError, "#{key}: #{path} is outside #{wanted}" if wanted && !path.start_with?(wanted)
+
+      resolved = confine(path)
+
+      raise Resource::Failed, "#{key}: no file at #{path}" unless resolved == resolve(root) + path && resolved.file?
+
+      entry(path)
     end
 
     def locator_for(entry)
@@ -136,6 +152,8 @@ class Resource
     ensure
       file&.close
     end
+
+    def command_keep(key:) = kept(key)
 
     def command_put(key:, body:)
       upload(key, body)

@@ -74,6 +74,7 @@ class Resource
       {
         list: { prefix: "string?", continuation_token: "string?" },
         get: { key: "string", version_id: "string?" },
+        keep: { key: "string" },
         put: { key: "string", body: "bytes" }
       }
     end
@@ -111,6 +112,8 @@ class Resource
       glimpse(key, object.body.read, size)
     end
 
+    def command_keep(key:) = kept(key)
+
     def command_put(key:, body:)
       upload(key, body)
     end
@@ -136,6 +139,17 @@ class Resource
 
         break unless page.is_truncated
       end
+    end
+
+    def object_for(name)
+      wanted = details["prefix"].presence
+
+      raise ArgumentError, "#{key}: #{name} is outside #{wanted}" if wanted && !name.to_s.start_with?(wanted)
+
+      head = s3 { |client| client.head_object(bucket: bucket, key: name.to_s) }
+
+      Aws::S3::Types::Object.new(key: name.to_s, etag: head.etag, size: head.content_length,
+                                 last_modified: head.last_modified)
     end
 
     def locator_for(object)

@@ -85,6 +85,31 @@ class GitResourceTest < ActiveSupport::TestCase
     assert_nil after.analyzed_at, "a changed blob has to be read again"
   end
 
+  test "one file looked up by its path is the file a sync would have made" do
+    Tenant.switch(@tenant) do
+      synced = nil
+      @resource.each_page { |batch, _| synced ||= batch.find { |entry| entry.path == "lib/widget.rb" } }
+
+      assert_kept_as_synced(@resource, synced, @resource.object_for("lib/widget.rb"))
+      assert_raises(Resource::Failed) { @resource.object_for("lib") }
+    end
+  end
+
+  test "a kept file is found again by the next sync, and a commit to it is noticed" do
+    kept = Tenant.switch(@tenant) { @resource.command(:keep, path: "README.md") }
+
+    commit("README.md", "# Widgets\n\nKept, then changed.\n")
+
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+
+    Tenant.switch(@tenant) do
+      assert_equal 2, Feed.files.count
+      assert_equal kept["id"], feed_at("README.md").id.to_s
+      assert_not_equal kept["version"], Reference.find_by!(locator_key: "README.md").version
+      assert Reference.find_by!(locator_key: "README.md").changed_at.present?
+    end
+  end
+
   test "a sync resumes after the path it stopped at" do
     seen = []
 

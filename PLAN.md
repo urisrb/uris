@@ -60,14 +60,14 @@ access token until it expires, so masks is asked when one runs out rather than p
 Independent of masks, so it lands first. Today a resource is synced whole or not at all; its
 `list` and `get` let an agent look without keeping anything.
 
-- [ ] `object_for(id)` on the syncable types, answering the object `each_page` yields, so the
+- [x] `object_for(id)` on the syncable types, answering the object `each_page` yields, so the
       locator, key, mime, title and version come out the same way a sync would make them. Notion
       first — one page lookup — then GitHub, Slack, S3, the filesystem, WebDAV and git
-- [ ] The body of `SyncResourceJob#each_iteration` — `Reference.discover!`, then
+- [x] The body of `SyncResourceJob#each_iteration` — `Reference.discover!`, then
       `awaiting_analysis?`, then `analyze!` — becomes a method on the resource both call, so a kept
       object and a synced one cannot drift apart
-- [ ] `keep` in each type's `command_schema`, and in `Tool::Resources::WRITE`
-- [ ] A kept object is found again by the next full sync rather than duplicated, and changes are
+- [x] `keep` in each type's `command_schema`, and in `Tool::Resources::WRITE`
+- [x] A kept object is found again by the next full sync rather than duplicated, and changes are
       noticed on it like any other
 
 ## Phase 1 — the client library

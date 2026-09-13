@@ -79,6 +79,47 @@ class FilesystemResourceTest < ActiveSupport::TestCase
     assert_equal walked.drop(walked.index("a/deep.txt") + 1), resumed
   end
 
+  test "one file looked up by its path is the file a sync would have made" do
+    Tenant.switch(@tenant) do
+      synced = nil
+      @resource.each_page { |batch, _| synced ||= batch.find { |entry| entry.path == "invoices/march.pdf" } }
+
+      assert_kept_as_synced(@resource, synced, @resource.object_for("invoices/march.pdf"))
+      assert_kept_as_synced(@resource, synced, @resource.object_for("invoices/../invoices//march.pdf"))
+    end
+  end
+
+  test "a kept file is found again by the next sync rather than catalogued twice" do
+    kept = Tenant.switch(@tenant) { @resource.command(:keep, key: "notes.txt") }
+
+    sync
+
+    Tenant.switch(@tenant) do
+      assert_equal 3, Feed.files.count
+      assert_equal kept["id"], feed_at("notes.txt").id.to_s
+    end
+  end
+
+  test "a file a sync would not walk is not kept, whether it climbs out, hides behind a symlink, or is a directory" do
+    secret = @allowed + "secret.txt"
+    secret.write("not yours")
+    File.symlink(secret, @root + "escape.txt")
+    File.symlink(@root + "invoices", @root + "linked")
+
+    Tenant.switch(@tenant) do
+      assert_raises(Resource::Filesystem::Escaped) { @resource.command(:keep, key: "../secret.txt") }
+      assert_raises(Resource::Filesystem::Escaped) { @resource.command(:keep, key: "escape.txt") }
+      assert_raises(Resource::Failed) { @resource.command(:keep, key: "linked/march.pdf") }
+      assert_raises(Resource::Failed) { @resource.command(:keep, key: "invoices") }
+      assert_raises(Resource::Failed) { @resource.command(:keep, key: "absent.txt") }
+
+      @resource.update!(details: @resource.details.merge("prefix" => "photos"))
+
+      assert_raises(ArgumentError) { @resource.command(:keep, key: "notes.txt") }
+      assert_equal 0, Feed.files.count
+    end
+  end
+
   test "a root outside the permitted list is refused" do
     Tenant.switch(@tenant) do
       outside = Resource::Filesystem.create!(key: "outside", details: { "root" => Dir.mktmpdir("elsewhere") })

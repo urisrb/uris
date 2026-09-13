@@ -63,6 +63,39 @@ class WebdavResourceTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_equal 3, Feed.files.count }
   end
 
+  test "one file looked up by its path is the file a sync would have made" do
+    synced = nil
+    @resource.each_page { |batch, _| synced ||= batch.find { |entry| entry.path == "invoices/march.pdf" } }
+
+    assert_kept_as_synced(@resource, synced, @resource.object_for("invoices/march.pdf"))
+  end
+
+  test "a kept file is found again by the next sync rather than catalogued twice" do
+    kept = Tenant.switch(@tenant) { @resource.command(:keep, key: "invoices/march.pdf") }
+
+    Tenant.switch(@tenant) { assert_equal "application/pdf", kept["mime"] }
+
+    sync
+
+    Tenant.switch(@tenant) do
+      assert_equal 3, Feed.files.count
+      assert_equal kept["id"], feed_at("invoices/march.pdf").id.to_s
+    end
+  end
+
+  test "a collection, a missing file, or one outside the prefix is not kept" do
+    Tenant.switch(@tenant) do
+      assert_raises(Resource::Failed) { @resource.command(:keep, key: "invoices") }
+      assert_raises(Resource::Failed) { @resource.command(:keep, key: "absent.txt") }
+      assert_raises(Resource::Failed) { @resource.command(:keep, key: "../elsewhere.txt") }
+
+      @resource.update!(details: @resource.details.merge("prefix" => "photos"))
+
+      assert_raises(ArgumentError) { @resource.command(:keep, key: "notes.txt") }
+      assert_equal 0, Feed.files.count
+    end
+  end
+
   test "a cursor resumes where the walk stopped" do
     seen = []
     @resource.each_page(cursor: "invoices/march.pdf") { |page, _| seen.concat(page.map(&:path)) }

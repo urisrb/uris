@@ -32,7 +32,8 @@ class Resource
     def self.command_schema
       {
         list: { prefix: "string?", limit: "integer?" },
-        get: { path: "string" }
+        get: { path: "string" },
+        keep: { path: "string" }
       }
     end
 
@@ -88,6 +89,13 @@ class Resource
       found.each_slice(PAGE) { |batch| yield batch, batch.last.path }
     end
 
+    def object_for(path)
+      pull!
+
+      entries(path).find { |held| held.path == path } ||
+        raise(Resource::Failed, "#{key}: no #{path} at #{ref}")
+    end
+
     def locator_for(entry)
       { "path" => entry.path, "sha" => entry.sha, "size" => entry.size }
     end
@@ -118,12 +126,10 @@ class Resource
       }
     end
 
+    def command_keep(path:) = kept(path)
+
     def command_get(path:)
-      pull!
-
-      entry = entries(path).find { |held| held.path == path }
-
-      raise Resource::Failed, "#{key}: no #{path} at #{ref}" if entry.nil?
+      entry = object_for(path)
 
       locator_for(entry).merge("text" => download(locator_for(entry)).read.force_encoding("UTF-8").scrub)
     end

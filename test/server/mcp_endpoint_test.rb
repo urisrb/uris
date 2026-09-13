@@ -91,6 +91,31 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
     assert_not_includes read.dig("properties", "do", "enum"), "sync"
   end
 
+  test "keeping one object takes the command scope, and catalogues that object alone" do
+    Tenant.switch(@tenant) do
+      @bucket = Resource::S3.create!(key: "kept-bucket", name: "Kept", details: { "endpoint" => FakeS3::ENDPOINT },
+                                     credentials: { "access_key_id" => "k", "secret_access_key" => "s" })
+    end
+    @bucket.client.put_object(bucket: "kept-bucket", key: "reports/q3.pdf", body: "the third quarter")
+    @bucket.client.put_object(bucket: "kept-bucket", key: "reports/q4.pdf", body: "the fourth quarter")
+
+    assert_not_includes tool_schema(%w[uris:resources:read], "resource").dig("properties", "do", "enum"), "keep"
+    assert_not_includes tool_schema(%w[uris:resources:read uris:web:keep], "resource").dig("properties", "do", "enum"), "keep"
+
+    refused = call(@tenant, %w[uris:resources:read], "tools/call",
+                   name: "resource", arguments: { key: "kept-bucket", do: "keep", input: { key: "reports/q3.pdf" } })
+    assert refused.dig("result", "isError")
+
+    kept = tool(@tenant, ALL, "resource", key: "kept-bucket", do: "keep", input: { key: "reports/q3.pdf" })
+
+    assert_equal "reports/q3.pdf", kept["key"]
+
+    Tenant.switch(@tenant) do
+      assert_equal [ "reports/q3.pdf" ], Reference.where(resource_id: @bucket.id).pluck(:locator_key)
+      assert_equal kept["id"], feed_at("reports/q3.pdf").id.to_s
+    end
+  end
+
   test "keeping pages from the web offers snapshot and nothing else a command could do" do
     keep = tool_schema(%w[uris:resources:read uris:web:keep], "resource")
 

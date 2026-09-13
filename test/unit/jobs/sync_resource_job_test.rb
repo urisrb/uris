@@ -58,6 +58,74 @@ class SyncResourceJobTest < ActiveSupport::TestCase
     Tenant.switch(@tenant) { assert_equal 3, Feed.files.count }
   end
 
+  test "one object looked up by its key is the object a sync would have made" do
+    Tenant.switch(@tenant) do
+      synced = nil
+      @resource.each_page { |batch, _| synced ||= batch.find { |object| object.key == "invoices/march.pdf" } }
+
+      assert_kept_as_synced(@resource, synced, @resource.object_for("invoices/march.pdf"))
+    end
+  end
+
+  test "a kept object is found again by the next sync rather than catalogued twice" do
+    kept = Tenant.switch(@tenant) { @resource.command(:keep, key: "invoices/march.pdf") }
+
+    Tenant.switch(@tenant) do
+      assert_equal 1, Feed.files.count
+      assert_equal "application/pdf", kept["mime"]
+      assert_equal "march.pdf", kept["title"]
+      assert_equal [ "keep" ], feed_at("invoices/march.pdf").analyses.map(&:cause)
+    end
+
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+
+    Tenant.switch(@tenant) do
+      assert_equal 3, Feed.files.count
+      assert_equal kept["id"], feed_at("invoices/march.pdf").id.to_s
+      assert_equal 1, feed_at("invoices/march.pdf").analyses.count, "a kept object still being analysed is not queued again"
+    end
+  end
+
+  test "a kept object whose bytes move is noticed by the next sync like any other" do
+    Tenant.switch(@tenant) do
+      @resource.command(:keep, key: "notes.txt")
+      reference_at("notes.txt").update!(analyzed_at: Time.current)
+    end
+
+    put "notes.txt", body: "remember the eggs too"
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+
+    Tenant.switch(@tenant) do
+      notes = reference_at("notes.txt")
+
+      assert notes.changed_at.present?
+      assert_nil notes.analyzed_at
+      assert_equal 2, feed_at("notes.txt").analyses.count
+    end
+  end
+
+  test "keeping again after a sync changes nothing that did not change" do
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+
+    Tenant.switch(@tenant) do
+      @resource.command(:keep, key: "notes.txt")
+
+      assert_nil reference_at("notes.txt").changed_at
+      assert_equal 1, feed_at("notes.txt").analyses.count
+    end
+  end
+
+  test "an object outside the bucket's prefix, or not there at all, is not kept" do
+    Tenant.switch(@tenant) do
+      assert_raises(Resource::Failed) { @resource.command(:keep, key: "nothing/here.txt") }
+
+      @resource.update!(details: @resource.details.merge("prefix" => "photos/"))
+
+      assert_raises(ArgumentError) { @resource.command(:keep, key: "invoices/march.pdf") }
+      assert_equal 0, Feed.files.count
+    end
+  end
+
   test "a sync writes into one tenant only" do
     Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
 

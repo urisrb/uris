@@ -4,7 +4,7 @@ module Tool
     scope "uris:resources:read"
 
     READ = %w[list describe runs get parameters search].freeze
-    WRITE = %w[check sync export cancel put snapshot].freeze
+    WRITE = %w[check sync keep export cancel put snapshot].freeze
     RUNS = %w[sync export].freeze
 
     KEEPING = %w[snapshot].freeze

@@ -9,6 +9,7 @@ class FakeS3
   Listing = Struct.new(:contents, :next_continuation_token, :is_truncated)
   Body = Struct.new(:body, :etag, :content_length, :content_range)
   Written = Struct.new(:etag)
+  Head = Struct.new(:etag, :content_length, :last_modified)
 
   class << self
     def store
@@ -89,6 +90,15 @@ class FakeS3
 
     Body.new(StringIO.new(served), held[:etag], served.bytesize,
              "bytes #{first}-#{first + served.bytesize - 1}/#{bytes.bytesize}")
+  end
+
+  def head_object(bucket:, key:, **)
+    held = @lock.synchronize do
+      held!(bucket)
+      @buckets[bucket][key] or raise missing(Aws::S3::Errors::NotFound, "no key #{key}")
+    end
+
+    Head.new(%("#{held[:etag]}"), held[:bytes].bytesize, held[:at])
   end
 
   def delete_object(bucket:, key:, **)

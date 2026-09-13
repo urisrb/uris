@@ -78,6 +78,55 @@ class NotionResourceTest < ActiveSupport::TestCase
     end
   end
 
+  test "one page looked up by its id is the page a sync would have made" do
+    stub_request(:post, "#{API}/search")
+      .to_return(json_response(results: [ page(PAGE_ID, title: "Q3 plan") ], has_more: false))
+    stub_request(:get, "#{API}/pages/#{PAGE_ID}").to_return(json_response(page(PAGE_ID, title: "Q3 plan")))
+
+    Tenant.switch(@tenant) do
+      synced = nil
+      @resource.each_page { |batch, _| synced = batch.first }
+
+      assert_kept_as_synced(@resource, synced, @resource.object_for(PAGE_ID))
+      assert_kept_as_synced(@resource, synced, @resource.object_for("pages/#{PAGE_ID}"))
+    end
+  end
+
+  test "keeping a page catalogues it alone, and the next sync finds it rather than another" do
+    stub_request(:get, "#{API}/pages/#{PAGE_ID}").to_return(json_response(page(PAGE_ID, title: "Q3 plan")))
+
+    kept = Tenant.switch(@tenant) { @resource.command(:keep, id: PAGE_ID) }
+
+    assert_not_requested :post, "#{API}/search"
+
+    Tenant.switch(@tenant) do
+      assert_equal "pages/#{PAGE_ID}", kept["key"]
+      assert_equal "Q3 plan", kept["title"]
+      assert_equal [ "keep" ], feed_at("pages/#{PAGE_ID}").analyses.map(&:cause)
+    end
+
+    edited = page(PAGE_ID, title: "Q3 plan").merge(last_edited_time: "2026-09-02T10:00:00.000Z")
+    stub_request(:post, "#{API}/search").to_return(json_response(results: [ edited ], has_more: false))
+
+    Tenant.switch(@tenant) { SyncResourceJob.perform_now(@tenant.id, @resource.id) }
+
+    Tenant.switch(@tenant) do
+      assert_equal 1, Feed.files.count
+      assert_equal kept["id"], feed_at("pages/#{PAGE_ID}").id.to_s
+      assert Reference.find_by!(resource_id: @resource.id).changed_at.present?, "an edit after keeping is noticed"
+    end
+  end
+
+  test "a database, a trashed page, or an id that is not one is not kept" do
+    stub_request(:get, "#{API}/pages/#{PAGE_ID}").to_return(json_response(page(PAGE_ID).merge(in_trash: true)))
+
+    Tenant.switch(@tenant) do
+      assert_raises(Resource::Api::Gone) { @resource.command(:keep, id: PAGE_ID) }
+      assert_raises(ArgumentError) { @resource.command(:keep, id: "../users/me") }
+      assert_equal 0, Feed.count
+    end
+  end
+
   test "a page with nothing in its title property is Untitled rather than blank" do
     Tenant.switch(@tenant) do
       assert_equal "Untitled", @resource.title_for("id" => PAGE_ID, "properties" => {})

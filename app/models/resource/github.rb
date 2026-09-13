@@ -35,7 +35,8 @@ class Resource
     def self.command_schema
       {
         list: { repo: "string?", limit: "integer?" },
-        get: { key: "string" }
+        get: { key: "string" },
+        keep: { key: "string" }
       }
     end
 
@@ -86,6 +87,22 @@ class Resource
       end
     end
 
+    def object_for(named)
+      repo, number = split(named)
+      held = repos.find { |listed| listed.casecmp?(repo) }
+
+      raise ArgumentError, "#{key}: #{repo} is not one of the repositories it reads" if held.nil?
+      raise ArgumentError, "#{named} names no issue number" unless number.to_s.match?(/\A\d+\z/)
+
+      issue = api_get("/repos/#{held}/issues/#{number}").merge("repo" => held)
+
+      unless state == "all" || issue["state"] == state
+        raise ArgumentError, "#{key}: #{named} is #{issue['state']}, and it reads only #{state} ones"
+      end
+
+      issue
+    end
+
     def locator_for(issue)
       {
         "repo" => issue.fetch("repo"),
@@ -133,6 +150,8 @@ class Resource
         "issues" => issues(wanted, 1).first(count).map { |issue| described(issue) }
       }
     end
+
+    def command_keep(key:) = kept(key)
 
     def command_get(key:)
       repo, number = split(key)

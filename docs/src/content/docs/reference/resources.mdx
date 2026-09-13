@@ -62,6 +62,7 @@ Object storage. One bucket over the S3 API. AWS, R2, B2, Wasabi, MinIO and Garag
 | --- | --- |
 | `list` | `prefix: string?` `continuation_token: string?` |
 | `get` | `key: string` `version_id: string?` |
+| `keep` | `key: string` |
 | `put` | `key: string` `body: bytes` |
 
 ## filesystem
@@ -90,6 +91,7 @@ A directory. A directory on the machine running uris, inside this tenant's own d
 | --- | --- |
 | `list` | `prefix: string?` `limit: integer?` |
 | `get` | `key: string` |
+| `keep` | `key: string` |
 | `put` | `key: string` `body: bytes` |
 
 ## webdav
@@ -120,6 +122,7 @@ WebDAV. A WebDAV collection — Nextcloud, ownCloud, or anything else speaking i
 | --- | --- |
 | `list` | `prefix: string?` `limit: integer?` |
 | `get` | `key: string` |
+| `keep` | `key: string` |
 | `put` | `key: string` `body: bytes` |
 
 ## caldav
@@ -150,6 +153,7 @@ Calendars. A CalDAV collection. Only the events in it are catalogued.
 | --- | --- |
 | `list` | `prefix: string?` `limit: integer?` |
 | `get` | `key: string` |
+| `keep` | `key: string` |
 
 ## carddav
 
@@ -179,6 +183,7 @@ Contacts. A CardDAV collection. Only the cards in it are catalogued.
 | --- | --- |
 | `list` | `prefix: string?` `limit: integer?` |
 | `get` | `key: string` |
+| `keep` | `key: string` |
 
 ## imap
 
@@ -449,6 +454,7 @@ GitHub. Issues and pull requests from the repositories you name, each one an ite
 | --- | --- |
 | `list` | `repo: string?` `limit: integer?` |
 | `get` | `key: string` |
+| `keep` | `key: string` |
 
 ## notion
 
@@ -476,6 +482,7 @@ Notion. Every page the integration has been shared with, each one an item carryi
 | --- | --- |
 | `list` | `query: string?` `limit: integer?` |
 | `get` | `id: string` |
+| `keep` | `id: string` |
 
 ## slack
 
@@ -503,6 +510,7 @@ Slack. Threads from the channels the app has been invited to, each one an item. 
 | --- | --- |
 | `list` | `channel: string?` `limit: integer?` |
 | `get` | `key: string` |
+| `keep` | `key: string` |
 
 ## microsoft-graph
 
@@ -557,3 +565,4 @@ A git repository. Every file at the tip of one branch, each one an item. The clo
 | --- | --- |
 | `list` | `prefix: string?` `limit: integer?` |
 | `get` | `path: string` |
+| `keep` | `path: string` |

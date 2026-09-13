@@ -52,20 +52,9 @@ class SyncResourceJob < ApplicationJob
   end
 
   def each_iteration(object, tenant_id, resource_id, _run_id = nil)
-    resource = resource_for(resource_id)
-    locator_key = resource.locator_key_for(object)
-
     return track_iteration if dry_run?
 
-    reference = Reference.discover!(
-      resource: resource,
-      locator: resource.locator_for(object),
-      locator_key: locator_key,
-      mime: resource.mime_for(object),
-      title: resource.title_for(object)
-    )
-
-    reference.feed.analyze!(cause: "sync") if reference.awaiting_analysis?
+    resource_for(resource_id).keep!(object)
 
     track_iteration
   end

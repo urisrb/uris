@@ -73,7 +73,7 @@ Ask a place to do something. A resource is an instance — "my B2 bucket" — of
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `key` | string |  |  |
-| `do` | string, one of `list` `describe` `runs` `get` `parameters` `search` `check` `sync` `export` `cancel` `put` `snapshot` |  |  |
+| `do` | string, one of `list` `describe` `runs` `get` `parameters` `search` `check` `sync` `keep` `export` `cancel` `put` `snapshot` |  |  |
 | `input` | object |  |  |
 
 
@@ -94,6 +94,7 @@ starts a run counts against the token's hourly run budget.
 | `search` | `uris:resources:read` and `uris:web:read` on a search resource |  |
 | `check` | `uris:resources:read` and `uris:resources:command` |  |
 | `sync` | `uris:resources:read` and `uris:resources:command` | yes |
+| `keep` | `uris:resources:read` and `uris:resources:command` |  |
 | `export` | `uris:resources:read` and `uris:resources:command` | yes |
 | `cancel` | `uris:resources:read` and `uris:resources:command` |  |
 | `put` | `uris:resources:read` and `uris:resources:command` |  |

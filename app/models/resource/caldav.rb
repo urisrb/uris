@@ -15,7 +15,8 @@ class Resource
     def self.command_schema
       {
         list: { prefix: "string?", limit: "integer?" },
-        get: { key: "string" }
+        get: { key: "string" },
+        keep: { key: "string" }
       }
     end
 
