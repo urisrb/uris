@@ -49,6 +49,10 @@ its own, never more than 32 — and each turn asks the model for a reply.
 - The last turn is offered no tools and told to answer from what it has already read.
 - A run whose analysis is cancelled, or past its deadline, stops at the start of its next turn as
   `halted`.
+- A run with an analysis is told how long it has, and offered `more_time`, which the loop answers
+  itself rather than passing to a tool. Given minutes and a reason, it moves the deadline out, never
+  past a day from the start. With under a minute left, the next turn is the last, so it answers from
+  what it has instead of being cut off.
 
 It returns an `Answer` holding what was said, why it stopped, the turns taken and every call made.
 
@@ -69,16 +73,16 @@ or write into a resource, reach an added MCP server, or touch settings.
 ## Asking
 
 A question asked of the catalog is kept as a note and answered by an analysis with the cause `ask`.
-`Asking` builds the prompt and the agent runs for ten turns under the question's own grant, holding
+`Asking` builds the prompt and the agent runs under the question's own grant, holding
 `Feed::ASKING_SCOPES`:
 
 ```
 uris:catalog:read  uris:catalog:write  uris:web:read  uris:web:keep  uris:resources:read
 ```
 
-The prompt asks for two things: an answer drawn from what the agent read, and a catalog left better
-for the asking. It offers only what the tenant has attached. With a search resource it can search
-the web. With a fetch resource, such as `curl`, it can read a page. With a `web` resource it can
+It may take up to 32 turns; its feed's timeout is what bounds it. The prompt asks for two things:
+an answer drawn from what the agent read, and a catalog left better for the asking. It offers only
+what the tenant has attached. With a search resource it can search the web. With a fetch resource, such as `curl`, it can read a page. With a `web` resource it can
 keep a page as a snapshot, which becomes an item of its own, and keeping the same address again
 later updates that item. Without any of them the question is asked of the catalog alone.
 

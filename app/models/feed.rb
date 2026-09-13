@@ -13,6 +13,9 @@ class Feed < ApplicationRecord
 
   DEPTH = 4
   MAX_KEY = 900
+  TIMEOUT = 5.minutes
+  MIN_TIMEOUT = 1.minute
+  MAX_TIMEOUT = 1.day
   GIST = %w[title note].freeze
   SELECTOR = %w[id type key mime tag resource_id query folder since before].freeze
 
@@ -41,6 +44,8 @@ class Feed < ApplicationRecord
   validates :key, presence: true, length: { maximum: MAX_KEY }
   validates :origin, inclusion: { in: ORIGINS }
   validates :key, uniqueness: { scope: [ :tenant_id, :type ] }, if: :singleton?
+  validates :timeout, numericality: { only_integer: true, greater_than_or_equal_to: MIN_TIMEOUT.to_i,
+                                      less_than_or_equal_to: MAX_TIMEOUT.to_i }, allow_nil: true
   validate :an_address_is_shaped_like_one, if: :address?
   validate :an_address_is_not_spoken_for, if: :address?
   validate :the_origin_does_not_change, on: :update
@@ -159,6 +164,10 @@ class Feed < ApplicationRecord
   ASKING_SCOPES = %w[
     uris:catalog:read uris:catalog:write uris:web:read uris:web:keep uris:resources:read
   ].freeze
+
+  def time_allowed
+    (timeout.presence || TIMEOUT.to_i).seconds
+  end
 
   def grant(scopes: AGENT_SCOPES)
     Grant.new(

@@ -40,18 +40,19 @@ class Agent
     @turns_taken = 0
     @calls = []
     @flailed = 0
+    @clock = Clock.new(analysis)
   end
 
   def call(prompt)
     raise Refused, "no inference resource serves the agent role" if @inference.nil?
 
-    transcript = Transcript.new(system: SYSTEM, prompt: prompt)
+    transcript = Transcript.new(system: [ SYSTEM, @clock.told ].compact.join("\n"), prompt: prompt)
 
     @turns.times do |index|
       return finished(:halted) if @halted&.call
 
       @turns_taken = index + 1
-      last = @turns_taken == @turns
+      last = @turns_taken == @turns || @clock.closing?
       message = spoke(transcript, last: last)
       requested = Array(message["tool_calls"])
 
@@ -90,7 +91,7 @@ class Agent
     end
 
     def declared
-      @offered.map do |tool|
+      told = @offered.map do |tool|
         {
           type: "function",
           function: {
@@ -100,6 +101,8 @@ class Agent
           }
         }
       end
+
+      @clock.declared + told
     end
 
     def pressed
@@ -113,7 +116,7 @@ class Agent
     end
 
     def answer(transcript, raw)
-      result = dispatch.call(raw)
+      result = @clock.handles?(raw) ? @clock.call(raw) : dispatch.call(raw)
 
       @calls << result
       @flailed = result.ok ? 0 : @flailed + 1

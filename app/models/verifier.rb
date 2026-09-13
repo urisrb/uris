@@ -59,7 +59,7 @@ class Verifier
     return nil if @inference.nil? || answer.blank?
 
     prompt = format(PROMPT, question: question.to_s, answer: answer.to_s, evidence: evidence(calls))
-    votes = Array.new(@runs) { voted(prompt) }.compact
+    votes = Array.new(@runs) { voted(prompt) unless out_of_time? }.compact
     return nil if votes.empty?
 
     Verdict.new(score: share(votes, "answered"), useful: share(votes, "useful"), runs: votes.size, votes: votes)
@@ -78,6 +78,10 @@ class Verifier
     rescue Resource::Unusable, Resource::Failed => e
       @analysis&.log_skip("verify", e.message)
       nil
+    end
+
+    def out_of_time?
+      @analysis&.deadline.present? && Time.current >= @analysis.deadline
     end
 
     def share(votes, name)

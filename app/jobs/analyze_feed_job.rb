@@ -3,7 +3,7 @@ class AnalyzeFeedJob < ApplicationJob
 
   limits_concurrency to: ENV.fetch("ANALYSIS_PER_TENANT", 2).to_i,
                      key: ->(tenant_id, *) { "analysis/#{tenant_id}" },
-                     duration: 30.minutes
+                     duration: Feed::MAX_TIMEOUT
 
   rescue_from(StandardError) do |error|
     fail_analysis(error)

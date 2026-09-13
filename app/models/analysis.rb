@@ -44,8 +44,30 @@ class Analysis < ApplicationRecord
   def settled? = SETTLED.include?(status)
 
   def running!
-    Analysis.where(id: id, status: OPEN)
-            .update_all(status: "running", started_at: started_at || Time.current)
+    started = started_at || Time.current
+    due = started + feed.time_allowed
+    moved = Analysis.where(id: id, status: OPEN).update_all(status: "running", started_at: started, deadline: due)
+    return moved if moved.zero?
+
+    self.status = "running"
+    self.started_at = started
+    self.deadline = due
+    clear_attribute_changes(%i[status started_at deadline])
+    moved
+  end
+
+  def more_time!(wanted)
+    ceiling = (started_at || created_at) + Feed::MAX_TIMEOUT
+    granted = [ [ deadline, Time.current ].compact.max + wanted, ceiling ].min
+
+    update_columns(deadline: granted)
+    granted
+  end
+
+  def time_left
+    return nil if deadline.nil?
+
+    [ deadline - Time.current, 0 ].max
   end
 
   def finished!(error: nil)

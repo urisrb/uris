@@ -24,6 +24,7 @@ export interface Feed {
   id: string
   key: string
   title?: string | null
+  timeout?: number | null
   schedule?: {
     prompt: string
     interval?: number | null
@@ -46,6 +47,7 @@ export function FeedForm({ opened, onClose, feed, onSaved }: Props) {
   const [prompt, setPrompt] = useState('')
   const [interval, setInterval] = useState(0)
   const [turns, setTurns] = useState<number | string>('')
+  const [minutes, setMinutes] = useState<number | string>('')
   const [refused, setRefused] = useState<string | null>(null)
 
   useEffect(() => {
@@ -56,6 +58,7 @@ export function FeedForm({ opened, onClose, feed, onSaved }: Props) {
     setPrompt(feed?.schedule?.prompt ?? '')
     setInterval(feed?.schedule?.interval ?? 0)
     setTurns(feed?.schedule?.turns ?? '')
+    setMinutes(feed?.timeout ? Math.round(feed.timeout / 60) : '')
     setRefused(null)
   }, [opened, feed])
 
@@ -67,6 +70,7 @@ export function FeedForm({ opened, onClose, feed, onSaved }: Props) {
       prompt,
       interval,
       turns: Number(turns) > 0 ? Number(turns) : null,
+      timeout: Number(minutes) > 0 ? Number(minutes) * 60 : null,
     })
 
     if (!answered?.saveFeed?.feed) {
@@ -149,6 +153,16 @@ export function FeedForm({ opened, onClose, feed, onSaved }: Props) {
           placeholder="6"
           value={turns}
           onChange={setTurns}
+        />
+
+        <NumberInput
+          label="Minutes it may run"
+          description="How long a run may take before it is cut off. It can ask for more, never past a day. Left empty, five."
+          min={1}
+          max={1440}
+          placeholder="5"
+          value={minutes}
+          onChange={setMinutes}
         />
 
         {refused && <Alert color="red">{refused}</Alert>}

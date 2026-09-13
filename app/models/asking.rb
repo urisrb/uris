@@ -1,5 +1,5 @@
 class Asking
-  TURNS = 10
+  TURNS = 32
   CITED = /\[feed\s*:?\s*(\d+)\]/i
   SUGGESTED = 3
 

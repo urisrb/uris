@@ -17,6 +17,8 @@ module Types
     field :finished_at, GraphQL::Types::ISO8601DateTime
     field :created_at, GraphQL::Types::ISO8601DateTime, null: false
     field :duration_ms, Integer
+    field :deadline, GraphQL::Types::ISO8601DateTime,
+          description: "When it is cut off. It moves out when the agent asks for more time, never past a day from its start."
     field :said, String, description: "What the agent answered when the pass finished, if it ran."
     field :verified, Float,
           description: "How many independent judges, as a share from 0 to 1, found the answer answered " \

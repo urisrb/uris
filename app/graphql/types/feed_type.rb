@@ -39,8 +39,15 @@ module Types
           description: "A question someone asked the catalog, answered by its analyses."
     field :staged, Boolean, null: false,
           description: "Uploaded, and still waiting for the pass to decide where it is stored."
+    field :timeout, Integer,
+          description: "Seconds an analysis of it may run, when someone set it. Null gets the default."
+    field :time_allowed, Integer, null: false,
+          description: "Seconds an analysis of it may run before it is cut off, unless the agent asks for more, " \
+                       "and never more than a day."
     field :schedule, Types::ScheduleType
     field :analyses, [ Types::AnalysisType ], null: false
+
+    def time_allowed = object.time_allowed.to_i
 
     def summary
       object.summary || excerpt

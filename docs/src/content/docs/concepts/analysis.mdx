@@ -90,6 +90,11 @@ then three more steps:
   three bad tool calls in a row. If no resource serves the `agent` role, this step is skipped.
 - **Settling.** A file the agent did not place goes to default storage.
 
+An analysis runs for its feed's timeout, counted from when it starts rather than when it was
+queued. A feed nobody has set runs for five minutes; `setFeedTimeout`, or the feed form, sets
+anything from a minute to a day. The agent can ask for more time as it goes, never past a day from
+the start, and `ExpireOverdueJob` cancels whatever outlives its deadline.
+
 Analysis jobs run on the `analysis` queue, with at most `ANALYSIS_PER_TENANT` (2 by default)
 running per tenant. A `Resource::Failed` is retried five times with growing waits, and the
 analysis fails if the last retry does too. An `Analyzer::Failed`, or a file with nowhere to go, is

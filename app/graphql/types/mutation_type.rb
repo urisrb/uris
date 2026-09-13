@@ -10,6 +10,7 @@ module Types
     field :analyze_feed, mutation: Mutations::AnalyzeFeed, grants: "uris:catalog:write"
     field :rename_feed, mutation: Mutations::RenameFeed, grants: "uris:catalog:write"
     field :note_feed, mutation: Mutations::NoteFeed, grants: "uris:catalog:write"
+    field :set_feed_timeout, mutation: Mutations::SetFeedTimeout, grants: "uris:catalog:write"
     field :forget_feed, mutation: Mutations::ForgetFeed, grants: "uris:catalog:write"
     field :connect_feeds, mutation: Mutations::ConnectFeeds, grants: "uris:catalog:write"
     field :split_reference, mutation: Mutations::SplitReference, grants: "uris:catalog:write"
