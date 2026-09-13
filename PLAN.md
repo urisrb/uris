@@ -44,8 +44,9 @@ access token until it expires, so masks is asked when one runs out rather than p
 - [ ] **Does an MCP server's authorization server say who somebody is?** The gate needs a stable
       subject. `mcp.notion.com` registers its clients dynamically and runs PKCE, but it is its own
       authorization server, not Notion's public OAuth, and may hand back nothing that names the
-      Notion user. If it does not, a Notion MCP connection is gated on the masks actor alone, or
-      on a Notion identity linked separately through Notion's public OAuth. Find out before phase 2.
+      Notion user. Masks' `Federation::Mcp` takes it as anonymous unless the provider names a
+      `userinfo_url`, so today a Notion MCP connection is gated on the masks actor alone. Phase 6
+      runs it for real; whether that is enough is still to decide.
 - [x] **What the client library is called and shaped like.** `Masks::Client::Delegations`, in
       the masks gem: `start`, `finish` and `token`, `Refused` and `Unavailable` each carrying any
       rotated secret, and `Delegations::Fake`. Decided 2026-09-13.
@@ -163,6 +164,37 @@ What masks has to hold, in outline:
 - [x] A sync of a personal resource writes into the tenant's catalog like any sync; what an agent
       run may reach waits on the open decision above
 
+## Phase 6 — the two sides, for real
+
+Every phase above is proven against `Masks::Client::Delegations::Fake`, and a fake is how the old
+broker went dead with nothing noticing. This phase runs the whole of it across both dev stacks —
+masks on :12345, uris on :8180 — against an MCP server that runs its own authorization server, and
+fixes whatever the fakes were hiding.
+
+- [ ] Track masks at its head in both lockfiles. `Gemfile.lock` pins `738fba6`, and `44b8c4d` has
+      changed the client's `session.rb` and `tokens.rb` since, so dev builds against one client and
+      CI against another
+- [ ] An MCP server with an authorization server of its own, the shape `mcp.notion.com` has:
+      `/.well-known/oauth-protected-resource`, authorization server metadata, dynamic client
+      registration, PKCE, refresh, a short token lifetime so a refresh actually happens, and a tool
+      that says whose token called it. Kept in the repository, not a scratchpad, so the run can be
+      repeated
+- [ ] The dev masks set up past its first-run screen, and the dev `uris` tenant paired with it, so
+      `Tenant#connected?` holds and uris' client may exchange tokens and ask for `masks:delegate:`
+- [ ] A provider in masks of protocol `mcp`, found from that server's metadata, with masks
+      registering itself as the server's client
+- [ ] Attach an MCP resource in uris authenticating through masks, press **Connect**, consent in
+      masks, come back connected; check it, and call one of its tools over MCP
+- [ ] With nobody signed in: restart `uris-worker` and let `ScheduleChecksJob` check it, which is a
+      refresh and an exchange from the kept secret alone
+- [ ] Past the token's lifetime, a tool call still answers, through masks refreshing upstream and
+      the session pool starting a new session on the new token
+- [ ] Revoke the delegation from the masks account page; the next call leaves the resource needing a
+      connection, and the attach form shows **Reconnect**
+- [ ] Attached as "only me", its tools are absent for another person's grant
+- [ ] What the run needs, written down — a `./dev` command or a script beside the server — so the
+      next change to either side can be checked the same way
+
 ## Verification
 
 - The library's fake answering connect, token, rotation and both refusals; a cached token reused
@@ -173,9 +205,7 @@ What masks has to hold, in outline:
 - A personal resource absent for another subject in GraphQL, the resource tool and the proxied
   tools
 - `keep` cataloguing one Notion page with a version, and the next sync noticing its edit
-- Live, across both dev stacks: link a provider in masks, connect an MCP resource to it in uris,
-  restart `uris-worker`, check it and call one of its tools over MCP, then revoke the delegation
-  from the masks account page and watch **Reconnect** appear
+- Live, across both dev stacks, as phase 6 lays out
 
 ## Known gaps, recorded rather than fixed
 
