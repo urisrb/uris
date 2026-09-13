@@ -47,11 +47,14 @@ export function useQuery<TData, TVariables extends Record<string, unknown>>(
   const [error, setError] = useState<Error | null>(null)
   const variablesRef = useRef(variables)
   variablesRef.current = variables
+  const latest = useRef(0)
 
   const variablesKey = JSON.stringify(variables)
 
   const refetch = useCallback(
     (_key?: string) => {
+      latest.current += 1
+      const asked = latest.current
       setLoading(true)
       client
         .query(query, variablesRef.current ?? ({} as TVariables), {
@@ -60,9 +63,11 @@ export function useQuery<TData, TVariables extends Record<string, unknown>>(
         })
         .toPromise()
         .then((result) => {
+          if (asked !== latest.current) return
           if (result.error) {
             setError(new Error(result.error.message))
           } else {
+            setError(null)
             setData(result.data ?? null)
           }
           setLoading(false)
