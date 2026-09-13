@@ -145,6 +145,7 @@ export function Attach({
 
   const pick = (next: Attaching) => {
     setChosen(next.type)
+    setKey((held) => held || next.type)
     setTyped(seeded(next))
     setRefused(null)
     setWarned(null)
@@ -374,9 +375,7 @@ export function Attach({
               loading={attaching}
               disabled={!ready || link !== null}
             >
-              {type.brokered
-                ? 'Get a sign-in link'
-                : `Attach ${type.label.toLowerCase()}`}
+              {type.brokered ? 'Get a sign-in link' : 'Attach it'}
             </Button>
           </Group>
         </Stack>
