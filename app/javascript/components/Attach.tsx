@@ -39,6 +39,7 @@ import {
   EnrollResourceDocument,
   ResourceTypesDocument,
   type ResourceTypesQuery,
+  UpdateResourceDocument,
 } from '@uris-to/client'
 import { useMutation, useQuery } from '@uris-to/client/react'
 import { useState } from 'react'
@@ -48,6 +49,15 @@ type Attaching = ResourceTypesQuery['resourceTypes'][number]
 type Field = Attaching['fields'][number]
 
 type Typed = Record<string, string | boolean>
+
+export interface Editing {
+  id: string
+  type: string
+  key: string
+  name?: string | null
+  settings: Record<string, unknown>
+  heldCredentials: string[]
+}
 
 type Glyph = typeof IconPuzzle
 
@@ -117,12 +127,20 @@ function asked(field: Field, typed: Typed) {
   )
 }
 
-function seeded(type: Attaching): Typed {
+function seeded(type: Attaching, editing?: Editing): Typed {
   return Object.fromEntries(
-    type.fields.map((field) => [
-      field.name,
-      field.kind === 'boolean' ? field.value === 'true' : (field.value ?? ''),
-    ]),
+    type.fields.map((field) => {
+      const held = editing?.settings[field.name]
+
+      if (editing?.heldCredentials.includes(field.name)) return [field.name, '']
+      if (held !== undefined && held !== null)
+        return [field.name, typeof held === 'boolean' ? held : `${held}`]
+
+      return [
+        field.name,
+        field.kind === 'boolean' ? field.value === 'true' : (field.value ?? ''),
+      ]
+    }),
   )
 }
 
@@ -130,25 +148,37 @@ export function Attach({
   opened,
   onClose,
   onAttached,
+  editing,
 }: {
   opened: boolean
   onClose: () => void
   onAttached: () => void
+  editing?: Editing
 }) {
   const { data, loading } = useQuery(ResourceTypesDocument, {})
   const attach = useMutation(AttachResourceDocument)
   const enroll = useMutation(EnrollResourceDocument)
+  const update = useMutation(UpdateResourceDocument)
 
-  const [chosen, setChosen] = useState<string | null>(null)
-  const [key, setKey] = useState('')
-  const [name, setName] = useState('')
+  const [chosen, setChosen] = useState<string | null>(editing?.type ?? null)
+  const [key, setKey] = useState(editing?.key ?? '')
+  const [name, setName] = useState(editing?.name ?? '')
   const [typed, setTyped] = useState<Typed>({})
+  const [seededFor, setSeededFor] = useState<string | null>(null)
   const [refused, setRefused] = useState<string | null>(null)
   const [warned, setWarned] = useState<string | null>(null)
   const [link, setLink] = useState<string | null>(null)
 
   const types = data?.resourceTypes ?? []
   const type = types.find((held) => held.type === chosen) ?? null
+
+  if (editing && type && seededFor !== editing.id) {
+    setTyped(seeded(type, editing))
+    setSeededFor(editing.id)
+  }
+
+  const kept = (field: Field) =>
+    editing?.heldCredentials.includes(field.name) ?? false
 
   const pick = (next: Attaching) => {
     setChosen(next.type)
@@ -159,13 +189,43 @@ export function Attach({
     setLink(null)
   }
 
-  const attaching = attach.loading || enroll.loading
+  const attaching = attach.loading || enroll.loading || update.loading
   const shown = (type?.fields ?? []).filter((field) => asked(field, typed))
   const missing = shown.filter(
-    (field) => field.required && !`${typed[field.name] ?? ''}`.trim(),
+    (field) =>
+      field.required && !kept(field) && !`${typed[field.name] ?? ''}`.trim(),
   )
   const ready =
     key.trim().length > 0 && (type?.brokered || missing.length === 0)
+
+  async function save() {
+    if (!type || !editing) return
+
+    setRefused(null)
+    setWarned(null)
+
+    const answered = await update.execute({
+      id: editing.id,
+      name: name.trim() || null,
+      settings: Object.fromEntries(
+        shown.map((field) => [field.name, typed[field.name]]),
+      ),
+    })
+
+    if (!answered?.updateResource?.resource) {
+      setRefused(update.error?.message ?? 'That could not be saved.')
+      return
+    }
+
+    onAttached()
+
+    if (answered.updateResource.checkError) {
+      setWarned(answered.updateResource.checkError)
+      return
+    }
+
+    onClose()
+  }
 
   async function connect() {
     if (!type) return
@@ -221,7 +281,9 @@ export function Attach({
       opened={opened}
       onClose={onClose}
       title={
-        type ? (
+        editing ? (
+          `Change ${editing.key}`
+        ) : type ? (
           <Button
             variant="subtle"
             color="gray"
@@ -311,8 +373,9 @@ export function Attach({
               size="md"
               label={type.names}
               description="Unique among resources of this type. It cannot be changed later."
-              autoFocus
+              autoFocus={!editing}
               withAsterisk
+              disabled={Boolean(editing)}
               value={key}
               onChange={(event) => setKey(event.currentTarget.value)}
             />
@@ -335,6 +398,7 @@ export function Attach({
                 <Asked
                   key={field.name}
                   field={field}
+                  kept={kept(field)}
                   value={typed[field.name]}
                   onChange={(next) =>
                     setTyped((held) => ({ ...held, [field.name]: next }))
@@ -347,7 +411,14 @@ export function Attach({
           {refused && <Alert color="red">{refused}</Alert>}
 
           {warned && (
-            <Alert color="yellow" title="Attached, but it did not answer">
+            <Alert
+              color="yellow"
+              title={
+                editing
+                  ? 'Saved, but it did not answer'
+                  : 'Attached, but it did not answer'
+              }
+            >
               {warned}
             </Alert>
           )}
@@ -381,11 +452,17 @@ export function Attach({
               size="md"
               radius="xl"
               color="chalk"
-              onClick={connect}
+              onClick={editing ? save : connect}
               loading={attaching}
-              disabled={!ready || link !== null}
+              disabled={
+                (editing ? missing.length > 0 : !ready) || link !== null
+              }
             >
-              {type.brokered ? 'Get a sign-in link' : 'Attach it'}
+              {editing
+                ? 'Save it'
+                : type.brokered
+                  ? 'Get a sign-in link'
+                  : 'Attach it'}
             </Button>
           </Group>
         </Stack>
@@ -396,10 +473,12 @@ export function Attach({
 
 function Asked({
   field,
+  kept,
   value,
   onChange,
 }: {
   field: Field
+  kept: boolean
   value: string | boolean | undefined
   onChange: (next: string | boolean) => void
 }) {
@@ -437,12 +516,24 @@ function Asked({
     <TextInput
       size="md"
       label={field.label}
-      description={field.help}
-      placeholder={field.placeholder ?? undefined}
+      description={
+        kept
+          ? [field.help, 'Something is held. Left empty, it stays as it is.']
+              .filter(Boolean)
+              .join(' ')
+          : field.help
+      }
+      placeholder={
+        kept
+          ? field.secret
+            ? '••••••••'
+            : 'as it is'
+          : (field.placeholder ?? undefined)
+      }
       type={field.secret ? 'password' : 'text'}
       autoComplete={field.secret ? 'new-password' : 'off'}
       inputMode={field.kind === 'integer' ? 'numeric' : undefined}
-      withAsterisk={field.required}
+      withAsterisk={field.required && !kept}
       value={typeof value === 'string' ? value : ''}
       onChange={(event) => onChange(event.currentTarget.value)}
     />

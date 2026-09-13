@@ -42,6 +42,12 @@ dropped, a missing required field is refused, and each value lands in `details` 
 is a secret, in `credentials`. Credentials are encrypted at rest, and the audit trail records which
 fields were set, never their values. Attaching runs a first check and reports what it said.
 
+A resource is changed through the same form. Its type and key stay as they were; its name and
+fields are read against the type again, a secret left empty keeps what it held, and a field the
+new answers no longer ask for is dropped with its value. What the form reads back is only what
+is held in the clear, and the names of the encrypted fields that hold something. The change is
+checked and audited the way attaching is.
+
 A filesystem resource is only attachable when `URIS_FILESYSTEM_ROOTS` names directories. Each
 tenant is given its own directory under every one of them, named for its subdomain and made on
 first use, and a resource's root has to sit inside one of those — the root itself is shared by

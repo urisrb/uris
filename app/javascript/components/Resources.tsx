@@ -12,6 +12,7 @@ import {
   IconArchive,
   IconArchiveOff,
   IconCheck,
+  IconPencil,
   IconPlus,
   IconRefresh,
   IconSparkles,
@@ -31,7 +32,7 @@ import { useQuery } from '@uris-to/client/react'
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
-import { Attach } from './Attach'
+import { Attach, type Editing } from './Attach'
 import { useAloud, useSay } from './Say'
 
 interface Resource {
@@ -52,6 +53,9 @@ interface Resource {
   syncedAt?: string | null
   nextSyncAt?: string | null
   archivedAt?: string | null
+  settings: Record<string, unknown>
+  heldCredentials: string[]
+  changeable: boolean
 }
 
 function toneFor(resource: Resource) {
@@ -131,6 +135,7 @@ export function Resources() {
   }
   const [minutes, setMinutes] = useState<Record<string, number | string>>({})
   const [attaching, setAttaching] = useState(false)
+  const [editing, setEditing] = useState<Editing | null>(null)
   const arrived = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -179,6 +184,15 @@ export function Resources() {
         <Attach
           opened
           onClose={() => setAttaching(false)}
+          onAttached={refetch}
+        />
+      )}
+
+      {editing && (
+        <Attach
+          opened
+          editing={editing}
+          onClose={() => setEditing(null)}
           onAttached={refetch}
         />
       )}
@@ -300,7 +314,9 @@ export function Resources() {
                       leftSection={<IconRefresh size={14} />}
                       disabled={resource.syncing}
                       onClick={async () => {
-                        const answered = await sync.execute({ id: resource.id })
+                        const answered = await sync.execute({
+                          id: resource.id,
+                        })
 
                         if (!answered) return
 
@@ -413,6 +429,18 @@ export function Resources() {
                     </>
                   )}
 
+                  {resource.changeable && (
+                    <Button
+                      size="xs"
+                      radius="xl"
+                      variant="subtle"
+                      color="gray"
+                      leftSection={<IconPencil size={14} />}
+                      onClick={() => setEditing(resource)}
+                    >
+                      Change
+                    </Button>
+                  )}
                   <Button
                     size="xs"
                     radius="xl"

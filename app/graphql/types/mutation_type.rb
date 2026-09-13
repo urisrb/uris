@@ -16,6 +16,7 @@ module Types
     field :split_reference, mutation: Mutations::SplitReference, grants: "uris:catalog:write"
 
     field :attach_resource, mutation: Mutations::AttachResource, grants: "uris:resources:command"
+    field :update_resource, mutation: Mutations::UpdateResource, grants: "uris:resources:command"
     field :archive_resource, mutation: Mutations::ArchiveResource, grants: "uris:resources:command"
     field :enroll_resource, mutation: Mutations::EnrollResource, grants: "uris:resources:command"
     field :sync_resource, mutation: Mutations::SyncResource, grants: "uris:resources:command"

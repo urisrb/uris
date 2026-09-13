@@ -23,13 +23,41 @@ module Types
     field :checked_at, GraphQL::Types::ISO8601DateTime
     field :check_error, String
     field :healthy, Boolean, null: false, method: :healthy?
+    field :settings, GraphQL::Types::JSON, null: false,
+          description: "What each field the type declares holds, for the fields kept in the clear. " \
+                       "Nothing held encrypted is ever read back."
+    field :changeable, Boolean, null: false,
+          description: "Whether it has a form to change. A type uris makes for itself does not."
+    field :held_credentials, [ String ], null: false,
+          description: "The names of the encrypted fields that hold something, so a form can say " \
+                       "one is set without saying what it is."
 
     def capabilities
       object.capabilities.map(&:to_s)
     end
 
+    def settings
+      declared(:details).to_h do |field|
+        [ field[:name], field[:name].split(".").reduce(object.details.to_h) { |held, step| held.is_a?(Hash) ? held[step] : nil } ]
+      end.compact
+    end
+
+    def changeable
+      Array(object.class.attaching&.fetch(:fields)).any?
+    end
+
+    def held_credentials
+      declared(:credentials).map { |field| field[:name] }.select { |name| object.credentials.to_h[name].present? }
+    end
+
     def items_count
       Reference.where(resource_id: object.id).distinct.count(:feed_id)
     end
+  
+    private
+
+      def declared(held)
+        Array(object.class.attaching&.fetch(:fields)).select { |field| field[:held] == held }
+      end
   end
 end

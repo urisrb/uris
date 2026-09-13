@@ -17,6 +17,9 @@ query Resources($archived: Boolean) {
     checkError
     healthy
     archivedAt
+    settings
+    heldCredentials
+    changeable
   }
 }
 
@@ -136,6 +139,17 @@ mutation AttachResource(
     resource {
       id
       type
+      key
+      name
+    }
+    checkError
+  }
+}
+
+mutation UpdateResource($id: ID!, $name: String, $settings: JSON) {
+  updateResource(input: { id: $id, name: $name, settings: $settings }) {
+    resource {
+      id
       key
       name
     }

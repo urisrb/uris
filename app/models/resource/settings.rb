@@ -4,13 +4,14 @@ class Resource
     class Unattachable < ArgumentError; end
     class Unoffered < Missing; end
 
-    def self.for(klass, given)
-      new(klass, given).settle
+    def self.for(klass, given, kept: {})
+      new(klass, given, kept: kept).settle
     end
 
-    def initialize(klass, given)
+    def initialize(klass, given, kept: {})
       @klass = klass
       @given = given.to_h.stringify_keys
+      @kept = kept.to_h.stringify_keys
 
       raise Unattachable, "#{klass.sti_name} is not a type that can be attached" if fields.nil?
     end
@@ -70,8 +71,10 @@ class Resource
 
       def offered(field)
         held = @given[field[:name]]
+        return held unless blank?(held)
+        return @kept[field[:name]] if field[:held] == :credentials && !blank?(@kept[field[:name]])
 
-        blank?(held) ? field[:value] : held
+        field[:value]
       end
 
       def blank?(value)
