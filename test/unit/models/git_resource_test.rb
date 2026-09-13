@@ -95,6 +95,16 @@ class GitResourceTest < ActiveSupport::TestCase
     assert_equal [ "lib/widget.rb" ], seen
   end
 
+  test "a sync resuming after a path the branch no longer has walks it all again rather than nothing" do
+    seen = []
+
+    Tenant.switch(@tenant) do
+      @resource.each_page(cursor: "deleted/since.rb") { |batch, _| seen += batch.map(&:path) }
+    end
+
+    assert_equal %w[README.md lib/widget.rb], seen
+  end
+
   test "a blob larger than the cap is left out rather than pulled into the catalogue" do
     commit("big.bin", "x" * (Resource::Git::MAX_BLOB + 1))
 

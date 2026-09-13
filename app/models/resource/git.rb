@@ -82,7 +82,8 @@ class Resource
       pull!
 
       found = entries(prefix)
-      found = found.drop_while { |entry| entry.path != cursor }.drop(1) if cursor.present?
+      resumed = cursor.present? && found.index { |entry| entry.path == cursor }
+      found = found.drop(resumed + 1) if resumed
 
       found.each_slice(PAGE) { |batch| yield batch, batch.last.path }
     end
