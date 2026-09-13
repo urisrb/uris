@@ -84,6 +84,21 @@ class RssResourceTest < ActiveSupport::TestCase
     end
   end
 
+  test "an entry edited in place is a new version, though its date never moved" do
+    sync
+    before = Tenant.switch(@tenant) { Reference.find_by!(locator_key: "urn:two").version }
+
+    edited = ITEMS.map { |item| item[:id] == "urn:two" ? item.merge(description: "<p>A correction about pelicans.</p>") : item }
+    @server.serve_body("/feed.xml", @server.rss(edited))
+    sync
+
+    Tenant.switch(@tenant) do
+      assert_not_equal before, Reference.find_by!(locator_key: "urn:two").version
+      assert Reference.find_by!(locator_key: "urn:two").changed_at.present?
+      assert_nil Reference.find_by!(locator_key: "urn:one").changed_at
+    end
+  end
+
   test "an entry that scrolls out of the window is gone, not silently empty" do
     sync
     @server.serve_body("/feed.xml", @server.rss([ ITEMS.last ]))

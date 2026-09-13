@@ -48,7 +48,10 @@ class Resource
     end
 
     def locator_for(entry)
-      { "id" => entry.id, "link" => entry.link, "published_at" => entry.published_at }
+      {
+        "id" => entry.id, "link" => entry.link, "published_at" => entry.published_at,
+        "digest" => Digest::SHA256.hexdigest([ entry.title, entry.link, entry.content ].join("\0"))[0, 32]
+      }
     end
 
     def locator_key_for(entry)
@@ -56,7 +59,7 @@ class Resource
     end
 
     def version_for(locator)
-      locator.to_h["published_at"].presence
+      locator.to_h["digest"].presence || locator.to_h["published_at"].presence
     end
 
     def mime_for(_entry)
