@@ -29,6 +29,7 @@ module Tool
     def self.call(server_context:, query: nil, type: nil, limit: 50)
       respond(server_context, { query: query, type: type, limit: limit }) do
         feeds = Feed.search(query, type: type, limit: limit.to_i.clamp(1, 200))
+                    .reject { |feed| feed.id == Current.acting_for }
 
         { count: feeds.size, feeds: feeds.map { |feed| found(feed) } }
       end

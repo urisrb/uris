@@ -82,7 +82,8 @@ class AnalyzeFeedJob < ApplicationJob
                         halted: -> { analysis.halted? })
 
       Current.grant = grant
-      answered = agent.call(format(ASK_PROMPT, question: feed.title || feed.key))
+      Current.acting_for = feed.id
+      answered = agent.call([ format(ASK_PROMPT, question: feed.title || feed.key), web(feed) ].compact.join("\n\n"))
       analysis.log_info("agent", answered.reason.to_s, answered.said)
       noted(answered)
       spoken(answered.said)
@@ -93,6 +94,7 @@ class AnalyzeFeedJob < ApplicationJob
       analysis.finished!(error: e.message)
     ensure
       Current.grant = nil
+      Current.acting_for = nil
     end
 
     def spoken(said)
@@ -125,6 +127,7 @@ class AnalyzeFeedJob < ApplicationJob
       return if agent.inference_key.nil?
 
       Current.grant = grant
+      Current.acting_for = feed.id
       answered = agent.call(asked(feed))
       analysis&.log_info("agent", answered.reason.to_s, answered.said)
       noted(answered)
@@ -132,6 +135,7 @@ class AnalyzeFeedJob < ApplicationJob
       analysis&.log_skip("agent", e.message)
     ensure
       Current.grant = nil
+      Current.acting_for = nil
     end
 
     def noted(answered)
@@ -149,6 +153,17 @@ class AnalyzeFeedJob < ApplicationJob
 
       [ FILE_PROMPT, "It is feed #{feed.id}, called #{feed.title || feed.key}.", unplaced(feed) ]
         .compact.join("\n\n")
+    end
+
+    def web(_feed)
+      engines = Resource.capable_of(:search).pluck(:key)
+      return nil if engines.empty?
+
+      <<~TEXT
+        If the catalog does not answer it, or the question is about the world rather than what they
+        keep, search the web: call resource with do=search, key #{engines.map { |key| %("#{key}") }.join(' or ')}, and
+        input {"query": "..."}. Say which parts of the answer came from the web, with their addresses.
+      TEXT
     end
 
     def searchable(feed)

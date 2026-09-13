@@ -69,6 +69,28 @@ class AskingTest < ActionDispatch::IntegrationTest
     Tenant.switch(@tenant) { assert_equal "ask", Analysis.find(again.dig("analyzeFeed", "analysis", "id")).cause }
   end
 
+  test "the question is never its own source, and the web is offered when the tenant can search it" do
+    Tenant.switch(@tenant) do
+      Resource::Search.create!(key: "exa", details: { "provider" => "exa" }, credentials: { "api_key" => "k" })
+    end
+    @server.answer_tool_call("search", query: "hn algolia")
+    @server.answer("Nothing in the catalog.")
+
+    asked = ask("can you see hn algolia")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    Tenant.switch(@tenant) do
+      analysis = Analysis.find(asked.dig("analysis", "id"))
+      searched = analysis.turns.find { |turn| turn["calls"].blank? }
+
+      assert_not_nil searched
+      assert_not_includes searched["request"], %("id":"#{asked.dig('feed', 'id')}"),
+                          "the search the agent ran handed back the question it was answering"
+    end
+
+    assert(@server.prompts.any? { |prompt| prompt.include?(%(key "exa")) }, "the prompt names the web search")
+  end
+
   test "the answering agent reads and cannot write" do
     @server.answer_tool_call("connect", a: @invoice.id.to_s, b: @other.id.to_s)
     @server.answer("I could not connect them.")
