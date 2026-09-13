@@ -29,7 +29,7 @@ module Mutations
 
       noted(klass, resource, settings)
 
-      return { resource: resource, connect_url: resource_connect_path(resource) } if resource.delegated?
+      return { resource: resource, connect_url: resource.connect_path } if resource.delegated?
 
       resource.check
 
@@ -37,10 +37,6 @@ module Mutations
     end
 
     private
-
-      def resource_connect_path(resource)
-        Rails.application.routes.url_helpers.resource_connect_path(resource)
-      end
 
       def attachable!(type)
         klass = Resource.attachable.find { |held| held.sti_name == type.to_s }

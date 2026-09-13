@@ -36,7 +36,7 @@ module Types
           description: "Whether somebody has to connect it through masks, or connect it again, before it answers."
     field :connected_by, String,
           description: "The subject of whoever connected it."
-    field :connect_url, String,
+    field :connect_url, String, method: :connect_path,
           description: "Where to send the browser to connect it, for a resource that connects through masks."
     field :held_credentials, [ String ], null: false,
           description: "The names of the encrypted fields that hold something, so a form can say " \
@@ -50,10 +50,6 @@ module Types
       declared(:details).to_h do |field|
         [ field[:name], field[:name].split(".").reduce(object.details.to_h) { |held, step| held.is_a?(Hash) ? held[step] : nil } ]
       end.compact
-    end
-
-    def connect_url
-      Rails.application.routes.url_helpers.resource_connect_path(object) if object.delegated?
     end
 
     def changeable

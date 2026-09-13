@@ -147,9 +147,11 @@ class Resource
 
         connected(retried: retried, expired: true, &block)
       rescue MCP::Client::RequestHandlerError => e
-        return connected(retried: true) { |again| yield again } if unauthorized?(e) && !retried && delegated? && token_expired!
+        if unauthorized?(e) && delegated?
+          return connected(retried: true, &block) if !retried && token_expired!
 
-        raise Resource::Unusable, "#{key}: #{url} refused the token masks released — connect it again" if unauthorized?(e) && delegated?
+          raise Resource::Unusable, "#{key}: #{url} refused the token masks released — connect it again"
+        end
 
         raise Resource::Failed, "#{key}: #{url} answered #{e.message}"
       rescue MCP::Client::ServerError => e

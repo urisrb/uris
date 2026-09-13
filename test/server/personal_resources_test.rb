@@ -107,6 +107,16 @@ class PersonalResourcesTest < ActionDispatch::IntegrationTest
     assert_not_includes reached, "notion"
   end
 
+  test "a shared web resource cannot keep its snapshots in somebody's personal storage" do
+    Tenant.switch(@tenant) do
+      Resource::S3.create!(key: "private-bucket", owner_subject: "ada",
+                           details: { "endpoint" => "http://127.0.0.1:1", "bucket" => "b" })
+      browser = Resource::Web.new(key: "browser", details: { "storage" => "private-bucket" })
+
+      assert_raises(Resource::Unusable) { browser.storage }
+    end
+  end
+
   test "a personal resource is never where everyone's drops land" do
     Tenant.switch(@tenant) do
       bucket = Resource::S3.new(key: "private-bucket", owner_subject: "ada", default_storage: true,

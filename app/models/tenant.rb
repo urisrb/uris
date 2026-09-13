@@ -41,10 +41,7 @@ class Tenant < ApplicationRecord
   end
 
   def issuer
-    template = ENV["MASKS_ISSUER_TEMPLATE"].presence
-    raise Unconfigured, "MASKS_ISSUER_TEMPLATE is not set" if template.nil?
-
-    format(template, subdomain: subdomain)
+    self.class.issuer_for(subdomain)
   end
 
   def origin
@@ -122,10 +119,14 @@ class Tenant < ApplicationRecord
     end
 
     def issuer_url(request)
+      issuer_for(subdomain_in(request.host))
+    end
+
+    def issuer_for(subdomain)
       template = ENV["MASKS_ISSUER_TEMPLATE"].presence
       raise Unconfigured, "MASKS_ISSUER_TEMPLATE is not set" if template.nil?
 
-      format(template, subdomain: subdomain_in(request.host))
+      format(template, subdomain: subdomain)
     end
 
     def redirect_url(request)

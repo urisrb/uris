@@ -22,6 +22,10 @@ class Resource
       self.class.delegated_provider
     end
 
+    def connect_path
+      Rails.application.routes.url_helpers.resource_connect_path(self) if delegated?
+    end
+
     def delegation
       credentials.to_h["delegation"].to_h
     end
@@ -67,9 +71,7 @@ class Resource
       credentials.to_h.dig("upstream", "access_token")
     end
 
-    def token
-      upstream_token
-    end
+    alias token upstream_token
 
     def token_expired!
       return false unless connected?
@@ -91,13 +93,12 @@ class Resource
 
         upstream = Delegations.for(tenant).token(delegation["secret"], connection: delegation["connection"])
 
-        remember(upstream.secret, "access_token" => upstream.access_token, "expires_at" => upstream.expires_at)
-        update_columns(needs_connect_at: nil) if needs_connect_at
+        remember(upstream.secret, { "access_token" => upstream.access_token, "expires_at" => upstream.expires_at },
+                 needs_connect_at: nil)
 
         nil
       rescue Delegations::Refused => e
-        remember(e.secret)
-        update_columns(needs_connect_at: Time.current)
+        remember(e.secret, needs_connect_at: Time.current)
 
         Resource::Unusable.new("#{key}: masks will no longer release #{provider_key} for it (#{e.message}) — connect it again")
       rescue Delegations::Unavailable => e
@@ -108,14 +109,12 @@ class Resource
         Resource::Failed.new("#{key}: #{e.message}")
       end
 
-      def remember(secret, upstream = nil)
-        return if secret.blank? && upstream.nil?
-
+      def remember(secret, upstream = nil, **columns)
         held = credentials.to_h
         held = held.merge("delegation" => held["delegation"].to_h.merge("secret" => secret)) if secret.present?
         held = upstream ? held.merge("upstream" => upstream) : held.except("upstream")
 
-        update_columns(credentials: held)
+        update_columns(credentials: held, **columns)
       end
   end
 end

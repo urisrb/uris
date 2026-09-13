@@ -63,7 +63,7 @@ class Resource
     # being re-fetched from the URL it came from.
     def storage
       named = details["storage"].presence
-      found = named ? Resource.active.find_by(key: named) : Resource.default_storage
+      found = named ? Resource.active.shared.find_by(key: named) : Resource.default_storage
 
       if found.nil?
         raise Resource::Unusable,
@@ -170,7 +170,7 @@ class Resource
 
       def holding(locator)
         named = locator.to_h["storage"].presence
-        found = (named ? Resource.find_by(key: named) : nil) || storage
+        found = (named ? Resource.shared.find_by(key: named) : nil) || storage
 
         found.storage!
       end

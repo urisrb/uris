@@ -439,6 +439,10 @@ class Resource < ApplicationRecord
     false
   end
 
+  def connect_path
+    nil
+  end
+
   def syncing?
     sync_started_at.present? && sync_started_at > SYNC_ABANDONED_AFTER.ago
   end
