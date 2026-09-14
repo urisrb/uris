@@ -365,6 +365,14 @@ pre,
   font-size: var(--t-micro);
 }
 
+.hunt-question {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
 .hunt-where {
   flex: none;
   margin-left: auto;

@@ -1,6 +1,7 @@
 import { Button, Loader, Tooltip } from '@mantine/core'
 import type { Account } from '@masks/client'
-import { IconLink, IconSearch } from '@tabler/icons-react'
+import { IconLink, IconSearch, IconSparkles } from '@tabler/icons-react'
+import { AskCatalogDocument } from '@uris-to/client'
 import { useEffect, useRef, useState } from 'react'
 import {
   Link,
@@ -12,6 +13,7 @@ import {
   useSearchParams,
 } from 'react-router-dom'
 import { asUrl, type Intent, intentFor, shortly } from '../add'
+import { type Seeking, seekingFor } from '../asking'
 import { useSession } from '../hooks/useSession'
 import { useTitle } from '../hooks/useTitle'
 import { AddProvider, useAdd } from './Add'
@@ -25,7 +27,7 @@ import { Lost } from './Lost'
 import { Mark } from './Mark'
 import { Resources } from './Resources'
 import { Runs } from './Runs'
-import { SayProvider } from './Say'
+import { SayProvider, useAloud } from './Say'
 import { Preferences, Settings, SignedIn } from './Settings'
 import { UploadsProvider } from './Uploads'
 
@@ -188,6 +190,15 @@ function Shell({
   )
 }
 
+const SEEKS: { seeking: Seeking; what: string; where: string }[] = [
+  { seeking: 'search', what: 'Search', where: 'everything you keep' },
+  {
+    seeking: 'ask',
+    what: 'Ask',
+    where: 'answered from what you keep and the web',
+  },
+]
+
 const OFFERS: { intent: Intent; what: string; where: string }[] = [
   { intent: 'snapshot', what: 'Keep the page', where: 'as it looks now' },
   { intent: 'fetch', what: 'Keep the file', where: 'at that address' },
@@ -204,7 +215,10 @@ function Hunt() {
   const [draft, setDraft] = useState(term)
   const [wanted, setWanted] = useState<Intent | null>(null)
   const [said, setSaid] = useState<string | null>(null)
+  const [focused, setFocused] = useState(false)
+  const [chosen, setChosen] = useState<Seeking | null>(null)
   const box = useRef<HTMLInputElement | null>(null)
+  const ask = useAloud(AskCatalogDocument, 'That question could not be asked.')
 
   useEffect(() => setDraft(term), [term])
 
@@ -232,6 +246,14 @@ function Hunt() {
   const found = asUrl(draft)
   const intent = wanted ?? (found ? intentFor(found) : 'snapshot')
   const offering = found !== null && said === null
+  const typed = draft.trim()
+  const seeking = chosen ?? seekingFor(typed)
+  const choosing =
+    found === null &&
+    typed.length > 0 &&
+    typed !== term &&
+    focused &&
+    said === null
 
   const search = () => {
     const next = new URLSearchParams(params)
@@ -241,6 +263,18 @@ function Hunt() {
 
     if (window.location.pathname === '/') setParams(next)
     else navigate(`/?${next.toString()}`)
+  }
+
+  const asked = async () => {
+    const answered = await ask.execute({ question: typed })
+    const held = answered?.askCatalog
+
+    if (!held) return
+
+    setDraft('')
+    setChosen(null)
+    box.current?.blur()
+    navigate(`/items/${held.feed.id}`)
   }
 
   const keep = async (taking: Intent) => {
@@ -264,11 +298,14 @@ function Hunt() {
         event.preventDefault()
 
         if (found) keep(intent)
+        else if (typed && seeking === 'ask') asked()
         else search()
       }}
     >
       {found ? (
         <IconLink size={16} stroke={1.8} color="var(--brass)" />
+      ) : choosing && seeking === 'ask' ? (
+        <IconSparkles size={16} stroke={1.8} color="var(--brass)" />
       ) : (
         <IconSearch size={16} stroke={1.8} color="var(--muted)" />
       )}
@@ -279,12 +316,24 @@ function Hunt() {
         onChange={(event) => {
           setDraft(event.currentTarget.value)
           setWanted(null)
+          setChosen(null)
           setSaid(null)
         }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             setDraft('')
             event.currentTarget.blur()
+            return
+          }
+
+          if (
+            choosing &&
+            (event.key === 'ArrowDown' || event.key === 'ArrowUp')
+          ) {
+            event.preventDefault()
+            setChosen(seeking === 'ask' ? 'search' : 'ask')
             return
           }
 
@@ -295,8 +344,8 @@ function Hunt() {
             setWanted(intent === 'snapshot' ? 'fetch' : 'snapshot')
           }
         }}
-        placeholder="Search, or paste an address"
-        aria-label="Search everything you own, or paste an address"
+        placeholder="Search, ask anything, or paste an address"
+        aria-label="Search everything you own, ask a question, or paste an address"
       />
 
       {!draft && <kbd className="hunt-key">/</kbd>}
@@ -318,6 +367,26 @@ function Hunt() {
       )}
 
       {said && <div className="hunt-drop hunt-said">{said}</div>}
+
+      {choosing && (
+        <div className="hunt-drop">
+          {SEEKS.map((seek) => (
+            <button
+              key={seek.seeking}
+              type="button"
+              className="hunt-row"
+              data-on={seeking === seek.seeking}
+              disabled={ask.loading}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => (seek.seeking === 'ask' ? asked() : search())}
+            >
+              <span className="hunt-what">{seek.what}</span>
+              <span className="hunt-question">{typed}</span>
+              <span className="hunt-where">{seek.where}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {offering && (
         <div className="hunt-drop">
