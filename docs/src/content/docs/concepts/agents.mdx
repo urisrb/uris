@@ -109,6 +109,9 @@ analysis — every question and answer as its text, and a summary, entities and 
 of it — so the note is searched and summarised as the conversation it has become rather than as its
 first question.
 
+Each answer keeps what it drew on — the feeds it cited, opened or kept — as a `drew_on` step, and
+the note's page shows them under that answer. The note is still connected to all of them.
+
 The run is confined. `Current.confined_to` holds the feeds it made, and `feed`'s writing verbs
 refuse any other feed, so a page telling the agent to rewrite a note or rename a file cannot. It
 can create only notes, never a scheduled feed. `connect` needs one end to be the question or

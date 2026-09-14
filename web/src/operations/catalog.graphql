@@ -65,6 +65,9 @@ fragment Pass on Analysis {
   id
   cause
   question
+  drewOn {
+    id
+  }
   status
   error
   said
@@ -203,6 +206,9 @@ query Asked($id: ID!) {
       id
       cause
       question
+      drewOn {
+        ...Row
+      }
       status
       error
       said

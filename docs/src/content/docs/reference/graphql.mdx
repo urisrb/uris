@@ -93,6 +93,7 @@ Resolves only for a token carrying `uris:catalog:read`.
 | `cause` | `String!` |  |
 | `createdAt` | `ISO8601DateTime!` |  |
 | `deadline` | `ISO8601DateTime` | When it is cut off. It moves out when the agent asks for more time, never past a day from its start. |
+| `drewOn` | [`[Feed!]!`](#feed) | What this answer cited, opened or kept, each connected to the note it answers. |
 | `durationMs` | `Int` |  |
 | `error` | `String` |  |
 | `finishedAt` | `ISO8601DateTime` |  |

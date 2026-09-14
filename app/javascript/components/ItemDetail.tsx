@@ -81,7 +81,12 @@ export function ItemDetail() {
   )
   const viewable = originals.filter((reference) => reference.thumbnailUrl)
   const filed = item.connected.filter((held) => FACETS.has(held.type))
-  const related = item.connected.filter((held) => !FACETS.has(held.type))
+  const drawnOn = new Set(
+    item.analyses.flatMap((pass) => pass.drewOn.map((held) => held.id)),
+  )
+  const related = item.connected.filter(
+    (held) => !FACETS.has(held.type) && !drawnOn.has(held.id),
+  )
   const placement = placementOf(item.analyses)
   const name = item.title ?? item.key
 
@@ -303,7 +308,9 @@ export function ItemDetail() {
         <Stack gap="var(--s3)">
           <div className="label">
             {item.asked
-              ? 'What it drew on'
+              ? drawnOn.size > 0
+                ? 'Also connected'
+                : 'What it drew on'
               : ABOUT[item.type]
                 ? 'In it'
                 : 'Beside it'}

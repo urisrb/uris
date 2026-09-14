@@ -75,7 +75,7 @@ class AnalyzeFeedJob < ApplicationJob
       analysis.log_info("lead", led.reason.to_s, led.said)
       noted(answered)
       spoken(answered.said)
-      asking.connections(answered).each { |held| feed.connect!(held) }
+      drew(feed, asking.connections(answered))
       verified(asking, answered)
       Analyzer::Conversation.new(feed, analysis: analysis).roll_up!
 
@@ -86,6 +86,14 @@ class AnalyzeFeedJob < ApplicationJob
       Current.grant = nil
       Current.acting_for = nil
       Current.confined_to = nil
+    end
+
+    def drew(feed, held)
+      found = held.to_a
+      found.each { |other| feed.connect!(other) }
+
+      now = Time.current.iso8601(3)
+      analysis.write_step!("drew_on", { "started_at" => now, "finished_at" => now, "result" => found.map(&:id) })
     end
 
     def verified(asking, answered)

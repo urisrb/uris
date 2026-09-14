@@ -3,7 +3,7 @@ class Analysis < ApplicationRecord
   STATUSES = %w[queued running done failed cancelled gated].freeze
   OPEN = %w[queued running].freeze
   SETTLED = %w[done failed].freeze
-  BOOKKEEPING = %w[placement derived answer].freeze
+  BOOKKEEPING = %w[placement derived answer drew_on].freeze
   BULK = %w[sync edge].freeze
   ASKED_PRIORITY = 0
   BULK_PRIORITY = 10

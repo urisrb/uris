@@ -69,8 +69,8 @@ class AskingTest < ActionDispatch::IntegrationTest
     first = ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
-    scout("Find when the Acme invoice is due") { @server.answer("It is due on 1 October.") }
-    @server.answer("It is due on 1 October.")
+    scout("Find when the Acme invoice is due") { @server.answer("It is due on 1 October [feed #{@other.id}].") }
+    @server.answer("It is due on 1 October [feed #{@other.id}].")
     followed = follow_up(first.dig("feed", "id"), "When is it due?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
@@ -80,16 +80,19 @@ class AskingTest < ActionDispatch::IntegrationTest
     assert lead, "the lead of the follow-up is told the conversation so far"
     assert_match(/Asked: How much is the Acme invoice\?\nAnswered: The Acme invoice is for \$4,200/, lead)
 
-    passes = graphql("query($id: ID) { feed(id: $id) { analyses { cause question said } } }",
+    passes = graphql("query($id: ID) { feed(id: $id) { analyses { cause question said drewOn { id } } } }",
                      id: first.dig("feed", "id")).dig("feed", "analyses").select { |pass| pass["cause"] == "ask" }.reverse
 
     assert_equal [ "How much is the Acme invoice?", "When is it due?" ], passes.pluck("question")
-    assert_equal "It is due on 1 October.", passes.last["said"]
+    assert_equal "It is due on 1 October [feed #{@other.id}].", passes.last["said"]
+    assert_equal [ [ @invoice.id.to_s ], [ @other.id.to_s ] ], passes.map { |pass| pass["drewOn"].pluck("id") },
+                 "each answer keeps what it drew on, though the note is connected to all of it"
 
     Tenant.switch(@tenant) do
       rolled = Analysis.find(followed.dig("analysis", "id")).step_result("conversation")
 
-      assert_match(/Asked: How much is the Acme invoice\?.*\$4,200.*Asked: When is it due\?\nAnswered: It is due on 1 October\./m, rolled)
+      assert_match(/Asked: How much is the Acme invoice\?.*\$4,200.*Asked: When is it due\?\nAnswered: It is due on 1 October/m, rolled)
+      assert_equal [ @invoice.id, @other.id ].sort, Feed.find(first.dig("feed", "id")).connected.pluck(:id).sort
       assert_includes Feed.find(first.dig("feed", "id")).body_text, "1 October"
     end
   end

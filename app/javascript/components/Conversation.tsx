@@ -1,11 +1,11 @@
-import { Button, Text } from '@mantine/core'
+import { Button, Stack, Text } from '@mantine/core'
 import { IconArrowRight, IconSparkles } from '@tabler/icons-react'
 import { AskCatalogDocument, AskedDocument } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
 import { useEffect, useRef, useState } from 'react'
 import { AnswerText } from './Answer'
 import { Progress } from './FeedHead'
-import type { Row } from './Rows'
+import { type Row, Rows } from './Rows'
 import { RUN_OPEN } from './RunLog'
 import { useAloud } from './Say'
 
@@ -73,7 +73,15 @@ export function Conversation({
               }}
             />
           ) : pass.status === 'done' && pass.said ? (
-            <AnswerText said={pass.said} cited={cited} />
+            <>
+              <AnswerText said={pass.said} cited={cited} />
+              {pass.drewOn.length > 0 && (
+                <Stack gap="var(--s2)">
+                  <div className="label">What it drew on</div>
+                  <Rows rows={pass.drewOn as Row[]} />
+                </Stack>
+              )}
+            </>
           ) : (
             <Text size="sm" style={{ color: 'var(--bad)' }}>
               {pass.error ?? 'It could not answer that.'}
