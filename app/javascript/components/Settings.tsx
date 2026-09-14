@@ -76,9 +76,7 @@ export function SignedIn({
       <div className="eyebrow">Who you are signed in as</div>
 
       <div className="profile">
-        <div className="profile-face">
-          <Face account={account} size={88} />
-        </div>
+        <Face account={account} size={56} />
 
         <div className="profile-who">
           <div className="profile-name">{named}</div>
@@ -102,7 +100,7 @@ export function SignedIn({
             color="chalk"
             rightSection={<IconArrowUpRight size={16} stroke={1.8} />}
           >
-            Your masks profile
+            Manage account
           </Button>
         )}
       </div>

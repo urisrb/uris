@@ -24,7 +24,10 @@ export function Face({
 
   if (!src || broken === src) {
     return (
-      <span className="face face-letters" style={{ width: size, height: size }}>
+      <span
+        className="face face-letters"
+        style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}
+      >
         {letters(account)}
       </span>
     )
