@@ -312,7 +312,10 @@ class FakeSearchEngine
 
       held.fetch("fields").any? do |field|
         found = terms(document[field.split("^").first])
-        wanted.all? { |term| found.include?(term) }
+        whole = held["type"] == "bool_prefix" ? wanted[0...-1] : wanted
+        begun = held["type"] == "bool_prefix" ? wanted.last : nil
+
+        whole.all? { |term| found.include?(term) } && (begun.nil? || found.any? { |term| term.start_with?(begun) })
       end
     end
 

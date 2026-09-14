@@ -27,6 +27,14 @@ class SearchIndexTest < ActiveSupport::TestCase
     end
   end
 
+  test "the last word is matched as it begins, so a search typed a letter at a time finds as it goes" do
+    Tenant.switch(@demo) do
+      assert_equal [ "March invoice" ], Feed.search("Marc").pluck(:title)
+      assert_equal [ "March invoice" ], Feed.search("march inv").pluck(:title)
+      assert_empty Feed.search("arch invoice").pluck(:title), "only the last word is taken as unfinished"
+    end
+  end
+
   test "search finds items by locator" do
     requires_search_engine!
 

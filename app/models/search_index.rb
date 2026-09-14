@@ -224,7 +224,7 @@ module SearchIndex
       must = if query.present?
         [ { multi_match: {
           query: query, fields: %w[title^3 key^3 keywords^3 note^2 summary^2 tags^2 locator_key body],
-          **(loosely ? { operator: "or", minimum_should_match: LOOSE_MATCH } : { operator: "and" })
+          **(loosely ? { operator: "or", minimum_should_match: LOOSE_MATCH } : { operator: "and", type: "bool_prefix" })
         } } ]
       else
         [ { match_all: {} } ]
