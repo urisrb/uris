@@ -67,6 +67,7 @@ class AnalyzeFeedJob < ApplicationJob
                        halted: -> { analysis.halted? }, unfinished: ->(calls) { asking.led(calls) },
                        system: Asking::LEAD_SYSTEM, label: "lead")
 
+      asking.title!
       Current.grant = grant
       Current.acting_for = feed.id
       Current.confined_to = Concurrent::Set.new

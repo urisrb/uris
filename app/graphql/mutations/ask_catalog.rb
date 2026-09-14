@@ -3,7 +3,6 @@
 module Mutations
   class AskCatalog < BaseMutation
     MAX_QUESTION = 500
-    TITLE = 200
 
     argument :question, String, required: true
     argument :feed_id, ID, required: false,
@@ -19,7 +18,7 @@ module Mutations
       refused("a question needs something in it") if text.empty?
       refused("that question is longer than #{MAX_QUESTION} characters") if text.length > MAX_QUESTION
 
-      feed = feed_id ? asked!(feed_id) : Feed.create!(type: Feed::NOTE, key: text, title: text.truncate(TITLE), origin: "feed")
+      feed = feed_id ? asked!(feed_id) : Feed.create!(type: Feed::NOTE, key: text, origin: "feed")
 
       { feed: feed, analysis: feed.ask!(text) }
     rescue ArgumentError => e

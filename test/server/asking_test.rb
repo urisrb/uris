@@ -127,6 +127,43 @@ class AskingTest < ActionDispatch::IntegrationTest
     assert_includes note["keywords"], "due date"
   end
 
+  test "a question is kept untitled and named by the fast model before the scouts set out" do
+    Tenant.switch(@tenant) do
+      Resource::OpenaiCompatible.find_by!(key: "ollama")
+        .update!(details: { "base_url" => @server.base_url, "models" => { "agent" => "qwen3:8b", "fast" => "qwen3:8b" } })
+    end
+
+    @server.answer_json(title: "Vancouver weather today, please and thank you")
+    scout("Find the weather in Vancouver") { @server.answer("14°C and raining.") }
+    @server.answer("It is 14°C and raining in Vancouver.")
+
+    asked = ask("can you check the weather for vancouver on https://open-meteo.com/")
+
+    assert_nil asked.dig("feed", "title"), "a question is not its own title"
+
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    Tenant.switch(@tenant) do
+      note = Feed.find(asked.dig("feed", "id"))
+
+      assert_equal "Vancouver weather today, please and thank", note.title
+      assert_equal "can you check the weather for vancouver on https://open-meteo.com/", note.key
+      assert_equal "can you check the weather for vancouver on https://open-meteo.com/", note.conversation.first.question
+    end
+
+    named = @server.prompts.find { |prompt| prompt.include?("Name the question") }
+    lead = @server.prompts.index { |prompt| prompt.include?("You lead scouts") || prompt.include?("Send scouts with scout") }
+    assert named, "the fast model is asked for a title"
+    assert_operator @server.prompts.index(named), :<, lead, "before the lead sends anyone"
+  end
+
+  test "with no fast model the note keeps its question and goes untitled" do
+    asked = ask("How much is the Acme invoice?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    Tenant.switch(@tenant) { assert_nil Feed.find(asked.dig("feed", "id")).title }
+  end
+
   test "a follow-up waits for the question before it to be answered" do
     first = ask("How much is the Acme invoice?")
     refused = execute(FOLLOW_UP, id: first.dig("feed", "id"), question: "When is it due?")

@@ -73,6 +73,9 @@ or write into a resource, reach an added MCP server, or touch settings.
 ## Asking
 
 A question asked of the catalog is kept as a note and answered by an analysis with the cause `ask`.
+The note's key is the question and it starts untitled; before the lead sends a scout, the model that
+serves the `fast` role names it in a few words — "Toronto weather" — and a tenant with no fast model
+leaves the question to stand for it.
 `Asking` builds the prompts, and everything runs under the question's own grant, holding
 `Feed::ASKING_SCOPES`:
 

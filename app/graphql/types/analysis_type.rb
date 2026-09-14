@@ -41,7 +41,7 @@ module Types
     def question
       return nil unless object.cause == "ask"
 
-      object.question.presence || object.feed.title || object.feed.key
+      object.question.presence || object.feed.key || object.feed.title
     end
 
     def verified

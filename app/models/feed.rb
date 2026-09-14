@@ -297,7 +297,7 @@ class Feed < ApplicationRecord
   end
 
   def analyze!(cause: "manual")
-    return ask!(conversation.last&.question || title || key) if cause.to_s == "ask"
+    return ask!(conversation.last&.question || key || title) if cause.to_s == "ask"
 
     Analysis.open!(feed: self, cause: cause).tap do |held|
       AnalyzeFeedJob.set(priority: Analysis.priority_for(cause)).perform_later(tenant_id, id, held.id)
@@ -320,7 +320,7 @@ class Feed < ApplicationRecord
 
     turns.map do |held|
       said = held.step_result("answer").to_h["said"].presence || held.step_result("text").presence
-      Turn.new(analysis: held, question: held.question.presence || title || key, said: said)
+      Turn.new(analysis: held, question: held.question.presence || key || title, said: said)
     end
   end
 
