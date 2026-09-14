@@ -40,6 +40,7 @@ class Asking
   TEXT
 
   TITLE_ROLE = :fast
+  LATER_TITLE_ROLES = [ :fast, :smart, Resource::OpenaiCompatible::AGENT_ROLE ].freeze
   TITLE_WORDS = 6
 
   TITLE = <<~TEXT.freeze
@@ -126,13 +127,14 @@ class Asking
     @analysis&.question.presence || feed.key || feed.title
   end
 
-  def title!
+  def title!(later: false)
     return if feed.title.present?
 
-    inference = Resource.for_role(TITLE_ROLE)
+    role = later ? LATER_TITLE_ROLES.find { |held| Resource.for_role(held) } : TITLE_ROLE
+    inference = role && Resource.for_role(role)
     return if inference.nil?
 
-    named = inference.summarize(format(TITLE, question: question), role: TITLE_ROLE, analysis: @analysis)["title"]
+    named = inference.summarize(format(TITLE, question: question), role: role, analysis: @analysis)["title"]
     named = named.to_s.squish.delete_prefix('"').delete_suffix('"').truncate_words(TITLE_WORDS, omission: "")
     return if named.blank?
 

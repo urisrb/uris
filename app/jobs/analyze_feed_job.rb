@@ -78,6 +78,7 @@ class AnalyzeFeedJob < ApplicationJob
       spoken(answered.said)
       drew(feed, asking.connections(answered))
       verified(asking, answered)
+      asking.title!(later: true)
       Analyzer::Conversation.new(feed, analysis: analysis).roll_up!
 
       finish

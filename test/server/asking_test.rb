@@ -106,6 +106,7 @@ class AskingTest < ActionDispatch::IntegrationTest
     scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
     @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
     10.times { @server.answer_json(answered: true, useful: true, why: "it says so") }
+    @server.answer_json(title: "Acme invoice")
     @server.answer_json(summary: "Asked what the Acme invoice costs: $4,200.", entities: [ "Acme" ], keywords: [ "Acme invoice" ])
     first = ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
@@ -157,11 +158,20 @@ class AskingTest < ActionDispatch::IntegrationTest
     assert_operator @server.prompts.index(named), :<, lead, "before the lead sends anyone"
   end
 
-  test "with no fast model the note keeps its question and goes untitled" do
+  test "with no fast model the note is named later, by the slower model, once the answer is in" do
+    scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
+    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+    10.times { @server.answer_json(answered: true, useful: true, why: "it says so") }
+    @server.answer_json(title: "Acme invoice total")
+
     asked = ask("How much is the Acme invoice?")
     perform_enqueued_jobs(only: AnalyzeFeedJob)
 
-    Tenant.switch(@tenant) { assert_nil Feed.find(asked.dig("feed", "id")).title }
+    named = @server.prompts.index { |prompt| prompt.include?("Name the question") }
+    judged = @server.prompts.rindex { |prompt| prompt.include?("Respond with JSON: {\"answered\"") }
+
+    assert_operator named, :>, judged, "named after the answer, not before the scouts"
+    Tenant.switch(@tenant) { assert_equal "Acme invoice total", Feed.find(asked.dig("feed", "id")).title }
   end
 
   test "a follow-up waits for the question before it to be answered" do
