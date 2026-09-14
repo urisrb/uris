@@ -133,6 +133,13 @@ pre,
   color: var(--bright);
 }
 
+.page-title-line {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .eyebrow {
   color: var(--muted);
   font-size: var(--t-small);

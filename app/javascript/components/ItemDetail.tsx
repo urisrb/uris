@@ -553,13 +553,13 @@ function Naming({
       <button
         type="button"
         className="naming"
-        title="Rename"
+        title={title ? `Rename ${title}` : 'Rename'}
         onClick={() => {
           setDraft(title)
           setNaming(true)
         }}
       >
-        <h1 className="page-title">{title || 'Untitled'}</h1>
+        <h1 className="page-title page-title-line">{title || 'Untitled'}</h1>
         <IconPencil size={17} stroke={1.7} />
       </button>
     )

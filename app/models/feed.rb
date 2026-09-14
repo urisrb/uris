@@ -60,6 +60,8 @@ class Feed < ApplicationRecord
   scope :by_key, ->(value) { where(key: value.to_s) }
   scope :expired, -> { where(expires_at: ..Time.current) }
 
+  normalizes :title, with: ->(value) { value.to_s.squish.presence }
+
   before_destroy :forget_edges
 
   after_commit :index_for_search, on: [ :create, :update ]
