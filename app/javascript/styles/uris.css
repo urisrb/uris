@@ -259,11 +259,6 @@ pre,
   background: var(--raised);
 }
 
-.profile .face-letters {
-  background: var(--lifted);
-  border-color: var(--edge);
-}
-
 .profile-who {
   flex: 1;
   min-width: min(100%, 14rem);
@@ -297,6 +292,11 @@ pre,
   letter-spacing: 0.02em;
   color: var(--soft);
   border: 1px solid var(--line);
+}
+
+.profile .face-letters {
+  background: var(--lifted);
+  border-color: var(--edge);
 }
 
 .shell-main {
