@@ -20,12 +20,20 @@ module Types
     field :deadline, GraphQL::Types::ISO8601DateTime,
           description: "When it is cut off. It moves out when the agent asks for more time, never past a day from its start."
     field :said, String, description: "What the agent answered when the pass finished, if it ran."
+    field :question, String,
+          description: "What this pass was asked, when it answers a question: the note's first question, or a follow-up."
     field :verified, Float,
           description: "How many independent judges, as a share from 0 to 1, found the answer answered " \
                        "the question from what its tools returned. Null until it has been judged."
     field :useful, Float,
           description: "How many of the same judges, as a share from 0 to 1, found what the answer kept " \
                        "in the catalog worth having again. Null until it has been judged."
+
+    def question
+      return nil unless object.cause == "ask"
+
+      object.question.presence || object.feed.title || object.feed.key
+    end
 
     def verified
       object.step_result("verified").to_h["score"]

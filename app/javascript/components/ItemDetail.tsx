@@ -28,7 +28,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 import { hrefFor, lookOf, TYPE, toned } from '../looks'
-import { AnswerText } from './Answer'
+import { Conversation } from './Conversation'
 import { Passes, placementOf, why } from './Passes'
 import { Rows } from './Rows'
 import { useAloud, useSay } from './Say'
@@ -83,9 +83,6 @@ export function ItemDetail() {
   const filed = item.connected.filter((held) => FACETS.has(held.type))
   const related = item.connected.filter((held) => !FACETS.has(held.type))
   const placement = placementOf(item.analyses)
-  const answer = item.analyses.find(
-    (pass) => pass.cause === 'ask' && pass.status === 'done',
-  )
   const name = item.title ?? item.key
 
   return (
@@ -262,13 +259,12 @@ export function ItemDetail() {
         />
       )}
 
-      {item.asked && answer?.said && (
-        <Stack gap="var(--s2)">
-          <div className="label">The answer</div>
-          <div className="panel" style={{ padding: 'var(--s4) var(--s5)' }}>
-            <AnswerText said={answer.said} cited={item.connected} />
-          </div>
-        </Stack>
+      {item.asked && (
+        <Conversation
+          feedId={item.id}
+          cited={item.connected}
+          onChanged={settled}
+        />
       )}
 
       {!facet && !item.asked && item.summary && (

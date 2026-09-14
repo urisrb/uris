@@ -99,6 +99,16 @@ With a fetch resource, such as `curl`, it can read a page. With a `web` resource
 a snapshot, which becomes an item of its own, and keeping the same address again later updates that
 item. Without any of them the question is asked of the catalog alone.
 
+A note that was asked is a conversation. `askCatalog` with the note's `feedId` asks a follow-up in
+it, once the question before has been answered; the question is kept on the analysis that answers
+it, and **Ask again** asks the latest one again. The lead of a follow-up is told the earlier questions
+and their answers, up to eight of them with each answer cut to 1,500 characters, and told to read the
+new question in their light without answering them again; its scouts are told which questions it
+follows. When the reply lands, `Analyzer::Conversation` rolls the whole conversation into the
+analysis — every question and answer as its text, and a summary, entities and keywords made from all
+of it — so the note is searched and summarised as the conversation it has become rather than as its
+first question.
+
 The run is confined. `Current.confined_to` holds the feeds it made, and `feed`'s writing verbs
 refuse any other feed, so a page telling the agent to rewrite a note or rename a file cannot. It
 can create only notes, never a scheduled feed. `connect` needs one end to be the question or

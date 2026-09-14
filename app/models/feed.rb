@@ -273,9 +273,33 @@ class Feed < ApplicationRecord
     references.maximum(:analyzed_at) || staged&.analyzed_at || (analysis&.finished_at unless file?)
   end
 
+  Turn = Data.define(:analysis, :question, :said)
+
   def analyze!(cause: "manual")
+    return ask!(conversation.last&.question || title || key) if cause.to_s == "ask"
+
     Analysis.open!(feed: self, cause: cause).tap do |held|
       AnalyzeFeedJob.set(priority: Analysis.priority_for(cause)).perform_later(tenant_id, id, held.id)
+    end
+  end
+
+  def ask!(question)
+    raise ArgumentError, "only a note can be asked" unless note?
+    raise ArgumentError, "#{title || key} is still being answered" if analyses.open.exists?(cause: "ask")
+
+    Analysis.create!(feed: self, cause: "ask", question: question.to_s.squish,
+                     deadline: Analysis.default_deadline, steps: {}).tap do |held|
+      AnalyzeFeedJob.set(priority: Analysis.priority_for("ask")).perform_later(tenant_id, id, held.id)
+    end
+  end
+
+  def conversation(through: nil)
+    turns = analyses.where(cause: "ask").reorder(:id)
+    turns = turns.where(id: ..through.id) if through
+
+    turns.map do |held|
+      said = held.step_result("answer").to_h["said"].presence || held.step_result("text").presence
+      Turn.new(analysis: held, question: held.question.presence || title || key, said: said)
     end
   end
 

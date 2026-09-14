@@ -64,6 +64,7 @@ query Search($query: String, $types: [String!], $after: ID, $limit: Int) {
 fragment Pass on Analysis {
   id
   cause
+  question
   status
   error
   said
@@ -177,8 +178,8 @@ mutation NoteFeed($id: ID!, $note: String) {
   }
 }
 
-mutation AskCatalog($question: String!) {
-  askCatalog(input: { question: $question }) {
+mutation AskCatalog($question: String!, $feedId: ID) {
+  askCatalog(input: { question: $question, feedId: $feedId }) {
     feed {
       id
       title
@@ -201,6 +202,7 @@ query Asked($id: ID!) {
     analyses {
       id
       cause
+      question
       status
       error
       said

@@ -10,6 +10,12 @@ class AskingTest < ActionDispatch::IntegrationTest
     }
   GQL
 
+  FOLLOW_UP = <<~GQL.freeze
+    mutation($id: ID!, $question: String!) {
+      askCatalog(input: { question: $question, feedId: $id }) { feed { id } analysis { id question } }
+    }
+  GQL
+
   setup do
     SearchIndex.reset!
 
@@ -55,6 +61,96 @@ class AskingTest < ActionDispatch::IntegrationTest
       assert_match(/lead : turn 1 : scout/, analysis.logs)
       assert_match(/scout 1 : turn 1 : search/, analysis.logs)
     end
+  end
+
+  test "a follow-up is asked in the same note, told what was asked before, and the whole conversation is rolled up" do
+    scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
+    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+    first = ask("How much is the Acme invoice?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    scout("Find when the Acme invoice is due") { @server.answer("It is due on 1 October.") }
+    @server.answer("It is due on 1 October.")
+    followed = follow_up(first.dig("feed", "id"), "When is it due?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    assert_equal first.dig("feed", "id"), followed.dig("feed", "id"), "the follow-up stays in the note it follows"
+
+    lead = @server.prompts.reverse.find { |prompt| prompt.include?("When is it due?") && prompt.include?("It follows on from") }
+    assert lead, "the lead of the follow-up is told the conversation so far"
+    assert_match(/Asked: How much is the Acme invoice\?\nAnswered: The Acme invoice is for \$4,200/, lead)
+
+    passes = graphql("query($id: ID) { feed(id: $id) { analyses { cause question said } } }",
+                     id: first.dig("feed", "id")).dig("feed", "analyses").select { |pass| pass["cause"] == "ask" }.reverse
+
+    assert_equal [ "How much is the Acme invoice?", "When is it due?" ], passes.pluck("question")
+    assert_equal "It is due on 1 October.", passes.last["said"]
+
+    Tenant.switch(@tenant) do
+      rolled = Analysis.find(followed.dig("analysis", "id")).step_result("conversation")
+
+      assert_match(/Asked: How much is the Acme invoice\?.*\$4,200.*Asked: When is it due\?\nAnswered: It is due on 1 October\./m, rolled)
+      assert_includes Feed.find(first.dig("feed", "id")).body_text, "1 October"
+    end
+  end
+
+  test "once the reply lands the note is catalogued again from the whole conversation" do
+    Tenant.switch(@tenant) do
+      Resource::OpenaiCompatible.find_by!(key: "ollama")
+        .update!(details: { "base_url" => @server.base_url, "models" => { "agent" => "qwen3:8b", "smart" => "qwen3:8b" } })
+    end
+
+    scout("Find the Acme invoice's total") { @server.answer("It is $4,200 [feed #{@invoice.id}].") }
+    @server.answer("The Acme invoice is for $4,200 [feed #{@invoice.id}].")
+    10.times { @server.answer_json(answered: true, useful: true, why: "it says so") }
+    @server.answer_json(summary: "Asked what the Acme invoice costs: $4,200.", entities: [ "Acme" ], keywords: [ "Acme invoice" ])
+    first = ask("How much is the Acme invoice?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    scout("Find when it is due") { @server.answer("1 October.") }
+    @server.answer("It is due on 1 October.")
+    10.times { @server.answer_json(answered: true, useful: true, why: "it says so") }
+    @server.answer_json(summary: "The Acme invoice is $4,200, due on 1 October.", entities: [ "Acme", "1 October" ],
+                        keywords: [ "Acme invoice", "due date" ])
+    follow_up(first.dig("feed", "id"), "When is it due?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    summarised = @server.prompts.reverse.find { |prompt| prompt.include?("Catalogue the conversation") }
+    assert_match(/Asked: How much is the Acme invoice\?.*Asked: When is it due\?/m, summarised)
+
+    note = graphql("query($id: ID) { feed(id: $id) { summary keywords } }", id: first.dig("feed", "id"))["feed"]
+
+    assert_equal "The Acme invoice is $4,200, due on 1 October.", note["summary"]
+    assert_includes note["keywords"], "due date"
+  end
+
+  test "a follow-up waits for the question before it to be answered" do
+    first = ask("How much is the Acme invoice?")
+    refused = execute(FOLLOW_UP, id: first.dig("feed", "id"), question: "When is it due?")
+
+    assert_nil refused.dig("data", "askCatalog")
+    assert_match(/still being answered/, refused.dig("errors", 0, "message"))
+  end
+
+  test "a note nobody asked cannot be followed up" do
+    refused = execute(FOLLOW_UP, id: @invoice.id.to_s, question: "When is it due?")
+
+    assert_match(/never asked/, refused.dig("errors", 0, "message"))
+  end
+
+  test "asking again asks the latest question in the conversation" do
+    scout("Find it") { @server.answer("$4,200.") }
+    @server.answer("$4,200.")
+    first = ask("How much is the Acme invoice?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+    scout("Find the date") { @server.answer("1 October.") }
+    @server.answer("1 October.")
+    follow_up(first.dig("feed", "id"), "When is it due?")
+    perform_enqueued_jobs(only: AnalyzeFeedJob)
+
+    again = graphql("mutation($id: ID!) { analyzeFeed(input: { id: $id }) { analysis { id } } }", id: first.dig("feed", "id"))
+
+    Tenant.switch(@tenant) { assert_equal "When is it due?", Analysis.find(again.dig("analyzeFeed", "analysis", "id")).question }
   end
 
   test "the lead is turned back when it answers without sending a scout" do
@@ -243,6 +339,10 @@ class AskingTest < ActionDispatch::IntegrationTest
 
     def ask(question)
       post_ask(question).dig("data", "askCatalog")
+    end
+
+    def follow_up(id, question)
+      execute(FOLLOW_UP, id: id, question: question).dig("data", "askCatalog")
     end
 
     def post_ask(question)

@@ -59,7 +59,7 @@ class AnalyzeFeedJob < ApplicationJob
   private
 
     def answer(feed)
-      asking = Asking.new(feed)
+      asking = Asking.new(feed, analysis: analysis)
       grant = feed.grant(scopes: Feed::ASKING_SCOPES)
       scouting = Scouting.new(grant: grant, analysis: analysis, briefing: ->(task) { asking.briefing(task) },
                               unfinished: ->(calls) { asking.unfinished(calls) })
@@ -77,6 +77,7 @@ class AnalyzeFeedJob < ApplicationJob
       spoken(answered.said)
       asking.connections(answered).each { |held| feed.connect!(held) }
       verified(asking, answered)
+      Analyzer::Conversation.new(feed, analysis: analysis).roll_up!
 
       finish
     rescue Agent::Refused, Resource::Unusable => e
