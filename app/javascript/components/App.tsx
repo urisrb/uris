@@ -1,7 +1,7 @@
 import { Button, Loader, Tooltip } from '@mantine/core'
 import type { Account } from '@masks/client'
 import { IconLink, IconSearch } from '@tabler/icons-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Link,
   Navigate,
@@ -188,6 +188,8 @@ function Shell({
   )
 }
 
+const SEARCH_PAUSE = 250
+
 const OFFERS: { intent: Intent; what: string; where: string }[] = [
   { intent: 'snapshot', what: 'Keep the page', where: 'as it looks now' },
   { intent: 'fetch', what: 'Keep the file', where: 'at that address' },
@@ -205,8 +207,14 @@ function Hunt() {
   const [wanted, setWanted] = useState<Intent | null>(null)
   const [said, setSaid] = useState<string | null>(null)
   const box = useRef<HTMLInputElement | null>(null)
+  const sought = useRef(term)
 
-  useEffect(() => setDraft(term), [term])
+  useEffect(() => {
+    if (term === sought.current) return
+
+    sought.current = term
+    setDraft(term)
+  }, [term])
 
   useEffect(() => {
     const reach = (event: KeyboardEvent) => {
@@ -233,15 +241,30 @@ function Hunt() {
   const intent = wanted ?? (found ? intentFor(found) : 'snapshot')
   const offering = found !== null && said === null
 
-  const search = () => {
-    const next = new URLSearchParams(params)
+  const search = useCallback(
+    (text: string) => {
+      const next = new URLSearchParams(window.location.search)
 
-    if (draft.trim()) next.set('q', draft.trim())
-    else next.delete('q')
+      if (text) next.set('q', text)
+      else next.delete('q')
 
-    if (window.location.pathname === '/') setParams(next)
-    else navigate(`/?${next.toString()}`)
-  }
+      sought.current = text
+
+      if (window.location.pathname === '/') setParams(next, { replace: true })
+      else navigate(`/?${next.toString()}`)
+    },
+    [setParams, navigate],
+  )
+
+  useEffect(() => {
+    const text = draft.trim()
+
+    if (found || text === sought.current) return
+
+    const pause = window.setTimeout(() => search(text), SEARCH_PAUSE)
+
+    return () => window.clearTimeout(pause)
+  }, [draft, found, search])
 
   const keep = async (taking: Intent) => {
     const outcome = await keepUrl(draft, taking)
@@ -264,7 +287,7 @@ function Hunt() {
         event.preventDefault()
 
         if (found) keep(intent)
-        else search()
+        else search(draft.trim())
       }}
     >
       {found ? (
