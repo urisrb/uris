@@ -166,6 +166,7 @@ function Shell({
                 path="account"
                 element={
                   <SignedIn
+                    account={account}
                     who={who}
                     tenant={tenant}
                     logout={logout}

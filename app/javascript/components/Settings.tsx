@@ -1,7 +1,9 @@
 import { Alert, Button, Group, Loader, Stack } from '@mantine/core'
+import type { Account } from '@masks/client'
 import {
   IconActivity,
   IconAdjustments,
+  IconArrowUpRight,
   IconDatabase,
   IconProgressCheck,
   IconUser,
@@ -10,6 +12,7 @@ import { SetSettingDocument, SettingsDocument } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
+import { Face } from './Face'
 import { useAloud } from './Say'
 
 const TABS = [
@@ -45,11 +48,13 @@ export function Settings() {
 }
 
 export function SignedIn({
+  account,
   who,
   tenant,
   logout,
   logoutEverywhere,
 }: {
+  account: Account
   who: string
   tenant?: string | null
   logout: () => void
@@ -57,18 +62,57 @@ export function SignedIn({
 }) {
   useTitle('Account')
 
+  const profile = (account as Account & { account_url?: string }).account_url
+  const named = account.name ?? who
+  const also = [
+    account.nickname && account.nickname !== named
+      ? `@${account.nickname}`
+      : null,
+    account.email,
+  ].filter(Boolean)
+
   return (
     <Stack gap="var(--s5)">
       <div className="eyebrow">Who you are signed in as</div>
 
+      <div className="profile">
+        <div className="profile-face">
+          <Face account={account} size={88} />
+        </div>
+
+        <div className="profile-who">
+          <div className="profile-name">{named}</div>
+          {also.length > 0 && (
+            <div className="profile-also">{also.join(' · ')}</div>
+          )}
+          <div className="profile-note">
+            {tenant
+              ? `Signed in to ${tenant}. Your name, photo, password and passkeys live in masks, not here.`
+              : 'Your name, photo, password and passkeys live in masks, not here.'}
+          </div>
+        </div>
+
+        {profile && (
+          <Button
+            component="a"
+            href={profile}
+            target="_blank"
+            rel="noreferrer"
+            radius="xl"
+            color="chalk"
+            rightSection={<IconArrowUpRight size={16} stroke={1.8} />}
+          >
+            Your masks profile
+          </Button>
+        )}
+      </div>
+
       <div className="panel">
         <div className="setting">
           <div>
-            <div className="setting-name">{who}</div>
+            <div className="setting-name">Sign out</div>
             <div className="setting-note">
-              {tenant
-                ? `Signed in to ${tenant}. Your sign-in lives in masks, not here.`
-                : 'Your sign-in lives in masks, not here.'}
+              Here only, or everywhere masks has signed you in.
             </div>
           </div>
 
