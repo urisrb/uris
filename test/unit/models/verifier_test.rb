@@ -36,6 +36,21 @@ class VerifierTest < ActiveSupport::TestCase
     assert(@server.prompts.none? { |prompt| prompt.include?("the secret refusal") })
   end
 
+  test "a follow-up saying an earlier answer again is judged against that answer, though no tool ran" do
+    @server.answer_json(answered: true, useful: true, why: "it restates the earlier answer")
+
+    Tenant.switch(@tenant) do
+      Verifier.new(inference: inference, runs: 1).call(
+        question: "Asked: what is the weather in vancouver\nAnswered: It is 14°C and raining.\n\nThen asked: can you output in markdown",
+        answer: "**14°C** and *raining*.", calls: []
+      )
+    end
+
+    judged = @server.prompts.last
+    assert_match(/supported\s+by\s+what\s+the\s+tools\s+returned,\s+or,\s+where\s+the\s+question\s+shows\s+earlier\s+questions/, judged)
+    assert_includes judged, "Answered: It is 14°C and raining."
+  end
+
   test "a judge that cannot answer abstains rather than counting against it" do
     @server.answer_json(answered: "true", why: "yes")
 
