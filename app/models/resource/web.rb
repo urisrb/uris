@@ -186,7 +186,8 @@ class Resource
       def described(reference)
         summary(reference.locator).merge(
           "id" => reference.feed_id.to_s,
-          "mime" => reference.mime
+          "mime" => reference.mime,
+          "new" => reference.previously_new_record?
         )
       end
 

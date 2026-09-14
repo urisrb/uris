@@ -39,6 +39,20 @@ filed and never what a parser guessed.
 `origin` is `resource` by default — the feed came from syncing a resource — or `feed`, for one an
 analysis minted. A synced feed cannot later be relabelled as minted.
 
+## Lifetime
+
+A feed lasts forever unless it has an `expires_at`, and `ForgetExpiredJob` forgets one whose day
+has passed, every hour, the way forgetting it by hand would: its references, analyses and edges go
+with it, and the bytes uris made for it are deleted. What stays true is kept; a forecast, a price or
+an API's answer does not have to be.
+
+What an agent makes or keeps while answering a question — a note it creates, a page it snapshots,
+an object it keeps — lasts 30 days unless it says otherwise, by passing `lasts` as `forever` or a
+number of days. Keeping something that already existed leaves its lifetime alone. Outside a
+question, what a tool makes lasts forever unless `lasts` says otherwise. An agent can change the
+lifetime of what it made with `feed`, `do=last`; a person can change any with `setFeedLifetime`,
+and the item's page offers **Keep forever**.
+
 ## Parents and children
 
 Some files hold other files, as an email holds its attachments. When an analyzer can extract

@@ -144,6 +144,20 @@ class AskingPromptTest < ActiveSupport::TestCase
     end
   end
 
+  test "live data read from an API is not pushed to be kept, since it is stale within the hour" do
+    Tenant.switch(@tenant) do
+      curl!
+      web!
+      forecast = "https://api.open-meteo.com/v1/forecast?latitude=43.65&longitude=-79.38&current_weather=true"
+      read = result("resource", { "do" => "get", "key" => "curl", "input" => { "url" => forecast } },
+                    { status: 200, content_type: "application/json", text: %({"current_weather":{"temperature":19.2}}) })
+
+      assert_nil unfinished([ read ])
+      assert_match(/never .*live data — a forecast, a price, a score or\s+an API's answer/m, Asking.new(@question).briefing("check the weather"))
+      assert_match(/lasts 30 days.*"lasts": "forever"/m, Asking.new(@question).briefing("check the weather"))
+    end
+  end
+
   test "the question is connected to what it cited, opened and kept, and never to itself" do
     Tenant.switch(@tenant) do
       web!

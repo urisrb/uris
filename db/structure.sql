@@ -325,7 +325,8 @@ CREATE TABLE public.feeds (
     embedded_at timestamp(6) without time zone,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    timeout integer
+    timeout integer,
+    expires_at timestamp(6) without time zone
 );
 
 ALTER TABLE ONLY public.feeds FORCE ROW LEVEL SECURITY;
@@ -1133,6 +1134,13 @@ CREATE INDEX index_feeds_on_tenant_id_and_created_at ON public.feeds USING btree
 
 
 --
+-- Name: index_feeds_on_tenant_id_and_expires_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_feeds_on_tenant_id_and_expires_at ON public.feeds USING btree (tenant_id, expires_at) WHERE (expires_at IS NOT NULL);
+
+
+--
 -- Name: index_feeds_on_tenant_id_and_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1755,6 +1763,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260914010000'),
 ('20260914000000'),
 ('20260913160000'),
 ('20260913150000'),

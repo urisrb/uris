@@ -58,6 +58,7 @@ class Feed < ApplicationRecord
   scope :minted, -> { where(origin: "feed") }
   scope :unembedded, -> { where(embedded_at: nil).order(:id) }
   scope :by_key, ->(value) { where(key: value.to_s) }
+  scope :expired, -> { where(expires_at: ..Time.current) }
 
   before_destroy :forget_edges
 
@@ -274,6 +275,26 @@ class Feed < ApplicationRecord
   end
 
   Turn = Data.define(:analysis, :question, :said)
+
+  KEPT_FOR = 30.days
+  FOREVER = "forever".freeze
+  LONGEST = 3650
+
+  def self.expiry_for(lasts, default: nil)
+    given = lasts.to_s.strip.downcase
+    return default&.from_now if given.empty?
+    return nil if given == FOREVER
+
+    days = Integer(given, exception: false)
+    raise ArgumentError, "lasts is #{FOREVER} or a number of days up to #{LONGEST}" unless days&.between?(1, LONGEST)
+
+    days.days.from_now
+  end
+
+  def lasts!(lasts, default: nil)
+    update!(expires_at: Feed.expiry_for(lasts, default: default))
+    self
+  end
 
   def analyze!(cause: "manual")
     return ask!(conversation.last&.question || title || key) if cause.to_s == "ask"

@@ -21,10 +21,17 @@ import {
   ForgetFeedDocument,
   NoteFeedDocument,
   RenameFeedDocument,
+  SetFeedLifetimeDocument,
   SplitReferenceDocument,
 } from '@uris-to/client'
 import { useQuery } from '@uris-to/client/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTitle } from '../hooks/useTitle'
 import { hrefFor, lookOf, TYPE, toned } from '../looks'
@@ -64,6 +71,10 @@ export function ItemDetail() {
   )
   const rename = useAloud(RenameFeedDocument, 'That name could not be kept.')
   const note = useAloud(NoteFeedDocument, 'That note could not be kept.')
+  const lifetime = useAloud(
+    SetFeedLifetimeDocument,
+    'That could not be kept for good.',
+  )
   const settled = useCallback(() => refetch(), [refetch])
 
   const item = data?.feed
@@ -141,6 +152,37 @@ export function ItemDetail() {
                   originals.filter((reference) => reference.goneAt).length,
                 )}
               </span>
+              {item.expiresAt && (
+                <>
+                  <span
+                    className="tag"
+                    style={{ '--tone': 'var(--busy)' } as CSSProperties}
+                    title="Kept by an agent while answering a question, and forgotten on this day unless you keep it"
+                  >
+                    forgotten {new Date(item.expiresAt).toLocaleDateString()}
+                  </span>
+                  <Button
+                    size="compact-xs"
+                    radius="xl"
+                    variant="subtle"
+                    color="gray"
+                    loading={lifetime.loading}
+                    onClick={async () => {
+                      const answered = await lifetime.execute({
+                        id: item.id,
+                        lasts: 'forever',
+                      })
+
+                      if (!answered) return
+
+                      say({ text: `${name} is kept for good.` })
+                      refetch()
+                    }}
+                  >
+                    Keep forever
+                  </Button>
+                </>
+              )}
             </Group>
           </div>
         </Group>

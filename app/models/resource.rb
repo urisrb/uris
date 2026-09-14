@@ -490,7 +490,8 @@ class Resource < ApplicationRecord
         "title" => reference.feed.title,
         "mime" => reference.mime,
         "version" => reference.version,
-        "changed_at" => reference.changed_at
+        "changed_at" => reference.changed_at,
+        "new" => reference.previously_new_record?
       }
     end
 

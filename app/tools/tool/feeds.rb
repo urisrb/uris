@@ -8,12 +8,13 @@ module Tool
     description <<~TEXT
       One feed: everything known about it, every place it lives, what analysis drew out of
       each, and an excerpt of its text. With `do` it also acts — note it, rename it, analyze
-      it again, or place a file that is staged and waiting for somewhere to live. A feed is a
-      reference, not the bytes; the originals stay in the resources they came from.
+      it again, set how long it lasts, or place a file that is staged and waiting for somewhere
+      to live. A feed is a reference, not the bytes; the originals stay in the resources they
+      came from.
     TEXT
 
     READ = %w[get].freeze
-    WRITE = %w[note rename analyze create place].freeze
+    WRITE = %w[note rename analyze create place last].freeze
 
     input_schema(
       properties: {
@@ -29,12 +30,17 @@ module Tool
         note: { type: "string", description: "For note: what to write about it." },
         prompt: { type: "string", description: "For create of a uris:feed: what it should find." },
         resource: { type: "string", description: "For place: the key of the resource to store it in." },
-        reason: { type: "string", description: "For place: why it belongs there, in one sentence." }
+        reason: { type: "string", description: "For place: why it belongs there, in one sentence." },
+        lasts: {
+          type: "string",
+          description: "For create and last: \"forever\", or how many days it lasts before it is forgotten. " \
+                       "What is made while answering a question lasts 30 days unless this says otherwise."
+        }
       }
     )
 
     def self.call(server_context:, id: nil, key: nil, title: nil, note: nil,
-                  type: nil, prompt: nil, resource: nil, reason: nil, **held)
+                  type: nil, prompt: nil, resource: nil, reason: nil, lasts: nil, **held)
       verb = (held[:do] || held["do"] || "get").to_s
 
       respond(server_context, { id: id, key: key, do: verb }) do
@@ -43,12 +49,12 @@ module Tool
         Current.grant.permit!("uris:catalog:write") if WRITE.include?(verb)
 
         act(verb, id: id, key: key, title: title, note: note, type: type, prompt: prompt,
-                  resource: resource, reason: reason)
+                  resource: resource, reason: reason, lasts: lasts)
       end
     end
 
-    def self.act(verb, id:, key:, title:, note:, type:, prompt:, resource: nil, reason: nil)
-      return made(type: type, key: key, title: title, prompt: prompt) if verb == "create"
+    def self.act(verb, id:, key:, title:, note:, type:, prompt:, resource: nil, reason: nil, lasts: nil)
+      return made(type: type, key: key, title: title, prompt: prompt, lasts: lasts) if verb == "create"
 
       feed = found(id, key)
       confined!(feed) if WRITE.include?(verb)
@@ -57,6 +63,10 @@ module Tool
       when "note" then feed.update!(note: note.presence)
       when "rename" then feed.update!(title: title.to_s.strip.presence || feed.title)
       when "place" then placed(feed, resource, reason)
+      when "last"
+        raise ArgumentError, "last needs lasts: forever, or a number of days" if lasts.blank?
+
+        feed.lasts!(lasts)
       when "analyze"
         within_budget!
 
@@ -82,13 +92,14 @@ module Tool
         raise(ArgumentError, "no feed at #{key}")
     end
 
-    def self.made(type:, key:, title:, prompt:)
+    def self.made(type:, key:, title:, prompt:, lasts: nil)
       wanted = type.presence || Feed::NOTE
       raise ArgumentError, "this run can only make notes" if Current.confined_to && wanted != Feed::NOTE
 
       feed = Feed.create!(type: wanted, key: key.presence || title.to_s, title: title)
 
       feed.create_schedule!(prompt: prompt) if wanted == Feed::ADDRESS && prompt.present?
+      lasting(feed, lasts)
 
       told(made!(feed))
     end

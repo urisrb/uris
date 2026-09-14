@@ -78,7 +78,10 @@ class Asking
   KEEP = <<~TEXT.squish.freeze
     A kept page becomes an item in the catalog, and keeping the same address again later updates
     it. Keep the pages that answer the question or that someone asking it would want again, never a
-    page of search results or a page you did not read.
+    page of search results, a page you did not read, or live data — a forecast, a price, a score or
+    an API's answer is said in your report, not kept. What you keep lasts 30 days and is then
+    forgotten; add "lasts": "forever" beside the url for what stays true, like a reference page or
+    a fact, or a number of days.
   TEXT
 
   KEEP_READS = "Keeping a page returns its id; open it with feed to read what it says.".freeze
@@ -86,7 +89,8 @@ class Asking
   NOTE = <<~TEXT.squish.freeze
     Something worth keeping that has no page of its own becomes a note: make it with feed,
     do=create, type uris:note and a title naming it, then write what it is, with its address if it
-    has one, using feed, do=note and the id that came back. You can change only what you make here.
+    has one, using feed, do=note and the id that came back. A note lasts 30 days unless you create
+    it with lasts forever or a number of days. You can change only what you make here.
   TEXT
 
   CITE = <<~TEXT.squish.freeze
@@ -139,7 +143,7 @@ class Asking
         the pages your answer draws on, one call per page, with arguments like
         #{suggested(found(held)) { |url| @reach.read_call(url) }}, then answer from what they say.
       TEXT
-    elsif read && !kept && @reach.keepers.any?
+    elsif read && !kept && @reach.keepers.any? && pages_read?(held)
       <<~TEXT.squish
         You read pages but kept none of them. If one is worth having again, keep it with arguments
         like #{suggested(fetched(held)) { |url| @reach.keep_call(url) }}, then answer. If none is,
@@ -196,6 +200,13 @@ class Asking
     def kept(calls)
       calls.select { |call| call.ok && (@reach.kept?(call) || feed_call?(call, "create")) }
            .filter_map { |call| returned(call)["id"]&.to_i }
+    end
+
+    def pages_read?(calls)
+      calls.select { |call| @reach.read?(call) }.any? do |call|
+        type = returned(call)["content_type"].to_s
+        type.empty? || type.start_with?("text/html")
+      end
     end
 
     def feed_call?(call, verb)

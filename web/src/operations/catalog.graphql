@@ -84,6 +84,7 @@ query FeedDetail($id: ID!) {
     ...Row
     asked
     note
+    expiresAt
     keywords
     connectedCount
     parent {
@@ -168,6 +169,15 @@ mutation RenameFeed($id: ID!, $title: String!) {
     feed {
       id
       title
+    }
+  }
+}
+
+mutation SetFeedLifetime($id: ID!, $lasts: String) {
+  setFeedLifetime(input: { id: $id, lasts: $lasts }) {
+    feed {
+      id
+      expiresAt
     }
   }
 }

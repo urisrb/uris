@@ -77,6 +77,7 @@ module Tool
       when "runs" then { runs: ::Run.where(resource: resource).newest_first.limit(20).map { |run| run_told(run) } }
       when "cancel" then cancelled(given)
       when "export" then exported(resource, given)
+      when "keep", "snapshot" then kept(resource, verb, given)
       else resource.command(verb, given)
       end
     end
@@ -93,6 +94,23 @@ module Tool
       return if resource.capabilities.include?(:browser)
 
       raise ArgumentError, "#{resource.key} does not keep pages from the web; #{KEEP} only snapshots through one that does"
+    end
+
+    def self.kept(resource, verb, given)
+      lasts = given.delete("lasts") || given.delete(:lasts)
+      answered = resource.command(verb, given)
+      feed = answered.is_a?(Hash) && answered["id"] && ::Feed.find_by(id: answered["id"])
+      return answered if feed.nil?
+
+      if answered["new"]
+        made!(feed)
+        lasting(feed, lasts)
+      elsif lasts.present?
+        confined!(feed)
+        feed.lasts!(lasts)
+      end
+
+      answered.merge("expires_at" => feed.expires_at)
     end
 
     def self.listed

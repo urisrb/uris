@@ -27,6 +27,11 @@ shared: &shared
     queue: sync
     schedule: every 10 minutes
 
+  forget_expired:
+    class: ForgetExpiredJob
+    queue: sync
+    schedule: every hour at minute 37
+
   sweep_runs:
     class: SweepRunsJob
     queue: sync

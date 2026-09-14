@@ -35,19 +35,20 @@ Search the whole catalog at once — every resource that has been synced, not on
 
 Needs `uris:catalog:read`.
 
-One feed: everything known about it, every place it lives, what analysis drew out of each, and an excerpt of its text. With `do` it also acts — note it, rename it, analyze it again, or place a file that is staged and waiting for somewhere to live. A feed is a reference, not the bytes; the originals stay in the resources they came from.
+One feed: everything known about it, every place it lives, what analysis drew out of each, and an excerpt of its text. With `do` it also acts — note it, rename it, analyze it again, set how long it lasts, or place a file that is staged and waiting for somewhere to live. A feed is a reference, not the bytes; the originals stay in the resources they came from.
 
 | Argument | Type | Required | Description |
 | --- | --- | --- | --- |
 | `id` | string |  | The feed's id, as returned by search. |
 | `key` | string |  | An address, as /buy, instead of an id. |
-| `do` | string, one of `get` `note` `rename` `analyze` `create` `place` |  | What to do. Defaults to get. |
+| `do` | string, one of `get` `note` `rename` `analyze` `create` `place` `last` |  | What to do. Defaults to get. |
 | `type` | string |  | For create: uris:note, uris:feed or uris:tag. |
 | `title` | string |  |  |
 | `note` | string |  | For note: what to write about it. |
 | `prompt` | string |  | For create of a uris:feed: what it should find. |
 | `resource` | string |  | For place: the key of the resource to store it in. |
 | `reason` | string |  | For place: why it belongs there, in one sentence. |
+| `lasts` | string |  | For create and last: "forever", or how many days it lasts before it is forgotten. What is made while answering a question lasts 30 days unless this says otherwise. |
 
 
 ## connect

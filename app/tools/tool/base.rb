@@ -91,6 +91,11 @@ module Tool
         MCP::Tool::Response.new([ { type: "text", text: body } ], error: error)
       end
 
+      def lasting(feed, lasts)
+        default = Current.confined_to ? Feed::KEPT_FOR : nil
+        feed.lasts!(lasts, default: default)
+      end
+
       def made!(feed)
         Current.confined_to&.add(feed.id)
         feed
@@ -120,6 +125,7 @@ module Tool
           title: feed.title,
           mime: feed.mime,
           analyzed_at: feed.analyzed_at,
+          expires_at: feed.expires_at,
           references: feed.references.map { |reference| describe_reference(reference) }
         }
       end

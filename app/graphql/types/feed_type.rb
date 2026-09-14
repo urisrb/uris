@@ -20,6 +20,8 @@ module Types
     field :references, [ Types::ReferenceType ], null: false
     field :analyzed_at, GraphQL::Types::ISO8601DateTime
     field :note, String, description: "What you wrote about it, in your own words."
+    field :expires_at, GraphQL::Types::ISO8601DateTime,
+          description: "When it is forgotten, unless it is kept. Null for a feed that lasts forever."
     field :summary, String,
           description: "What a model made of it, or until one has, the start of the text read out of it."
     field :keywords, [ String ], null: false,
