@@ -14,7 +14,10 @@ class Verifier
     Answered: the answer responds to the question and every claim in it is supported by what the
     tools returned. An answer that describes a page no tool returned, or claims to have read
     something it did not, is not answered. An answer that only says what it will do next, or
-    writes out tool calls it means to make, is not answered: nothing ran.
+    writes out tool calls it means to make, is not answered: nothing ran. An answer to a question
+    about something as it is now — the weather, a price, a status — that says where to look instead
+    of giving the values is not answered. A question that asks for an earlier answer again, said
+    another way, is answered by saying it that way; describing how it could be done is not.
 
     Useful: what it kept, the snapshot and create calls below, is worth having again for someone
     who asked this, and nothing it kept is a page of search results, something it never read, or

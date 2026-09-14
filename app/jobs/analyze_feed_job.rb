@@ -100,7 +100,7 @@ class AnalyzeFeedJob < ApplicationJob
 
     def verified(asking, answered)
       started = Time.current.iso8601(3)
-      verdict = Verifier.new(analysis: analysis).call(question: asking.question, answer: answered.said,
+      verdict = Verifier.new(analysis: analysis).call(question: asking.judged_question, answer: answered.said,
                                                       calls: answered.calls)
       return if verdict.nil?
 

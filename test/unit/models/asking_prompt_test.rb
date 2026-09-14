@@ -158,6 +158,29 @@ class AskingPromptTest < ActiveSupport::TestCase
     end
   end
 
+  test "a question about something as it is now asks for the values, not where to find them" do
+    Tenant.switch(@tenant) do
+      assert_match(/answer\s+is\s+the\s+values\s+themselves.*where\s+they\s+could\s+be\s+looked\s+up\s+is\s+not\s+an\s+answer/m, Asking.new(@question).prompt)
+    end
+  end
+
+  test "a follow-up about an earlier answer is said again from it, and is not pushed to send a scout for it" do
+    Tenant.switch(@tenant) do
+      note = Feed.create!(type: Feed::NOTE, key: "Vancouver weather now")
+      Analysis.create!(feed: note, cause: "ask", question: "what is the weather in vancouver", status: "done",
+                       steps: { "answer" => { "result" => { "said" => "It is 14°C and raining." } } })
+      follow = Analysis.create!(feed: note, cause: "ask", question: "can you output in markdown", steps: {})
+      asking = Asking.new(note, analysis: follow)
+
+      assert_match(/say\s+it\s+in\s+markdown.*saying\s+that\s+answer\s+again\s+as\s+asked.*with\s+no\s+scout/m, asking.prompt)
+      assert_match(/Asked: what is the weather in vancouver\nAnswered: It is 14°C and raining\./, asking.prompt)
+      assert_match(/answer it again, now, saying that earlier answer as asked/, asking.led([]))
+      assert_match(/It is 14°C and raining\.\n\nThen asked: can you output in markdown/, asking.judged_question)
+
+      assert_equal Asking::UNSCOUTED, Asking.new(@question).led([]), "a first question still sends a scout"
+    end
+  end
+
   test "the question is connected to what it cited, opened and kept, and never to itself" do
     Tenant.switch(@tenant) do
       web!

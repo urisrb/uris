@@ -107,7 +107,9 @@ it, once the question before has been answered; the question is kept on the anal
 it, and **Ask again** asks the latest one again. The lead of a follow-up is told the earlier questions
 and their answers, up to eight of them with each answer cut to 1,500 characters, and told to read the
 new question in their light without answering them again; its scouts are told which questions it
-follows. When the reply lands, `Analyzer::Conversation` rolls the whole conversation into the
+follows. A follow-up about an earlier answer itself — say it in markdown, shorter, as a table — is
+answered by saying that answer again, with no scout, and the lead is not pushed to send one for it;
+the judges of a follow-up are shown the conversation it follows. When the reply lands, `Analyzer::Conversation` rolls the whole conversation into the
 analysis — every question and answer as its text, and a summary, entities and keywords made from all
 of it — so the note is searched and summarised as the conversation it has become rather than as its
 first question.
