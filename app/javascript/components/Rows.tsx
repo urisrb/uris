@@ -1,4 +1,5 @@
 import type { RowFragment } from '@uris-to/client'
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { hrefFor } from '../looks'
 import { Cover, Thumb } from './Thumb'
@@ -31,29 +32,45 @@ function named(row: Row) {
   return row.title ?? row.key ?? 'Untitled'
 }
 
-export function Rows({ rows, view = 'list' }: { rows: Row[]; view?: View }) {
+export function Rows({
+  rows,
+  view = 'list',
+  lead,
+}: {
+  rows: Row[]
+  view?: View
+  lead?: ReactNode
+}) {
   if (view === 'cards') {
     return (
-      <div className="grid">
-        {rows.map((row) => (
-          <Link key={row.id} to={hrefFor(row)} className="card">
-            <Cover url={row.thumbnailUrl} looked={row} alt={named(row)} />
-            <div className="card-body">
-              <div className="card-title">{named(row)}</div>
-              <Within row={row} />
-              <Gist row={row} className="card-summary" />
-              <div className="card-foot">
-                <TypeBadge type={row.type} mime={row.mime} />
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+      <>
+        {lead && <div className="panel">{lead}</div>}
+        {rows.length > 0 && (
+          <div className="grid">
+            {rows.map((row) => (
+              <Link key={row.id} to={hrefFor(row)} className="card">
+                <Cover url={row.thumbnailUrl} looked={row} alt={named(row)} />
+                <div className="card-body">
+                  <div className="card-title">{named(row)}</div>
+                  <Within row={row} />
+                  <Gist row={row} className="card-summary" />
+                  <div className="card-foot">
+                    <TypeBadge type={row.type} mime={row.mime} />
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </>
     )
   }
 
+  if (rows.length === 0 && !lead) return null
+
   return (
     <div className="panel">
+      {lead}
       {rows.map((row) => (
         <Link key={row.id} to={hrefFor(row)} className="entry">
           <Thumb

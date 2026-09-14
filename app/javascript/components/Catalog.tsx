@@ -8,9 +8,11 @@ import {
   IconLink,
   IconPackageExport,
   IconPlus,
+  IconSparkles,
 } from '@tabler/icons-react'
 import {
   AnalysisProgressedDocument,
+  AskCatalogDocument,
   CatalogDocument,
   FeedAnalyzedDocument,
   FeedScheduleDocument,
@@ -21,13 +23,12 @@ import {
   TypesDocument,
 } from '@uris-to/client'
 import { useQuery, useSubscription } from '@uris-to/client/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { usePages } from '../hooks/usePages'
 import { useTitle } from '../hooks/useTitle'
 import { KEPT, lookOf, pluralOf, type Short, TYPE, toned } from '../looks'
 import { useAdd } from './Add'
-import { Ask } from './Ask'
 import { Export } from './Export'
 import { FeedForm } from './FeedForm'
 import { FeedHead } from './FeedHead'
@@ -195,11 +196,6 @@ function Listing({
     thinking.refetch()
   }, [settled, catalog.refetch, thinking.refetch])
 
-  const refreshed = useCallback(() => {
-    setCursor(null)
-    catalog.refetch()
-  }, [catalog.refetch])
-
   const total = searching ? (found.data?.search.total ?? null) : null
   const loading = searching ? found.loading : catalog.loading
   const error = searching ? found.error : catalog.error
@@ -207,8 +203,6 @@ function Listing({
   return (
     <Stack gap="var(--s5)">
       <Shelf feeds={feeds} here={feed} onChanged={onChanged} />
-
-      {!feed && !searching && !type && <Ask onAsked={refreshed} />}
 
       {feed && (
         <FeedHead
@@ -255,7 +249,11 @@ function Listing({
 
       {error && <Alert color="red">{error.message}</Alert>}
 
-      {rows.length > 0 && <Rows rows={rows} view={view} />}
+      <Rows
+        rows={rows}
+        view={view}
+        lead={searching && !feed ? <AskAbout term={term} /> : null}
+      />
 
       {loading && rows.length === 0 && (
         <Loader size="sm" color="var(--brass)" />
@@ -484,6 +482,43 @@ function Switcher({
         )
       })}
     </div>
+  )
+}
+
+function AskAbout({ term }: { term: string }) {
+  const navigate = useNavigate()
+  const ask = useAloud(AskCatalogDocument, 'That could not be asked.')
+
+  return (
+    <button
+      type="button"
+      className="entry entry-ask"
+      disabled={ask.loading}
+      onClick={async () => {
+        const answered = await ask.execute({ question: term })
+        const held = answered?.askCatalog
+
+        if (held) navigate(`/items/${held.feed.id}`)
+      }}
+    >
+      <span className="entry-ask-mark">
+        {ask.loading ? (
+          <Loader size="xs" color="var(--brass)" />
+        ) : (
+          <IconSparkles size={20} stroke={1.7} />
+        )}
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div className="entry-title">Ask about {term}</div>
+        <div className="entry-summary">
+          Answered from what you keep and the web, and kept as a note you can go
+          on asking in.
+        </div>
+      </div>
+      <span className="tag" data-dot="false">
+        ask
+      </span>
+    </button>
   )
 }
 
