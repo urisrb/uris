@@ -30,7 +30,7 @@ backing services, all reloading, and one tenant answers at <http://uris.localhos
 docs on <http://uris.localhost:8181>. Nothing goes in `/etc/hosts`: `*.localhost` already resolves.
 
 Sign-in goes through masks, which `MASKS_ISSUER` names and which has to be running for the handshake
-to complete — `../masks/dev`, or both at once with `home/dev`.
+to complete — `../masks/dev` from a masks checkout beside this one.
 
 `./dev --multi` declares `demo` and `acme` instead and serves them at
 <http://demo.uris.localhost:8180>, which is what the suite exercises and what a real deployment
