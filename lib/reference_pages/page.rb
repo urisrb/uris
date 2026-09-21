@@ -48,7 +48,7 @@ module ReferencePages
       end
 
       def prose(text)
-        text.to_s.squish
+        text.to_s.squish.gsub("<", "&lt;").gsub("{", "&#123;")
       end
   end
 end
