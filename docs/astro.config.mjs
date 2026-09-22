@@ -38,7 +38,15 @@ export default defineConfig({
         { label: "Overview", slug: "overview" },
         { label: "Quickstart", slug: "quickstart" },
         {
-          label: "Concepts",
+          label: "How-to guides",
+          items: [
+            { label: "Attach a resource", slug: "guides/attach-a-resource" },
+            { label: "Connect an agent", slug: "guides/connect-an-agent" },
+            { label: "Ask the catalog", slug: "guides/ask" },
+          ],
+        },
+        {
+          label: "Key concepts",
           items: [
             { label: "Feeds", slug: "concepts/feeds" },
             { label: "References", slug: "concepts/references" },
