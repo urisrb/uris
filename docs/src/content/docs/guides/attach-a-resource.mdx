@@ -1,0 +1,173 @@
+---
+title: Attach a resource
+description: Add storage, a model backend, a mailbox, a web source, or another resource from the browser app.
+---
+
+At the end of this guide, a new [resource](/concepts/resources/) is attached, checked, and in use.
+You need to be signed in with `uris:resources:command`, which the browser app asks for at sign-in.
+
+## Attach it
+
+1. Choose your avatar in the top right corner, then the **Resources** tab.
+2. Choose **Attach one**. The **Attach a resource** dialog lists every type this server offers.
+3. Choose a card. The cards are grouped under **Where your files live**, **The web**, **Mail,
+   calendars and contacts**, **Models and tools**, and **Where you work**.
+4. Under **Name it**, fill in the first field. For most types it is labeled **A name for it**. For
+   **Object storage** it is **The bucket's name**, and for **An MCP server** it is **The prefix its
+   tools answer under**. The name must be unique among resources of that type, and it cannot be
+   changed later.
+5. Optionally fill in **Called**, the name shown in listings.
+6. Under **Who can use it**, leave **Everyone here** selected, or choose **Only me**. See
+   [a personal resource](#a-personal-resource).
+7. Fill in the fields under **Connection**. Required fields are marked with an asterisk.
+8. Choose **Attach it**.
+
+uris saves the resource and checks it straight away. When the check passes, the dialog closes. When
+it fails, the resource is still attached, and the dialog shows **Attached, but it did not answer**
+with the error. See [if it doesn't work](#if-it-doesnt-work).
+
+## What each type asks for
+
+The fields for every type, with their help text, are listed in the
+[resource reference](/reference/resources/). The common ones:
+
+| Card | Type | Asks for |
+| --- | --- | --- |
+| **Object storage** | `s3` | **Endpoint**, **Access key**, **Secret key**, and optionally **Region**, **Prefix**, and **Address the bucket by path** |
+| **A directory** | `filesystem` | **Directory**, relative to this tenant's own directory |
+| **WebDAV** | `webdav` | **Collection URL**, and a username and password if the server wants them |
+| **Web search** | `search` | **Provider** (`exa`, `brave`, or `tavily`) and **API key** |
+| **Fetch a page** | `curl` | Nothing |
+| **The web** | `web` | Optionally **Render width** |
+| **A feed** | `rss` | **Feed URL** |
+| **A mailbox** | `imap` | **Server**, **Username**, **Password**, and optionally **Port**, **Over TLS**, and **Mailbox** |
+| **Calendars**, **Contacts** | `caldav`, `carddav` | **Collection URL**, and a username and password if the server wants them |
+| **A model backend** | `openai-compatible` | **Base URL**, a model for each role you want it to serve, and an **API key** if the backend wants one |
+| **An MCP server** | `mcp` | **Address** and **Authentication** |
+| **GitHub** | `github` | **Access token** and **Repositories** |
+| **Notion** | `notion` | **Internal integration secret** |
+| **Slack** | `slack` | **Bot token** |
+| **A git repository** | `git` | **Repository URL**, and an **Access token** for a private repository |
+
+**A directory** appears only when the server was started with `URIS_FILESYSTEM_ROOTS`. A model
+backend's **Agent model** must call tools. Its **Embedding model** must produce vectors of the width
+the search index was built for, `URIS_EMBEDDING_DIMENSIONS`.
+
+To give [questions](/guides/ask/) the web, attach **Web search** to search it, **Fetch a page** to read
+pages, and **The web** to keep pages as items. **The web** writes its snapshots to default storage.
+
+## Accounts connected through masks
+
+**Google Drive** and **OneDrive** use your own account, and so does **An MCP server** with
+**Authentication** set to **Your own account, through masks**.
+
+1. Attach it as above. The button reads **Attach and connect**.
+2. masks asks for your consent, and signs you in to the provider if needed.
+3. The browser returns to **Resources**, and the resource syncs from then on.
+
+A resource that has not finished connecting shows **not connected yet** and a **Connect** button.
+When the account stops working, it shows **needs reconnecting** and a **Reconnect** button.
+**Google Drive** and **OneDrive** start as **Only me**. See [resources connected through masks](/concepts/resources/#resources-connected-through-masks).
+
+## Check it
+
+Each resource row shows its state: **reachable**, **failing**, **never checked**, **syncing**, or one
+of the connection states above.
+
+1. Choose **Check** on the resource's row.
+2. uris reports that the resource answers, or shows the error under the row.
+
+uris also checks every resource on its own every six hours.
+
+## Choose the defaults
+
+A tenant has one default storage and one default inference resource.
+
+- Choose **Take drops** on a storage resource. Its row then reads **drops land here**. Uploads that
+  no agent placed land there, and so do snapshots from the web.
+- Choose **Take questions** on a model backend. Its row then reads **answers questions**. uris
+  prefers it when more than one resource could serve a role.
+
+Making one resource the default clears the flag on the previous one. A personal resource cannot be
+a default.
+
+## Schedule syncs
+
+A resource that can sync has a **Sync** button and a minutes field.
+
+1. Enter a number of minutes in the field. The minimum is one.
+2. Choose **Schedule**.
+
+Clearing the field and choosing **Schedule** sets the resource to sync on demand only. Choose
+**Sync** to start one now. See [syncing](/concepts/resources/#syncing).
+
+## Change it
+
+1. Choose **Change** on the resource's row.
+2. Edit **Called** or any field under **Connection**. A secret left empty keeps the value it holds.
+3. Choose **Save it**.
+
+The type and the name cannot be changed. The resource is checked again after saving.
+
+## A personal resource
+
+Choose **Only me** under **Who can use it** while attaching. The row shows **only you**. Nobody else
+sees the resource or reaches it through a tool, and agents working on feeds cannot use it. What it
+syncs is still cataloged for everyone in the tenant. This choice cannot be changed after attaching.
+
+## Put it away
+
+Choose **Put away** on the resource's row. The resource stops syncing and is no longer a default or
+a place for uploads. What it cataloged stays searchable. To bring it back, choose **Put away** at the
+top of the list to show put-away resources, then **Put back** on its row.
+
+## Over GraphQL
+
+`resourceTypes` lists every type that can be attached and the fields each one takes.
+`attachResource` takes `type`, `key`, an optional `name`, `settings` with one entry per field, and
+`personal`. `resourceTypes` needs `uris:resources:read`, and `attachResource` needs
+`uris:resources:command`.
+
+```graphql
+mutation {
+  attachResource(input: {
+    type: "s3"
+    key: "photos"
+    settings: {
+      endpoint: "http://minio:9000"
+      force_path_style: true
+      access_key_id: "uris"
+      secret_access_key: "urisuris"
+    }
+  }) {
+    resource { id key healthy }
+    checkError
+    connectUrl
+  }
+}
+```
+
+A field the type does not declare is dropped, and a missing required field is refused. For a type
+connected through masks, `connectUrl` is where to send the browser. `checkResource`,
+`setDefaultStorage`, `setDefaultInference`, `setSyncInterval`, `updateResource`, and
+`archiveResource` do what the buttons do. See the [GraphQL reference](/reference/graphql/).
+
+Over MCP, the `resource` tool lists and checks resources, but attaching one is a browser flow. See
+the [MCP reference](/reference/mcp/#resource).
+
+## If it doesn't work
+
+- **`no inference origins are permitted — set URIS_INFERENCE_ORIGINS`** or **`... is not one of
+  URIS_INFERENCE_ORIGINS`**. A model backend's **Base URL** must use an origin listed in
+  `URIS_INFERENCE_ORIGINS`. Add it and restart uris, then choose **Check**.
+- **`... does not serve ...`** or **`no models are declared`**. A model backend was given a model it
+  does not have, or no model at all. Pull the model into the backend, or correct the name with
+  **Change**.
+- **`... resolves to ..., which is not a public address`**. uris refuses private and local addresses.
+  For object storage on a private network, list its origin in `URIS_S3_ORIGINS`. See the
+  [environment reference](/reference/environment/).
+- **`... is needed`**. A required field was left empty.
+- **That did not connect**. masks refused the connection, you declined it, or masks could not be
+  reached. The message says which. Choose **Connect** to try again.
+- **Take drops** or **Take questions** is refused. The resource is personal, or it does not serve
+  storage or inference.
