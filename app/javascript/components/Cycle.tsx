@@ -4,9 +4,19 @@ import { toned, toneOf } from '../looks'
 
 const BEAT = 2100
 
-export function Cycle({ words }: { words: [string, string][] }) {
+export function Cycle({
+  words,
+  onChange,
+}: {
+  words: [string, string][]
+  onChange?: (word: string) => void
+}) {
   const still = useReducedMotion()
   const [at, setAt] = useState(0)
+
+  useEffect(() => {
+    onChange?.(words[at][0])
+  }, [at, words, onChange])
 
   useEffect(() => {
     if (still) return

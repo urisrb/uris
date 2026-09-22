@@ -88,6 +88,8 @@ function Gate({
 }) {
   useTitle('Sign in')
 
+  const [verb, setVerb] = useState(VERBS[0][0])
+
   return (
     <div className="gate">
       <div className="gate-inner">
@@ -97,10 +99,10 @@ function Gate({
 
         <p className="gate-line">
           <span className="wordmark">uris.to</span>/
-          <Cycle words={VERBS} />
+          <Cycle words={VERBS} onChange={setVerb} />
         </p>
 
-        <p className="gate-tagline">Yours to keep</p>
+        <p className="gate-tagline">Yours to {verb}</p>
 
         <Button
           mt="var(--s6)"
@@ -110,7 +112,7 @@ function Gate({
           onClick={enter}
           styles={{ root: { fontWeight: 600, paddingInline: 'var(--s5)' } }}
         >
-          {unconnected ? 'Connect a sign-in server' : 'Sign in'}
+          {unconnected ? 'Get started…' : 'Sign in'}
         </Button>
       </div>
     </div>
