@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/urisrb/uris/compare/client-v0.2.0...client-v0.3.0) (2026-09-22)
+
+
+### Features
+
+* **web:** activity reads as who did what to which thing ([fc93a61](https://github.com/urisrb/uris/commit/fc93a618ae0b1cb651a060b54fd6ca348f130dd5))
+
+
+### Documentation
+
+* the client README documents what the package exports and how to build it ([6810c95](https://github.com/urisrb/uris/commit/6810c952a85340e3b001931e00a4e198da2c827f))
+
 ## [0.2.0](https://github.com/urisrb/uris/compare/client-v0.1.0...client-v0.2.0) (2026-09-12)
 
 
