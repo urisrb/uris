@@ -1,82 +1,85 @@
 ---
 title: References
-description: Where a feed's bytes live, how change is noticed, and what uris will delete.
+description: Where a feed's bytes live, how uris notices a change, and what uris deletes.
 ---
 
-A feed does not hold bytes. A reference points at them: a row that names a
-[resource](/concepts/resources/) and where inside it the bytes are. A feed can have several
-references — the same file in a bucket and in its export — and the catalog is what they have in
-common.
+A feed does not hold bytes. A reference points to them. It is a row that names a
+[resource](/concepts/resources/) and the location of the bytes inside it. A feed can have several
+references, such as the same file in a bucket and in an export of that bucket, and the feed
+describes what they have in common.
 
 ## Roles
 
-| Role | What it points at |
+| Role | What it points to |
 | --- | --- |
-| `original` | the thing itself, wherever it was synced from or placed |
-| `preview` | a large JPEG render, 1024 pixels wide, which the image analyzer reads rather than rendering again |
+| `original` | the file or record itself, wherever it was synced from or placed |
+| `preview` | a large JPEG render, 1024 pixels wide, which the image analyzer reads so it does not render the file again |
 | `thumbnail` | a 320-pixel JPEG for the catalog |
 
-`preview` and `thumbnail` are derived. A pass renders both once, for images, video, PDFs and
-captured pages, and records them in the internal `derived` store, keyed `<feed id>/<role>.jpg`.
-That store and the `children` store are `Resource::INTERNAL`: the app keeps them for itself and
-never offers them as a place to put a file. Serving a thumbnail is reading the thumbnail
-reference's bytes, so it passes the same grant check as any other bytes.
+`preview` and `thumbnail` are derived. An analysis renders both once for images, video, PDFs, and
+captured pages, and stores them in the internal `derived` store, keyed `<feed id>/<role>.jpg`. That
+store and the `children` store are listed in `Resource::INTERNAL`. uris keeps them for itself and
+never offers them as a place to store a file. Serving a thumbnail reads the bytes of the thumbnail
+reference, so it passes the same grant check as any other bytes.
 
-Everything that counts a feed's places — `Feed#reference`, the search document, `splitReference`,
-`forgetFeed` — counts originals only.
+Everything that counts a feed's places counts originals only. That includes `Feed#reference`, the
+search document, `splitReference`, and `forgetFeed`.
 
 ## Locators
 
-`locator` is a JSON object in whatever shape the resource needs to find the bytes again — a bucket
-and a key, a path, a mailbox uid. `locator_key` is its stable string form, the path a person would
-recognise. A `locator_key` is unique within a resource, in the model and in a partial unique
-index on `(tenant, resource, locator_key)`, so one object in one place is one reference, and
-syncing it again finds that reference rather than making a second.
+`locator` is a JSON object in whatever form the resource needs to find the bytes again, such as a
+bucket and a key, a path, or a mailbox uid. `locator_key` is its stable string form, the path a
+person would recognize. A `locator_key` is unique within a resource. The model validates this, and
+a partial unique index on `(tenant, resource, locator_key)` enforces it, so one object in one place
+has exactly one reference. Syncing the object again finds that reference and does not create a
+second one.
 
 ## Noticing change
 
-`version` is what the resource says identifies this revision of the bytes: an S3 or WebDAV etag,
-a git sha, a Notion `last_edited_time`, a web capture's digest. When a sync reports a version that
-differs from the one held, the reference sets `changed_at` and clears `analyzed_at`, and the sync
-opens a new pass. A cached analysis step finished before `changed_at` is superseded rather than
-reused, so a pass never describes bytes that are gone.
+`version` is the value the resource gives for this revision of the bytes: an S3 or WebDAV ETag, a git
+SHA, a Notion `last_edited_time`, or the digest of a web capture. When a sync reports a version that
+differs from the stored one, the reference sets `changed_at` and clears `analyzed_at`, and the sync
+starts a new analysis. A cached analysis step that finished before `changed_at` runs again, so an
+analysis never describes bytes that have since changed.
 
 ## Noticing what is gone
 
-Every object a sync walks past stamps its reference's `seen_at`. When a sync finishes — not one that
-was cancelled, ran out its deadline, was gated, or only pretended — an original reference of that
-resource last seen before the sync began has `gone_at` set: the source no longer has it. Nothing is
-deleted; the feed, its analysis and its notes stay, and the item page says where it is no longer
-found. A later sync or keep that finds it again clears `gone_at`.
+Every object a sync walks past sets its reference's `seen_at`. When a sync finishes, uris sets
+`gone_at` on each original reference in that resource that was last seen before the sync began,
+because the source no longer has it. This does not happen after a sync that was cancelled, ran past
+its deadline, was gated, or was a dry run. Nothing is deleted. The feed, its analysis, and its notes
+stay, and the item page says where the file is no longer found. A later sync or `keep` that finds it
+again clears `gone_at`.
 
-Only a full walk can say what is missing. A walk of only what changed says nothing about what it
-did not visit, so it calls nothing gone — except where the source itself names the deletion, as the
-commits since a git checkpoint do.
+Only a full walk can tell what is missing. A walk of only what changed has no information about what
+it did not visit, so it marks nothing as gone. The exception is a source that reports deletions
+itself, as the commits since a git checkpoint do.
 
-A reference only ever kept by hand has no `seen_at` and is never called gone by a sync that does not
-walk to it. RSS does not notice deletions at all, since an entry scrolling out of a feed's window is
-not an entry being removed, and neither does OneDrive until its delta keys are sound. A filesystem
-walk that could not read a directory calls nothing gone, because what it missed may still be there.
+A reference that was only ever kept by hand has no `seen_at`, and a sync that does not reach it
+never marks it as gone. RSS does not detect deletions at all, because an entry that scrolls out of
+a feed's window has not been removed. OneDrive does not detect them either, until its delta keys are
+reliable. A filesystem walk that could not read a directory marks nothing as gone, because the files
+it missed may still be there.
 
 `source_version` belongs to a copy. When an export writes a feed into another resource, the new
-reference records the version of the original it was copied from. The next export compares the
-two and copies again only when the original has moved on.
+reference records the version of the original it was copied from. The next export compares the two
+versions and copies the file again only when the original has changed.
 
 ## Moving between feeds
 
-`move_to!` hands a reference to another feed. If that feed already holds the same place, the
-reference is destroyed instead of duplicated. Either way, a `uris:file` feed left with no originals
-is destroyed. `split!` is `move_to!` into a new feed with the same type, key and title, and
-`splitReference` refuses a feed that has only one original. Sync and export are what move
-references in practice.
+`move_to!` moves a reference to another feed. If that feed already has a reference to the same
+place, uris destroys the moved reference so there is no duplicate. In both cases, a `uris:file` feed
+left with no originals is destroyed. `split!` is `move_to!` into a new feed with the same type, key,
+and title. `splitReference` refuses a feed that has only one original. In practice, sync and export
+are what move references.
 
 ## What uris deletes
 
-Forgetting a feed destroys the row, its references, analyses, schedule, edges and extracted
-children, and reports how many originals it stopped pointing at. It does not reach into the
-resources those originals live in: the files stay exactly where they were.
+Forgetting a feed destroys the row, its references, analyses, schedule, edges, and extracted
+children, and reports how many originals it pointed to. It does not touch the resources those
+originals live in, so the files stay where they are.
 
-The exception is bytes uris made itself. A reference in an internal store — a `preview` or
-`thumbnail` render, or a child extracted from a message — deletes its blob when it is destroyed,
-since nothing outside uris put it there. A file that was uploaded and never placed is purged with
-its feed, since it was only ever staged.
+The exception is bytes that uris created. A reference in an internal store, such as a `preview` or
+`thumbnail` render or a child extracted from a message, deletes its blob when it is destroyed,
+because nothing outside uris created it. A file that was uploaded and never placed is deleted with
+its feed, because it was only staged.
