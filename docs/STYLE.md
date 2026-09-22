@@ -1,0 +1,59 @@
+# Writing the uris docs
+
+The docs follow the Ruby on Rails
+[API documentation guidelines](https://guides.rubyonrails.org/api_documentation_guidelines.html)
+and [guides guidelines](https://guides.rubyonrails.org/ruby_on_rails_guides_guidelines.html),
+organized by [Diátaxis](https://diataxis.fr/).
+
+## Structure
+
+| Section | Diátaxis | Purpose |
+| --- | --- | --- |
+| Quickstart | Tutorial | A path that works end to end on a fresh `./dev` stack. |
+| How-to guides | How-to | One task per page, as numbered steps. |
+| Key concepts | Explanation | How a part of uris works and why. No steps. |
+| Reference | Reference | Generated from the code by `bin/rails docs:reference`. Never edit by hand. |
+
+Keep each page in its mode. A concept page links to a guide for the steps. A
+guide links to a concept page for the why.
+
+## Wording
+
+- Write simple, declarative sentences. Get to the point.
+- Use the present tense: "Returns the feed", not "Will return the feed".
+- Use American English and the Oxford comma: "catalog", "color", "red, white,
+  and blue".
+- Tutorials and guides may address the reader as "you". Concept pages mostly
+  describe uris and avoid it.
+- Say what the software does. It does not decide, know, want, or remember.
+- Name things by the names in the code and the UI. Put UI labels in bold and
+  code, paths, variables, and commands in backticks.
+- Document edge cases: an empty catalog, a missing model, a resource that
+  fails its check.
+
+## Plain prose, no flourishes
+
+These patterns read as generated text. Leave them out.
+
+- Contrast framing: "X, not Y", "rather than", "isn't X, it's Y".
+- Closing aphorisms: a last sentence that sums up with a twist.
+- Fragments for rhythm: "One index, lexical and semantic, fused."
+- Lists of three for effect, and colons that set up a reveal.
+- Em dashes as general punctuation. Use a period, a comma, or parentheses.
+- Metaphor and poetic nouns: "the shape of it", "a pass over", "carries",
+  "signature", "the one record".
+- Filler and hype: simply, just, easily, seamless, powerful, robust, leverage,
+  crucial, ensure, under the hood.
+- Rhetorical questions.
+
+If a sentence would survive in a Rails guide, it belongs here.
+
+## Formatting
+
+- Headings are `##` for sections and `###` for subsections, in sentence case.
+- Links describe their target: "see [attaching a resource](/guides/attach-a-resource/)",
+  never "see here" or "more".
+- Shell examples are fenced as `sh` and show only the command.
+- Asides are `:::note`, `:::tip`, or `:::caution`, used sparingly. A caution
+  is for something that loses data or weakens security.
+- Two-column tables with an empty header serve as definition lists.
