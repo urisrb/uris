@@ -1,29 +1,49 @@
 ---
 title: uris
 description: One searchable index across everything you own, wherever it lives, with a way back out.
+template: splash
+prev: false
+next: false
+hero:
+  title: >-
+    uris.to/<span class="cycle"><span class="sr-only">make, see, watch, read, write, send, buy, share, keep</span><span aria-hidden="true" style="--tone:var(--k-doc)">make</span><span aria-hidden="true" style="--tone:var(--k-image)">see</span><span aria-hidden="true" style="--tone:var(--k-calendar)">watch</span><span aria-hidden="true" style="--tone:var(--k-pdf)">read</span><span aria-hidden="true" style="--tone:var(--k-text)">write</span><span aria-hidden="true" style="--tone:var(--k-email)">send</span><span aria-hidden="true" style="--tone:var(--k-pkpass)">buy</span><span aria-hidden="true" style="--tone:var(--k-contact)">share</span><span aria-hidden="true" style="--tone:var(--k-file)">keep</span></span>
+  tagline: One index over everything you own. Yours&nbsp;to&nbsp;keep.
+  image:
+    html: >-
+      <svg class="mark" viewBox="0 0 25 28" role="img" aria-label="The uris mark"><path d="M0.409 20.181 L4.045 5.636 L6.955 6.364 L3.319 20.909 A1.5 1.5 0 0 1 0.409 20.181 Z" fill="var(--k-pdf)"/><path d="M6.045 21.636 L9.681 7.091 A1.5 1.5 0 0 1 11.5 6 L12.955 6.364 L8.955 22.364 Z" fill="var(--k-contact)"/><path d="M12.045 21.636 L16.045 5.636 L18.955 6.364 L14.955 22.364 Z" fill="var(--k-text)"/><path d="M18.045 21.636 L21.681 7.091 A1.5 1.5 0 0 1 23.5 6 L24.955 6.364 L21.319 20.909 A1.5 1.5 0 0 1 19.5 22 Z" fill="var(--k-image)"/></svg>
+  actions:
+    - text: Quickstart
+      link: /quickstart/
+      icon: right-arrow
+    - text: How it works
+      link: /overview/
+      variant: minimal
 ---
 
-uris catalogs what you already have. It points at the places your things live — buckets,
-directories, mailboxes, calendars, feeds, wikis, repositories — reads each one, and gives you one
-index over all of them that you can search, ask questions of, and export back out. The bytes stay
-where they are; uris keeps where they live and what a pass over them understood.
+import resources from "./reference/resources.mdx?raw";
 
-Two interfaces reach the same catalog: a browser app over [GraphQL](/reference/graphql/), and an
-[MCP endpoint](/concepts/agents/) a model can drive. Both take the same token, issued by
-[masks](https://github.com/urisrb/masks), and neither wraps the other.
+export const places = resources.match(/^## /gm).length;
 
-## The shape of it
+<div class="panes">
+  <div>
+    <b style="color:var(--k-pdf)">server</b>
+    <span>The catalog. Reads where your things live and keeps one index over all of it.</span>
+  </div>
+  <div>
+    <b style="color:var(--k-contact)">/mcp</b>
+    <span>The agents. The same catalog, as tools a model can search and file with.</span>
+  </div>
+  <div>
+    <b style="color:var(--k-text)">@uris-to/client</b>
+    <span>The browser. Typed GraphQL and live updates, for building on it.</span>
+  </div>
+</div>
 
-| | |
-| --- | --- |
-| [Feeds](/concepts/feeds/) | the one record for a thing — a file, a note, an address, a tag, a content type — and the edges between them |
-| [References](/concepts/references/) | where a feed's bytes live, and how a change to them is noticed |
-| [Adding things](/concepts/adding/) | uploads, notes, fetched pages and syncs, and how a file is placed |
-| [Analysis](/concepts/analysis/) | one pass over a feed: its steps, its summary, and the agent that files it |
-| [Resources](/concepts/resources/) | the places uris reads from, writes to and asks things of |
-| [Search](/concepts/search/) | one index, lexical and semantic, fused |
-| [Agents and MCP](/concepts/agents/) | the four tools, and the loop that runs over them |
-| [Tenants](/concepts/tenants/) | isolation, and signing in through masks |
+<div class="proof">
+  <span>Reads where it already lives</span>
+  <strong>{places} kinds of place. The bytes stay put.</strong>
+</div>
 
-Start with the [quickstart](/quickstart/). The reference pages are generated from the code, so they
-say what it does rather than what it once did.
+```sh frame="none"
+docker pull ghcr.io/urisrb/uris:latest
+```

@@ -1,0 +1,29 @@
+---
+title: Overview
+description: What uris keeps, where it reads from, and the two ways into it.
+---
+
+uris catalogs what you already have. It points at the places your things live — buckets,
+directories, mailboxes, calendars, feeds, wikis, repositories — reads each one, and gives you one
+index over all of them that you can search, ask questions of, and export back out. The bytes stay
+where they are; uris keeps where they live and what a pass over them understood.
+
+Two interfaces reach the same catalog: a browser app over [GraphQL](/reference/graphql/), and an
+[MCP endpoint](/concepts/agents/) a model can drive. Both take the same token, issued by
+[masks](https://github.com/urisrb/masks), and neither wraps the other.
+
+## The shape of it
+
+| | |
+| --- | --- |
+| [Feeds](/concepts/feeds/) | the one record for a thing — a file, a note, an address, a tag, a content type — and the edges between them |
+| [References](/concepts/references/) | where a feed's bytes live, and how a change to them is noticed |
+| [Adding things](/concepts/adding/) | uploads, notes, fetched pages and syncs, and how a file is placed |
+| [Analysis](/concepts/analysis/) | one pass over a feed: its steps, its summary, and the agent that files it |
+| [Resources](/concepts/resources/) | the places uris reads from, writes to and asks things of |
+| [Search](/concepts/search/) | one index, lexical and semantic, fused |
+| [Agents and MCP](/concepts/agents/) | the four tools, and the loop that runs over them |
+| [Tenants](/concepts/tenants/) | isolation, and signing in through masks |
+
+Start with the [quickstart](/quickstart/). The reference pages are generated from the code, so they
+say what it does rather than what it once did.
