@@ -1,69 +1,102 @@
 ---
 title: Quickstart
-description: Run uris locally, connect it to masks, and put the first file in the catalog.
+description: Run uris locally, connect it to masks, and add the first file to the catalog.
 ---
 
-`./dev` runs the whole stack in containers and needs docker and nothing else. Rails, vite, the
-worker, this site and the three backing services all reload as you edit.
+`./dev` runs the whole stack in containers and needs only docker. Rails, vite, the worker, this
+site, and the three backing services all reload when you edit a file.
 
 ```sh
 ./dev          # build and run in the foreground
 ./dev down     # stop, keeping the volumes
-./dev reset    # throw the volumes away and start over
-./dev test     # unit, server, client and corpus suites
+./dev reset    # delete the volumes and start over
+./dev test     # unit, server, client, and corpus suites
 ```
 
-`logs`, `ps`, `psql`, `console`, `seed`, `corpus` and `fmt` are the rest; `./dev help` lists them.
+The other commands are `logs`, `ps`, `psql`, `console`, `seed`, `corpus`, `reference`, and `fmt`.
+`./dev help` describes each one.
 
-| Port | What answers | Override |
+| Port | Service | Override |
 | --- | --- | --- |
 | 8180 | uris, at `http://uris.localhost:8180` | `URIS_PORT` |
 | 8181 | these docs | `URIS_DOCS_PORT` |
 | 8182 | vite | `URIS_VITE_PORT` |
 | 5434 | Postgres | `URIS_POSTGRES_PORT` |
 | 9201 | OpenSearch | `URIS_OPENSEARCH_PORT` |
-| 9000, 9001 | MinIO, and its console | `URIS_MINIO_PORT`, `URIS_MINIO_CONSOLE_PORT` |
+| 9000, 9001 | MinIO and its console | `URIS_MINIO_PORT`, `URIS_MINIO_CONSOLE_PORT` |
 
-Nothing goes in `/etc/hosts`; `*.localhost` already resolves. One tenant, `uris`, answers on every
-host. `./dev --multi` declares `demo` and `acme` instead, at `http://demo.uris.localhost:8180`, each
-signing in against the matching masks tenant. See [tenants](/concepts/tenants/).
+You do not need to edit `/etc/hosts`, because `*.localhost` already resolves. The stack serves one
+tenant, `uris`, on every host. `./dev --multi` declares the tenants `demo` and `acme` instead, at
+`http://demo.uris.localhost:8180` and `http://acme.uris.localhost:8180`. Each one signs in against
+the masks tenant of the same name. See [tenants](/concepts/tenants/).
 
 ## Sign in
 
-uris has no accounts of its own. It signs people in through masks, which has to be running first —
-`../masks/dev` from a masks checkout beside this one. `MASKS_ISSUER` names it and defaults to
-`http://masks.localhost:12345`.
+uris has no accounts of its own. It signs people in through masks, which has to be running first.
+Run `../masks/dev` from a masks checkout next to this one. `MASKS_ISSUER` names the masks server
+and defaults to `http://masks.localhost:12345`.
 
-1. Open `http://uris.localhost:8180` and choose **Connect a sign-in server**.
-2. masks asks you to sign in there, as an account allowed to approve connections, and to approve
-   uris. The credentials come back to uris server to server.
-3. uris goes straight on to sign you in. Afterwards the button reads **Sign in**.
+1. Open `http://uris.localhost:8180` and click **Connect a sign-in server**.
+2. masks asks you to sign in with an account that is allowed to approve connections, and then to
+   approve uris. masks sends the client credentials to uris directly, server to server.
+3. uris then signs you in. On later visits the button reads **Sign in**.
 
-## Somewhere to keep things, something to think
+## Resources
 
-A new tenant has no resources. Open **Resources** and attach two.
+The first time the stack starts, `bin/rails db:prepare` creates the database and runs
+`db/seeds.rb`. The seeds attach four resources to the tenant:
 
-**Storage.** Choose object storage, and point it at the MinIO in the stack: endpoint
-`http://minio:9000`, access key `uris`, secret key `urisuris`, addressed by path. The name is the
-bucket's, and the bucket has to exist — create one in the MinIO console on port 9001 with the same
-credentials. **Take drops** makes it where uploads go.
+| | |
+| --- | --- |
+| **Default storage** (`database`) | storage in Postgres, up to 64 MB per file. It is the default storage, so uploads go here unless the agent picks another place. |
+| **Object storage** (`items-uris`) | a bucket in the stack's MinIO. The seeds create the bucket. |
+| **Snapshots** (`web`) | headless Chrome, which saves web pages as snapshots. |
+| **Local models** (`ollama`) | Ollama on the host at `http://host.docker.internal:11434/v1`, with a model for every role. It is the default inference resource. |
 
-**Inference.** Run Ollama on the host (`brew bundle` installs it), then attach a model backend with
-base URL `http://host.docker.internal:11434/v1` — the only origin the stack permits, through
-`URIS_INFERENCE_ORIGINS`. Name a model for each role; the agent model has to call tools. **Take
-questions** makes it the default.
+To see them, click your avatar in the header to open **Settings**, then open the **Resources** tab.
+**Attach one** adds another resource, and [attaching a resource](/guides/attach-a-resource/)
+describes each type. `./dev seed` runs the seeds again without deleting anything.
+
+The models run on the host, outside the containers. `brew bundle` installs Ollama. Pull the
+models that the seeds name:
+
+```sh
+ollama pull gemma3:4b
+ollama pull llama3.1:8b
+ollama pull qwen3:8b
+ollama pull nomic-embed-text
+```
+
+| | |
+| --- | --- |
+| `fast`, `vision` | `gemma3:4b` |
+| `smart` | `llama3.1:8b` |
+| `agent` | `qwen3:8b` |
+| `embedding` | `nomic-embed-text` |
+
+`URIS_INFERENCE_ORIGINS` permits only `http://host.docker.internal:11434`, so an inference resource
+you attach in development has to use that origin. If Ollama was not running when the seeds ran, the
+seeds print a warning and uris skips summaries until the resource answers. After you start Ollama,
+click **Check** on **Local models**. The check fails and names the missing models until each one is
+pulled.
+
+:::note
+Ollama gives each model a 4,096-token context by default. That is too small for the agent, which
+loses the start of its prompt. Start Ollama with `OLLAMA_CONTEXT_LENGTH=32768`.
+:::
 
 ## The first file
 
-Drop a file anywhere on the catalog. The upload answers as soon as the file is staged, and the
-worker does the rest: it analyzes the file, the [agent](/concepts/agents/) files it and chooses a
-resource that accepts it, and the bytes are written there. Watch the pass on the file's page. An
-upload nothing active can accept is refused with a message saying so. More in
-[adding](/concepts/adding/) and [analysis](/concepts/analysis/).
+Drop a file anywhere on the catalog. The upload returns as soon as the file is staged, and the
+worker does the rest. It analyzes the file, the [agent](/concepts/agents/) connects it to tags and
+picks a resource that accepts it, and uris writes the bytes there. The file's page shows the
+analysis as it runs. uris refuses an upload that no active resource can accept, and says why. See
+[adding things](/concepts/adding/) and [analysis](/concepts/analysis/).
 
 ## An MCP client
 
-Point any MCP client that speaks OAuth at `http://uris.localhost:8180/mcp`. The first request is
-answered `401` with the protected-resource metadata, which names masks; the client registers there
-and asks for a token itself, so whether it can depends on the masks tenant allowing dynamic
-registration. The tools it sees depend on the scopes it is granted.
+Point an MCP client that supports OAuth at `http://uris.localhost:8180/mcp`. uris answers the first
+request with `401` and the protected-resource metadata, which names masks. The client registers with
+masks and requests a token itself, so this works only if the masks tenant allows dynamic client
+registration. The tools the client sees depend on the scopes it is granted. See
+[connecting an agent](/guides/connect-an-agent/).
