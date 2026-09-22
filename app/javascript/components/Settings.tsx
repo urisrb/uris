@@ -2,7 +2,6 @@ import { Alert, Button, Group, Loader, Stack } from '@mantine/core'
 import type { Account } from '@masks/client'
 import {
   IconActivity,
-  IconAdjustments,
   IconArrowUpRight,
   IconDatabase,
   IconProgressCheck,
@@ -17,7 +16,6 @@ import { useAloud } from './Say'
 
 const TABS = [
   { to: '/settings/account', label: 'Account', icon: IconUser },
-  { to: '/settings/preferences', label: 'Settings', icon: IconAdjustments },
   { to: '/settings/resources', label: 'Resources', icon: IconDatabase },
   { to: '/settings/runs', label: 'Runs', icon: IconProgressCheck },
   { to: '/settings/activity', label: 'Activity', icon: IconActivity },
@@ -130,13 +128,13 @@ export function SignedIn({
           </Group>
         </div>
       </div>
+
+      <Preferences />
     </Stack>
   )
 }
 
-export function Preferences() {
-  useTitle('Settings')
-
+function Preferences() {
   const { data, loading, error, refetch } = useQuery(SettingsDocument)
   const save = useAloud(SetSettingDocument, 'That could not be changed.')
 

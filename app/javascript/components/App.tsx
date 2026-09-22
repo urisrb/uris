@@ -26,7 +26,7 @@ import { Mark } from './Mark'
 import { Resources } from './Resources'
 import { Runs } from './Runs'
 import { SayProvider } from './Say'
-import { Preferences, Settings, SignedIn } from './Settings'
+import { Settings, SignedIn } from './Settings'
 import { UploadsProvider } from './Uploads'
 
 const VERBS: [string, string][] = [
@@ -176,7 +176,6 @@ function Shell({
                   />
                 }
               />
-              <Route path="preferences" element={<Preferences />} />
               <Route path="resources" element={<Resources />} />
               <Route path="resources/:id" element={<Resources />} />
               <Route path="runs" element={<Runs />} />
