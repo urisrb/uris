@@ -1,71 +1,105 @@
 # uris
 
-A data unifier — one searchable index across everything you own, wherever it lives, with a way back
-out.
+uris is an indexer for personal data. It reads the places your files and records live, builds one
+searchable index across all of them with analysis attached, and can return the bytes as an export
+or a local copy.
 
-Drive search only searches Drive. Gmail search only searches Gmail. uris searches across all of
-them, with analysis attached, and can hand the bytes back as an export or a local copy.
+The documentation is at <https://uris.pages.dev>:
 
-Not every type points at files. `github`, `notion` and `slack` catalogue records that were never
-bytes — an issue, a page, a thread — and compose the text they never had, so they are searchable
-beside a PDF. All five API types sit on one adapter owning the dialling, the host check, the byte
-cap, the 401 worth one more attempt and the 429 worth retrying; a subclass writes where its pages
-come from and what a record reads like, and nothing else. That adapter does not know which of them
-reach somebody's own account — it asks the resource for a token, and `Resource::Delegated` is where
-the answer comes from masks.
+| | |
+| --- | --- |
+| [Overview](https://uris.pages.dev/overview/) | What uris is and the key concepts |
+| [Quickstart](https://uris.pages.dev/quickstart/) | Run uris locally, connect it to masks, and add the first file |
+| How-to guides | Single tasks, such as [attaching a resource](https://uris.pages.dev/guides/attach-a-resource/) |
+| Key concepts | How each part works, starting with [feeds](https://uris.pages.dev/concepts/feeds/) |
+| Reference | Generated from the code, such as the [GraphQL schema](https://uris.pages.dev/reference/graphql/) |
 
-Everything that touches an unbounded number of things checkpoints through
-[job-iteration](https://github.com/Shopify/job-iteration), so a sync or an export survives a deploy
-and resumes at its cursor rather than starting over.
+## Running uris
 
-## Running it
+`./dev` needs Docker and nothing else.
 
 ```sh
-./dev                # the whole stack, in containers, reloading
-./dev test           # unit, server, corpus and client, in containers
+./dev
 ```
 
-`./dev` needs docker and nothing else. It runs Rails, vite, the worker, the doc site and the three
-backing services, all reloading, and one tenant answers at <http://uris.localhost:8180> with its
-docs on <http://uris.localhost:8181>. Nothing goes in `/etc/hosts`: `*.localhost` already resolves.
+This builds and starts Rails, Vite, the worker, the documentation site, and three backing services
+(PostgreSQL, OpenSearch, and MinIO) in containers, all with live reloading. One tenant answers at
+<http://uris.localhost:8180>, and the documentation is at <http://uris.localhost:8181>. You do not
+need to edit `/etc/hosts`, because `*.localhost` resolves to the loopback address.
 
-Sign-in goes through masks, which `MASKS_ISSUER` names and which has to be running for the handshake
-to complete — `../masks/dev` from a masks checkout beside this one.
+Sign-in goes through [masks](https://github.com/urisrb/masks). `MASKS_ISSUER` names the masks
+server, and it has to be running for sign-in to complete. From a masks checkout beside this one, run
+`../masks/dev`.
 
-`./dev --multi` declares `demo` and `acme` instead and serves them at
-<http://demo.uris.localhost:8180>, which is what the suite exercises and what a real deployment
-looks like.
+To run two tenants, `demo` and `acme`, the way a real deployment does, pass `--multi`:
 
-Inference still runs on the host GPU: the stack reaches an Ollama on `host.docker.internal`, so
-`brew bundle` is worth running if you want the analyzers to have a model to talk to.
-
-## Two interfaces, one domain layer
-
-```
-browser  → /graphql   session auth, first-party client, urql + codegen + cable subscriptions
-Claude   → /mcp       typed tools, token-scoped grants
+```sh
+./dev --multi
 ```
 
-Neither wraps the other. Exposing GraphQL _as_ an MCP tool is what would collapse them back into
-one — a single passthrough tool cannot be partially granted.
+The tenants answer at <http://demo.uris.localhost:8180> and <http://acme.uris.localhost:8180>.
 
-The Ruby schema is the source of truth and the TypeScript is generated from it, so the SPA cannot
-drift from the API without the types going red first. `./dev` keeps both watchers running.
+Inference runs on the host GPU. The stack connects to Ollama on `host.docker.internal`, so run
+`brew bundle` to install Ollama and the other tools in the `Brewfile` if you want the analyzers to
+have a model.
 
-## The boundary rule
+Run `./dev help` for the other commands, such as `./dev console`, `./dev logs`, and `./dev reset`.
 
-**Nothing in this repo may name a host, a domain, or a secret.** Those are facts about a deployment,
-and they belong in the private infrastructure repo that consumes this one. Everything arrives
-through the environment; `.env.example` documents what.
+## Testing
 
-## What is not written down yet
+```sh
+./dev test
+```
 
-The schema underneath uris was rewritten in September 2026 — one record for a thing, one record for
-a pass over it — and the prose that described the old shape was removed rather than patched. What
-went, and why, is in `PLAN.md`; what it said is in the history.
+This runs the `unit`, `server`, `corpus`, and `client` suites in the containers. Name a suite to run
+only that one, for example `./dev test server`. The Rails suites clear `URIS_TENANT` and
+`URIS_TENANTS`, so they run against multiple tenants whichever way the stack was started. CI runs
+each suite the same way.
 
-Gone from here: the four movements, the item/resource vocabulary, how search fuses two rankings, the
-four layers of tenant isolation, the twelve-tool endpoint table, snapshots and the SSRF containment
-around them, and the two-pool job policy. Each of those described something real and most of it
-still holds — but each also carried a claim that no longer does, and a README nobody can trust is
-worse than a short one.
+## Interfaces
+
+uris has two interfaces over one domain layer:
+
+| Path | Client | Authorization |
+| --- | --- | --- |
+| `/graphql` | The browser app, built with urql, generated types, and Action Cable subscriptions | A masks session |
+| `/mcp` | An MCP client, such as Claude | A masks token, with typed tools and per-token grants |
+
+Neither interface wraps the other. uris does not expose GraphQL as an MCP tool, because a single
+passthrough tool cannot be partially granted.
+
+The Ruby schema is the source of truth, and the TypeScript types are generated from it. If the
+single-page app drifts from the API, the type check fails. `./dev` runs both watchers. The generated
+client is published to npm as [`@uris-to/client`](web/README.md).
+
+## Resources
+
+A resource is a place uris reads from or writes to. Some resources point at files. The `github`,
+`notion`, and `slack` types catalog records that have no file of their own, such as an issue, a
+page, or a thread. uris composes text for each record so that it is searchable beside a PDF.
+
+The five API resource types (`github`, `notion`, `slack`, `oauth-google`, and `microsoft-graph`)
+share one adapter, `Resource::Api`. The adapter makes the HTTPS request, checks that the host
+matches the service, caps the response size, retries once after a 401 when the token has expired,
+and raises a failure on a 429 that the job retries with backoff. Each subclass defines where its
+pages come from and how a record reads as text.
+
+The adapter asks the resource for a token. Types that act as a person on another service include
+`Resource::Delegated`, which gets that token from masks.
+
+Jobs that touch an unbounded number of records, such as a sync or an export, use
+[job-iteration](https://github.com/Shopify/job-iteration). They save a cursor as they go and resume
+from it after a deploy.
+
+## Configuration
+
+Nothing in this repository names a host, a domain, or a secret. Those belong to a deployment, which
+keeps them in its own infrastructure repository. uris reads all of them from the environment, and
+`.env.example` documents each variable. The
+[environment reference](https://uris.pages.dev/reference/environment/) lists them as well.
+
+## History
+
+The schema was rewritten in September 2026. The old prose was removed at that time, and it remains
+in the git history. The current behavior is described in the documentation, whose reference pages
+are generated from the code. `PLAN.md` holds the plan in progress.
