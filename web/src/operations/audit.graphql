@@ -1,14 +1,14 @@
 query AuditEvents(
-  $action: String
   $status: String
-  $subject: String
+  $actor: String
+  $feed: ID
   $after: ID
   $limit: Int
 ) {
   auditEvents(
-    action: $action
     status: $status
-    subject: $subject
+    actor: $actor
+    feed: $feed
     after: $after
     limit: $limit
   ) {
@@ -16,23 +16,34 @@ query AuditEvents(
     nextCursor
     nodes {
       id
+      actor
+      actorName
+      via
+      told
+      feed {
+        id
+        key
+        title
+      }
+      analysis {
+        id
+        cause
+      }
+      workingOn {
+        id
+        key
+        title
+      }
       channel
       action
       status
       scope
-      subject
-      clientId
       remoteIp
       requestId
       durationMs
       detail
       arguments
       createdAt
-      run {
-        id
-        kind
-        status
-      }
     }
   }
 }
