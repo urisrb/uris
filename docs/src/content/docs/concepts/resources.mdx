@@ -1,152 +1,168 @@
 ---
 title: Resources
-description: A place uris reads from, writes to, or asks something of.
+description: The places uris reads from, writes to, and sends requests to.
 ---
 
-A resource is one instance of a type — a bucket, a directory, a mailbox, an inference endpoint, an
-MCP server — keyed uniquely within its tenant and type. What each type needs and what it can do is
-listed in [the resource reference](/reference/resources/); this page is what they all share.
+A resource is one instance of a type, such as a bucket, a directory, a mailbox, an inference
+endpoint, or an MCP server. Its key is unique within its tenant and type. The
+[resource reference](/reference/resources/) lists what each type needs and what it can do. This page
+covers what all types share.
 
 ## What a type declares
 
-A type states what it is with three class macros, and nothing else decides it:
+A type declares what it serves with three class macros:
 
 | | |
 | --- | --- |
-| `serves` | capabilities — `storage`, `inference`, `browser`, `search`, `tools`, `integration` |
-| `accepts` | mime patterns it will hold, such as `*/*` |
-| `up_to` | the largest file it will take, in bytes, or nothing for no limit |
+| `serves` | its capabilities: `storage`, `inference`, `browser`, `fetch`, `search`, `tools`, or `integration` |
+| `accepts` | the mime patterns it will store, such as `*/*` |
+| `up_to` | the largest file it will take, in bytes, or no limit when it is unset |
 
-Every save copies the declaration into the `serving` jsonb column, so "which active stores accept a
-4GB video" is a SQL query rather than loading every resource into Ruby to ask it. A copy is only as
-fresh as its last save, so `bin/rails uris:resources`, which the production entrypoint runs before
-the server starts, restates every row inside every tenant before it reconciles declarations.
+`browser` is the `web` type, which renders pages. `fetch` is the `curl` type, which reads a page's
+text. `search` is a web search API. Types such as git, IMAP, RSS, and CalDAV declare no capability,
+and uris reads them by syncing.
+
+Every save copies the declaration into the `serving` jsonb column. A question such as "which active
+stores accept a 4 GB video" is then one SQL query, and uris does not need to load every resource to
+answer it. The copy is only as current as the last save. `bin/rails uris:resources`, which the
+production entrypoint runs before the server starts, saves every row again in every tenant and then
+reconciles the declared resources.
 
 A tenant has at most one default storage and one default inference resource, and only a resource
-that serves the capability can hold it. Making one the default clears the flag on the other.
-Snapshots from the web go to default storage unless told otherwise, an upload nobody placed lands
-there, and inference prefers the default when more than one resource could answer a role.
+that serves the matching capability can hold either one. Making a resource the default clears the
+flag on the previous one. Snapshots go to the default storage unless the `web` resource names
+another, an upload that nothing placed goes there, and inference uses the default when more than one
+resource serves a role.
 
 ## Where they come from
 
-`config/resources.yml` is ERB, keyed by environment, with every host and secret read from the
-environment. The shipped file declares a `files` filesystem resource as default storage.
-`Resource.declare!` reconciles it per tenant: it creates or updates each declared key and never
-deletes, so a resource dropped from the file is left standing rather than removed from under
-whoever is using it.
+`config/resources.yml` is ERB, keyed by environment, and reads every host and secret from the
+environment. The shipped file declares a `files` filesystem resource as the default storage.
+`Resource.declare!` reconciles it in each tenant. It creates or updates each declared key and never
+deletes. A resource removed from the file stays attached, so nobody using it loses it.
 
-The browser attaches the rest. A type that can be attached returns an `attaching` description — a
-label and a list of fields — and the form is rendered from it. `Resource::Settings` reads the given
-values against those fields for both the file and the form: anything the type does not declare is
-dropped, a missing required field is refused, and each value lands in `details` or, when the field
-is a secret, in `credentials`. Credentials are encrypted at rest, and the audit trail records which
-fields were set, never their values. Attaching runs a first check and reports what it said.
+In development, `db/seeds.rb` attaches a database store, an S3 bucket in MinIO, a `web` resource,
+and an Ollama inference resource. See the [quickstart](/quickstart/#resources).
 
-A resource is changed through the same form. Its type and key stay as they were; its name and
-fields are read against the type again, a secret left empty keeps what it held, and a field the
-new answers no longer ask for is dropped with its value. What the form reads back is only what
-is held in the clear, and the names of the encrypted fields that hold something. The change is
-checked and audited the way attaching is.
+People attach everything else in the browser. A type that can be attached returns an `attaching`
+description, with a label and a list of fields, and the form is rendered from it.
+`Resource::Settings` reads the submitted values against those fields, for both the file and the
+form. It drops any value the type does not declare and refuses a missing required field. Each value
+goes into `details`, or into `credentials` when the field is a secret. Credentials are encrypted at
+rest, and the audit log records which fields were set but never their values. Attaching runs a first
+check and reports the result. See [attaching a resource](/guides/attach-a-resource/).
 
-A filesystem resource is only attachable when `URIS_FILESYSTEM_ROOTS` names directories. Each
-tenant is given its own directory under every one of them, named for its subdomain and made on
-first use, and a resource's root has to sit inside one of those — the root itself is shared by
-every tenant on the server, so it is never a place one can reach. A relative root is taken from the
-tenant's directory under the first root, which is where the shipped `files` resource, root `.`,
-lives. A root is checked where it really points, so a symlink out of the tenant's directory is
-refused, and a write never follows one.
+A resource is changed through the same form. Its type and key stay the same. Its name and fields
+are read against the type again. A secret left empty keeps its current value, and a field the type
+no longer asks for is removed along with its value. The form reads back only the values held in
+plain text, plus the names of the encrypted fields that have a value. uris checks and audits a
+change the same way it checks and audits attaching.
+
+A filesystem resource can be attached only when `URIS_FILESYSTEM_ROOTS` names directories. Each
+tenant gets its own directory under each root, named for its subdomain and created on first use. A
+resource's root has to be inside one of those directories. The configured root itself is shared by
+every tenant on the server, so no resource can point at it. A relative root is resolved against the
+tenant's directory under the first root. The shipped `files` resource, with root `.`, lives there.
+uris checks the real path of a root, so it refuses a symlink that leads out of the tenant's
+directory, and a write never follows a symlink.
 
 ## Resources connected through masks
 
-Google Drive, OneDrive, and an MCP server whose authentication is `masks` use somebody's own
-account. Nobody types a secret into uris.
+Google Drive, OneDrive, and an MCP server whose authentication is `masks` use a person's own
+account. Nobody enters a secret into uris.
 
 1. **Attach** it. It starts out not connected.
-2. **Connect** it. The browser goes to masks, which asks the person's consent and signs them in to
-   the provider if it has to, then comes back.
-3. It **syncs and answers** from then on, with nobody signed in.
-4. If the person stops uris using the account in masks, the resource shows **Reconnect** and its
-   syncs stop until somebody does.
+2. **Connect** it. The browser goes to masks, which asks for the person's consent, signs them in to
+   the provider if needed, and returns.
+3. From then on it syncs and answers requests, with nobody signed in.
+4. If the person revokes uris's access in masks, the resource shows **Reconnect** and its syncs
+   stop until somebody reconnects it.
 
-masks keeps the provider's tokens; uris keeps a [delegation](https://masks.pages.dev/concepts/delegation/)
-— the connection and a secret, encrypted in the resource's credentials — and trades the secret for
-a provider token when the last one runs out.
+masks keeps the provider's tokens. uris keeps a
+[delegation](https://masks.pages.dev/concepts/delegation/), which is the connection and a secret
+encrypted in the resource's credentials. When the last provider token expires, uris exchanges the
+secret for a new one.
 
-What uris enforces:
+uris enforces these rules:
 
-- `/resources/<id>/connect` needs `uris:resources:command`, and the resource has to be one the
-  caller can see.
-- `/connect/callback` refuses a `state` this browser did not start, a callback somebody else
-  finished, and a connection masks made for a different person.
-- One worker at a time renews a resource's token, under a row lock, because a secret spent twice is
-  revoked. Every rotated secret is kept.
-- A provider API that refuses the token gets one fresh token and one more try.
-- masks refusing marks `needs_connect_at` and raises `Resource::Unusable`, which stops a sync
-  instead of retrying it. masks not answering is `Resource::Failed`, retried as usual. A check or
-  sync that succeeds clears the mark.
+- `/resources/<id>/connect` needs `uris:resources:command`, and the caller has to be able to see
+  the resource.
+- `/connect/callback` refuses a `state` that this browser did not start, a callback that somebody
+  else already finished, and a connection that masks made for a different person.
+- Only one worker at a time renews a resource's token, under a row lock, because masks revokes a
+  secret that is used twice. uris keeps every rotated secret.
+- When a provider API refuses the token, uris gets one new token and tries once more.
+- When masks refuses, uris sets `needs_connect_at` and raises `Resource::Unusable`, which stops a
+  sync without retrying it. When masks does not answer, uris raises `Resource::Failed`, which is
+  retried as usual. A successful check or sync clears `needs_connect_at`.
 
 ## Only mine, or everyone's
 
-Whoever attaches a resource says who can use it. **Everyone here** is the default, and what every
-resource was before. **Only me** records the attaching person's subject as `owner_subject`, and from
-then on the resource is absent for anybody else — from the resources query and every mutation that
-names one, from the `resource` and `feeds` tools, from the connect route, and from the MCP tools a
-personal server offers, which only its owner sees. A type connected through masks starts as only
-the attaching person's.
+The person who attaches a resource chooses who can use it. **Everyone here** is the default.
+**Only me** records the person's subject as `owner_subject`. From then on the resource is hidden from
+everybody else: from the resources query, from every mutation that names a resource, from the
+`resource` and `feed` tools, from the connect route, and from the MCP tools a personal MCP server
+offers. A type connected through masks starts as **Only me**.
 
-What a personal resource syncs is catalogued like anything else, for the whole tenant. A personal
-resource is never where everybody's drops or questions go, and an agent working on a feed reaches
-only the resources everyone here can.
+What a personal resource syncs is cataloged for the whole tenant, like anything else. A personal
+resource is never the default for uploads or questions, and an agent working on a feed can reach
+only the resources that everyone can use.
 
 ## Syncing
 
-A type that implements `each_page` can sync; one that does not, like the browser, can neither sync
-nor keep a schedule. `sync_interval` is at least a minute, and `ScheduleSyncsJob` looks every minute
-for resources that are due.
+A type that implements `each_page` can sync. A type that does not, such as `web`, can neither sync
+nor have a schedule. `sync_interval` is at least one minute, and `ScheduleSyncsJob` checks every
+minute for resources that are due.
 
 Starting a sync claims the resource with a single conditional update, so two workers cannot both
-start one, and opens a run of kind `sync`. The job walks pages with job-iteration, recording a
-[reference](/concepts/references/) for each object and analyzing any [feed](/concepts/feeds/) not
-yet analyzed, and resumes at its cursor after a deploy. A `Resource::Failed` gets five attempts
-before the run fails. Finishing clears the claim and sets the next sync on the original
-cadence, skipping slots that were missed. A sync that fails clears the claim too, without recording
-the resource as synced. One whose worker died holds its claim for six hours, after which it counts as
-abandoned and another may start.
+start one, and opens a run of kind `sync`. The job walks the resource page by page with
+job-iteration. It records a [reference](/concepts/references/) for each object, analyzes any
+[feed](/concepts/feeds/) that needs it, and resumes at its cursor after a deploy. A
+`Resource::Failed` error gets five attempts before the run fails. When the sync finishes, uris
+clears the claim and schedules the next sync on the original interval, skipping any times that were
+missed. A failed sync also clears the claim, but does not record the resource as synced. If the
+worker running a sync dies, the claim stays for six hours. After that uris treats the sync as
+abandoned, and another sync can start.
 
-A run can be cancelled, and stops when it passes its deadline.
+A run can be cancelled, and it stops when it passes its deadline.
 
-A sync is a walk, and `Resource::Walk` decides which kind. A type that can ask its source for only
-what changed — git, IMAP, GitHub — keeps a checkpoint in `sync_state`: the commit it reached, the
-last message it saw with the mailbox's `UIDVALIDITY`, the time it began less five minutes. The next
-sync walks only what changed since, as long as a full walk finished within the last day; otherwise,
-or when the checkpoint cannot be used — history rewritten, the mailbox renumbered — it walks
-everything. What a walk reaches becomes the checkpoint only when it finishes, so a cancelled, failed
-or pretend sync starts from where the last good one left off, and a walk resumed after a deploy keeps
-the checkpoint it began with. `walked_at` is when a full walk last finished without missing anything.
+`Resource::Walk` decides which kind of walk a sync does. A type that can ask its source for only
+what changed, such as git, IMAP, or GitHub, keeps a checkpoint in `sync_state`. The checkpoint is the
+commit it reached, the last message it saw together with the mailbox's `UIDVALIDITY`, or the time the
+last walk began minus five minutes. The next sync walks only what changed since the checkpoint, as
+long as a full walk finished within the last day. Otherwise it walks everything. It also walks
+everything when the checkpoint cannot be used, for example because history was rewritten or the
+mailbox was renumbered. A walk saves its new checkpoint only when it finishes. A cancelled, failed,
+or dry-run sync leaves the previous checkpoint in place, and a walk resumed after a deploy keeps the
+checkpoint it started with. `walked_at` records when a full walk last finished without missing
+anything.
 
 ## Reaching through another resource
 
-`via` points a resource at a transport — a resource that serves `transport` and answers `reach!` —
-and an OpenAI-compatible endpoint dials its base URL through it instead of directly. Validation refuses a `via` that does
-not serve `transport`, belongs to another tenant, points at itself, loops, or sits more than four
-hops from anything that answers. The foreign key is composite — `(via_id, tenant_id)` references
-`(id, tenant_id)` — so the database itself cannot join a resource to another tenant's transport,
-whatever the application does. A transport cannot be archived while an active resource is reached
-through it.
+A resource has a `via` column for a transport, which would be a resource that serves `transport` and
+implements `reach!`. An OpenAI-compatible endpoint with a `via` dials its base URL through the
+transport. No shipped type serves `transport` yet, so `via` cannot be set to anything today.
 
-## Health, internal stores and archiving
+The validations are in place for when a transport type exists. They refuse a `via` that does not
+serve `transport`, that belongs to another tenant, that points at the resource itself, that forms a
+loop, or that is more than four hops from a resource that answers. The foreign key is composite:
+`(via_id, tenant_id)` references `(id, tenant_id)`, so the database refuses a link to another
+tenant's resource even if the application does not. A transport cannot be archived while an active
+resource uses it.
 
-A check calls the type's `check!` and records `checked_at` and `check_error`; a resource is healthy
-when it has been checked and the last check raised nothing. `ScheduleChecksJob` looks every hour for
-resources never checked or not checked in six hours, and checks each in a job of its own, so a
-resource that stopped answering shows it before a sync or a tool call meets it. One that is syncing
-is skipped, since the sync is the better test. Checking an MCP server asks it again what tools it
-offers, so what it adds or drops reaches the proxy within the same six hours.
+## Health, internal stores, and archiving
+
+A check calls the type's `check!` and records `checked_at` and `check_error`. A resource is healthy
+when it has been checked and the last check raised no error. `ScheduleChecksJob` runs every hour. It
+finds resources that were never checked or not checked in six hours, and checks each one in its own
+job, so a resource that stopped answering shows it before a sync or a tool call reaches it. It skips
+a resource that is syncing, since the sync tests it better. Checking an MCP server asks it again for
+its tools, so tools it adds or removes reach the proxy within six hours.
 
 uris keeps two stores for itself: `children`, for what is extracted from a file, and `derived`, for
-previews and thumbnails. They are database resources, and they are never offered as a place to put
-an upload. Neither is listed or reachable by key through GraphQL or MCP, and neither can be archived,
-synced, scheduled or made a default, since uris writes into them whatever anyone sets.
+previews and thumbnails. Both are database resources, and neither is ever offered as a place for an
+upload. Neither is listed or reachable by key through GraphQL or MCP. Neither can be archived,
+synced, scheduled, or made a default, because uris writes into them regardless of those settings.
 
-Archiving sets `archived_at` and deletes nothing. An archived resource drops out of capability
-queries, placement, the defaults and the sync schedule, and restoring it clears the timestamp.
+Archiving sets `archived_at` and deletes nothing. An archived resource is left out of capability
+queries, placement, the defaults, and the sync schedule. Restoring it clears the timestamp.
