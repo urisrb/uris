@@ -1,164 +1,181 @@
 ---
 title: Agents and MCP
-description: Four tools at /mcp, shaped by the token that calls them, and the loop a feed runs over the same four.
+description: The four tools at /mcp, how the token's scopes select them, and the agent loop that runs over the same tools.
 ---
 
-`/mcp` is a Model Context Protocol endpoint over streamable HTTP. It takes the same masks access
-token as the browser app — see [tenants](/concepts/tenants/) — and a request without one is answered
-`401` with a `WWW-Authenticate` challenge naming
+`/mcp` is a Model Context Protocol endpoint over streamable HTTP. It accepts the same masks access
+token as the browser app, as described in [tenants](/concepts/tenants/). uris answers a request
+without a token with `401` and a `WWW-Authenticate` challenge that names
 `/.well-known/oauth-protected-resource`. That document lists the resource URL, the masks issuer as
-its authorization server, and every `uris:` scope with a description, which is what an OAuth-aware
-client needs to find masks and ask for a token on its own.
+its authorization server, and every `uris:` scope with a description. An OAuth client uses it to
+find masks and request a token. See [connecting an agent](/guides/connect-an-agent/).
 
-Calls are rate-limited per token, or per address when there is none, at `URIS_MCP_LIMIT` a minute
-(120 by default). An `Mcp-Session-Id` belongs to the subject that opened it and is refused to anyone
-else.
+Calls are rate-limited per token, or per IP address when there is no token, to `URIS_MCP_LIMIT` a
+minute (120 by default). An `Mcp-Session-Id` belongs to the subject that opened it, and uris refuses
+it from anyone else.
 
 ## Four tools
 
-| Tool | Scope to see it | What it is for |
+| Tool | Scope to see it | Purpose |
 | --- | --- | --- |
-| `search` | `uris:catalog:read` | the whole catalog at once, or the newest feeds of a type |
-| `feed` | `uris:catalog:read` | one [feed](/concepts/feeds/) in full; with `do`, note, rename, analyze, create or place it |
-| `connect` | `uris:catalog:write` | join two feeds, or sever them |
-| `resource` | `uris:resources:read` | list the [resources](/concepts/resources/), and ask one to run a command |
+| `search` | `uris:catalog:read` | searches the whole catalog, or lists the newest feeds of a type |
+| `feed` | `uris:catalog:read` | reads one [feed](/concepts/feeds/) in full. With `do`, it adds a note, renames, analyzes, creates, places, or sets how long a feed lasts. |
+| `connect` | `uris:catalog:write` | connects two feeds, or disconnects them |
+| `resource` | `uris:resources:read` | lists the [resources](/concepts/resources/), and sends a command to one |
 
-Inputs are generated into the [MCP reference](/reference/mcp/).
+The [MCP reference](/reference/mcp/) lists each tool's inputs.
 
-A token sees only the tools its scopes permit, and the `resource` tool is built per token by
-`Tool::Resources.for`: `list`, `describe`, `check`, `runs`, `get`, `parameters` and `search` are
-always in its schema, and `sync`, `export`, `cancel`, `put` and `snapshot` appear only when the token
-carries `uris:resources:command`. A token with `uris:web:keep` also gets `snapshot`, which it can
-send only to a resource that renders pages, the `web` type. An ungranted command is absent from `tools/list`, not refused when
-called. Calls are still checked: `feed`'s writing verbs need `uris:catalog:write`, and searching a
-search-capable resource needs `uris:web:read`. A token with `uris:mcp:call` also sees the tools of
-any MCP server added as a resource, passed through.
+A token sees only the tools its scopes permit. `Tool::Resources.for` builds the `resource` tool for
+each token. `list`, `describe`, `runs`, `get`, `parameters`, and `search` are always in its schema.
+`check`, `sync`, `keep`, `export`, `cancel`, `put`, and `snapshot` appear only when the token has
+`uris:resources:command`. A token with `uris:web:keep` also gets `snapshot`, and can send it only to
+a resource that renders pages, which is the `web` type. A command the token cannot use is left out of
+`tools/list`.
+
+uris still checks each call:
+
+- the `feed` tool's writing verbs (`note`, `rename`, `analyze`, `create`, `place`, and `last`) need
+  `uris:catalog:write`;
+- `search` on a resource that serves `search` needs `uris:web:read`;
+- `get` on a resource that serves `fetch`, such as `curl`, needs `uris:web:read`.
+
+A token with `uris:mcp:call` also sees the tools of every MCP server attached as a resource, passed
+through unchanged.
 
 ## The agent
 
-`Agent` runs a prompt against an inference resource that serves the `agent` role, offering it the
-same four tools. It runs for a fixed number of turns — six by default, a feed's schedule can set
-its own, never more than 32 — and each turn asks the model for a reply.
+`Agent` runs a prompt against an inference resource that serves the `agent` role, and offers it the
+same four tools. It runs for a fixed number of turns: six by default, or the number a feed's
+schedule sets, up to 32. Each turn asks the model for a reply.
 
 - A reply with no tool calls is the answer.
-- Each tool call is checked against the tool's own input schema before it runs. An unknown tool,
-  arguments that are not JSON, or arguments the schema refuses come back to the model as an error
-  it can correct, rather than raising out of the loop.
-- A tool result longer than 8,000 characters is cut, with a note saying how much was left off.
-- Three failed calls in a row end the run as `flailed`. A call that succeeds resets the count.
-- The last turn is offered no tools and told to answer from what it has already read.
-- A run whose analysis is cancelled, or past its deadline, stops at the start of its next turn as
+- uris checks each tool call against the tool's input schema before running it. An unknown tool,
+  arguments that are not valid JSON, and arguments the schema refuses go back to the model as an
+  error it can correct. They do not end the loop.
+- A tool result longer than 8,000 characters is truncated, with a note that says how much was cut.
+- Three failed calls in a row end the run as `flailed`. A successful call resets the count.
+- The last turn offers no tools and tells the model to answer from what it has already read.
+- A run whose analysis is cancelled or past its deadline stops at the start of its next turn, as
   `halted`.
-- A run with an analysis is told how long it has, and offered `more_time`, which the loop answers
-  itself rather than passing to a tool. Given minutes and a reason, it moves the deadline out, never
-  past a day from the start. With under a minute left, the next turn is the last, so it answers from
-  what it has instead of being cut off.
+- A run with an analysis is told how much time it has, and is offered `more_time`. The loop answers
+  `more_time` itself. Given a number of minutes and a reason, it moves the deadline later, up to one
+  day from the start. When less than a minute is left, the next turn is the last, so the model
+  answers from what it has before the deadline passes.
 
-It returns an `Answer` holding what was said, why it stopped, the turns taken and every call made.
+The run returns an `Answer` with the reply, the reason the run stopped, the turns taken, and every
+call made.
 
-When a feed is analyzed, the agent is asked to file it — connect it to tags and related feeds, and
-choose a resource for a file still waiting for one. An address feed with a schedule runs its own
-prompt instead. See [analysis](/concepts/analysis/).
+When a feed is analyzed, the agent is asked to file it. It connects the feed to tags and related
+feeds, and chooses a resource for a file that is still staged. An address feed with a schedule runs
+the schedule's prompt instead. See [analysis](/concepts/analysis/).
 
-That agent is not acting as a person, so it does not borrow one's token. `Feed#grant` gives it a
-grant of its own, subject `feed:` followed by the feed's key, holding `Feed::AGENT_SCOPES`:
+This agent does not act for a person, so it does not use a person's token. `Feed#grant` gives it a
+grant of its own, with the subject `feed:` followed by the feed's key and the scopes in
+`Feed::AGENT_SCOPES`:
 
 ```
 uris:catalog:read  uris:catalog:write  uris:web:read  uris:resources:read
 ```
 
-It can search, read, file and place, and ask resources read-only questions. It cannot sync, export
-or write into a resource, reach an added MCP server, or touch settings.
+The agent can search, read, file, and place feeds, and send read-only commands to resources. It
+cannot sync, export, write into a resource, call an attached MCP server, or change settings.
 
 ## Asking
 
-A question asked of the catalog is kept as a note and answered by an analysis with the cause `ask`.
-The note's key is the question and it starts untitled; before the lead sends a scout, the model that
-serves the `fast` role names it in a few words — "Toronto weather" — and a tenant with no fast model
-leaves the question to stand for it.
-`Asking` builds the prompts, and everything runs under the question's own grant, holding
+uris saves a question asked of the catalog as a note, and answers it with an analysis whose cause is
+`ask`. The note's key is the question, and the note starts with no title. Before the lead sends its
+first scout, the model that serves the `fast` role names the note in a few words, such as "Toronto
+weather". If the note still has no title after the answer, because the tenant has no fast model or
+the fast model failed, uris tries again with the first of the `fast`, `smart`, and `agent` roles that
+a resource serves. See [asking a question](/guides/ask/).
+
+`Asking` builds the prompts. Everything runs under the question's own grant, with the scopes in
 `Feed::ASKING_SCOPES`:
 
 ```
 uris:catalog:read  uris:catalog:write  uris:web:read  uris:web:keep  uris:resources:read
 ```
 
-The question is answered by a lead and its scouts. The lead holds the question and the goal, and
-its only tool is `scout`: it sends a task, such as finding what an address is and keeping its about
-page, and gets back a short report. It never sees a raw search result or page, so its transcript
-stays small however much is read. It may take 16 turns, bounded by its feed's timeout, and is turned
-back once if it answers before sending a scout.
+A lead and its scouts answer the question. The lead holds the question and the goal, and its only
+tool is `scout`. It sends a scout a task, such as finding out what an address is and keeping its
+about page, and gets back a short report. The lead never sees a raw search result or page, so its
+transcript stays small no matter how much the scouts read. The lead may take 16 turns, within its
+feed's timeout. If it answers before sending any scout, uris sends it back once to send one.
 
-`Scouting` runs each task as an agent of its own, in a fresh context, with the real tools under the
-same grant, for up to eight turns. Several scouts sent in one turn run side by side,
-`URIS_SCOUTS_AT_ONCE` at a time (two by default), each in a thread that enters the tenant on its own
-connection. A scout runs on the inference resource that declares the `scout` role, and on the
-agent's model where none does. It is told how long it has, cannot ask for more, and stands down 90
-seconds before the deadline so the lead still has time to answer. Its report is cut to 1,500
-characters; the calls it made are kept for the judges and the connections.
+`Scouting` runs each task as a separate agent with a new context, using the real tools under the
+same grant, for up to eight turns. Scouts sent in the same turn run in parallel,
+`URIS_SCOUTS_AT_ONCE` at a time (two by default). Each runs in its own thread, which enters the
+tenant on its own database connection. A scout uses the inference resource that declares the `scout`
+role, or the agent's model when none does. A scout is told how much time it has and cannot ask for
+more. It stops 90 seconds before the deadline, so the lead still has time to answer. Its report is
+truncated to 1,500 characters. uris keeps the calls it made for the judges and the connections.
 
-Scouts are told only what the tenant has attached. With a search resource a scout can search the web.
-With a fetch resource, such as `curl`, it can read a page. With a `web` resource it can keep a page as
-a snapshot, which becomes an item of its own, and keeping the same address again later updates that
-item. Without any of them the question is asked of the catalog alone.
+Scouts are told only about the resources the tenant has attached. With a search resource, a scout
+can search the web. With a fetch resource, such as `curl`, it can read a page. With a `web`
+resource, it can keep a page as a snapshot. The snapshot becomes a feed of its own, and keeping the
+same address again later updates that feed. Without any of these resources, the question is answered
+from the catalog alone.
 
-A note that was asked is a conversation. `askCatalog` with the note's `feedId` asks a follow-up in
-it, once the question before has been answered; the question is kept on the analysis that answers
-it, and **Ask again** asks the latest one again. The lead of a follow-up is told the earlier questions
-and their answers, up to eight of them with each answer cut to 1,500 characters, and told to read the
-new question in their light without answering them again; its scouts are told which questions it
-follows. A follow-up about an earlier answer itself — say it in markdown, shorter, as a table — is
-answered by saying that answer again, with no scout, and the lead is not pushed to send one for it;
-the judges of a follow-up are shown the conversation it follows. When the reply lands, `Analyzer::Conversation` rolls the whole conversation into the
-analysis — every question and answer as its text, and a summary, entities and keywords made from all
-of it — so the note is searched and summarised as the conversation it has become rather than as its
-first question.
+A note that was asked holds a conversation. `askCatalog` with the note's `feedId` asks a follow-up
+question in it, once the previous question has been answered. uris saves each question on the
+analysis that answers it, and **Ask again** asks the latest question again. The lead of a follow-up
+is given the earlier questions and their answers, up to eight of them, with each answer truncated to
+1,500 characters. It is told to read the new question in their context without answering them
+again, and its scouts are told which questions it follows. A follow-up about an earlier answer, such
+as a request to write it in markdown, make it shorter, or turn it into a table, is answered by
+rewriting that answer without any scout, and the lead is not asked to send one. The judges of a
+follow-up see the conversation before it. When the reply is saved, `Analyzer::Conversation` rolls the
+whole conversation into the analysis. Every question and answer becomes its text, and the summary,
+entities, and keywords are made from all of it. Search then finds the note by the whole
+conversation.
 
-Each answer keeps what it drew on — the feeds it cited, opened or kept — as a `drew_on` step, and
-the note's page shows them under that answer. The note is still connected to all of them.
+Each answer records the feeds it cited, opened, or kept in a `drew_on` step, and the note's page
+lists them under that answer. The note is also connected to all of them.
 
-The run is confined. `Current.confined_to` holds the feeds it made, and `feed`'s writing verbs
-refuse any other feed, so a page telling the agent to rewrite a note or rename a file cannot. It
-can create only notes, never a scheduled feed. `connect` needs one end to be the question or
-something the run made. Snapshots are not confined: the page, not the agent, decides what one
-holds.
+The run is confined. `Current.confined_to` holds the feeds the run created, and the `feed` tool's
+writing verbs refuse any other feed. A page that tells the agent to rewrite a note or rename a file
+therefore has no effect. The run can create only notes, never a scheduled feed. `connect` needs one
+end to be the question or a feed the run created. Snapshots are not confined, because the page
+decides what a snapshot contains.
 
-A small model tends to stop early, so a scout's report is turned back, once for each shortfall, when:
+Small models tend to stop early. uris sends a scout's report back, once for each of these problems:
 
-- nothing came from the catalog and the web was never tried,
-- the web was searched and no page was read, with the exact calls for the addresses the search
-  returned,
-- pages were read and none was kept, while something could keep them.
+- nothing came from the catalog and the scout never tried the web;
+- the scout searched the web and read no page. The message includes the exact calls for the
+  addresses the search returned;
+- the scout read pages and kept none, while a resource could keep them.
 
-When the lead finishes, the question is connected to every feed its answer cites and every feed a
-scout opened or made, and to every page a scout kept. Then ten judges on the `smart` model, or the
-agent's model where no smart one is declared, each see the question, the lead's answer and only what
-the scouts' tools returned. Each votes on whether the answer is supported by that evidence and whether what it kept is worth having again. The shares
-are stored on the analysis as the `verified` step and exposed as `Analysis.verified` and
-`Analysis.useful`. A judge that fails abstains. `ASK_VERIFICATIONS` sets how many judges there are.
+When the lead finishes, uris connects the question to every feed the answer cites, every feed a
+scout opened or created, and every page a scout kept. Then ten judges run on the `smart` model, or
+on the agent's model when no smart model is declared. Each judge sees the question, the lead's
+answer, and only what the scouts' tools returned. Each votes on whether that evidence supports the
+answer, and whether what the run kept is worth keeping. uris stores the vote shares on the analysis
+as the `verified` step, and exposes them as `Analysis.verified` and `Analysis.useful`. A judge that
+fails does not vote. `ASK_VERIFICATIONS` sets the number of judges.
 
 ## Budgets and gates
 
-Starting work that can run long spends from a budget: `feed` with `do: analyze`, and `resource` with
-`sync` or `export`. Each subject in a tenant may start `URIS_RUN_BUDGET` of them in a clock hour, 20
-by default; `0` removes the ceiling. A feed's agent spends from its own subject's budget, not a
-person's.
+Work that can run for a long time spends from a budget. This covers `feed` with `do: analyze`, and
+`resource` with `sync` or `export`. Each subject in a tenant may start `URIS_RUN_BUDGET` of these per
+clock hour, 20 by default, and `0` removes the limit. A feed's agent spends from its own subject's
+budget, which is separate from any person's.
 
-A gate is a row that stops a kind of job. The iterating jobs name theirs — `sync`, `analyze`,
-`export` and `reindex` — and a gate can apply to the whole key or to one record, such as a single
-resource for `sync`; the record's gate wins over the key's. A disabled gate marks the run gated and
-does nothing; a gate that is enabled but not live lets `sync` and `reindex` walk and count without
-writing. Gates are read again every 50 iterations, so closing one stops a run already under way.
-`URIS_ITERATORS_DISABLED` closes every gate at once. Gates have no screen yet; they are set with
-`Gate.set!` from a console.
+A gate is a row that stops a kind of job. The iterating jobs each name their gate: `sync`,
+`analyze`, `export`, or `reindex`. A gate applies to the whole key or to one record, such as a
+single resource for `sync`, and the record's gate takes precedence over the key's. A disabled gate
+marks the run as gated and does nothing. A gate that is enabled but not live lets `sync` and
+`reindex` walk and count without writing anything. Jobs read their gates again every 50 iterations,
+so closing a gate stops a run that is already in progress. `URIS_ITERATORS_DISABLED` closes every
+gate at once. Gates have no screen yet. Set them with `Gate.set!` from a console.
 
 ## Audit
 
-Every tool call writes an audit event: the tool, the scope, `ok`, `error` or `denied`, the subject and
-client, the address and request id, and the duration. Arguments are summarized rather than stored —
-strings cut to 200 characters, arrays counted, one level of nesting kept — and any key naming a
-secret, password, token, credential, authorization or access key is replaced with `[redacted]`.
-Refused authorizations, rate-limited calls, and some GraphQL mutations are recorded the same way.
+Every tool call writes an audit event with the tool, the scope, the result (`ok`, `error`, or
+`denied`), the subject and client, the IP address and request id, and the duration. uris summarizes
+the arguments and does not store them in full. It truncates strings to 200 characters, counts
+arrays, and keeps one level of nesting. It replaces the value of any key that names a secret,
+password, token, credential, authorization, or access key with `[redacted]`. Refused
+authorizations, rate-limited calls, and some GraphQL mutations are recorded the same way.
 
-Events are readable through the `auditEvents` query with `uris:catalog:read`. A daily job deletes
-those older than `URIS_AUDIT_RETENTION_DAYS`, 90 by default; `0` keeps them forever.
+The `auditEvents` query returns events to a token with `uris:catalog:read`. A daily job deletes
+events older than `URIS_AUDIT_RETENTION_DAYS`, 90 by default, and `0` keeps them forever.
