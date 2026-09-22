@@ -171,7 +171,12 @@ gate at once. Gates have no screen yet. Set them with `Gate.set!` from a console
 ## Audit
 
 Every tool call writes an audit event with the tool, the scope, the result (`ok`, `error`, or
-`denied`), the subject and client, the IP address and request id, and the duration. uris summarizes
+`denied`), the IP address and request id, and the duration. Each event names its actor: a `person`
+with their name and the client they asked through, a `client` acting for itself, the `agent`, or
+`nobody` when no token was accepted. An agent's event also names the analysis it ran for, so the
+**Activity** tab in Settings shows one analysis as one entry. Each event carries a sentence about
+the call, such as "filed invoice.pdf under receipts", and the feed it was about. uris writes the
+sentence when the call is made, so it still reads correctly after the feed is forgotten. uris summarizes
 the arguments and does not store them in full. It truncates strings to 200 characters, counts
 arrays, and keeps one level of nesting. It replaces the value of any key that names a secret,
 password, token, credential, authorization, or access key with `[redacted]`. Refused

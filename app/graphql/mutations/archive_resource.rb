@@ -26,6 +26,7 @@ module Mutations
         AuditEvent.record(
           channel: "graphql", action: archived ? "archive_resource" : "restore_resource",
           status: "ok", grant: context[:grant], context: Current.audit,
+          told: "#{archived ? 'archived' : 'restored'} #{resource.key}",
           arguments: { "type" => resource.type, "key" => resource.key }
         )
       end

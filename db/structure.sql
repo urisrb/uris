@@ -187,13 +187,16 @@ CREATE TABLE public.ar_internal_metadata (
 CREATE TABLE public.audit_events (
     id bigint NOT NULL,
     tenant_id bigint NOT NULL,
-    run_id bigint,
+    actor character varying NOT NULL,
+    actor_name character varying,
+    via character varying,
+    analysis_id bigint,
+    feed_id bigint,
+    told character varying,
     channel character varying NOT NULL,
     action character varying NOT NULL,
     status character varying NOT NULL,
     scope character varying,
-    subject character varying,
-    client_id character varying,
     remote_ip character varying,
     request_id character varying,
     duration_ms integer,
@@ -980,10 +983,17 @@ CREATE INDEX index_analyses_on_tenant_id_and_status ON public.analyses USING btr
 
 
 --
--- Name: index_audit_events_on_run_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_audit_events_on_analysis_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_audit_events_on_run_id ON public.audit_events USING btree (run_id);
+CREATE INDEX index_audit_events_on_analysis_id ON public.audit_events USING btree (analysis_id);
+
+
+--
+-- Name: index_audit_events_on_feed_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_audit_events_on_feed_id ON public.audit_events USING btree (feed_id);
 
 
 --
@@ -994,10 +1004,10 @@ CREATE INDEX index_audit_events_on_tenant_id ON public.audit_events USING btree 
 
 
 --
--- Name: index_audit_events_on_tenant_id_and_action_and_id; Type: INDEX; Schema: public; Owner: -
+-- Name: index_audit_events_on_tenant_id_and_actor_and_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_audit_events_on_tenant_id_and_action_and_id ON public.audit_events USING btree (tenant_id, action, id);
+CREATE INDEX index_audit_events_on_tenant_id_and_actor_and_id ON public.audit_events USING btree (tenant_id, actor, id);
 
 
 --
@@ -1399,6 +1409,14 @@ ALTER TABLE ONLY public.feed_references
 
 
 --
+-- Name: audit_events fk_rails_36cb9d4698; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_events
+    ADD CONSTRAINT fk_rails_36cb9d4698 FOREIGN KEY (feed_id) REFERENCES public.feeds(id) ON DELETE SET NULL;
+
+
+--
 -- Name: settings fk_rails_3a7e6495d2; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1420,6 +1438,14 @@ ALTER TABLE ONLY public.active_storage_attachments
 
 ALTER TABLE ONLY public.active_storage_variant_records
     ADD CONSTRAINT fk_rails_44b5c7c4a1 FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
+
+
+--
+-- Name: audit_events fk_rails_543bbbff97; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_events
+    ADD CONSTRAINT fk_rails_543bbbff97 FOREIGN KEY (analysis_id) REFERENCES public.analyses(id) ON DELETE SET NULL;
 
 
 --
@@ -1540,14 +1566,6 @@ ALTER TABLE ONLY public.feed_edges
 
 ALTER TABLE ONLY public.resources
     ADD CONSTRAINT fk_rails_dc32a866bd FOREIGN KEY (tenant_id) REFERENCES public.tenants(id);
-
-
---
--- Name: audit_events fk_rails_e392adc554; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.audit_events
-    ADD CONSTRAINT fk_rails_e392adc554 FOREIGN KEY (run_id) REFERENCES public.runs(id);
 
 
 --
@@ -1763,6 +1781,7 @@ CREATE POLICY tenant_isolation ON public.settings USING ((tenant_id = (NULLIF(cu
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260921230000'),
 ('20260914010000'),
 ('20260914000000'),
 ('20260913160000'),

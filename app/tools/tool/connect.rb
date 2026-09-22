@@ -40,6 +40,22 @@ module Tool
       end
     end
 
+    def self.saying(arguments)
+      one = named(arguments[:a])
+      other = arguments[:b].present? ? named(arguments[:b]) : arguments[:tag].to_s.strip.delete_prefix("tag:").strip
+      filing = arguments[:b].blank?
+
+      if arguments[:connected] == false
+        filing ? "took #{one} out of #{other}" : "disconnected #{one} from #{other}"
+      else
+        filing ? "filed #{one} under #{other}" : "connected #{one} to #{other}"
+      end
+    end
+
+    def self.about(arguments)
+      Feed.find_by(id: arguments[:a])
+    end
+
     def self.other_end(b, tag, connected)
       named = tag.to_s.strip.delete_prefix("tag:").strip
 

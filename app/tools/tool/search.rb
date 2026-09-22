@@ -26,6 +26,12 @@ module Tool
       summarize(feed).merge(gist: (feed.summary || feed.body_text)&.squish&.truncate(GIST))
     end
 
+    def self.saying(arguments)
+      within = arguments[:type].present? ? " among #{arguments[:type]}" : ""
+
+      arguments[:query].present? ? "searched for #{arguments[:query]}#{within}" : "listed the catalog#{within}"
+    end
+
     def self.call(server_context:, query: nil, type: nil, limit: 50)
       respond(server_context, { query: query, type: type, limit: limit }) do
         feeds = Feed.search(query, type: type, limit: limit.to_i.clamp(1, 200))

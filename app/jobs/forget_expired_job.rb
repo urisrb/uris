@@ -18,6 +18,7 @@ class ForgetExpiredJob < ApplicationJob
         AuditEvent.record(
           channel: "job", action: "forget_expired_feed", status: "ok",
           grant: nil, context: { remote_ip: nil, request_id: nil },
+          told: "forgot #{title}, whose time ran out",
           arguments: { "title" => title }
         )
       end

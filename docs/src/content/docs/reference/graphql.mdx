@@ -18,7 +18,7 @@ Generated from the code by `./dev reference`. CI fails when this page and the co
 | --- | --- | --- | --- |
 | `analyses`<br />`feedId: ID`<br />`status: String`<br />`after: ID`<br />`limit: Int` | [`AnalysisPage!`](#analysispage) | `uris:catalog:read` |  |
 | `analysis`<br />`id: ID!` | [`Analysis`](#analysis) | `uris:catalog:read` |  |
-| `auditEvents`<br />`action: String`<br />`status: String`<br />`subject: String`<br />`after: ID`<br />`limit: Int` | [`AuditEventPage!`](#auditeventpage) | `uris:catalog:read` |  |
+| `auditEvents`<br />`status: String`<br />`actor: String`<br />`feed: ID`<br />`after: ID`<br />`limit: Int` | [`AuditEventPage!`](#auditeventpage) | `uris:catalog:read` |  |
 | `feed`<br />`id: ID`<br />`key: String` | [`Feed`](#feed) | `uris:catalog:read` |  |
 | `feeds`<br />`type: String`<br />`types: [String!]`<br />`mime: String`<br />`resourceId: ID`<br />`tag: String`<br />`connectedTo: ID`<br />`topLevel: Boolean`<br />`after: ID`<br />`limit: Int` | [`FeedPage!`](#feedpage) | `uris:catalog:read` |  |
 | `resourceTypes` | [`[Attaching!]!`](#attaching) | `uris:resources:read` | Every type that can be attached, and what each of them needs. |
@@ -221,22 +221,26 @@ Resolves only for a token carrying `uris:resources:read`.
 
 Resolves only for a token carrying `uris:catalog:read`.
 
-| Field | Type |
-| --- | --- |
-| `action` | `String!` |
-| `arguments` | `JSON!` |
-| `channel` | `String!` |
-| `clientId` | `String` |
-| `createdAt` | `ISO8601DateTime!` |
-| `detail` | `String` |
-| `durationMs` | `Int` |
-| `id` | `ID!` |
-| `remoteIp` | `String` |
-| `requestId` | `String` |
-| `run` | [`Run`](#run) |
-| `scope` | `String` |
-| `status` | `String!` |
-| `subject` | `String` |
+| Field | Type | Description |
+| --- | --- | --- |
+| `action` | `String!` |  |
+| `actor` | `String!` | Who asked: person, client, agent, or nobody. |
+| `actorName` | `String` | The person's name or the client's id. Agents and nobody have none. |
+| `analysis` | [`Analysis`](#analysis) | The analysis whose agent asked, when an agent did. |
+| `arguments` | `JSON!` |  |
+| `channel` | `String!` |  |
+| `createdAt` | `ISO8601DateTime!` |  |
+| `detail` | `String` |  |
+| `durationMs` | `Int` |  |
+| `feed` | [`Feed`](#feed) | The feed it was about, while that feed still exists. |
+| `id` | `ID!` |  |
+| `remoteIp` | `String` |  |
+| `requestId` | `String` |  |
+| `scope` | `String` |  |
+| `status` | `String!` |  |
+| `told` | `String` | What was asked, in one sentence, written when it was asked. |
+| `via` | `String` | The client a person asked through. |
+| `workingOn` | [`Feed`](#feed) | The feed that agent was analyzing. |
 
 ### AuditEventPage
 

@@ -168,7 +168,14 @@ class McpEndpointTest < ActionDispatch::IntegrationTest
 
     assert reasonless.dig("result", "isError")
 
-    placed = tool(@tenant, ALL, "feed", id: feed.id.to_s, do: "place", resource: store.key,
+    misnamed = call(@tenant, ALL, "tools/call", name: "feed",
+                                                arguments: { id: feed.id.to_s, do: "place", reason: "it is a note",
+                                                             resource: "shelf: Shelf (default storage)" })
+
+    assert_equal "no resource called shelf: Shelf (default storage); the ones that accept this feed are " \
+                 "endpoint-bucket and shelf", misnamed.dig("result", "content", 0, "text")
+
+    placed = tool(@tenant, ALL, "feed", id: feed.id.to_s, do: "place", resource: "`#{store.key}`",
                                         reason: "it is a note")
 
     assert_nil placed["staged"]

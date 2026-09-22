@@ -244,6 +244,7 @@ class Resource
         return nil if remote.blank?
 
         held = id
+        place = key
         local = "#{key}#{JOINER}#{remote}"
         told = definition["description"].to_s
         shape = definition["input_schema"].to_h.symbolize_keys
@@ -255,6 +256,8 @@ class Resource
           description told
           input_schema(properties: shape[:properties].to_h, required: Array(shape[:required]))
           annotations(**hints) if hints.any?
+
+          define_singleton_method(:saying) { |_arguments| "called #{remote} on #{place}" }
 
           define_singleton_method(:call) do |server_context:, **arguments|
             relay(server_context, arguments) do

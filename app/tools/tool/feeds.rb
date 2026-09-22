@@ -43,7 +43,8 @@ module Tool
                   type: nil, prompt: nil, resource: nil, reason: nil, lasts: nil, **held)
       verb = (held[:do] || held["do"] || "get").to_s
 
-      respond(server_context, { id: id, key: key, do: verb }) do
+      respond(server_context, { id: id, key: key, do: verb, type: type, title: title, resource: resource,
+                                lasts: lasts }.compact) do
         raise ArgumentError, "no such action '#{verb}'" unless (READ + WRITE).include?(verb)
 
         Current.grant.permit!("uris:catalog:write") if WRITE.include?(verb)
@@ -51,6 +52,34 @@ module Tool
         act(verb, id: id, key: key, title: title, note: note, type: type, prompt: prompt,
                   resource: resource, reason: reason, lasts: lasts)
       end
+    end
+
+    SAID = {
+      "get" => "read", "note" => "wrote a note on", "rename" => "renamed", "analyze" => "analyzed again",
+      "place" => "placed", "last" => "set how long it keeps"
+    }.freeze
+
+    def self.saying(arguments)
+      verb = arguments[:do].to_s
+      return "made a #{arguments[:type].presence || Feed::NOTE} called #{arguments[:title] || arguments[:key]}" if verb == "create"
+
+      target = about(arguments)&.then { |feed| feed.title.presence || feed.key } ||
+               arguments[:key].presence || arguments[:id].presence&.then { |id| "feed #{id}" } || "nothing"
+      said = "#{SAID.fetch(verb, verb)} #{target}"
+
+      case verb
+      when "place" then "#{said} in #{arguments[:resource]}"
+      when "rename" then "#{said} to #{arguments[:title]}"
+      when "last" then "#{said}: #{arguments[:lasts]}"
+      else said
+      end
+    end
+
+    def self.about(arguments)
+      return Feed.find_by(id: arguments[:id]) if arguments[:id].present?
+
+      key = arguments[:key].to_s
+      key.present? ? Feed.address(key) || Feed.by_key(key).first : nil
     end
 
     def self.act(verb, id:, key:, title:, note:, type:, prompt:, resource: nil, reason: nil, lasts: nil)
@@ -79,14 +108,18 @@ module Tool
     def self.placed(feed, key, reason)
       raise ArgumentError, "place needs a reason" if reason.blank?
 
-      destination = ::Resource.visible_to(Current.grant).find_by(key: key.to_s) ||
-                    raise(ArgumentError, "no resource called #{key}")
+      destination = ::Resource.visible_to(Current.grant).find_by(key: key.to_s.strip.delete_prefix("`").delete_suffix("`"))
+      return Placement.new(feed).place!(destination, reason: reason) if destination
 
-      Placement.new(feed).place!(destination, reason: reason)
+      accepting = Placement.candidates(feed).pluck(:key)
+      raise ArgumentError, "no resource called #{key}" if accepting.empty?
+
+      raise ArgumentError, "no resource called #{key}; the ones that accept this feed are #{accepting.to_sentence}"
     end
 
     def self.found(id, key)
       return feed!(id) if id.present?
+      raise ArgumentError, "feed needs an id or a key" if key.blank?
 
       Feed.address(key) || Feed.by_key(key.to_s).first ||
         raise(ArgumentError, "no feed at #{key}")

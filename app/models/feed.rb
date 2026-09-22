@@ -179,7 +179,8 @@ class Feed < ApplicationRecord
         "sub" => "feed:#{key}",
         "scope" => scopes.join(" "),
         "tenant" => { "subdomain" => tenant.subdomain }
-      )
+      ),
+      agent: true
     )
   end
 

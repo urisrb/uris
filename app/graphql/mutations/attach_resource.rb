@@ -58,6 +58,7 @@ module Mutations
         AuditEvent.record(
           channel: "graphql", action: "attach_resource", status: "ok",
           grant: context[:grant], context: { remote_ip: nil, request_id: nil },
+          told: "attached #{resource.key}, a #{klass.sti_name} resource",
           arguments: {
             "type" => klass.sti_name, "key" => resource.key,
             "set" => ((settings || {}).keys & klass.attaching[:fields].map { |f| f[:name] }).join(", ")

@@ -102,7 +102,7 @@ class Scouting
     end
 
     def alongside(&work)
-      context = Current.attributes.slice(:tenant, :grant, :acting_for, :confined_to, :audit)
+      context = Current.attributes.slice(:tenant, :grant, :acting_for, :confined_to, :audit, :analysis)
 
       Thread.new do
         Rails.application.executor.wrap do

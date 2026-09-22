@@ -82,9 +82,29 @@ module Tool
         AuditEvent.record(
           channel: "mcp", action: tool_name, status: status, scope: scope,
           grant: grant, context: Current.audit,
+          told: safely { saying(arguments) }, feed: safely { about(arguments) },
           arguments: arguments, detail: detail,
           duration_ms: ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round
         )
+      end
+
+      def saying(_arguments)
+        nil
+      end
+
+      def about(_arguments)
+        nil
+      end
+
+      def safely
+        yield
+      rescue StandardError
+        nil
+      end
+
+      def named(id)
+        feed = id.presence && Feed.find_by(id: id)
+        feed ? (feed.title.presence || feed.key) : id.presence && "feed #{id}"
       end
 
       def text(body, error: false)

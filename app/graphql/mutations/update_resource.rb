@@ -49,6 +49,7 @@ module Mutations
         AuditEvent.record(
           channel: "graphql", action: "update_resource", status: "ok",
           grant: context[:grant], context: { remote_ip: nil, request_id: nil },
+          told: "changed the settings of #{resource.key}",
           arguments: {
             "type" => resource.class.sti_name, "key" => resource.key,
             "set" => (settings.to_h.reject { |_, value| value.to_s.strip.empty? }.keys & declared).join(", ")

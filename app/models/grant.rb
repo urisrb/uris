@@ -24,15 +24,20 @@ class Grant
 
   attr_reader :tenant, :claims
 
-  def initialize(tenant:, claims:)
+  def initialize(tenant:, claims:, agent: false)
     @tenant = tenant
     @claims = claims
+    @agent = agent
 
     verify_tenant!
   end
 
   def subject
     claims.subject
+  end
+
+  def agent?
+    @agent
   end
 
   def scopes

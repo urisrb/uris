@@ -98,6 +98,7 @@ class ResourceConnectionsController < ApplicationController
       AuditEvent.record(
         channel: "connect", action: "connect", status: status, scope: "uris:resources:command",
         grant: Current.grant, context: Current.audit, detail: detail,
+        told: "connected #{resource.key} through #{resource.provider_key}",
         arguments: { type: resource.class.sti_name, key: resource.key, provider: resource.provider_key }
       )
     end

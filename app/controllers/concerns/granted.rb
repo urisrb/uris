@@ -49,7 +49,7 @@ module Granted
     def too_many
       AuditEvent.record(
         channel: audit_channel, action: "authorize", status: "denied",
-        context: audit_context, detail: "too many requests"
+        context: audit_context, detail: "too many requests", told: "asked too often and was turned away"
       )
 
       render json: {
@@ -65,7 +65,7 @@ module Granted
     def denied(error)
       AuditEvent.record(
         channel: audit_channel, action: "authorize", status: "denied",
-        context: audit_context, detail: error.message
+        context: audit_context, detail: error.message, told: "was not let in"
       )
     end
 

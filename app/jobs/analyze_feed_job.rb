@@ -70,6 +70,7 @@ class AnalyzeFeedJob < ApplicationJob
       asking.title!
       Current.grant = grant
       Current.acting_for = feed.id
+      Current.analysis = analysis
       Current.confined_to = Concurrent::Set.new
       led = lead.call(asking.prompt)
       answered = led.with(calls: scouting.calls)
@@ -87,6 +88,7 @@ class AnalyzeFeedJob < ApplicationJob
     ensure
       Current.grant = nil
       Current.acting_for = nil
+      Current.analysis = nil
       Current.confined_to = nil
     end
 
@@ -132,6 +134,7 @@ class AnalyzeFeedJob < ApplicationJob
 
       Current.grant = grant
       Current.acting_for = feed.id
+      Current.analysis = analysis
       answered = agent.call(asked(feed))
       analysis&.log_info("agent", answered.reason.to_s, answered.said)
       noted(answered)
@@ -140,6 +143,7 @@ class AnalyzeFeedJob < ApplicationJob
     ensure
       Current.grant = nil
       Current.acting_for = nil
+      Current.analysis = nil
     end
 
     def noted(answered)
@@ -174,12 +178,13 @@ class AnalyzeFeedJob < ApplicationJob
       return nil unless feed.reload.staged?
 
       offered = Placement.candidates(feed).map do |resource|
-        "- #{resource.key}: #{resource.name}#{' (default storage)' if resource.default_storage?}"
+        "- `#{resource.key}`, #{resource.name}#{', the default' if resource.default_storage?}"
       end
 
       <<~TEXT
-        It has not been stored anywhere yet. Choose where it belongs with feed, do=place, naming
-        the resource and saying in one sentence why. These are the places that accept it:
+        It has not been stored anywhere yet. Choose where it belongs with feed, do=place, passing
+        the key in backticks as resource and saying in one sentence why. These are the places that
+        accept it:
 
         #{offered.join("\n")}
 

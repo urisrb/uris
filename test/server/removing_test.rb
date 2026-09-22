@@ -132,6 +132,8 @@ class RemovingTest < ActionDispatch::IntegrationTest
       assert_equal "invoice.txt", forgotten.arguments["title"]
       assert_equal 1, forgotten.arguments["places"]
       assert_equal "database", archived.arguments["key"]
+      assert_equal "forgot invoice.txt, which lived in 1 place", forgotten.told
+      assert_equal "archived database", archived.told
     end
   end
 

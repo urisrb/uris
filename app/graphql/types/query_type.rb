@@ -150,18 +150,18 @@ module Types
     end
 
     field :audit_events, Types::AuditEventPageType, null: false, grants: "uris:catalog:read" do
-      argument :action, String, required: false
       argument :status, String, required: false
-      argument :subject, String, required: false
+      argument :actor, String, required: false
+      argument :feed, ID, required: false
       argument :after, ID, required: false
       argument :limit, Integer, required: false
     end
 
-    def audit_events(action: nil, status: nil, subject: nil, after: nil, limit: nil)
-      scope = AuditEvent.all
-      scope = scope.where(action: action) if action.present?
+    def audit_events(status: nil, actor: nil, feed: nil, after: nil, limit: nil)
+      scope = AuditEvent.includes(:feed, analysis: :feed)
       scope = scope.where(status: status) if status.present?
-      scope = scope.where(subject: subject) if subject.present?
+      scope = scope.where(actor: actor) if actor.present?
+      scope = scope.where(feed_id: feed).or(scope.where(analysis: Analysis.where(feed_id: feed))) if feed.present?
 
       Page.of(scope, after: after, limit: limit)
     end

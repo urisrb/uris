@@ -52,12 +52,33 @@ module Tool
       verb = (held[:do] || held["do"] || (key.present? ? "describe" : "list")).to_s
       given = (input || {}).to_h
 
-      respond(server_context, { key: key, do: verb }) do
+      respond(server_context, { key: key, do: verb, input: given }) do
         raise ArgumentError, "no such action '#{verb}'" unless (READ + WRITE).include?(verb)
 
         permitted!(verb)
 
         verb == "list" && key.blank? ? listed : acted(verb, key, given)
+      end
+    end
+
+    SAID = {
+      "list" => "listed the places", "describe" => "looked at", "runs" => "looked at the runs of",
+      "check" => "checked", "sync" => "synced", "cancel" => "cancelled a run on", "export" => "exported to",
+      "keep" => "kept a page through", "snapshot" => "snapshotted a page through", "put" => "stored a file in",
+      "parameters" => "read the parameters of"
+    }.freeze
+
+    def self.saying(arguments)
+      verb = arguments[:do].to_s
+      given = arguments[:input].to_h.stringify_keys
+      place = arguments[:key].presence
+      return SAID["list"] if place.nil?
+
+      case verb
+      when "search" then "searched the web for #{given['query']} through #{place}"
+      when "get" then given["url"].present? ? "read #{given['url']} through #{place}" : "asked #{place} for something"
+      when "keep", "snapshot" then "#{SAID[verb].delete_suffix(' through')} #{given['url']} through #{place}".squish
+      else "#{SAID.fetch(verb, "asked #{verb} of")} #{place}"
       end
     end
 

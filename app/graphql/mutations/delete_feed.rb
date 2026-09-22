@@ -25,7 +25,7 @@ module Mutations
       def noted(key, kept)
         AuditEvent.record(
           channel: "graphql", action: "delete_feed", status: "ok",
-          grant: context[:grant], context: Current.audit,
+          grant: context[:grant], context: Current.audit, told: "deleted #{key}",
           arguments: { "key" => key, "kept" => kept }
         )
       end

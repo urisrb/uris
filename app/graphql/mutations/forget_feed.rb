@@ -26,6 +26,7 @@ module Mutations
         AuditEvent.record(
           channel: "graphql", action: "forget_feed", status: "ok",
           grant: context[:grant], context: Current.audit,
+          told: "forgot #{title || 'a feed'}, which lived in #{places} #{'place'.pluralize(places)}",
           arguments: { "title" => title, "places" => places }
         )
       end
