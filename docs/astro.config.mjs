@@ -36,7 +36,7 @@ export default defineConfig({
       ],
       sidebar: [
         { label: "Overview", slug: "overview" },
-        { label: "Getting started", slug: "getting-started" },
+        { label: "Quickstart", slug: "quickstart" },
         {
           label: "Concepts",
           items: [
