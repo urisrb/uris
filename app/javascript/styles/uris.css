@@ -1030,6 +1030,14 @@ a.entry:hover {
 
 .gate-inner {
   width: min(720px, 100%);
+  animation: gate-in 480ms ease-out;
+}
+
+@keyframes gate-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 .gate-mark svg {
@@ -1108,6 +1116,10 @@ a.entry:hover {
   }
 
   .thinking-pulse {
+    animation: none;
+  }
+
+  .gate-inner {
     animation: none;
   }
 }
