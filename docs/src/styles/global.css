@@ -338,54 +338,8 @@ ul.top-level > li:nth-of-type(5) summary .large { --tone: var(--k-contact); }
   margin-inline: auto;
 }
 
-.cycle {
-  display: inline-grid;
-  align-items: baseline;
-}
-
-.cycle > [aria-hidden] {
-  grid-area: 1 / 1;
-  text-align: start;
-  color: var(--tone);
-  opacity: 0;
-  animation: cycle 18.9s infinite both;
-}
-
-.cycle > :nth-child(2) { animation-delay: 0s; }
-.cycle > :nth-child(3) { animation-delay: 2.1s; }
-.cycle > :nth-child(4) { animation-delay: 4.2s; }
-.cycle > :nth-child(5) { animation-delay: 6.3s; }
-.cycle > :nth-child(6) { animation-delay: 8.4s; }
-.cycle > :nth-child(7) { animation-delay: 10.5s; }
-.cycle > :nth-child(8) { animation-delay: 12.6s; }
-.cycle > :nth-child(9) { animation-delay: 14.7s; }
-.cycle > :nth-child(10) { animation-delay: 16.8s; }
-
-@keyframes cycle {
-  0% {
-    opacity: 0;
-    transform: translateY(0.22em);
-  }
-  1.7%,
-  11.1% {
-    opacity: 1;
-    transform: none;
-  }
-  12.8%,
-  100% {
-    opacity: 0;
-    transform: translateY(0.22em);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cycle > [aria-hidden] {
-    animation: none;
-  }
-
-  .cycle > :nth-child(2) {
-    opacity: 1;
-  }
+.hero .path {
+  color: var(--k-doc);
 }
 
 .panes {
