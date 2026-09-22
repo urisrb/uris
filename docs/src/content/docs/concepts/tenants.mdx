@@ -1,58 +1,56 @@
 ---
 title: Tenants
-description: One uris deployment serves one tenant or many, and each signs in through its own masks tenant.
+description: How one uris deployment serves one or more tenants, and how each tenant signs in through masks.
 ---
 
-A tenant is a catalog of its own: its resources, feeds, analyses, runs, gates, settings and audit
-trail. Every request and every job happens inside exactly one of them.
+A tenant is a separate catalog with its own resources, feeds, analyses, runs, gates, settings, and
+audit trail. Every request and every job runs inside exactly one tenant.
 
-## Which tenant a request is in
+## Resolving the tenant
 
-A deployment declares its tenants in one of two ways. Setting both is refused.
+A deployment declares its tenants in one of two ways. Setting both is an error.
 
 | | Declared by | A request resolves by |
 | --- | --- | --- |
-| Single | `URIS_TENANT=uris` | nothing — every host is that tenant |
-| Multi | `URIS_TENANTS=demo,acme` | the first label of the hostname — `demo.uris.example` is `demo` |
+| Single | `URIS_TENANT=uris` | Nothing. Every host is that tenant. |
+| Multi | `URIS_TENANTS=demo,acme` | The first label of the hostname. `demo.uris.example` is `demo`. |
 
-`bin/rails uris:tenants` creates whichever are declared, and the container entrypoint runs it on
-boot. `Tenancy::Middleware` sits in the Rack stack, resolves the host, and enters the tenant before
-any controller runs. A host that names no tenant gets a plain `404 Unknown tenant`. The health check
-at `/up` is the only path served outside one.
+`bin/rails uris:tenants` creates the declared tenants, and the container entrypoint runs it on
+boot. `Tenancy::Middleware` resolves the host and enters the tenant before any controller runs. A
+host that names no tenant receives `404 Unknown tenant`. The health check at `/up` is the only path
+served outside a tenant.
 
 ## Isolation
 
-Two layers, because they fail differently.
+Isolation has two layers.
 
-| Layer | What it does | How it fails |
+| Layer | What it does | When it fails |
 | --- | --- | --- |
-| `TenantScoped` | a default scope and a default `tenant_id` from `Current.tenant` | by omission |
-| Row-level security | `FORCE ROW LEVEL SECURITY` and a `tenant_isolation` policy on every tenant table | it does not fail quietly |
+| `TenantScoped` | Adds a default scope and a default `tenant_id` from `Current.tenant`. | Only when code bypasses it, as `unscoped` does. |
+| Row-level security | Applies `FORCE ROW LEVEL SECURITY` and a `tenant_isolation` policy to every tenant table. | It fails with an error or returns no rows. |
 
-The policy compares `tenant_id` with a session setting, `uris.tenant_id`, both for reading and for
-writing, so a row cannot be read from another tenant or written into one. `Tenant.switch` sets it
-session-scoped rather than transaction-scoped, so it covers every query and transaction beneath it,
-and restores the tenant it replaced when the block ends. Outside a tenant the setting is empty and
-the policy matches nothing: `Model.unscoped` returns zero rows, not all of them.
+The policy compares `tenant_id` with the `uris.tenant_id` session setting for both reads and
+writes, so a row cannot be read from, or written to, another tenant. `Tenant.switch` sets the value
+for the session, so it covers every query and transaction inside the block, and it restores the
+previous tenant when the block ends. Outside a tenant the setting is empty and the policy matches
+no rows, so `Model.unscoped` returns zero rows.
 
-Active Storage's three tables — blobs, attachments and variant records — carry a `tenant_id` and the
-same policy, and `TenantScoped` is mixed into their models on load. That matters because a signed
-blob id is signed with the application's secret, not the tenant's: nothing in the id itself says
-which tenant minted it. With the policy in place, a signed id from one tenant finds no row in
-another. Active Storage's own routes are not drawn; bytes are served through
-`/references/:id/content`, behind the same grant as everything else.
+Active Storage's blobs, attachments, and variant records tables also have a `tenant_id` and the same
+policy, and `TenantScoped` is added to their models on load. A signed blob id is signed with the
+application's secret and does not identify its tenant. With the policy in place, a signed id from
+one tenant finds no row in another. Active Storage's own routes are not drawn. Bytes are served
+through `/references/:id/content`, which requires the same grant as the rest of the app.
 
-A Postgres role holding `SUPERUSER` or `BYPASSRLS` sees through every policy without saying so.
-The first `Tenant.switch` in a process asks the database who it is connected as, and raises rather
-than entering any tenant if the role could bypass the policies. Point `POSTGRES_USER` at an
-ordinary role.
+A Postgres role with `SUPERUSER` or `BYPASSRLS` ignores every policy. The first `Tenant.switch` in a
+process checks which role the connection uses, and raises an error if that role can bypass the
+policies. Set `POSTGRES_USER` to an ordinary role.
 
 ## Jobs
 
-Every job carries the subdomain of the tenant it was enqueued in, and the worker switches into that
-tenant before performing it. Nothing opts in — the module sits on the job base class. A job enqueued
-outside any tenant raises rather than running against whichever tenant its worker thread last held.
-Maintenance meant to span every tenant declares it, and switches into each itself:
+Every job records the subdomain of the tenant it was enqueued in, and the worker switches into that
+tenant before performing it. This is built into the job base class. A job enqueued outside a tenant
+raises an error. Maintenance jobs that work across every tenant declare it and switch into each
+tenant themselves:
 
 ```ruby
 class SweepAuditEventsJob < ApplicationJob
@@ -62,29 +60,36 @@ end
 
 ## Signing in
 
-Each uris tenant is a client of a masks tenant. `MASKS_ISSUER_TEMPLATE` names the issuer, with
-`%{subdomain}` filled from the request's host, so `demo.uris.example` can sign in against
+Each uris tenant is a client of a masks tenant. `MASKS_ISSUER_TEMPLATE` sets the issuer URL, with
+`%{subdomain}` taken from the request's host, so `demo.uris.example` can sign in against
 `demo.masks.example`.
 
-A tenant starts with no client. The first visit shows **Connect a sign-in server**, which runs the
-handshake mounted at `/auth/handshake`: uris sends the browser to masks with its name, its resource
-URL, its redirect URIs — `/auth/callback` for signing in, `/connect/callback` for
-[connecting a resource](/concepts/resources/#resources-connected-through-masks) — `openid profile email offline_access`, the
-`uris:` namespace and `masks:delegate:`; a masks account allowed to approve connections
-approves it; masks sends back a one-time initial access token, and uris redeems it server to server
-at masks' registration endpoint. The result is stored on the tenant — `client_id`, `client_secret`,
-`registration_access_token`, `registration_client_uri` and `connected_at` — with the secret and the
-registration token encrypted. Nothing is pasted between the two. Disconnecting deletes the
-registration in masks and clears those columns.
+A new tenant has no client, so the first visit shows **Connect a sign-in server**. This starts the
+handshake at `/auth/handshake`:
 
-The masks engine is mounted at `/auth`. `GET /auth/session` answers with the signed-in account, or a
-401 whose `error` is `handshake_required` or `login_required` so the browser knows which button to
-show. Signing in asks for `openid profile email offline_access` and every `uris:` scope except
-`uris:settings:admin`; see [scopes](/reference/scopes/).
+1. uris sends the browser to masks with its name, its resource URL, its redirect URIs, the scopes
+   `openid profile email offline_access`, the `uris:` scope namespace, and `masks:delegate:`. The
+   redirect URIs are `/auth/callback` for signing in and `/connect/callback` for
+   [connecting a resource](/concepts/resources/#resources-connected-through-masks).
+2. A masks account that is allowed to approve connections approves the request.
+3. masks returns a one-time initial access token, and uris redeems it at masks' registration
+   endpoint, server to server.
 
-`/graphql`, `/mcp` and `/uploads` all verify a masks access token. The browser's comes from its
-session; anything else presents `Authorization: Bearer`. A token is accepted only if it was issued by
-this tenant's issuer, its audience is this tenant's resource URL — the origin followed by `/mcp` —
-and any `tenant` claim it carries names this tenant. A token whose claim names `acme` is refused at
-`demo`. The browser's session asks for the same audience, so a token means the same thing on every
-one of those paths.
+uris stores `client_id`, `client_secret`, `registration_access_token`, `registration_client_uri`,
+and `connected_at` on the tenant, with the secret and the registration token encrypted.
+Disconnecting deletes the registration in masks and clears these columns.
+
+The masks engine is mounted at `/auth`. `GET /auth/session` returns the signed-in account, or a 401
+whose `error` is `handshake_required` or `login_required`, which tells the browser which button to
+show. Signing in requests `openid profile email offline_access` and every `uris:` scope except
+`uris:settings:admin`. See the [scopes reference](/reference/scopes/).
+
+`/graphql`, `/mcp`, and `/uploads` all verify a masks access token. The browser's token comes from
+its session, and other clients send `Authorization: Bearer`. A token is accepted only when:
+
+- it was issued by this tenant's issuer,
+- its audience is this tenant's resource URL (the origin followed by `/mcp`), and
+- any `tenant` claim it carries names this tenant.
+
+A token whose `tenant` claim names `acme` is refused at `demo`. The browser's session requests the
+same audience, so one token works on all three paths.
