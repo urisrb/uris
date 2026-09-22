@@ -1,0 +1,93 @@
+---
+title: Ask the catalog
+description: Ask a question from the search bar, follow it up, and keep what the answer found.
+---
+
+At the end of this guide, you have an answer kept as a note, with links to what it drew on. You need
+a model backend with an **Agent model** that calls tools. See
+[attach a resource](/guides/attach-a-resource/).
+
+## Ask a question
+
+1. Type the question in the search bar at the top of the page, where it reads **Search, ask, or
+   paste an address**. Press `/` to reach it from anywhere.
+2. Wait for the results. The first row reads **Ask about** followed by your question.
+3. Choose that row.
+
+uris creates a note keyed by the question and opens its page. The question appears under **The
+conversation**, with progress while the answer is worked out. A question can be up to 500
+characters.
+
+A lead model sends scouts to search the catalog, open what they find, and, when the tenant has
+attached them, search the web, read pages, and keep pages. The lead answers from their reports. See
+[asking](/concepts/agents/#asking).
+
+When a model backend has a **Fast model**, it gives the note a short title before the scouts go out.
+Without one, a **Smart model** or the **Agent model** titles the note after the answer.
+
+## Read the answer
+
+The answer appears under the question. Each item it cites is a link to that item's page, and a page
+it read on the web is a link to the page.
+
+Below the answer, **What it drew on** lists every item the answer cited, opened, or kept. The note
+is connected to each of them.
+
+## Follow up
+
+1. On the note's page, type in the field that reads **Ask a follow-up**.
+2. Choose **Ask**.
+
+The lead is told the earlier questions and their answers. The field is disabled while
+an answer is still being worked out. A follow-up about an earlier answer itself, such as "say that
+as a table", is answered without sending scouts.
+
+## Ask again
+
+Choose **Ask again** at the top of the note's page. uris asks the latest question in the
+conversation again and adds the new answer below the others.
+
+## Keep what the answer found
+
+The note itself lasts forever. What the agent made or kept while answering, such as a note it
+created or a page it snapshotted, lasts 30 days.
+
+1. Open the item from **What it drew on**. Its page shows **forgotten** followed by the date.
+2. Choose **Keep forever**.
+
+To remove the note and its conversation, choose **Forget** on the note's page, then **Forget it**. See
+[lifetime](/concepts/feeds/#lifetime).
+
+## Over GraphQL
+
+`askCatalog` takes a `question` and returns the note as `feed` and the analysis that answers it as
+`analysis`. It needs `uris:catalog:write`.
+
+```graphql
+mutation {
+  askCatalog(input: { question: "When does the lease renew?" }) {
+    feed { id }
+    analysis { id status }
+  }
+}
+```
+
+Watch the analysis with the `analysisProgressed` subscription, or query it until `status` is no
+longer `queued` or `running`. When it is done, `said` holds the answer and `drewOn` holds what it drew on.
+
+To follow up, pass the note's id as `feedId` with the next question. To ask the latest question
+again, call `analyzeFeed` with the note's id. To keep an item for good, call `setFeedLifetime` with
+its id and no `lasts`. See the [GraphQL reference](/reference/graphql/).
+
+## If it doesn't work
+
+- **No Ask about row.** The search bar treats text that looks like an address as something to keep,
+  and offers that instead. **Ask about** also does not appear on an address page.
+- **`no inference resource serves the agent role`** appears in place of an answer. No model backend
+  names an **Agent model**. Add one with **Change** on the backend's row in **Resources**.
+- **`... is still being answered`.** A question can be followed up or asked again only after the
+  previous answer finishes.
+- **The answer names nothing from the web.** The tenant has no **Web search**, **Fetch a page**, or
+  **The web** resource, so the question was asked of the catalog alone.
+- **An error about `URIS_INFERENCE_ORIGINS`** appears in place of an answer. The model backend's
+  origin is not permitted. See [attach a resource](/guides/attach-a-resource/#if-it-doesnt-work).
