@@ -24,7 +24,8 @@ export default defineConfig({
       description:
         "A data unifier — one searchable index across everything you own, wherever it lives, with a way back out.",
       favicon: "/icon.svg",
-      logo: { src: "./src/assets/mark.svg" },
+      logo: { src: "./src/assets/mark.svg", alt: "uris" },
+      components: { SiteTitle: "./src/components/SiteTitle.astro" },
       customCss: ["./src/styles/global.css"],
       social: [
         {
@@ -35,7 +36,7 @@ export default defineConfig({
       ],
       sidebar: [
         { label: "Overview", slug: "overview" },
-        { label: "Quickstart", slug: "quickstart" },
+        { label: "Getting started", slug: "getting-started" },
         {
           label: "Concepts",
           items: [
