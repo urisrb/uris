@@ -1,105 +1,117 @@
 ---
 title: Analysis
-description: One pass over a feed, recorded as one row with its steps, its turns and its log.
+description: How uris reads a feed, recorded as one row with its steps, its turns, and its log.
 ---
 
-Every time uris reads a [feed](/concepts/feeds/), it writes one `Analysis` record for that pass.
-The record holds what caused the pass, where it got to, each step's result, every turn the model
-took and a running log. A feed's current analysis is its last settled one. When a new pass opens,
-it copies that analysis's steps, so work that is still valid is not paid for twice.
+Each time uris reads a [feed](/concepts/feeds/), it writes one `Analysis` record. The record holds
+the cause, the status, each step's result, every turn the model took, and a log. A feed's current
+analysis is its last settled one. A new analysis starts with a copy of the current analysis's steps,
+so uris does not repeat work whose result is still valid.
 
 | Cause | Raised by |
 | --- | --- |
-| `upload` | an upload, a note or a fetched URL coming in through [adding](/concepts/adding/) |
+| `upload` | an upload, a note, or a fetched URL, as described in [adding things](/concepts/adding/) |
 | `sync` | a resource sync, a snapshot, an extracted child, or a parent whose children have all finished |
+| `keep` | the `resource` tool's `keep`, for one object that was not yet analyzed |
 | `schedule` | an address feed's schedule coming due |
-| `manual` | `runFeed`, the `feed` tool's `analyze`, or a job started without an analysis |
+| `manual` | `runFeed`, `analyzeFeed`, the `feed` tool's `analyze`, or a job started without an analysis |
+| `ask` | `askCatalog`, and `analyzeFeed` on a note that was asked, as described in [asking](/concepts/agents/#asking) |
 | `edge` | nothing yet |
 
-Status is `queued` or `running` while the pass is open. It ends as `done` or `failed`, which
-count as settled, or as `cancelled` or `gated`, which do not. When a pass settles, the feed's
-embedding is marked stale and the feed is indexed again for [search](/concepts/search/). Each
-log line and each status change is published on `analysisProgressed`.
+The status is `queued` or `running` while the analysis is open. It ends as `done` or `failed`,
+which count as settled, or as `cancelled` or `gated`, which do not. When an analysis settles, uris
+marks the feed's embedding as stale and indexes the feed again for [search](/concepts/search/).
+Each log line and each status change is published on `analysisProgressed`.
 
-Every analysis gets a deadline, `URIS_RUN_DEADLINE_HOURS` from when it opens (6 by default, 0 for
-none). The job checks it before starting and the agent checks it before every turn. A pass past
-its deadline is cancelled with the error `deadline passed`. The log keeps growing until it passes
-256,000 characters, and each line is cut at 2,000. A turn stores its request cut at 40,000
-characters and the model's reply cut at 4,000.
+An analysis gets a deadline when it opens: `URIS_RUN_DEADLINE_HOURS` from then, 6 by default, or no
+deadline when it is 0. This deadline applies only while the analysis is queued. `ExpireOverdueJob`
+runs every ten minutes and cancels a queued analysis past its deadline, with the error
+`deadline passed`. When the job starts the analysis, it replaces the deadline with the start time
+plus the feed's timeout, as described in [after the analyzer](#after-the-analyzer).
+
+The log stops growing after 256,000 characters, and each line is truncated to 2,000. A turn stores
+its request truncated to 40,000 characters and the model's reply truncated to 4,000.
 
 ## Steps
 
-A step is a named block whose result goes into `steps`, along with when it started and finished.
-If the block raises, the step stores the error and no result, so the next pass tries it again.
-A stored result is reused, and logged as `cached`, unless one of these is true:
+A step is a named block. Its result is saved in `steps`, with the times it started and finished. If
+the block raises an error, the step saves the error and no result, so the next analysis runs it
+again. A saved result is reused and logged as `cached`, unless one of these is true:
 
 - the step was forced;
-- its `after` time is later than the step's `finished_at`. The summary step sets `after` to
-  whichever is later: the last prompt change or the inference resource's last update;
-- the reference it read has a `changed_at` later than the step. This is how a file stored again
-  at the same path makes the steps that described its old bytes stale.
+- the step's `after` time is later than its `finished_at`. The summary step sets `after` to the later
+  of the last prompt change and the inference resource's last update;
+- the reference the step read has a `changed_at` later than the step. When a file is stored again at
+  the same path, this makes the steps that described its old bytes run again.
 
-Two steps are bookkeeping: `placement` and `derived`. They record where a file went and which
-previews were rendered. Neither step is included in the text the feed extracts, so the search body
-does not index a storage path.
+Four steps are bookkeeping: `placement`, `derived`, `answer`, and `drew_on`. They record where a
+file went, which previews were rendered, what the agent said, and which feeds an answer used. The
+text a feed extracts leaves them out, so the search body does not index a storage path.
 
-## The pass
+## The analyzer
 
-`Analyzer.for` picks an analyzer by the feed's mime. It walks `Analyzer.all` in order and takes
-the first analyzer that claims the mime:
+`Analyzer.for` picks an analyzer by the feed's mime type. It walks `Analyzer.all` in order and takes
+the first analyzer that claims the mime type:
 
 `Pdf`, `Image`, `Media`, `Page`, `Doc`, `Xlsx`, `Calendar`, `Pkpass`, `Email`, `Entry`, `Contact`,
 `Data`, `Text`, `Fallback`
 
-Order matters. `text/calendar` and `text/csv` are both text, and they reach `Calendar` and `Data`
-only because those come before `Text`. `Fallback` claims everything else. It records the size,
-sniffs the format from magic bytes, reads the file as text if it looks printable, and lists the
-entries if it is a zip.
+The order matters. `text/calendar` and `text/csv` are both text types. They reach `Calendar` and
+`Data` only because those come before `Text`. `Fallback` claims everything else. It records the size,
+detects the format from magic bytes, reads the file as text if it looks printable, and lists the
+entries if the file is a zip.
 
-Every analyzer inherits the same pass from `Analyzer::Base`:
+Every analyzer inherits the same sequence from `Analyzer::Base`:
 
-1. **Extract children** if the analyzer has any and the feed is less than four levels deep. For
-   example, an email's attachments become child feeds in the internal `children` store and are
-   analyzed on their own. Until every child has been analyzed, the analyzer stops here. When the
-   last child finishes, it re-analyzes the parent.
-2. **Derive** a thumbnail and a preview for images, video, PDFs and pages. They are stored as
+1. **Extract children**, if the analyzer has any and the feed is less than four levels deep. For
+   example, an email's attachments become child feeds in the internal `children` store, and each is
+   analyzed on its own. The analyzer stops here until every child has been analyzed. When the last
+   child finishes, uris analyzes the parent again.
+2. **Derive** a thumbnail and a preview for images, video, PDFs, and pages. They are stored as
    references in the internal `derived` store, under the step `derived`.
-3. **Analyze**: the analyzer's own steps, such as `text`, `info` or `listing`.
-4. **Summarize** with whichever inference [resource](/concepts/resources/) serves the analyzer's
-   role. The role is `smart` by default, `vision` for images and pages, and `fast` for email and
-   the fallback. The file's text is fenced as data, not instructions. The answer is reduced to a
-   summary, up to 20 entities and up to 20 keywords. Stopwords and keywords longer than four words
-   are dropped. If no resource serves the role, there is no summary.
+3. **Analyze** with the analyzer's own steps, such as `text`, `info`, or `listing`.
+4. **Summarize** with the inference [resource](/concepts/resources/) that serves the analyzer's role.
+   The role is `smart` by default, `vision` for images and pages, and `fast` for email and the
+   fallback. The prompt fences the file's text and tells the model to treat it as data. uris
+   reduces the model's answer to a summary, up to 20 entities, and up to 20 keywords. It drops
+   stopwords and keywords longer than four words. If no resource serves the role, there is no
+   summary.
 
-A failure in derive, analyze or summarize skips that part and the pass continues. The reference is
-stamped analyzed either way.
+If derive, analyze, or summarize fails, uris skips that part and continues. The reference is marked
+analyzed either way.
 
 ## After the analyzer
 
-`AnalyzeFeedJob` wraps the analyzer. It checks for [placement](/concepts/adding/) first: a file
-uploaded to a path it already occupies goes back to the same place. Then it runs the analyzer, and
-then three more steps:
+`AnalyzeFeedJob` runs the analyzer. It checks [placement](/concepts/adding/#placement) first, so a
+file uploaded to a path it already occupies goes back to the same place. Then it runs the analyzer,
+unless the feed is an address, and then three more steps:
 
-- **Filing.** The feed is connected to the `uris:mime` feed for its content type.
+- **Filing.** uris connects the feed to the `uris:mime` feed for its content type.
 - **Considering.** The [agent](/concepts/agents/) runs under the feed's own grant
-  (`uris:catalog:read`, `uris:catalog:write`, `uris:web:read`, `uris:resources:read`) with the
-  `search`, `feed`, `connect` and `resource` tools. An address with a schedule sends the schedule's
-  prompt. Anything else sends `FILE_PROMPT`, which asks the agent to connect the feed to the tags
-  and feeds it belongs beside. If the file is still staged, the prompt also lists the places that
-  would accept it. The agent gets the schedule's turn allowance or six turns, and stops early after
-  three bad tool calls in a row. If no resource serves the `agent` role, this step is skipped.
-- **Settling.** A file the agent did not place goes to default storage.
+  (`uris:catalog:read`, `uris:catalog:write`, `uris:web:read`, and `uris:resources:read`) with the
+  `search`, `feed`, `connect`, and `resource` tools. For an address with a schedule, the prompt is
+  the schedule's prompt. For anything else, it is `FILE_PROMPT`, which asks the agent to connect the
+  feed to the tags and feeds it belongs with. If the file is still staged, the prompt also lists the
+  places that would accept it. The agent gets the schedule's turn allowance, or six turns, and stops
+  early after three failed tool calls in a row. If no resource serves the `agent` role, uris skips
+  this step.
+- **Settling.** A file the agent did not place goes to the default storage.
 
-An analysis runs for its feed's timeout, counted from when it starts rather than when it was
-queued. A feed nobody has set runs for five minutes; `setFeedTimeout`, or the feed form, sets
-anything from a minute to a day. The agent can ask for more time as it goes, never past a day from
-the start, and `ExpireOverdueJob` cancels whatever outlives its deadline.
+An `ask` analysis skips all of this. It runs no analyzer, no filing, and no placement. The job runs
+the lead and its scouts instead, then the judges, and then rolls the conversation up into the note.
+[Asking](/concepts/agents/#asking) describes each part.
 
-Analysis jobs run on the `analysis` queue, with at most `ANALYSIS_PER_TENANT` (2 by default)
-running per tenant. A `Resource::Failed` is retried five times with growing waits, and the
-analysis fails if the last retry does too. An `Analyzer::Failed`, or a file with nowhere to go, is
+An analysis runs for its feed's timeout, counted from when it starts. A feed with no timeout set
+runs for five minutes. `setFeedTimeout`, or the feed form, sets any value from one minute to one day.
+The agent can ask for more time while it runs, up to one day from the start. `ExpireOverdueJob`
+cancels an analysis that runs past its deadline.
+
+Analysis jobs run on the `analysis` queue, with at most `ANALYSIS_PER_TENANT` (2 by default) running
+per tenant. A `Resource::Failed` error is retried five times with increasing waits, and the analysis
+fails if the last retry fails too. An `Analyzer::Failed` error, or a file with nowhere to go, is
 discarded and fails the analysis. Any other error fails the analysis and is raised again.
 
-One question is still open. Connecting two feeds does not yet re-analyze the feed on the other
-side. The `edge` cause exists, but nothing raises it until there is a decision on how to keep that
-from cascading: a cooldown, a depth cap, or a cause that cannot write edges.
+One question is still open. Connecting two feeds does not analyze the feed on the other side again.
+The `edge` cause exists, but nothing raises it yet. It needs a way to stop one change from
+triggering a chain of analyses, such as a cooldown, a depth limit, or a cause that cannot write
+edges.
