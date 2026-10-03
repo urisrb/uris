@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/urisrb/uris/compare/client-v0.3.0...client-v0.4.0) (2026-10-03)
+
+
+### Features
+
+* a tailnet resource reaches services on a Tailscale or Headscale network, and a resource reached through a transport connects only to addresses the transport covers ([4dc3d4f](https://github.com/urisrb/uris/commit/4dc3d4fd8bc9c06b92f8755f0b9db6d79fa42899))
+
 ## [0.3.0](https://github.com/urisrb/uris/compare/client-v0.2.0...client-v0.3.0) (2026-09-28)
 
 
