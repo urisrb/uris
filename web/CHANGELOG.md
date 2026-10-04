@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.4.0](https://github.com/urisrb/uris/compare/client-v0.3.0...client-v0.4.0) (2026-10-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* the package is @xixo/client, every URIS_ variable is XIXO_, and every uris: scope is xixo:, so masks tenants and tokens granted the old scopes ask again.
+
+### Features
+
+* a tailnet resource reaches services on a Tailscale or Headscale network, and a resource reached through a transport connects only to addresses the transport covers ([4dc3d4f](https://github.com/urisrb/uris/commit/4dc3d4fd8bc9c06b92f8755f0b9db6d79fa42899))
+* **server:** a question is answered in one call from the parts of the catalog that bear on it, and totals over a table are worked out by uris ([566ef5e](https://github.com/urisrb/uris/commit/566ef5e5fbc55a8d9977f1edd3daf8722e323db4))
+* **server:** an address feed is typed uris:address, so the type names what it is ([2257c4f](https://github.com/urisrb/uris/commit/2257c4fc221201005497de4e822798d0b8696d80))
+* the project is named xixo, lives at xixo.to and github.com/xixo/xixo, and nothing answers to uris ([d4ce05e](https://github.com/urisrb/uris/commit/d4ce05e10c22feb4e5fd7f4ea841cc2bd42569ed))
+
 ## [0.3.0](https://github.com/xixo/xixo/compare/client-v0.2.0...client-v0.3.0) (2026-09-28)
 
 
