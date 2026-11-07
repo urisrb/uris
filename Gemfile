@@ -2,7 +2,7 @@ source "https://rubygems.org"
 
 gem "rails", "~> 8.1.4"
 gem "propshaft"
-gem "pg", "~> 1.1"
+gem "pg", "~> 1.7"
 gem "puma", ">= 5.0"
 gem "graphql"
 
@@ -16,7 +16,7 @@ if File.file?(File.join(masks_client, "masks.gemspec"))
 elsif Bundler.default_gemfile.basename.to_s == "Gemfile.local"
   gem "masks", path: "../masks/client"
 else
-  gem "masks", "~> 0.9"
+  gem "masks", "~> 0.12"
 end
 
 gem "vite_rails"
